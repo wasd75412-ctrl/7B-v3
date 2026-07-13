@@ -115,7 +115,7 @@
 <section id="scoreView" class="score-view hidden">
   <header class="score-head"><div><strong id="scoreRole">管理員</strong> · <span class="room-code" id="scoreRoom"></span></div><div class="score-actions"><button id="voiceToggle" class="btn host-only" type="button">🔊 比分播報</button><button id="speakerTest" class="btn host-only" type="button">📢 喇叭測試</button><button id="audioHelp" class="btn host-only" type="button">藍牙說明</button><button id="undo" class="btn host-only">撤銷</button><button id="exitScore" class="btn">返回</button></div></header>
   <div id="matchPoint" class="match-point hidden">🔥 MATCH POINT</div>
-  <div class="scoreboard"><article class="score-side a"><div class="score-title">A隊</div><div id="namesA" class="court-names"></div></article><div class="score-center"><div id="scoreA" class="score-number clickable" title="A隊加分">0</div><div class="score-colon" aria-hidden="true">:</div><div id="scoreB" class="score-number clickable" title="B隊加分">0</div></div><article class="score-side b"><div class="score-title">B隊</div><div id="namesB" class="court-names"></div></article></div>
+  <div class="scoreboard"><article class="score-side a"><div class="score-title">A隊</div><div id="namesA" class="court-names"></div></article><div class="score-center"><div id="scoreA" class="score-number clickable" title="A隊加分">0</div><div class="score-divider"></div><div id="scoreB" class="score-number clickable" title="B隊加分">0</div></div><article class="score-side b"><div class="score-title">B隊</div><div id="namesB" class="court-names"></div></article></div>
   <footer class="score-foot"><div class="server-control host-only"><span class="server-control-label">選擇發球員</span><div id="serverButtons" class="server-buttons"></div></div><span id="serveText">準備開賽</span><div class="score-actions host-only"><button id="minusA" class="btn">A −1</button><button id="minusB" class="btn">B −1</button></div></footer>
 </section>
 
@@ -155,6 +155,16 @@
 <div id="qrModal" class="modal hidden"><div class="modal-card qr-box" style="max-width:430px"><h2>掃描加入球局</h2><img id="qrImage" alt="球局 QR Code"><p class="room-code" id="qrRoomCode"></p><button id="closeQr" class="btn">關閉</button></div></div>
 <div id="installModal" class="modal hidden"><div class="modal-card" style="max-width:520px"><h2>iPad 加到主畫面</h2><p>請用 Safari 開啟目前網址，點工具列的「分享」圖示（方框向上箭頭），再選「加入主畫面」，最後按「加入」。</p><p class="sub">要保留管理員模式，請在目前這個管理員頁面直接加入主畫面，不要改用分享給球友的觀看網址。</p><button id="closeInstall" class="btn">知道了</button></div></div>
 
+<script>
+window.addEventListener('error',event=>{
+  const box=document.getElementById('landingError');
+  if(box){box.textContent='程式載入失敗：'+(event.message||'未知錯誤');box.classList.remove('hidden');}
+});
+window.addEventListener('unhandledrejection',event=>{
+  const box=document.getElementById('landingError');
+  if(box){box.textContent='程式執行失敗：'+(event.reason?.message||event.reason||'未知錯誤');box.classList.remove('hidden');}
+});
+</script>
 <script type="module" src="/src/main.js"></script>
 </body>
 </html>
