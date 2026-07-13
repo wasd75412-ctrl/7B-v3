@@ -1,0 +1,16 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /badmintonRooms/{roomId} {
+      allow read, write: if true;
+
+      match /backups/{backupId} {
+        allow read, write: if true;
+      }
+    }
+  }
+}
+
+// 目前為方便測試的公開規則：知道房間代碼的人可讀寫。
+// 正式長期使用建議加入 Firebase Authentication 與管理員權限。
