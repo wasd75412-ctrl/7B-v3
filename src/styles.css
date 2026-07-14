@@ -212,6 +212,30 @@ body,*{font-family:"LXGW WenKai TC","Noto Sans TC",sans-serif!important;}
 .score-actions{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
 .score-actions .btn{padding:9px 12px}
 
+/* iPad fallback: hide scoreboard chrome while keeping an exit control visible. */
+.score-view.immersive-mode .score-head{
+  min-height:0;
+  height:0;
+  padding:0;
+  overflow:visible;
+  background:transparent;
+  box-shadow:none;
+}
+.score-view.immersive-mode .score-head>div:first-child,
+.score-view.immersive-mode .score-head .score-actions>button:not(#fullscreenScore),
+.score-view.immersive-mode .score-foot{display:none}
+.score-view.immersive-mode #fullscreenScore{
+  position:fixed;
+  top:calc(8px + env(safe-area-inset-top));
+  right:calc(8px + env(safe-area-inset-right));
+  z-index:80;
+  display:block;
+  color:#fff;
+  border-color:rgba(255,255,255,.38);
+  background:rgba(12,18,24,.72);
+  box-shadow:0 6px 18px rgba(0,0,0,.28);
+}
+
 .scoreboard{
   position:relative;
   isolation:isolate;

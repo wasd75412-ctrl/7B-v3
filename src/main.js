@@ -450,11 +450,13 @@ refreshAppButtons.forEach(button=>button.onclick=async()=>{refreshAppButtons.for
 
 const fullscreenScoreBtn=$('fullscreenScore'),fullscreenScoreView=$('scoreView');
 function currentFullscreenElement(){return document.fullscreenElement||document.webkitFullscreenElement||null}
-function updateFullscreenButton(){if(fullscreenScoreBtn)fullscreenScoreBtn.textContent=currentFullscreenElement()?'⛶ 離開全螢幕':'⛶ 全螢幕'}
-async function toggleScoreFullscreen(){try{if(!currentFullscreenElement()){const enter=fullscreenScoreView?.requestFullscreen||fullscreenScoreView?.webkitRequestFullscreen;if(!enter)return alert('此 iPad 版本不支援網頁全螢幕；可使用「加入主畫面」取得最大顯示範圍。');await enter.call(fullscreenScoreView)}else{const exit=document.exitFullscreen||document.webkitExitFullscreen;if(exit)await exit.call(document)}}catch{return alert('無法進入全螢幕，請確認瀏覽器權限或使用「加入主畫面」。')}finally{updateFullscreenButton()}}
+function isScoreFullscreen(){return !!currentFullscreenElement()||fullscreenScoreView?.classList.contains('immersive-mode')}
+function updateFullscreenButton(){if(fullscreenScoreBtn)fullscreenScoreBtn.textContent=isScoreFullscreen()?'⛶ 離開全螢幕':'⛶ 全螢幕'}
+async function exitScoreFullscreen(){fullscreenScoreView?.classList.remove('immersive-mode');if(currentFullscreenElement()){const exit=document.exitFullscreen||document.webkitExitFullscreen;if(exit)await exit.call(document)}updateFullscreenButton()}
+async function toggleScoreFullscreen(){if(isScoreFullscreen())return exitScoreFullscreen();const enter=fullscreenScoreView?.requestFullscreen||fullscreenScoreView?.webkitRequestFullscreen;if(enter){try{await enter.call(fullscreenScoreView);return updateFullscreenButton()}catch{}}fullscreenScoreView?.classList.add('immersive-mode');updateFullscreenButton()}
 if(fullscreenScoreBtn)fullscreenScoreBtn.onclick=toggleScoreFullscreen;
 document.addEventListener('fullscreenchange',updateFullscreenButton);
 document.addEventListener('webkitfullscreenchange',updateFullscreenButton);
-const exitScoreBtn=$('exitScore');if(exitScoreBtn)exitScoreBtn.addEventListener('click',async()=>{if(currentFullscreenElement()){const exit=document.exitFullscreen||document.webkitExitFullscreen;if(exit)await exit.call(document)}});
+const exitScoreBtn=$('exitScore');if(exitScoreBtn)exitScoreBtn.addEventListener('click',exitScoreFullscreen);
 
 if('serviceWorker'in navigator&&location.protocol.startsWith('http'))navigator.serviceWorker.register('./sw.js').catch(()=>{});
