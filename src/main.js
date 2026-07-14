@@ -125,18 +125,19 @@ let audioContext=null;
 function wakeAudioOutput(){try{audioContext=audioContext||new (window.AudioContext||window.webkitAudioContext)();if(audioContext.state==='suspended')audioContext.resume();const o=audioContext.createOscillator(),g=audioContext.createGain();g.gain.setValueAtTime(0.0001,audioContext.currentTime);o.connect(g);g.connect(audioContext.destination);o.start();o.stop(audioContext.currentTime+.03)}catch(e){console.warn('音訊輸出初始化失敗',e)}}
 function speakerTest(){wakeAudioOutput();if(!('speechSynthesis'in window))return alert('此瀏覽器不支援語音播報。');const wasEnabled=voiceEnabled;voiceEnabled=true;speak('藍牙喇叭測試。比分播報音量測試。',()=>{voiceEnabled=wasEnabled;updateVoiceButton()});}
 function speak(text,onend){if(!('speechSynthesis'in window)||!text||!voiceEnabled)return;wakeAudioOutput();window.speechSynthesis.cancel();const natural=String(text).replace(/。\s*/g,'，').replace(/，{2,}/g,'，').replace(/，$/,'。');const u=new SpeechSynthesisUtterance(natural);u.lang='zh-TW';u.rate=.96;u.pitch=1;u.volume=1;if(preferredVoice)u.voice=preferredVoice;if(onend)u.onend=onend;window.speechSynthesis.speak(u)}
-function scoreSpeechText(){const m=state.match,a=m.scores?.[0]||0,b=m.scores?.[1]||0;if(m.winner!==null)return `${a}比${b}。${m.winner===0?'A隊':'B隊'}獲勝。`;let extra='';if(gamePoint())extra='，局點';else if(a===b&&a>=state.rules.target-1)extra='，平分';const servingTeam=m.serving===0?'A隊':'B隊';const servingSide=m.scores?.[m.serving]%2===0?1:0;const serverIndex=m.positions?.[m.serving]?.[servingSide]??0;const serverId=m.players?.[m.serving]?.[serverIndex];const serverName=serverId?vname(serverId):servingTeam;const courtSide=m.scores?.[m.serving]%2===0?'右':'左';return `${a}比${b}${extra}，由${serverName}發球，${courtSide}發球區。`}
+function voiceTeamLabel(team){return team===0?'左方':'右方'}
+function scoreSpeechText(){const m=state.match,a=m.scores?.[0]||0,b=m.scores?.[1]||0;if(m.winner!==null)return `${a}比${b}。${voiceTeamLabel(m.winner)}獲勝。`;let extra='';if(gamePoint())extra='，局點';else if(a===b&&a>=state.rules.target-1)extra='，平分';const servingTeam=voiceTeamLabel(m.serving);const servingSide=m.scores?.[m.serving]%2===0?1:0;const serverIndex=m.positions?.[m.serving]?.[servingSide]??0;const serverId=m.players?.[m.serving]?.[serverIndex];const serverName=serverId?vname(serverId):servingTeam;const courtSide=m.scores?.[m.serving]%2===0?'右':'左';return `${a}比${b}${extra}，由${serverName}發球，${courtSide}發球區。`}
 function announceScore(){
  const msg=scoreSpeechText();
  if(state.match.winner!==null && state.nextCall?.players?.length===4){
   const p=state.nextCall.players.map(id=>vname(id));
-  speak(`${msg} 下一場是 A隊 ${p[0]}和${p[1]}，對戰 B隊 ${p[2]}和${p[3]}。`);
+  speak(`${msg} 下一場是左方 ${p[0]}和${p[1]}，對戰右方 ${p[2]}和${p[3]}。`);
  }else speak(msg);
 }
 function updateVoiceButton(){const b=$('voiceToggle');if(!b)return;b.textContent=voiceEnabled?'🔊 比分播報':'🔇 已靜音';b.setAttribute('aria-pressed',voiceEnabled?'true':'false')}
 function formatEventDate(date,time){if(!date)return'';const d=new Date(`${date}T${time||'00:00'}`);if(isNaN(d.getTime()))return `${date}${time?' '+time:''}`;const dateText=d.toLocaleDateString('zh-TW',{month:'long',day:'numeric',weekday:'short'});return `${dateText}${time?` ${time}`:''}`}
 function renderNextEventAnnouncement(){const box=$('nextEventAnnouncement'),e=state.nextEvent;if(!box)return;box.classList.toggle('hidden',!e?.date);if(!e?.date){box.innerHTML='';return}box.innerHTML=`<h3>📣 下一次打球</h3><div class="next-event-main">${esc(formatEventDate(e.date,e.time))}</div><div class="next-event-place">📍 ${esc(e.location||'場地待公告')}</div>${e.note?`<div class="next-event-note">${esc(e.note)}</div>`:''}`}
-function calloutText(sourceIds){const ids=sourceIds||state.nextCall?.players||[];if(ids.length!==4||new Set(ids).size!==4)return'';return `下一場是 A隊 ${vname(ids[0])}和${vname(ids[1])}，對戰 B隊 ${vname(ids[2])}和${vname(ids[3])}。`}
+function calloutText(sourceIds){const ids=sourceIds||state.nextCall?.players||[];if(ids.length!==4||new Set(ids).size!==4)return'';return `下一場是左方 ${vname(ids[0])}和${vname(ids[1])}，對戰右方 ${vname(ids[2])}和${vname(ids[3])}。`}
 function renderDashboard() {
     if (!$('dashScore')) return;
 
