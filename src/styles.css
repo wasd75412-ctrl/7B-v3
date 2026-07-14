@@ -254,6 +254,14 @@ body,*{font-family:"LXGW WenKai TC","Noto Sans TC",sans-serif!important;}
 }
 
 /* iPad fallback: hide scoreboard chrome while keeping an exit control visible. */
+.score-view.immersive-mode{
+  min-height:100vh;
+  min-height:100dvh;
+  background-color:var(--score-court-bg,#0b7048);
+  background-image:var(--score-court-image,none);
+  background-position:center;
+  background-size:cover;
+}
 .score-view.immersive-mode .score-head{
   min-height:0;
   height:0;
