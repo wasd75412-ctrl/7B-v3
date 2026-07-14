@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
 <title>7B 羽球社</title>
 <link rel="preload" href="/assets/fonts/jason-handwriting-9-brand.woff2?v=20260714-277" as="font" type="font/woff2" crossorigin>
-<link rel="stylesheet" href="/src/styles.css?v=20260715-287">
+<link rel="stylesheet" href="/src/styles.css?v=20260715-288">
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="apple-touch-icon" sizes="180x180" href="icons/icon-180.png">
 <meta name="theme-color" content="#082947">
@@ -42,7 +42,7 @@
     </div>
   </header>
   <div id="viewerNote" class="viewer-note hidden">你目前是觀看模式；可認領並修改自己的球員資料，其餘比賽操作由管理員控制。</div><div id="selfNote" class="self-note hidden"></div>
-  <div id="pollReminder" class="poll-reminder hidden"><div><strong>🔔 有新的下次球局投票</strong><p id="pollReminderText">請查看可參加的日期；不能參加也可以直接回覆。</p></div><button id="openPollReminder" class="btn primary" type="button">前往查看</button></div>
+  <div id="pollReminder" class="hidden"><button id="openPollReminder" class="hidden" type="button" aria-hidden="true" tabindex="-1"></button></div>
   <div id="cloudError" class="error-box hidden"></div>
   <nav class="tabs"><button class="tab active" data-page="0">總覽</button><button class="tab" data-page="1">球員</button><button class="tab" data-page="2">出席</button><button class="tab" data-page="3">場上</button><button class="tab" data-page="4">戰績</button><button class="tab" data-page="5">紀錄</button><button class="tab" data-page="6">下次球局<span id="pollTabDot" class="poll-dot hidden" aria-label="有新的下次球局投票"></span></button><button class="tab" data-page="7">備份</button></nav>
 
@@ -193,6 +193,6 @@ window.addEventListener('unhandledrejection',event=>{
   if(box){box.textContent='程式執行失敗：'+(event.reason?.message||event.reason||'未知錯誤');box.classList.remove('hidden');}
 });
 </script>
-<script type="module" src="/src/main.js?v=20260715-287"></script>
+<script type="module" src="/src/main.js?v=20260715-288"></script>
 </body>
 </html>
