@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
 <title>7B 羽球社 2.3.6 簡化標線版</title>
-<link rel="stylesheet" href="/src/styles.css?v=20260714-273">
+<link rel="stylesheet" href="/src/styles.css?v=20260714-274">
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="apple-touch-icon" sizes="180x180" href="icons/icon-180.png">
 <meta name="theme-color" content="#082947">
@@ -41,14 +41,14 @@
     </div>
   </header>
   <div id="viewerNote" class="viewer-note hidden">你目前是觀看模式；可認領並修改自己的球員資料，其餘比賽操作由管理員控制。</div><div id="selfNote" class="self-note hidden"></div>
-  <div id="pollReminder" class="poll-reminder hidden"><div><strong>🔔 有新的下次球局投票</strong><p>請查看可參加的日期；不能參加也可以直接回覆。</p></div><button id="openPollReminder" class="btn primary" type="button">前往查看</button></div>
+  <div id="pollReminder" class="poll-reminder hidden"><div><strong>🔔 有新的下次球局投票</strong><p id="pollReminderText">請查看可參加的日期；不能參加也可以直接回覆。</p></div><button id="openPollReminder" class="btn primary" type="button">前往查看</button></div>
   <div id="cloudError" class="error-box hidden"></div>
   <nav class="tabs"><button class="tab active" data-page="0">總覽</button><button class="tab" data-page="1">球員</button><button class="tab" data-page="2">出席</button><button class="tab" data-page="3">場上</button><button class="tab" data-page="4">戰績</button><button class="tab" data-page="5">紀錄</button><button class="tab" data-page="6">下次球局<span id="pollTabDot" class="poll-dot hidden" aria-label="有新的下次球局投票"></span></button><button class="tab" data-page="7">備份</button></nav>
 
 
   <section id="page0" class="card page">
     <div class="toolbar" style="justify-content:space-between"><div><h2 style="margin:0">今日球局總覽</h2><p class="sub" id="dashboardDate"></p></div><button id="announceBtn" class="btn host-only">🔊 播報下一場</button></div>
-    <div id="nextEventAnnouncement" class="next-event-card hidden"></div><div class="dashboard-grid"><div><div id="dashScore" class="dash-score"></div><div id="nextCall" class="callout hidden"></div></div><div><div id="dashMetrics" class="metric-grid"></div><h3>候場</h3><div id="dashWaiting" class="dash-list"></div></div></div>
+    <div id="nextEventAnnouncement" class="next-event-card hidden"></div><div id="pollDeadlineAnnouncement" class="poll-deadline-card hidden"></div><div class="dashboard-grid"><div><div id="dashScore" class="dash-score"></div><div id="nextCall" class="callout hidden"></div></div><div><div id="dashMetrics" class="metric-grid"></div><h3>候場</h3><div id="dashWaiting" class="dash-list"></div></div></div>
     <div id="hotCold" class="leader-grid" style="margin-top:14px"></div>
   </section>
 
@@ -78,6 +78,12 @@
   <section id="page6" class="card page hidden">
     <div class="history-head"><div><h2 style="margin:0">📅 下次球局</h2><p class="sub" style="margin:5px 0 0">可複選所有能參加的日期；若都無法參加，也請選擇「無法參加」。</p></div><span id="pollStatus" class="poll-status">投票開放中</span></div>
     <div id="pollSummary" class="poll-summary"></div>
+    <div id="pollDeadlineInfo" class="poll-deadline-info"></div>
+    <div class="poll-deadline-controls host-only">
+      <label class="field"><span>投票截止日期與時間</span><input id="pollDeadline" type="datetime-local"></label>
+      <button id="savePollDeadline" class="btn primary" type="button">儲存截止時間</button>
+      <button id="clearPollDeadline" class="btn danger-outline" type="button">清除截止時間</button>
+    </div>
     <div class="poll-form host-only">
       <label class="field"><span>候選日期</span><input id="pollDate" type="date"></label>
       <label class="field"><span>開始時間</span><input id="pollTime" type="time"></label>
@@ -183,6 +189,6 @@ window.addEventListener('unhandledrejection',event=>{
   if(box){box.textContent='程式執行失敗：'+(event.reason?.message||event.reason||'未知錯誤');box.classList.remove('hidden');}
 });
 </script>
-<script type="module" src="/src/main.js?v=20260714-273"></script>
+<script type="module" src="/src/main.js?v=20260714-274"></script>
 </body>
 </html>
