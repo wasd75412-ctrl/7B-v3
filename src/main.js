@@ -18,6 +18,7 @@ function wholeAmount(value){const n=Number(value);return Number.isFinite(n)&&n>0
 const initialState=()=>({version:9.4,roster:[],attendance:[],court:[],waitingQueue:[],queueDraftChosen:[],priority:null,match:{active:false,players:[[],[]],scores:[0,0],rallies:[],serving:0,positions:[[0,1],[0,1]],winner:null},rules:{target:11,cap:15,deuce:true},history:[],nextCall:null,schedulePoll:{status:'open',deadlineAt:'',options:[],votes:{},voterPlayers:{}},nextEvent:null,updatedAt:null});
 let state=initialState(), roomId='', roomRef=null, isHost=false, hostToken='', adminPinHash='', unsubscribe=null, applying=false, saveTimer=null, editId=null;const expandedPlayerNotes=new Set();let profileOriginal=null,profileDirty={name:false,voiceName:false,racket:false,racketTension:false,racketString:false,backupRacket:false,backupTension:false,backupString:false,note:false};let voiceEnabled=localStorage.getItem('bdV76Voice')!=='0';let dismissedResultKey='';const selfToken=localStorage.getItem('bdV73SelfToken')||randomToken();localStorage.setItem('bdV73SelfToken',selfToken);let selfHash='';
 let roomSnapshotFromCache=false,snapshotHasPendingWrites=false,pendingRoomWrites=0,roomWriteScheduled=false;
+const requestedPage=new URLSearchParams(location.search).get('page');
 
 async function sha256(text){const buf=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(text));return [...new Uint8Array(buf)].map(b=>b.toString(16).padStart(2,'0')).join('')}
 function encodeState(src){
@@ -313,6 +314,41 @@ function isPollUnseen(){const sig=pollSignature();return !!(state.schedulePoll?.
 function markPollSeen(){const sig=pollSignature();if(sig)localStorage.setItem(pollSeenKey(),sig);renderPollNotice()}
 function renderPollNotice(){const poll=state.schedulePoll||{},unseen=isPollUnseen()&&!isPollClosed(poll),dot=$('pollTabDot'),card=$('pollReminder'),text=$('pollReminderText');if(dot)dot.classList.toggle('hidden',!unseen);if(card)card.classList.toggle('hidden',!unseen);if(text)text.textContent=poll.deadlineAt?`請於 ${formatPollDeadline(poll.deadlineAt)} 前完成投票；不能參加也可以直接回覆。`:'請查看可參加的日期；不能參加也可以直接回覆。'}
 function ownedPlayerId(){return state.roster.find(p=>p.ownerHash&&p.ownerHash===selfHash)?.id||''}
+const PUSH_ENABLED_PREFIX='bcmPushEnabledV1:';
+function pushEnabledKey(id=roomId){return `${PUSH_ENABLED_PREFIX}${id||'none'}`}
+function supportsPush(){return 'serviceWorker'in navigator&&'PushManager'in window&&'Notification'in window}
+function isIosLike(){return /iPad|iPhone|iPod/i.test(navigator.userAgent)||(navigator.platform==='MacIntel'&&navigator.maxTouchPoints>1)}
+function isStandaloneApp(){return window.matchMedia?.('(display-mode: standalone)').matches||navigator.standalone===true}
+function base64UrlBytes(value){const padded=value.padEnd(Math.ceil(value.length/4)*4,'=').replace(/-/g,'+').replace(/_/g,'/'),raw=atob(padded),bytes=new Uint8Array(raw.length);for(let i=0;i<raw.length;i++)bytes[i]=raw.charCodeAt(i);return bytes}
+async function pushApi(path,options={}){const response=await fetch(`/.netlify/functions/${path}`,options);let data={};try{data=await response.json()}catch{}if(!response.ok)throw new Error(data.error||'通知服務暫時無法使用');return data}
+function updatePushNotificationButton(){const button=$('pushNotificationBtn');if(!button)return;const enabled=!!roomId&&localStorage.getItem(pushEnabledKey())==='1';button.setAttribute('aria-pressed',enabled?'true':'false');button.disabled=!roomId||!supportsPush();if(!supportsPush())button.textContent='🔕 此裝置不支援通知';else if(Notification.permission==='denied')button.textContent='🔕 通知已被封鎖';else button.textContent=enabled?'🔔 本球局通知已開啟':'🔔 啟用投票通知'}
+async function setPushNotificationEnabled(){
+  const button=$('pushNotificationBtn');
+  if(!roomId)return alert('請先進入球局。');
+  if(!supportsPush())return alert('這個瀏覽器不支援手機推播通知。');
+  const enabled=localStorage.getItem(pushEnabledKey())==='1';
+  button.disabled=true;
+  button.textContent=enabled?'正在關閉通知…':'正在開啟通知…';
+  try{
+    if(enabled){
+      const registration=await navigator.serviceWorker.ready,existing=await registration.pushManager.getSubscription();
+      if(existing)await pushApi('push-subscription',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({enabled:false,roomId,endpoint:existing.endpoint})});
+      localStorage.removeItem(pushEnabledKey());
+      alert('已關閉這個球局的投票截止提醒。');
+      return;
+    }
+    if(isIosLike()&&!isStandaloneApp())throw new Error('iPhone／iPad 請先用 Safari「加入主畫面」，再從主畫面開啟 7B 羽球社後設定通知。');
+    const permission=await Notification.requestPermission();
+    if(permission!=='granted')throw new Error(permission==='denied'?'通知權限已被封鎖，請到手機的網站通知設定中允許。':'你尚未允許通知。');
+    const [config,registration]=await Promise.all([pushApi('push-config'),navigator.serviceWorker.ready]);
+    const existing=await registration.pushManager.getSubscription();
+    const subscription=existing||await registration.pushManager.subscribe({userVisibleOnly:true,applicationServerKey:base64UrlBytes(config.publicKey)});
+    const playerId=ownedPlayerId()||$('pollVoter')?.value||'',playerName=playerId?pname(playerId):'';
+    await pushApi('push-subscription',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({enabled:true,roomId,clientHash:selfHash,playerId,playerName,subscription:subscription.toJSON()})});
+    localStorage.setItem(pushEnabledKey(),'1');
+    alert('投票通知已開啟。投票截止前一天，即使網頁沒有開著，也會收到手機通知。');
+  }catch(error){alert(error.message||'無法設定通知。')}finally{updatePushNotificationButton()}
+}
 function pollCounts(){const counts={};for(const o of state.schedulePoll.options||[])counts[o.id]=0;for(const value of Object.values(state.schedulePoll.votes||{}))for(const id of pollSelectionList(value))if(id in counts)counts[id]++;return counts}
 function pollParticipantCount(optionId){
   if(!optionId)return 0;
@@ -474,6 +510,8 @@ async function connectRoom(id){
     $('roleBadge').className='pill '+(isHost?'host':'');
     $('viewerNote').classList.toggle('hidden',isHost);
     applyRole();
+    updatePushNotificationButton();
+    if(requestedPage==='poll')page(6);
     unsubscribe=onSnapshot(roomRef,{includeMetadataChanges:true},s=>{
       if(!s.exists())return;
       applyState(s.data());
@@ -709,6 +747,8 @@ $('statsOrder').onchange=renderStats;
 $('savePollDeadline').onclick=savePollDeadline;
 $('clearPollDeadline').onclick=clearPollDeadline;
 $('pollDeadline').onfocus=()=>{$('pollDeadline').min=pollDeadlineInputValue(new Date().toISOString())};
+$('pushNotificationBtn').onclick=setPushNotificationEnabled;
+updatePushNotificationButton();
 const roomMoreBtn=$('roomMoreBtn'),roomMoreMenu=$('roomMoreMenu');
 function setRoomMoreOpen(open){roomMoreMenu.classList.toggle('hidden',!open);roomMoreBtn.setAttribute('aria-expanded',open?'true':'false');roomMoreBtn.textContent=open?'收起':'⋯ 更多'}
 roomMoreBtn.onclick=e=>{e.stopPropagation();setRoomMoreOpen(roomMoreMenu.classList.contains('hidden'))};
