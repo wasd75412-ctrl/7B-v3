@@ -881,3 +881,19 @@ body,*{font-family:"LXGW WenKai TC","Noto Sans TC",sans-serif!important;}
     font-size:clamp(3.3rem,7.6vw,8rem);
   }
 }
+
+/* Solid scoreboard court: one green tone without gradients or shading. */
+.scoreboard{
+  background:#0b7048!important;
+  background-image:none!important;
+  box-shadow:none!important;
+}
+.score-side.a,
+.score-side.b{
+  background:transparent!important;
+}
+.scoreboard::before,
+.scoreboard::after{
+  content:none!important;
+  background:none!important;
+}
