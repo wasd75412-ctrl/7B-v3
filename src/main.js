@@ -354,8 +354,64 @@ function replay(){const m=state.match;m.scores=[0,0];m.serving=0;m.positions=[[0
 function gamePoint(){const m=state.match;if(m.winner!==null)return false;for(let t=0;t<2;t++){const test=[...m.scores];test[t]++;if(winFor(test)===t)return true}return false}
 function currentResultKey(){const m=state.match;if(m.winner===null)return'';return m.matchId||[m.winner,(m.scores||[]).join('-'),...(m.players||[]).flat()].join('|')}
 function setServingPlayer(team,playerIndex){const m=state.match;if(!isHost||!m.active||m.winner!==null)return;m.serving=team;const serverSide=m.scores[team]%2===0?1:0;const positions=m.positions[team]||[0,1];const currentSide=positions.indexOf(playerIndex);if(currentSide!==serverSide&&currentSide>=0){const other=positions[serverSide];positions[serverSide]=playerIndex;positions[currentSide]=other;m.positions[team]=positions}renderScore();saveSoon()}
-function renderScore(){const m=state.match;const scoreAEl=$('scoreA'),scoreBEl=$('scoreB');scoreAEl.textContent=m.scores[0];scoreBEl.textContent=m.scores[1];scoreAEl.classList.toggle('two-digit',m.scores[0]>=10);scoreBEl.classList.toggle('two-digit',m.scores[1]>=10);const renderTeam=(t,box)=>{const ids=m.players[t]||[];const positions=m.positions[t]||[0,1];const serverSide=m.scores[t]%2===0?1:0;const serverIndex=positions[serverSide]??0;const displaySides=t===0?[0,1]:[1,0];box.innerHTML=displaySides.map(sideIndex=>{const i=positions[sideIndex]??sideIndex;const id=ids[i];const physicalSide=sideIndex===1?'右邊':'左邊';const serving=m.serving===t&&serverIndex===i&&m.winner===null;return `<div class="court-name ${serving?'server':''}"><span class="score-player">${avatar(id,'score-large')}<span class="court-player-copy"><span class="court-position">${physicalSide}</span><span class="court-player-name">${esc(pname(id))}</span></span></span></div>`}).join('')};renderTeam(0,$('namesA'));renderTeam(1,$('namesB'));const serverButtons=$('serverButtons');if(serverButtons){serverButtons.innerHTML=[0,1].flatMap(t=>(m.players[t]||[]).map((id,i)=>{const serverSide=m.scores[t]%2===0?1:0;const serverIndex=m.positions[t]?.[serverSide]??0;const active=m.serving===t&&serverIndex===i&&m.winner===null;return `<button type="button" class="server-select-btn ${active?'active':''}" data-server-team="${t}" data-server-player="${i}">${t===0?'A':'B'} · ${esc(pname(id))}</button>`})).join('');serverButtons.querySelectorAll('[data-server-player]').forEach(btn=>btn.onclick=()=>setServingPlayer(+btn.dataset.serverTeam,+btn.dataset.serverPlayer))}$('matchPoint').classList.toggle('hidden',!gamePoint());const side=m.scores[m.serving]%2===0?'右':'左';const sid=m.players[m.serving]?.[m.positions[m.serving]?.[m.scores[m.serving]%2===0?1:0]??0];$('serveText').textContent=m.winner!==null?'比賽結束':`${m.serving===0?'A隊':'B隊'} · ${pname(sid)} · ${side}發球區`;// 觀看者固定留在總覽／一般頁面；只有管理員進入全螢幕比分模式
-$('scoreView').classList.toggle('hidden',!m.active||!isHost);const resultKey=currentResultKey();if(!isHost){$('resultModal').classList.add('hidden')}else if(m.active&&m.winner!==null&&resultKey&&resultKey!==dismissedResultKey){$('resultModal').classList.remove('hidden')}else if(m.winner===null){$('resultModal').classList.add('hidden')}}
+function renderScore(){
+  const m=state.match;
+  const scoreAEl=$('scoreA'),scoreBEl=$('scoreB');
+  scoreAEl.textContent=m.scores[0];
+  scoreBEl.textContent=m.scores[1];
+  scoreAEl.classList.toggle('two-digit',m.scores[0]>=10);
+  scoreBEl.classList.toggle('two-digit',m.scores[1]>=10);
+
+  const scoreNameClass=name=>{
+    const cleanName=String(name||'').trim();
+    if(cleanName==='Yoyo')return' score-name-yoyo';
+    if(cleanName==='于瑄Jr.')return' score-name-yuxuan-jr';
+    return'';
+  };
+  const renderTeam=(t,box)=>{
+    const ids=m.players[t]||[];
+    const positions=m.positions[t]||[0,1];
+    const serverSide=m.scores[t]%2===0?1:0;
+    const serverIndex=positions[serverSide]??0;
+    const displaySides=t===0?[0,1]:[1,0];
+    box.innerHTML=displaySides.map(sideIndex=>{
+      const i=positions[sideIndex]??sideIndex;
+      const id=ids[i];
+      const displayName=pname(id);
+      const physicalSide=sideIndex===1?'右邊':'左邊';
+      const serving=m.serving===t&&serverIndex===i&&m.winner===null;
+      return `<div class="court-name ${serving?'server':''}"><span class="score-player">${avatar(id,'score-large')}<span class="court-player-copy"><span class="court-position">${physicalSide}</span><span class="court-player-name${scoreNameClass(displayName)}">${esc(displayName)}</span></span></span></div>`;
+    }).join('');
+  };
+  renderTeam(0,$('namesA'));
+  renderTeam(1,$('namesB'));
+
+  const serverButtons=$('serverButtons');
+  if(serverButtons){
+    serverButtons.innerHTML=[0,1].flatMap(t=>(m.players[t]||[]).map((id,i)=>{
+      const serverSide=m.scores[t]%2===0?1:0;
+      const serverIndex=m.positions[t]?.[serverSide]??0;
+      const active=m.serving===t&&serverIndex===i&&m.winner===null;
+      return `<button type="button" class="server-select-btn ${active?'active':''}" data-server-team="${t}" data-server-player="${i}">${t===0?'A':'B'} · ${esc(pname(id))}</button>`;
+    })).join('');
+    serverButtons.querySelectorAll('[data-server-player]').forEach(btn=>btn.onclick=()=>setServingPlayer(+btn.dataset.serverTeam,+btn.dataset.serverPlayer));
+  }
+
+  $('matchPoint').classList.toggle('hidden',!gamePoint());
+  const side=m.scores[m.serving]%2===0?'右':'左';
+  const sid=m.players[m.serving]?.[m.positions[m.serving]?.[m.scores[m.serving]%2===0?1:0]??0];
+  $('serveText').textContent=m.winner!==null?'比賽結束':`${m.serving===0?'A隊':'B隊'} · ${pname(sid)} · ${side}發球區`;
+  // 觀看者固定留在總覽／一般頁面；只有管理員進入全螢幕比分模式
+  $('scoreView').classList.toggle('hidden',!m.active||!isHost);
+  const resultKey=currentResultKey();
+  if(!isHost){
+    $('resultModal').classList.add('hidden');
+  }else if(m.active&&m.winner!==null&&resultKey&&resultKey!==dismissedResultKey){
+    $('resultModal').classList.remove('hidden');
+  }else if(m.winner===null){
+    $('resultModal').classList.add('hidden');
+  }
+}
 function renderHistory(){const list=state.history.map((h,index)=>({h,index})).reverse();$('history').innerHTML=list.map(({h,index})=>`<div class="history-item"><div class="history-main"><strong>${esc((h.teams?.[0]||[]).map(pname).join('／'))} ${h.scores?.[0]??0}：${h.scores?.[1]??0} ${esc((h.teams?.[1]||[]).map(pname).join('／'))}</strong><div class="sub">${esc(h.time||'')}</div></div><div class="history-actions host-only"><button class="btn danger-outline" data-delete-history="${index}">刪除</button></div></div>`).join('')||'<p class="sub">尚無比賽紀錄。</p>';all('[data-delete-history]').forEach(btn=>btn.onclick=()=>deleteHistoryRecord(+btn.dataset.deleteHistory));applyRole()}
 function deleteHistoryRecord(index){if(!isHost)return;const h=state.history[index];if(!h)return;const title=`${(h.teams?.[0]||[]).map(pname).join('／')} ${h.scores?.[0]??0}：${h.scores?.[1]??0} ${(h.teams?.[1]||[]).map(pname).join('／')}`;if(!confirm(`確定刪除這筆比賽紀錄？\n\n${title}\n${h.time||''}`))return;state.history.splice(index,1);renderAll();saveSoon()}
 function clearAllHistory(){if(!isHost)return;if(!state.history.length)return alert('目前沒有比賽紀錄。');if(!confirm(`即將刪除全部 ${state.history.length} 筆比賽紀錄。\n球員名單與目前比分不會被刪除。`))return;const text=prompt('為避免誤刪，請輸入「清空」：','');if(text!=='清空')return alert('輸入不正確，已取消清空。');state.history=[];renderAll();saveSoon();alert('全部比賽紀錄已清空。')}
