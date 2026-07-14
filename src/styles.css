@@ -692,10 +692,7 @@ body,*{font-family:"LXGW WenKai TC","Noto Sans TC",sans-serif!important;}
 
     /* only the two short-service lines */
     linear-gradient(rgba(226,255,240,.22),rgba(226,255,240,.22)) 35% 7% / 1px 86% no-repeat,
-    linear-gradient(rgba(226,255,240,.22),rgba(226,255,240,.22)) 65% 7% / 1px 86% no-repeat,
-
-    /* soft central net line */
-    linear-gradient(rgba(239,255,247,.34),rgba(239,255,247,.34)) 50% 5% / 2px 90% no-repeat!important;
+    linear-gradient(rgba(226,255,240,.22),rgba(226,255,240,.22)) 65% 7% / 1px 86% no-repeat!important;
   filter:none!important;
 }
 
@@ -721,8 +718,7 @@ body,*{font-family:"LXGW WenKai TC","Noto Sans TC",sans-serif!important;}
       linear-gradient(rgba(226,255,240,.25),rgba(226,255,240,.25)) 3% 6% / 1px 88% no-repeat,
       linear-gradient(rgba(226,255,240,.25),rgba(226,255,240,.25)) 97% 6% / 1px 88% no-repeat,
       linear-gradient(rgba(226,255,240,.19),rgba(226,255,240,.19)) 35% 6% / 1px 88% no-repeat,
-      linear-gradient(rgba(226,255,240,.19),rgba(226,255,240,.19)) 65% 6% / 1px 88% no-repeat,
-      linear-gradient(rgba(239,255,247,.3),rgba(239,255,247,.3)) 50% 4% / 2px 92% no-repeat!important;
+      linear-gradient(rgba(226,255,240,.19),rgba(226,255,240,.19)) 65% 6% / 1px 88% no-repeat!important;
   }
   .scoreboard::after{
     width:clamp(110px,30vw,190px);
