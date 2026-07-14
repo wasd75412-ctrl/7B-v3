@@ -97,13 +97,13 @@ body:before{content:"";position:fixed;inset:0;pointer-events:none;opacity:.32;ba
 .room-status-row{display:flex;align-items:center;gap:8px;flex-wrap:wrap;min-width:0}
 .room-quick-actions{display:flex;gap:8px;justify-content:flex-end}
 .room-more-btn[aria-expanded="true"]{background:var(--dark);border-color:var(--dark);color:#fff}
-.room-more-menu{grid-column:1/-1;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:9px;padding:12px;border:1px solid var(--line);border-radius:18px;background:rgba(255,255,255,.97);box-shadow:0 16px 38px rgba(8,41,71,.14)}
-.room-more-menu .btn{width:100%;min-height:50px}
+.room-more-menu{grid-column:1/-1;display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:7px;padding:10px;border:1px solid var(--line);border-radius:18px;background:rgba(255,255,255,.97);box-shadow:0 16px 38px rgba(8,41,71,.14)}
+.room-more-menu .btn{width:100%;min-height:42px;padding:8px 7px;font-size:.84rem;line-height:1.25}
 .room-more-menu #pushNotificationBtn[aria-pressed="true"]{background:#e8f7ef;border-color:#77c89d;color:#0d6840}
 .room-more-menu #wakeLockBtn[aria-pressed="true"]{background:#fff7d6;border-color:#e5bd45;color:#765300}
-.app-theme-control{grid-column:1/-1;display:grid;grid-template-columns:auto minmax(180px,1fr);align-items:center;gap:12px;padding:11px 13px;border:1px solid var(--line);border-radius:15px;background:#f5f8fa;font-weight:950}.app-theme-control select{width:100%;min-height:44px;padding:8px 11px;border:1px solid var(--line);border-radius:12px;background:#fff;color:var(--ink);font-weight:900}
+.app-theme-control{display:grid;grid-template-columns:1fr;align-items:center;gap:4px;padding:6px 7px;border:1px solid var(--line);border-radius:13px;background:#f5f8fa;font-size:.8rem;font-weight:950}.app-theme-control select{width:100%;min-width:0;min-height:28px;padding:3px 5px;border:1px solid var(--line);border-radius:9px;background:#fff;color:var(--ink);font-size:.78rem;font-weight:900}
 .wake-lock-feedback{grid-column:1/-1;padding:10px 12px;border-radius:13px;background:#f1f4f6;color:#53606c;font-size:.86rem;font-weight:850;line-height:1.45}.wake-lock-feedback.pending{background:#eef6ff;color:#28577e}.wake-lock-feedback.success{background:#e9f8ef;color:#17643d}.wake-lock-feedback.error{background:#fff0f0;color:#8b1d1d}
-.room-more-menu .room-leave-btn{grid-column:1/-1}
+.room-more-menu .room-leave-btn{grid-column:auto}
 @media(max-width:599px){
  .top{align-items:stretch}
  .brand{width:100%}
@@ -111,9 +111,9 @@ body:before{content:"";position:fixed;inset:0;pointer-events:none;opacity:.32;ba
  .room-status-row{grid-column:1}
  .room-quick-actions{grid-column:1;display:grid;grid-template-columns:1fr auto;width:100%}
  .room-quick-actions .btn{min-height:52px}
- .room-more-menu{grid-column:1;grid-template-columns:1fr 1fr}
- .room-more-menu .btn{min-height:52px;padding:11px 9px}
- .room-more-menu .room-leave-btn{grid-column:1/-1}
+ .room-more-menu{grid-column:1;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px;padding:8px}
+ .room-more-menu .btn{min-height:42px;padding:7px 5px;font-size:.76rem}
+ .room-more-menu .room-leave-btn{grid-column:auto}
 }
 
 /* Device-local background themes for the full app. Score mode keeps its own theme system. */
