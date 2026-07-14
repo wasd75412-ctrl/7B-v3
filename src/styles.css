@@ -284,6 +284,16 @@ body,*{font-family:"LXGW WenKai TC","Noto Sans TC",sans-serif!important;}
   display:none;
 }
 
+#syncBadge.offline{
+  color:#fff;
+  background:#b65f08;
+  box-shadow:0 0 0 3px rgba(255,174,66,.2);
+}
+#syncBadge.pending{
+  color:#fff;
+  background:#86700b;
+}
+
 .scoreboard{
   position:relative;
   isolation:isolate;
