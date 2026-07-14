@@ -739,7 +739,7 @@ html.brand-font-fallback .brand-copy .brand-mark h1{
 
 
 
-/* BCM 2.3.6 — green court surface */
+/* Green court surface */
 .scoreboard{
   background-color:#0b7048!important;
   background-image:
@@ -757,7 +757,7 @@ html.brand-font-fallback .brand-copy .brand-mark h1{
   background:linear-gradient(270deg,rgba(127,36,45,.12),rgba(127,36,45,.035) 68%,transparent)!important;
 }
 
-/* BCM 2.3.6 — simplified low-distraction badminton court markings */
+/* Simplified low-distraction badminton court markings */
 .scoreboard::before{
   content:""!important;
   position:absolute!important;
@@ -808,7 +808,7 @@ html.brand-font-fallback .brand-copy .brand-mark h1{
   }
 }
 
-/* BCM 2.3.7 — 放大中央比分，四位球員靠近四個角落 */
+/* 放大中央比分，四位球員靠近四個角落 */
 .score-view{
   /* 左右各保留更寬的中央比分區，避免球員資訊與大比分互相遮擋 */
   --score-clearance:clamp(150px,18vw,320px);
