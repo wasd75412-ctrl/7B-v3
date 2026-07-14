@@ -1,5 +1,6 @@
 import { initializeApp } from 'firebase/app';
 import { initializeFirestore, persistentLocalCache, persistentMultipleTabManager, doc, getDoc, onSnapshot, setDoc, serverTimestamp, runTransaction, collection, getDocs, deleteDoc, query, orderBy, limit } from 'firebase/firestore';
+import noSleepMedia from 'nosleep.js/src/media.js';
 
 const firebaseConfig={apiKey:'AIzaSyBrakbTPK7UqEChPBI6pM8-i03IcLq0IvM',authDomain:'badminton-7a1c3.firebaseapp.com',projectId:'badminton-7a1c3',storageBucket:'badminton-7a1c3.firebasestorage.app',messagingSenderId:'883534015507',appId:'1:883534015507:web:a7f6fb318151b6d07563e6',measurementId:'G-C97B98H7YW'};
 const fbApp=initializeApp(firebaseConfig);
@@ -577,29 +578,92 @@ function replay(){const m=state.match;m.scores=[0,0];m.serving=0;m.positions=[[0
 function gamePoint(){const m=state.match;if(m.winner!==null)return false;for(let t=0;t<2;t++){const test=[...m.scores];test[t]++;if(winFor(test)===t)return true}return false}
 function currentResultKey(){const m=state.match;if(m.winner===null)return'';return m.matchId||[m.winner,(m.scores||[]).join('-'),...(m.players||[]).flat()].join('|')}
 function setServingPlayer(team,playerIndex){const m=state.match;if(!isHost||!m.active||m.winner!==null)return;m.serving=team;const serverSide=m.scores[team]%2===0?1:0;const positions=m.positions[team]||[0,1];const currentSide=positions.indexOf(playerIndex);if(currentSide!==serverSide&&currentSide>=0){const other=positions[serverSide];positions[serverSide]=playerIndex;positions[currentSide]=other;m.positions[team]=positions}renderScore();saveSoon()}
-let appWakeLock=null,appWakeLockRequest=null;
+const hasNativeWakeLock=()=>!!navigator.wakeLock?.request;
+function createVideoWakeLock(){
+  const video=document.createElement('video');
+  video.setAttribute('title','螢幕恆亮備援');
+  video.setAttribute('playsinline','');
+  video.setAttribute('muted','');
+  video.muted=true;
+  for(const type of ['webm','mp4']){const source=document.createElement('source');source.src=noSleepMedia[type];source.type=`video/${type}`;video.appendChild(source)}
+  video.addEventListener('loadedmetadata',()=>{if(video.duration<=1)video.loop=true});
+  video.addEventListener('timeupdate',()=>{if(video.duration>1&&video.currentTime>.5)video.currentTime=Math.random()*.4});
+  let enabled=false;
+  return{
+    get isEnabled(){return enabled&&!video.paused},
+    async enable(){await video.play();enabled=true},
+    disable(){video.pause();enabled=false}
+  };
+}
+const fallbackNoSleep=createVideoWakeLock();
+let appWakeLock=null,appWakeLockRequest=null,appWakeLockRetryTimer=null;
+function appWakeLockActive(){return (!!appWakeLock&&!appWakeLock.released)||fallbackNoSleep.isEnabled}
+function renderAppWakeLockStatus(){
+  const button=$('wakeLockBtn');
+  if(!button)return;
+  const active=appWakeLockActive();
+  button.setAttribute('aria-pressed',active?'true':'false');
+  button.textContent=active?'☀️ 螢幕恆亮中':appWakeLockRequest?'☀️ 正在啟用恆亮…':'☀️ 點一下保持亮起';
+  button.title=active?'螢幕將在 App 開啟時保持亮起':'點一下重新啟用螢幕恆亮';
+}
+function scheduleAppWakeLockRetry(delay=1200){
+  clearTimeout(appWakeLockRetryTimer);
+  if(document.hidden)return;
+  appWakeLockRetryTimer=setTimeout(()=>{appWakeLockRetryTimer=null;void syncAppWakeLock()},delay);
+}
 async function releaseAppWakeLock(){
+  clearTimeout(appWakeLockRetryTimer);
+  appWakeLockRetryTimer=null;
   const lock=appWakeLock;
   appWakeLock=null;
   if(lock&&!lock.released){try{await lock.release()}catch{}}
+  if(fallbackNoSleep.isEnabled){try{fallbackNoSleep.disable()}catch{}}
+  renderAppWakeLockStatus();
 }
-async function syncAppWakeLock(){
+async function syncAppWakeLock(userActivated=false){
   if(document.hidden){await releaseAppWakeLock();return}
-  if((appWakeLock&&!appWakeLock.released)||appWakeLockRequest||!navigator.wakeLock?.request)return;
+  if(appWakeLockActive()){renderAppWakeLockStatus();return}
+  if(appWakeLockRequest){
+    if(userActivated&&!fallbackNoSleep.isEnabled)void fallbackNoSleep.enable().then(()=>{if(appWakeLock&&!appWakeLock.released)fallbackNoSleep.disable();renderAppWakeLockStatus()}).catch(()=>{});
+    renderAppWakeLockStatus();
+    return;
+  }
+  if(!hasNativeWakeLock()){
+    appWakeLockRequest=Promise.resolve().then(()=>fallbackNoSleep.enable());
+    renderAppWakeLockStatus();
+    try{await appWakeLockRequest}catch(error){if(userActivated)console.warn('iPad 防熄屏備援啟用失敗',error)}
+    finally{appWakeLockRequest=null;renderAppWakeLockStatus()}
+    return;
+  }
+  const fallbackAttempt=userActivated?fallbackNoSleep.enable().then(()=>null).catch(error=>error):null;
   appWakeLockRequest=navigator.wakeLock.request('screen');
+  renderAppWakeLockStatus();
   try{
     const lock=await appWakeLockRequest;
     if(document.hidden){await lock.release();return}
     appWakeLock=lock;
+    if(fallbackAttempt)await fallbackAttempt;
+    if(fallbackNoSleep.isEnabled)fallbackNoSleep.disable();
     lock.addEventListener('release',()=>{
       if(appWakeLock===lock)appWakeLock=null;
+      renderAppWakeLockStatus();
+      scheduleAppWakeLockRetry();
     },{once:true});
-  }catch(error){console.warn('無法保持 App 螢幕亮起',error)}
-  finally{appWakeLockRequest=null}
+  }catch(error){
+    const fallbackError=fallbackAttempt?await fallbackAttempt:await fallbackNoSleep.enable().then(()=>null).catch(fallbackFailure=>fallbackFailure);
+    if(fallbackError)console.warn('無法保持 App 螢幕亮起',error,fallbackError);
+  }
+  finally{appWakeLockRequest=null;renderAppWakeLockStatus()}
 }
 document.addEventListener('visibilitychange',()=>{void syncAppWakeLock()});
-document.addEventListener('pointerdown',()=>{void syncAppWakeLock()},{once:true,passive:true});
+document.addEventListener('pointerdown',()=>{void syncAppWakeLock(true)},{passive:true});
+document.addEventListener('touchend',()=>{void syncAppWakeLock(true)},{passive:true});
+document.addEventListener('keydown',()=>{void syncAppWakeLock(true)});
+window.addEventListener('focus',()=>scheduleAppWakeLockRetry(100));
+window.addEventListener('pageshow',()=>scheduleAppWakeLockRetry(100));
 window.addEventListener('pagehide',()=>{void releaseAppWakeLock()});
+$('wakeLockBtn').onclick=()=>{void syncAppWakeLock(true)};
+setInterval(()=>{if(!document.hidden&&!appWakeLockActive())void syncAppWakeLock()},30000);
 void syncAppWakeLock();
 function renderScore(){
   const m=state.match;

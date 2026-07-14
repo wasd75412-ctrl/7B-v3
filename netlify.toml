@@ -6,6 +6,11 @@
   directory = "netlify/functions"
   node_bundler = "esbuild"
 
+[[headers]]
+  for = "/*"
+  [headers.values]
+    Permissions-Policy = "screen-wake-lock=(self)"
+
 [[redirects]]
   from = "/*"
   to = "/index.html"
