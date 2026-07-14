@@ -159,6 +159,13 @@ body:before{content:"";position:fixed;inset:0;pointer-events:none;opacity:.32;ba
 
 
 body,*{font-family:"LXGW WenKai TC","Noto Sans TC",sans-serif!important;}
+.splash h1,
+.landing-brand h2,
+.brand-copy .brand-mark h1{
+  font-family:"PingFang TC","Noto Sans TC","Microsoft JhengHei",system-ui,sans-serif!important;
+  font-weight:900;
+  letter-spacing:.01em;
+}
 /* BCM 2.2.6 — pair waiting queue rotation */
 .person.card2 .racket-lines{
   display:grid;
