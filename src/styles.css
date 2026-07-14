@@ -163,8 +163,8 @@ body:before{content:"";position:fixed;inset:0;pointer-events:none;opacity:.32;ba
 body,*{font-family:"LXGW WenKai TC","Noto Sans TC",sans-serif!important;}
 @font-face{
   font-family:"JasonHandwriting9";
-  src:url("/assets/fonts/jason-handwriting-9-brand.woff2?v=20260714-273") format("woff2");
-  font-display:swap;
+  src:url("/assets/fonts/jason-handwriting-9-brand.woff2?v=20260714-277") format("woff2");
+  font-display:block;
   font-style:normal;
   font-weight:400;
   unicode-range:U+0037,U+0042,U+7FBD,U+7403,U+793E;
@@ -178,6 +178,16 @@ body,*{font-family:"LXGW WenKai TC","Noto Sans TC",sans-serif!important;}
   -webkit-text-stroke:.55px currentColor;
   paint-order:stroke fill;
   letter-spacing:.04em;
+}
+html.brand-font-loading:not(.brand-font-ready):not(.brand-font-fallback) .splash h1,
+html.brand-font-loading:not(.brand-font-ready):not(.brand-font-fallback) .landing-brand h2,
+html.brand-font-loading:not(.brand-font-ready):not(.brand-font-fallback) .brand-copy .brand-mark h1{
+  visibility:hidden;
+}
+html.brand-font-fallback .splash h1,
+html.brand-font-fallback .landing-brand h2,
+html.brand-font-fallback .brand-copy .brand-mark h1{
+  font-family:"PingFang TC","Noto Sans TC",sans-serif!important;
 }
 /* BCM 2.2.6 — pair waiting queue rotation */
 .person.card2 .racket-lines{
