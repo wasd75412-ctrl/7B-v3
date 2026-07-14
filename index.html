@@ -37,7 +37,7 @@
       <div class="room-status-row"><span id="roleBadge" class="pill host">管理員</span><span id="syncBadge" class="pill">連線中</span><span><span class="room-code" id="roomCode"></span><span id="roomLocalName" class="room-local-name"></span></span></div>
       <div class="room-quick-actions"><button id="favoriteRoomBtn" class="btn">☆ 加入常用</button><button id="roomMoreBtn" class="btn room-more-btn" type="button" aria-expanded="false" aria-controls="roomMoreMenu">⋯ 更多</button></div>
       <div id="roomMoreMenu" class="room-more-menu hidden" role="menu">
-        <button id="renameRoomBtn" class="btn" role="menuitem">命名球局</button><button id="shareBtn" class="btn" role="menuitem">分享觀看網址</button><button id="qrBtn" class="btn" role="menuitem">QR Code</button><button id="adminLoginBtn" class="btn" role="menuitem">管理員登入</button><button id="installHelpBtn" class="btn" role="menuitem">iPad 加到主畫面</button><button id="pushNotificationBtn" class="btn" type="button" role="menuitem" aria-pressed="false">🔔 啟用投票通知</button><button id="pushTestBtn" class="btn" type="button" role="menuitem">📳 傳送測試通知</button><button id="wakeLockBtn" class="btn" type="button" role="menuitem" aria-pressed="false">☀️ 正在啟用恆亮…</button><div id="wakeLockFeedback" class="wake-lock-feedback pending" role="status" aria-live="polite">正在確認螢幕恆亮狀態…</div><button id="refreshAppMenu" class="btn" type="button" role="menuitem" data-refresh-app>↻ 重新整理</button><button id="leaveBtn" class="btn danger-outline room-leave-btn" role="menuitem">離開房間</button>
+        <button id="renameRoomBtn" class="btn" role="menuitem">命名球局</button><button id="shareBtn" class="btn" role="menuitem">分享觀看網址</button><button id="qrBtn" class="btn" role="menuitem">QR Code</button><button id="adminLoginBtn" class="btn" role="menuitem">管理員登入</button><button id="installHelpBtn" class="btn" role="menuitem">iPad 加到主畫面</button><button id="pushNotificationBtn" class="btn" type="button" role="menuitem" aria-pressed="false">🔔 啟用投票通知</button><button id="pushTestBtn" class="btn" type="button" role="menuitem">📳 傳送測試通知</button><button id="wakeLockBtn" class="btn" type="button" role="menuitem" aria-pressed="false">☀️ 檢查恆亮狀態…</button><div id="wakeLockFeedback" class="wake-lock-feedback pending" role="status" aria-live="polite">正在確認螢幕恆亮狀態…</div><button id="refreshAppMenu" class="btn" type="button" role="menuitem" data-refresh-app>↻ 重新整理</button><button id="leaveBtn" class="btn danger-outline room-leave-btn" role="menuitem">離開房間</button>
       </div>
     </div>
   </header>
@@ -193,6 +193,6 @@ window.addEventListener('unhandledrejection',event=>{
   if(box){box.textContent='程式執行失敗：'+(event.reason?.message||event.reason||'未知錯誤');box.classList.remove('hidden');}
 });
 </script>
-<script type="module" src="/src/main.js?v=20260715-284"></script>
+<script type="module" src="/src/main.js?v=20260715-285"></script>
 </body>
 </html>
