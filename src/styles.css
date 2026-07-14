@@ -187,6 +187,7 @@ body,*{font-family:"LXGW WenKai TC","Noto Sans TC",sans-serif!important;}
   --score-a:#4ca6ff;
   --score-b:#ff5964;
   --serve-yellow:#ffe14f;
+  --score-court-bg:#0b7048;
   --score-clearance:clamp(112px,12vw,210px);
   position:fixed;
   inset:0;
@@ -211,6 +212,30 @@ body,*{font-family:"LXGW WenKai TC","Noto Sans TC",sans-serif!important;}
 }
 .score-actions{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
 .score-actions .btn{padding:9px 12px}
+.score-theme-control{
+  display:flex;
+  align-items:center;
+  gap:6px;
+  min-height:40px;
+  padding:4px 7px 4px 10px;
+  border:1px solid rgba(255,255,255,.25);
+  border-radius:10px;
+  color:#fff;
+  background:#26313a;
+  font-weight:900;
+  white-space:nowrap;
+}
+.score-theme-select{
+  min-height:32px;
+  max-width:132px;
+  padding:4px 7px;
+  border:0;
+  border-radius:7px;
+  color:#fff;
+  background:#151c22;
+  font-size:16px;
+  font-weight:900;
+}
 
 /* iPad fallback: hide scoreboard chrome while keeping an exit control visible. */
 .score-view.immersive-mode .score-head{
@@ -233,6 +258,15 @@ body,*{font-family:"LXGW WenKai TC","Noto Sans TC",sans-serif!important;}
   color:#fff;
   border-color:rgba(255,255,255,.38);
   background:rgba(12,18,24,.72);
+  box-shadow:0 6px 18px rgba(0,0,0,.28);
+}
+.score-view.immersive-mode .score-theme-control{
+  position:fixed;
+  top:calc(8px + env(safe-area-inset-top));
+  left:calc(8px + env(safe-area-inset-left));
+  z-index:80;
+  display:flex;
+  background:rgba(12,18,24,.82);
   box-shadow:0 6px 18px rgba(0,0,0,.28);
 }
 
@@ -883,8 +917,14 @@ body,*{font-family:"LXGW WenKai TC","Noto Sans TC",sans-serif!important;}
 }
 
 /* Solid scoreboard court: one green tone without gradients or shading. */
+.score-view[data-score-theme="green"]{--score-court-bg:#0b7048}
+.score-view[data-score-theme="blue"]{--score-court-bg:#0b4f78}
+.score-view[data-score-theme="black"]{--score-court-bg:#242a30}
+.score-view[data-score-theme="purple"]{--score-court-bg:#553d73}
+.score-view[data-score-theme="red"]{--score-court-bg:#743d46}
+.score-view[data-score-theme="brown"]{--score-court-bg:#765034}
 .scoreboard{
-  background:#0b7048!important;
+  background:var(--score-court-bg,#0b7048)!important;
   background-image:none!important;
   box-shadow:none!important;
 }
