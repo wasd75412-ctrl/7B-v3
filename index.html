@@ -113,7 +113,24 @@
 </div>
 
 <section id="scoreView" class="score-view hidden">
-  <header class="score-head"><div><strong id="scoreRole">管理員</strong> · <span class="room-code" id="scoreRoom"></span></div><div class="score-actions"><label class="score-theme-control host-only" for="scoreTheme"><span>背景</span><select id="scoreTheme" class="score-theme-select" aria-label="計分模式背景"><option value="green">🟢 經典綠</option><option value="blue">🔵 深海藍</option><option value="black">⚫ 午夜黑</option><option value="purple">🟣 紫羅蘭</option><option value="red">🔴 酒紅</option><option value="brown">🟤 木質棕</option><option value="teal">🩵 湖水青</option><option value="indigo">🔷 靛青</option><option value="rose">🌸 玫瑰</option><option value="amber">🟠 琥珀</option><option value="aurora">🌈 極光</option><option value="galaxy">🌌 星空</option><option value="sunset">🌅 晚霞</option><option value="waves">🌊 海浪</option></select></label><button id="randomThemeToggle" class="btn host-only" type="button" aria-pressed="false">🎲 下場隨機：關</button><button id="fullscreenScore" class="btn" type="button">⛶ 全螢幕</button><button id="refreshApp" class="btn" type="button" data-refresh-app>↻ 重新整理</button><button id="voiceToggle" class="btn host-only" type="button">🔊 比分播報</button><button id="speakerTest" class="btn host-only" type="button">📢 喇叭測試</button><button id="audioHelp" class="btn hidden" type="button" hidden aria-hidden="true" tabindex="-1">藍牙說明</button><button id="undo" class="btn host-only">撤銷</button><button id="exitScore" class="btn">返回</button></div></header>
+  <header class="score-head">
+    <div><strong id="scoreRole">管理員</strong> · <span class="room-code" id="scoreRoom"></span></div>
+    <div class="score-actions">
+      <label class="score-theme-control host-only" for="scoreTheme" title="選擇計分模式背景">
+        <select id="scoreTheme" class="score-theme-select" aria-label="選擇計分模式背景" title="選擇計分模式背景">
+          <option value="green" aria-label="經典綠" title="經典綠">🟢</option><option value="blue" aria-label="深海藍" title="深海藍">🔵</option><option value="black" aria-label="午夜黑" title="午夜黑">⚫</option><option value="purple" aria-label="紫羅蘭" title="紫羅蘭">🟣</option><option value="red" aria-label="酒紅" title="酒紅">🔴</option><option value="brown" aria-label="木質棕" title="木質棕">🟤</option><option value="teal" aria-label="湖水青" title="湖水青">🩵</option><option value="indigo" aria-label="靛青" title="靛青">🔷</option><option value="rose" aria-label="玫瑰" title="玫瑰">🌸</option><option value="amber" aria-label="琥珀" title="琥珀">🟠</option><option value="aurora" aria-label="極光" title="極光">🌈</option><option value="galaxy" aria-label="星空" title="星空">🌌</option><option value="sunset" aria-label="晚霞" title="晚霞">🌅</option><option value="waves" aria-label="海浪" title="海浪">🌊</option>
+        </select>
+      </label>
+      <button id="randomThemeToggle" class="btn host-only" type="button" aria-label="開啟下一場隨機背景" title="下一場隨機背景" aria-pressed="false">🎲</button>
+      <button id="fullscreenScore" class="btn" type="button" aria-label="進入全螢幕" title="進入全螢幕">⛶</button>
+      <button id="refreshApp" class="btn" type="button" data-refresh-app aria-label="重新整理" title="重新整理">↻</button>
+      <button id="voiceToggle" class="btn host-only" type="button" aria-label="關閉比分播報" title="關閉比分播報" aria-pressed="true">🔊</button>
+      <button id="speakerTest" class="btn host-only" type="button" aria-label="喇叭測試" title="喇叭測試">📢</button>
+      <button id="audioHelp" class="btn hidden" type="button" hidden aria-hidden="true" tabindex="-1">藍牙說明</button>
+      <button id="undo" class="btn host-only" type="button" aria-label="撤銷上一分" title="撤銷上一分">↶</button>
+      <button id="exitScore" class="btn" type="button" aria-label="返回管理畫面" title="返回管理畫面">✕</button>
+    </div>
+  </header>
   <div id="matchPoint" class="match-point hidden">🔥 MATCH POINT</div>
   <div class="scoreboard"><article class="score-side a"><div class="score-title">A隊</div><div id="namesA" class="court-names"></div></article><div class="score-center"><div id="scoreA" class="score-number clickable" title="A隊加分">0</div><div class="score-divider"></div><div id="scoreB" class="score-number clickable" title="B隊加分">0</div></div><article class="score-side b"><div class="score-title">B隊</div><div id="namesB" class="court-names"></div></article></div>
   <footer class="score-foot"><div class="server-control host-only"><span class="server-control-label">選擇發球員</span><div id="serverButtons" class="server-buttons"></div></div><span id="serveText">準備開賽</span><div class="score-actions host-only"><button id="minusA" class="btn">A −1</button><button id="minusB" class="btn">B −1</button></div></footer>
@@ -165,6 +182,6 @@ window.addEventListener('unhandledrejection',event=>{
   if(box){box.textContent='程式執行失敗：'+(event.reason?.message||event.reason||'未知錯誤');box.classList.remove('hidden');}
 });
 </script>
-<script type="module" src="/src/main.js?v=20260714-268"></script>
+<script type="module" src="/src/main.js?v=20260714-269"></script>
 </body>
 </html>

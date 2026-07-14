@@ -166,7 +166,15 @@ function announceScore(){
   speak(`${msg} 下一場是左方 ${p[0]}和${p[1]}，對戰右方 ${p[2]}和${p[3]}。`);
  }else speak(msg);
 }
-function updateVoiceButton(){const b=$('voiceToggle');if(!b)return;b.textContent=voiceEnabled?'🔊 比分播報':'🔇 已靜音';b.setAttribute('aria-pressed',voiceEnabled?'true':'false')}
+function updateVoiceButton(){
+  const b=$('voiceToggle');
+  if(!b)return;
+  const action=voiceEnabled?'關閉比分播報':'開啟比分播報';
+  b.textContent=voiceEnabled?'🔊':'🔇';
+  b.setAttribute('aria-pressed',voiceEnabled?'true':'false');
+  b.setAttribute('aria-label',action);
+  b.title=action;
+}
 function formatEventDate(date,time){if(!date)return'';const d=new Date(`${date}T${time||'00:00'}`);if(isNaN(d.getTime()))return `${date}${time?' '+time:''}`;const dateText=d.toLocaleDateString('zh-TW',{month:'long',day:'numeric',weekday:'short'});return `${dateText}${time?` ${time}`:''}`}
 function renderNextEventAnnouncement(){const box=$('nextEventAnnouncement'),e=state.nextEvent;if(!box)return;box.classList.toggle('hidden',!e?.date);if(!e?.date){box.innerHTML='';return}box.innerHTML=`<h3>📣 下一次打球</h3><div class="next-event-main">${esc(formatEventDate(e.date,e.time))}</div><div class="next-event-place">📍 ${esc(e.location||'場地待公告')}</div>${e.note?`<div class="next-event-note">${esc(e.note)}</div>`:''}`}
 function calloutText(sourceIds){const ids=sourceIds||state.nextCall?.players||[];if(ids.length!==4||new Set(ids).size!==4)return'';return `下一場是左方 ${vname(ids[0])}和${vname(ids[1])}，對戰右方 ${vname(ids[2])}和${vname(ids[3])}。`}
@@ -603,7 +611,7 @@ const tomorrow=new Date();tomorrow.setDate(tomorrow.getDate()+7);$('pollDate').v
 function exportBackup(){const data={schemaVersion:1,appVersion:BCM_VERSION,createdAt:new Date().toISOString(),roomId,counts:backupCounts(),data:encodeState(state)};downloadJson(data,`BCM_Backup_${roomId||'LOCAL'}_${new Date().toISOString().slice(0,19).replace(/[:T]/g,'-')}.json`)}
 function importBackup(file){const fr=new FileReader();fr.onload=async()=>{try{const b=JSON.parse(fr.result),data=b.data||b;if(!data||!Array.isArray(data.roster)||!Array.isArray(data.history))throw new Error('備份檔缺少球員或歷史資料');if(!roomRef||!isHost)throw new Error('請先以管理員身分進入球局');if(!confirm(`準備還原本機備份：\n球員 ${data.roster.length} 人\n紀錄 ${data.history.length} 場\n\n還原前會先建立 Emergency Backup。`))return;const typed=prompt('請輸入「還原」：','');if(typed!=='還原')return;await createCloudBackup('emergency',{silent:true});await setDoc(roomRef,{...encodeState(decodeState(data)),updatedAt:serverTimestamp()},{merge:true});state=cleanState(data);renderAll();alert('本機備份還原成功。');await loadBackups()}catch(e){alert('無法還原：'+(e.message||e))}};fr.readAsText(file)}
 const refreshAppButtons=all('[data-refresh-app]');
-refreshAppButtons.forEach(button=>button.onclick=()=>{refreshAppButtons.forEach(item=>{item.disabled=true;item.textContent='↻ 重新載入…'});const url=new URL(location.href);url.searchParams.set('_refresh',Date.now().toString());setTimeout(()=>location.replace(url.toString()),50)});
+refreshAppButtons.forEach(button=>button.onclick=()=>{refreshAppButtons.forEach(item=>{item.disabled=true;item.setAttribute('aria-busy','true');item.textContent=item.id==='refreshApp'?'↻':'↻ 重新載入…'});const url=new URL(location.href);url.searchParams.set('_refresh',Date.now().toString());setTimeout(()=>location.replace(url.toString()),50)});
 
 const fullscreenScoreBtn=$('fullscreenScore'),fullscreenScoreView=$('scoreView');
 const SCORE_THEME_KEY='bcmScoreThemeV1';
@@ -620,8 +628,11 @@ function applyScoreTheme(value){
 }
 function updateRandomThemeButton(){
   if(!randomThemeToggle)return;
+  const action=randomScoreThemeEnabled?'關閉下一場隨機背景':'開啟下一場隨機背景';
   randomThemeToggle.setAttribute('aria-pressed',randomScoreThemeEnabled?'true':'false');
-  randomThemeToggle.textContent=`🎲 下場隨機：${randomScoreThemeEnabled?'開':'關'}`;
+  randomThemeToggle.setAttribute('aria-label',action);
+  randomThemeToggle.title=action;
+  randomThemeToggle.textContent='🎲';
 }
 function randomizeScoreThemeAtMatchStart(){
   if(!randomScoreThemeEnabled)return;
@@ -642,7 +653,7 @@ function isScoreFullscreen(){return !!currentFullscreenElement()||fullscreenScor
 function updateFullscreenButton(){
   if(!fullscreenScoreBtn)return;
   const fullscreen=isScoreFullscreen();
-  fullscreenScoreBtn.textContent=fullscreen?'⛶':'⛶ 全螢幕';
+  fullscreenScoreBtn.textContent='⛶';
   fullscreenScoreBtn.setAttribute('aria-label',fullscreen?'離開全螢幕':'進入全螢幕');
   fullscreenScoreBtn.title=fullscreen?'離開全螢幕':'進入全螢幕';
 }
