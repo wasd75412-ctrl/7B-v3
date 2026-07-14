@@ -569,7 +569,13 @@ if(randomThemeToggle)randomThemeToggle.onclick=()=>{
 };
 function currentFullscreenElement(){return document.fullscreenElement||document.webkitFullscreenElement||null}
 function isScoreFullscreen(){return !!currentFullscreenElement()||fullscreenScoreView?.classList.contains('immersive-mode')}
-function updateFullscreenButton(){if(fullscreenScoreBtn)fullscreenScoreBtn.textContent=isScoreFullscreen()?'⛶ 離開全螢幕':'⛶ 全螢幕'}
+function updateFullscreenButton(){
+  if(!fullscreenScoreBtn)return;
+  const fullscreen=isScoreFullscreen();
+  fullscreenScoreBtn.textContent=fullscreen?'⛶':'⛶ 全螢幕';
+  fullscreenScoreBtn.setAttribute('aria-label',fullscreen?'離開全螢幕':'進入全螢幕');
+  fullscreenScoreBtn.title=fullscreen?'離開全螢幕':'進入全螢幕';
+}
 async function exitScoreFullscreen(){fullscreenScoreView?.classList.remove('immersive-mode');if(currentFullscreenElement()){const exit=document.exitFullscreen||document.webkitExitFullscreen;if(exit)await exit.call(document)}updateFullscreenButton()}
 async function toggleScoreFullscreen(){if(isScoreFullscreen())return exitScoreFullscreen();const enter=fullscreenScoreView?.requestFullscreen||fullscreenScoreView?.webkitRequestFullscreen;if(enter){try{await enter.call(fullscreenScoreView);return updateFullscreenButton()}catch{}}fullscreenScoreView?.classList.add('immersive-mode');updateFullscreenButton()}
 if(fullscreenScoreBtn)fullscreenScoreBtn.onclick=toggleScoreFullscreen;
