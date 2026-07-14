@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
 <title>7B 羽球社 2.3.6 簡化標線版</title>
-<link rel="stylesheet" href="/src/styles.css?v=20260714-249">
+<link rel="stylesheet" href="/src/styles.css?v=20260714-250">
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="apple-touch-icon" sizes="180x180" href="icons/icon-180.png">
 <meta name="theme-color" content="#082947">
@@ -113,7 +113,7 @@
 </div>
 
 <section id="scoreView" class="score-view hidden">
-  <header class="score-head"><div><strong id="scoreRole">管理員</strong> · <span class="room-code" id="scoreRoom"></span></div><div class="score-actions"><button id="voiceToggle" class="btn host-only" type="button">🔊 比分播報</button><button id="speakerTest" class="btn host-only" type="button">📢 喇叭測試</button><button id="audioHelp" class="btn host-only" type="button">藍牙說明</button><button id="undo" class="btn host-only">撤銷</button><button id="exitScore" class="btn">返回</button></div></header>
+  <header class="score-head"><div><strong id="scoreRole">管理員</strong> · <span class="room-code" id="scoreRoom"></span></div><div class="score-actions"><button id="refreshApp" class="btn" type="button">↻ 重新整理</button><button id="voiceToggle" class="btn host-only" type="button">🔊 比分播報</button><button id="speakerTest" class="btn host-only" type="button">📢 喇叭測試</button><button id="audioHelp" class="btn host-only" type="button">藍牙說明</button><button id="undo" class="btn host-only">撤銷</button><button id="exitScore" class="btn">返回</button></div></header>
   <div id="matchPoint" class="match-point hidden">🔥 MATCH POINT</div>
   <div class="scoreboard"><article class="score-side b"><div class="score-title">B隊</div><div id="namesB" class="court-names"></div></article><div class="score-center"><div id="scoreB" class="score-number clickable" title="B隊加分">0</div><div class="score-divider"></div><div id="scoreA" class="score-number clickable" title="A隊加分">0</div></div><article class="score-side a"><div class="score-title">A隊</div><div id="namesA" class="court-names"></div></article></div>
   <footer class="score-foot"><div class="server-control host-only"><span class="server-control-label">選擇發球員</span><div id="serverButtons" class="server-buttons"></div></div><span id="serveText">準備開賽</span><div class="score-actions host-only"><button id="minusA" class="btn">A −1</button><button id="minusB" class="btn">B −1</button></div></footer>
@@ -165,6 +165,6 @@ window.addEventListener('unhandledrejection',event=>{
   if(box){box.textContent='程式執行失敗：'+(event.reason?.message||event.reason||'未知錯誤');box.classList.remove('hidden');}
 });
 </script>
-<script type="module" src="/src/main.js"></script>
+<script type="module" src="/src/main.js?v=20260714-250"></script>
 </body>
 </html>
