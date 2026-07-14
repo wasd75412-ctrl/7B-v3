@@ -670,12 +670,12 @@ body,*{font-family:"LXGW WenKai TC","Noto Sans TC",sans-serif!important;}
   padding-block:clamp(5px,.9vh,12px);
 }
 .score-side.a{
-  padding-left:var(--score-clearance);
-  padding-right:clamp(4px,.65vw,10px);
-}
-.score-side.b{
   padding-left:clamp(4px,.65vw,10px);
   padding-right:var(--score-clearance);
+}
+.score-side.b{
+  padding-left:var(--score-clearance);
+  padding-right:clamp(4px,.65vw,10px);
 }
 
 /* 隊名移到左右邊線中央，騰出左上、左下、右上、右下 */
@@ -693,8 +693,8 @@ body,*{font-family:"LXGW WenKai TC","Noto Sans TC",sans-serif!important;}
   text-orientation:upright;
   pointer-events:none;
 }
-.score-side.a .score-title{right:clamp(3px,.45vw,7px);text-align:center}
-.score-side.b .score-title{left:clamp(3px,.45vw,7px);text-align:center}
+.score-side.a .score-title{left:clamp(3px,.45vw,7px);text-align:center}
+.score-side.b .score-title{right:clamp(3px,.45vw,7px);text-align:center}
 
 .court-names{
   height:100%;
@@ -714,8 +714,8 @@ body,*{font-family:"LXGW WenKai TC","Noto Sans TC",sans-serif!important;}
   min-height:0;
   padding:clamp(3px,.45vw,7px)!important;
 }
-.score-side.a .court-name{justify-self:start}
-.score-side.b .court-name{justify-self:end}
+.score-side.a .court-name{justify-self:end}
+.score-side.b .court-name{justify-self:start}
 .score-side.a .court-name{left:clamp(32px,4vw,56px)}
 .score-side.b .court-name{left:clamp(-56px,-4vw,-32px)}
 .court-name:first-child{align-self:start}
@@ -727,15 +727,15 @@ body,*{font-family:"LXGW WenKai TC","Noto Sans TC",sans-serif!important;}
   gap:clamp(8px,1vw,18px);
 }
 
-/* iPad 面向場上球員：左側 B、右側 A，內容朝中央排列 */
-.score-side.b .court-name .score-player{grid-template-columns:auto minmax(0,1fr)}
-.score-side.b .court-name .avatar{order:initial}
-.score-side.b .court-player-copy{order:initial;align-items:flex-start}
-.score-side.b .court-player-name{text-align:left}
-.score-side.a .court-name .score-player{grid-template-columns:minmax(0,1fr) auto}
-.score-side.a .court-name .avatar{order:2}
-.score-side.a .court-player-copy{order:1;align-items:flex-end}
-.score-side.a .court-player-name{text-align:right}
+/* 固定畫面配置：左側 A、右側 B，兩隊內容朝中央排列 */
+.score-side.a .court-name .score-player{grid-template-columns:auto minmax(0,1fr)}
+.score-side.a .court-name .avatar{order:initial}
+.score-side.a .court-player-copy{order:initial;align-items:flex-start}
+.score-side.a .court-player-name{text-align:left}
+.score-side.b .court-name .score-player{grid-template-columns:minmax(0,1fr) auto}
+.score-side.b .court-name .avatar{order:2}
+.score-side.b .court-player-copy{order:1;align-items:flex-end}
+.score-side.b .court-player-name{text-align:right}
 
 /* 放大場上球員頭像與姓名，提升遠距辨識度 */
 .avatar.score-large{
@@ -786,11 +786,11 @@ body,*{font-family:"LXGW WenKai TC","Noto Sans TC",sans-serif!important;}
 @media(max-width:760px){
   .score-view{--score-clearance:clamp(72px,22vw,112px)}
   .score-side{padding-block:3px}
-  .score-side.a{padding-left:var(--score-clearance);padding-right:3px}
-  .score-side.b{padding-left:3px;padding-right:var(--score-clearance)}
+  .score-side.a{padding-left:3px;padding-right:var(--score-clearance)}
+  .score-side.b{padding-left:var(--score-clearance);padding-right:3px}
   .score-title{font-size:.64rem;opacity:.62}
-  .score-side.a .score-title{left:auto;right:1px}
-  .score-side.b .score-title{left:1px;right:auto}
+  .score-side.a .score-title{left:1px;right:auto}
+  .score-side.b .score-title{left:auto;right:1px}
   .court-names{padding-block:2px;gap:112px}
   .court-name,.court-name + .court-name{padding:3px!important}
   .score-side.a .court-name{left:24px}
@@ -803,14 +803,16 @@ body,*{font-family:"LXGW WenKai TC","Noto Sans TC",sans-serif!important;}
     grid-template-rows:auto auto;
     gap:2px;
   }
-  .score-side.a .court-name .score-player{grid-template-columns:1fr;justify-items:start}
-  .score-side.b .court-name .score-player{justify-items:end}
+  .score-side.a .court-name .score-player{grid-template-columns:1fr;justify-items:end}
+  .score-side.b .court-name .score-player{justify-items:start}
   .score-side.a .court-name .avatar,
-  .score-side.a .court-player-copy{order:initial}
-  .score-side.a .court-player-copy{align-items:flex-start}
-  .score-side.b .court-player-copy{align-items:flex-end}
-  .score-side.a .court-player-name{text-align:left}
-  .score-side.b .court-player-name{text-align:right}
+  .score-side.a .court-player-copy,
+  .score-side.b .court-name .avatar,
+  .score-side.b .court-player-copy{order:initial}
+  .score-side.a .court-player-copy{align-items:flex-end}
+  .score-side.b .court-player-copy{align-items:flex-start}
+  .score-side.a .court-player-name{text-align:right}
+  .score-side.b .court-player-name{text-align:left}
   .avatar.score-large{
     width:clamp(60px,15vw,92px);
     height:clamp(60px,15vw,92px);
