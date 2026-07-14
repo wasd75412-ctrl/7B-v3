@@ -321,8 +321,32 @@ function supportsPush(){return 'serviceWorker'in navigator&&'PushManager'in wind
 function isIosLike(){return /iPad|iPhone|iPod/i.test(navigator.userAgent)||(navigator.platform==='MacIntel'&&navigator.maxTouchPoints>1)}
 function isStandaloneApp(){return window.matchMedia?.('(display-mode: standalone)').matches||navigator.standalone===true}
 function base64UrlBytes(value){const padded=value.padEnd(Math.ceil(value.length/4)*4,'=').replace(/-/g,'+').replace(/_/g,'/'),raw=atob(padded),bytes=new Uint8Array(raw.length);for(let i=0;i<raw.length;i++)bytes[i]=raw.charCodeAt(i);return bytes}
-async function pushApi(path,options={}){const response=await fetch(`/.netlify/functions/${path}`,options);let data={};try{data=await response.json()}catch{}if(!response.ok)throw new Error(data.error||'通知服務暫時無法使用');return data}
-function updatePushNotificationButton(){const button=$('pushNotificationBtn');if(!button)return;const enabled=!!roomId&&localStorage.getItem(pushEnabledKey())==='1';button.setAttribute('aria-pressed',enabled?'true':'false');button.disabled=!roomId||!supportsPush();if(!supportsPush())button.textContent='🔕 此裝置不支援通知';else if(Notification.permission==='denied')button.textContent='🔕 通知已被封鎖';else button.textContent=enabled?'🔔 本球局通知已開啟':'🔔 啟用投票通知'}
+async function pushApi(path,options={}){const response=await fetch(`/.netlify/functions/${path}`,options);let data={};try{data=await response.json()}catch{}if(!response.ok){const error=new Error(data.error||'通知服務暫時無法使用');error.status=response.status;throw error}return data}
+function updatePushNotificationButton(){const button=$('pushNotificationBtn'),testButton=$('pushTestBtn');if(!button)return;const supported=supportsPush(),enabled=!!roomId&&localStorage.getItem(pushEnabledKey())==='1'&&Notification.permission==='granted';button.setAttribute('aria-pressed',enabled?'true':'false');button.disabled=!roomId||!supported;if(testButton)testButton.disabled=!enabled||!supported;if(!supported)button.textContent='🔕 此裝置不支援通知';else if(Notification.permission==='denied')button.textContent='🔕 通知已被封鎖';else button.textContent=enabled?'🔔 本球局通知已開啟':'🔔 啟用投票通知'}
+async function sendPushTest(subscription){return pushApi('push-test',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({roomId,endpoint:subscription.endpoint})})}
+async function testPushNotification(){
+  const button=$('pushTestBtn');
+  if(!roomId||!supportsPush())return alert('這個瀏覽器目前無法測試手機通知。');
+  button.disabled=true;button.textContent='正在傳送測試通知…';
+  try{
+    if(Notification.permission!=='granted')throw new Error('請先啟用本球局通知。');
+    const registration=await navigator.serviceWorker.ready,subscription=await registration.pushManager.getSubscription();
+    if(!subscription){localStorage.removeItem(pushEnabledKey());throw new Error('這台裝置的通知訂閱已失效，請重新啟用投票通知。')}
+    await sendPushTest(subscription);
+    alert('測試通知已送出。若幾秒內沒有出現，請檢查 iPad「設定 → 通知 → 7B 羽球社」及專注模式。');
+  }catch(error){if(error.status===404||error.status===410)localStorage.removeItem(pushEnabledKey());alert(error.message||'測試通知傳送失敗。')}finally{button.textContent='📳 傳送測試通知';updatePushNotificationButton()}
+}
+async function reconcilePushSubscription(){
+  if(!roomId||!supportsPush()||localStorage.getItem(pushEnabledKey())!=='1')return updatePushNotificationButton();
+  try{
+    if(Notification.permission!=='granted'){localStorage.removeItem(pushEnabledKey());return updatePushNotificationButton()}
+    const registration=await navigator.serviceWorker.ready,subscription=await registration.pushManager.getSubscription();
+    if(!subscription){localStorage.removeItem(pushEnabledKey());return updatePushNotificationButton()}
+    const playerId=ownedPlayerId()||$('pollVoter')?.value||'',playerName=playerId?pname(playerId):'';
+    await pushApi('push-subscription',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({enabled:true,roomId,clientHash:selfHash,playerId,playerName,subscription:subscription.toJSON()})});
+  }catch(error){console.warn('Push subscription refresh failed',error)}
+  updatePushNotificationButton();
+}
 async function setPushNotificationEnabled(){
   const button=$('pushNotificationBtn');
   if(!roomId)return alert('請先進入球局。');
@@ -347,7 +371,7 @@ async function setPushNotificationEnabled(){
     const playerId=ownedPlayerId()||$('pollVoter')?.value||'',playerName=playerId?pname(playerId):'';
     await pushApi('push-subscription',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({enabled:true,roomId,clientHash:selfHash,playerId,playerName,subscription:subscription.toJSON()})});
     localStorage.setItem(pushEnabledKey(),'1');
-    alert('投票通知已開啟。投票截止前一天，即使網頁沒有開著，也會收到手機通知。');
+    try{await sendPushTest(subscription);alert('投票通知已開啟，測試通知也已送出。之後會在投票截止前一天提醒。')}catch{alert('投票通知已開啟，但測試通知未成功送達；請稍後使用「傳送測試通知」再試一次。')}
   }catch(error){alert(error.message||'無法設定通知。')}finally{updatePushNotificationButton()}
 }
 function pollCounts(){const counts={};for(const o of state.schedulePoll.options||[])counts[o.id]=0;for(const value of Object.values(state.schedulePoll.votes||{}))for(const id of pollSelectionList(value))if(id in counts)counts[id]++;return counts}
@@ -512,6 +536,7 @@ async function connectRoom(id){
     $('viewerNote').classList.toggle('hidden',isHost);
     applyRole();
     updatePushNotificationButton();
+    reconcilePushSubscription();
     if(requestedPage==='poll')page(6);
     unsubscribe=onSnapshot(roomRef,{includeMetadataChanges:true},s=>{
       if(!s.exists())return;
@@ -824,6 +849,7 @@ $('savePollDeadline').onclick=savePollDeadline;
 $('clearPollDeadline').onclick=clearPollDeadline;
 $('pollDeadline').onfocus=()=>{$('pollDeadline').min=pollDeadlineInputValue(new Date().toISOString())};
 $('pushNotificationBtn').onclick=setPushNotificationEnabled;
+$('pushTestBtn').onclick=testPushNotification;
 updatePushNotificationButton();
 const roomMoreBtn=$('roomMoreBtn'),roomMoreMenu=$('roomMoreMenu');
 function setRoomMoreOpen(open){roomMoreMenu.classList.toggle('hidden',!open);roomMoreBtn.setAttribute('aria-expanded',open?'true':'false');roomMoreBtn.textContent=open?'收起':'⋯ 更多'}
