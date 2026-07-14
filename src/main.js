@@ -4,7 +4,11 @@ import { initializeFirestore, persistentLocalCache, persistentMultipleTabManager
 const firebaseConfig={apiKey:'AIzaSyBrakbTPK7UqEChPBI6pM8-i03IcLq0IvM',authDomain:'badminton-7a1c3.firebaseapp.com',projectId:'badminton-7a1c3',storageBucket:'badminton-7a1c3.firebasestorage.app',messagingSenderId:'883534015507',appId:'1:883534015507:web:a7f6fb318151b6d07563e6',measurementId:'G-C97B98H7YW'};
 const fbApp=initializeApp(firebaseConfig);
 const db=initializeFirestore(fbApp,{localCache:persistentLocalCache({tabManager:persistentMultipleTabManager()})});
-setTimeout(()=>document.getElementById('splash')?.classList.add('hide'),900);
+const wait=ms=>new Promise(resolve=>setTimeout(resolve,ms));
+const brandFontRequest=document.fonts?.load('400 1em "JasonHandwriting9"','7B 羽球社').then(faces=>faces.length>0).catch(()=>false)??Promise.resolve(false);
+const brandFontGate=Promise.race([brandFontRequest,wait(2500).then(()=>false)]);
+brandFontGate.then(loaded=>document.documentElement.classList.add(loaded?'brand-font-ready':'brand-font-fallback'));
+Promise.all([brandFontGate,wait(900)]).then(()=>document.getElementById('splash')?.classList.add('hide'));
 const $=id=>document.getElementById(id), all=q=>[...document.querySelectorAll(q)];
 const esc=s=>String(s??'').replace(/[&<>'"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]));
 const randomCode=()=>{const chars='ABCDEFGHJKLMNPQRSTUVWXYZ23456789';let x='';crypto.getRandomValues(new Uint32Array(6)).forEach(n=>x+=chars[n%chars.length]);return x};
