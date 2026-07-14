@@ -1,8 +1,10 @@
-import { initializeApp } from 'https://www.gstatic.com/firebasejs/12.15.0/firebase-app.js';
-import { getFirestore, doc, getDoc, onSnapshot, setDoc, serverTimestamp, runTransaction, collection, getDocs, deleteDoc, query, orderBy, limit } from 'https://www.gstatic.com/firebasejs/12.15.0/firebase-firestore.js';
+import { initializeApp } from 'firebase/app';
+import { initializeFirestore, persistentLocalCache, persistentMultipleTabManager, doc, getDoc, onSnapshot, setDoc, serverTimestamp, runTransaction, collection, getDocs, deleteDoc, query, orderBy, limit } from 'firebase/firestore';
 
 const firebaseConfig={apiKey:'AIzaSyBrakbTPK7UqEChPBI6pM8-i03IcLq0IvM',authDomain:'badminton-7a1c3.firebaseapp.com',projectId:'badminton-7a1c3',storageBucket:'badminton-7a1c3.firebasestorage.app',messagingSenderId:'883534015507',appId:'1:883534015507:web:a7f6fb318151b6d07563e6',measurementId:'G-C97B98H7YW'};
-const fbApp=initializeApp(firebaseConfig);const db=getFirestore(fbApp);setTimeout(()=>document.getElementById('splash')?.classList.add('hide'),900);
+const fbApp=initializeApp(firebaseConfig);
+const db=initializeFirestore(fbApp,{localCache:persistentLocalCache({tabManager:persistentMultipleTabManager()})});
+setTimeout(()=>document.getElementById('splash')?.classList.add('hide'),900);
 const $=id=>document.getElementById(id), all=q=>[...document.querySelectorAll(q)];
 const esc=s=>String(s??'').replace(/[&<>'"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]));
 const randomCode=()=>{const chars='ABCDEFGHJKLMNPQRSTUVWXYZ23456789';let x='';crypto.getRandomValues(new Uint32Array(6)).forEach(n=>x+=chars[n%chars.length]);return x};
@@ -10,6 +12,7 @@ const randomToken=()=>crypto.randomUUID?.()||([...crypto.getRandomValues(new Uin
 const shuffle=a=>{a=[...a];const r=new Uint32Array(Math.max(1,a.length));crypto.getRandomValues(r);for(let i=a.length-1;i>0;i--){const j=r[i]% (i+1);[a[i],a[j]]=[a[j],a[i]]}return a};
 const initialState=()=>({version:9.2,roster:[],attendance:[],court:[],waitingQueue:[],queueDraftChosen:[],priority:null,match:{active:false,players:[[],[]],scores:[0,0],rallies:[],serving:0,positions:[[0,1],[0,1]],winner:null},rules:{target:11,cap:15,deuce:true},history:[],nextCall:null,schedulePoll:{status:'open',options:[],votes:{},voterPlayers:{}},nextEvent:null,updatedAt:null});
 let state=initialState(), roomId='', roomRef=null, isHost=false, hostToken='', adminPinHash='', unsubscribe=null, applying=false, saveTimer=null, editId=null;const expandedPlayerNotes=new Set();let profileOriginal=null,profileDirty={name:false,voiceName:false,racket:false,racketTension:false,racketString:false,backupRacket:false,backupTension:false,backupString:false,note:false};let voiceEnabled=localStorage.getItem('bdV76Voice')!=='0';let dismissedResultKey='';const selfToken=localStorage.getItem('bdV73SelfToken')||randomToken();localStorage.setItem('bdV73SelfToken',selfToken);let selfHash='';
+let roomSnapshotFromCache=false,snapshotHasPendingWrites=false,pendingRoomWrites=0,roomWriteScheduled=false;
 
 async function sha256(text){const buf=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(text));return [...new Uint8Array(buf)].map(b=>b.toString(16).padStart(2,'0')).join('')}
 function encodeState(src){
@@ -327,7 +330,16 @@ async function submitPollVote(){
 function togglePoll(){state.schedulePoll.status=state.schedulePoll.status==='closed'?'open':'closed';renderPoll();saveSoon()}
 function clearPollVotes(){if(prompt('要清空所有人的投票，請輸入「清空」：')!=='清空')return;state.schedulePoll.votes={};state.schedulePoll.voterPlayers={};renderPoll();saveSoon()}
 function setError(msg=''){const b=$('cloudError');b.textContent=msg;b.classList.toggle('hidden',!msg)}function setLandingError(msg=''){const b=$('landingError');b.textContent=msg;b.classList.toggle('hidden',!msg)}function setSync(text,type=''){$('syncBadge').textContent=text;$('syncBadge').className='pill '+type}
-function formatError(e){const code=e?.code||'unknown';if(code==='permission-denied')return 'Firestore 權限被拒絕（permission-denied）。請到 Firebase → Firestore → 規則，發布 ZIP 內 FIRESTORE_RULES.txt 的內容。';if(code==='invalid-argument'&&String(e?.message||'').includes('Nested arrays'))return '資料格式錯誤：Firestore 不支援巢狀陣列。請部署 BCM 2.2.18 Two-Digit Score Fix 最新版。';return `Firebase 連線失敗：${code}\n${e?.message||e}`}
+function updateSyncBadge(){
+  if(!roomRef)return;
+  const pending=roomWriteScheduled||pendingRoomWrites>0||snapshotHasPendingWrites;
+  if(!navigator.onLine||roomSnapshotFromCache)return setSync(isHost?'離線計分中':'離線瀏覽中','offline');
+  if(pending)return setSync('正在補同步','pending');
+  setSync('已同步','online');
+}
+window.addEventListener('offline',updateSyncBadge);
+window.addEventListener('online',()=>{if(roomRef){setSync('重新連線中','pending');setError('')}});
+function formatError(e){const code=e?.code||'unknown';if(!navigator.onLine&&(code==='unavailable'||code==='not-found'))return '目前沒有網路，而且這台裝置尚未快取此球局。請先連線進入一次，之後即可離線使用。';if(code==='permission-denied')return 'Firestore 權限被拒絕（permission-denied）。請到 Firebase → Firestore → 規則，發布 ZIP 內 FIRESTORE_RULES.txt 的內容。';if(code==='invalid-argument'&&String(e?.message||'').includes('Nested arrays'))return '資料格式錯誤：Firestore 不支援巢狀陣列。請部署 BCM 2.2.18 Two-Digit Score Fix 最新版。';return `Firebase 連線失敗：${code}\n${e?.message||e}`}
 function hostKey(id){return `bcmHost_${id}`}
 function currentUrl(id=roomId){const u=new URL(location.href);u.search='';u.hash='';u.searchParams.set('room',id);return u.toString()}
 function hostUrl(id=roomId,token=hostToken){const u=new URL(currentUrl(id));u.hash=`host=${encodeURIComponent(token)}`;return u.toString()}
@@ -350,12 +362,70 @@ function renderRoomLibrary(){const rows=roomLibrary().sort((a,b)=>Number(b.favor
 function updateCurrentRoomControls(){if(!roomId)return;const r=roomRecord(roomId)||{id:roomId};$('favoriteRoomBtn').textContent=r.favorite?'★ 已加入常用':'☆ 加入常用';$('roomLocalName').textContent=r.name?` · ${r.name}`:''}
 async function createRoom(){setLandingError('');let pin=prompt('請設定 4～8 位管理員 PIN。之後可在 iPad 或其他裝置輸入 PIN 進入管理員模式：','2580');if(pin===null)return;pin=pin.trim();if(!/^\d{4,8}$/.test(pin))return setLandingError('管理員 PIN 請輸入 4～8 位數字。');const id=randomCode(),token=randomToken(),ref=doc(db,'badmintonRooms',id);const pinHash=await sha256(pin);const data={...encodeState(initialState()),hostToken:token,adminPinHash:pinHash,createdAt:serverTimestamp(),updatedAt:serverTimestamp()};try{await setDoc(ref,data);localStorage.setItem(hostKey(id),token);location.href=hostUrl(id,token)}catch(e){setLandingError(formatError(e))}}
 async function enterRoom(id){id=id.trim().toUpperCase().replace(/[^A-Z0-9]/g,'').slice(0,6);if(id.length!==6)return setLandingError('請輸入正確的 6 位房間代碼。');location.href=currentUrl(id)}
-async function connectRoom(id){roomId=id;roomRef=doc(db,'badmintonRooms',id);selfHash=await sha256(selfToken);setSync('連線中');try{const snap=await getDoc(roomRef);if(!snap.exists())throw Object.assign(new Error('找不到此房間'),{code:'not-found'});const data=snap.data();adminPinHash=data.adminPinHash||'';hostToken=parseHostHash()||localStorage.getItem(hostKey(id))||'';isHost=!!hostToken&&hostToken===data.hostToken;if(isHost)localStorage.setItem(hostKey(id),hostToken);rememberRoom(id,isHost);applyState(data);$('landing').classList.add('hidden');$('app').classList.remove('hidden');$('roomCode').textContent=id;$('scoreRoom').textContent=id;updateCurrentRoomControls();$('roleBadge').textContent=isHost?'管理員':'觀看者';$('roleBadge').className='pill '+(isHost?'host':'');$('viewerNote').classList.toggle('hidden',isHost);applyRole();unsubscribe=onSnapshot(roomRef,s=>{if(!s.exists())return;applyState(s.data());setSync('已同步','online');setError('')},e=>{setSync('同步中斷','error');setError(formatError(e))});setSync('已同步','online');if(isHost)setTimeout(ensureGenesisAndDaily,900)}catch(e){setLandingError(formatError(e));history.replaceState(null,'',location.pathname);}}
+async function connectRoom(id){
+  roomId=id;
+  roomRef=doc(db,'badmintonRooms',id);
+  selfHash=await sha256(selfToken);
+  setSync(navigator.onLine?'連線中':'讀取離線資料','pending');
+  try{
+    const snap=await getDoc(roomRef);
+    if(!snap.exists())throw Object.assign(new Error('找不到此房間'),{code:'not-found'});
+    roomSnapshotFromCache=!!snap.metadata?.fromCache;
+    snapshotHasPendingWrites=!!snap.metadata?.hasPendingWrites;
+    const data=snap.data();
+    adminPinHash=data.adminPinHash||'';
+    hostToken=parseHostHash()||localStorage.getItem(hostKey(id))||'';
+    isHost=!!hostToken&&hostToken===data.hostToken;
+    if(isHost)localStorage.setItem(hostKey(id),hostToken);
+    rememberRoom(id,isHost);
+    applyState(data);
+    $('landing').classList.add('hidden');
+    $('app').classList.remove('hidden');
+    $('roomCode').textContent=id;
+    $('scoreRoom').textContent=id;
+    updateCurrentRoomControls();
+    $('roleBadge').textContent=isHost?'管理員':'觀看者';
+    $('roleBadge').className='pill '+(isHost?'host':'');
+    $('viewerNote').classList.toggle('hidden',isHost);
+    applyRole();
+    unsubscribe=onSnapshot(roomRef,{includeMetadataChanges:true},s=>{
+      if(!s.exists())return;
+      applyState(s.data());
+      roomSnapshotFromCache=!!s.metadata.fromCache;
+      snapshotHasPendingWrites=!!s.metadata.hasPendingWrites;
+      updateSyncBadge();
+      if(!roomSnapshotFromCache&&!snapshotHasPendingWrites)setError('');
+    },e=>{setSync(navigator.onLine?'同步中斷':isHost?'離線計分中':'離線瀏覽中',navigator.onLine?'error':'offline');setError(formatError(e))});
+    updateSyncBadge();
+    if(isHost&&navigator.onLine)setTimeout(ensureGenesisAndDaily,900);
+  }catch(e){
+    setLandingError(formatError(e));
+    history.replaceState(null,'',location.pathname);
+  }
+}
 function applyRole(){all('.host-only').forEach(el=>el.classList.toggle('hidden',!isHost));if(!isHost){$('resultModal').classList.add('hidden');$('scoreView').classList.add('hidden');}$('adminLoginBtn').classList.toggle('hidden',isHost);$('scoreRole').textContent=isHost?'管理員':'觀看模式';$('scoreA').classList.toggle('clickable',isHost);$('scoreB').classList.toggle('clickable',isHost);all('input,select,textarea').forEach(el=>{if(['editName','editRacket','editRacketTension','editRacketString','editBackupRacket','editBackupTension','editBackupString','editNote','editPhoto','joinCode','playerSearch','playerSort'].includes(el.id)||el.classList.contains('viewer-enabled'))return;if(!isHost)el.disabled=true;else el.disabled=false});if($('editVoiceName'))$('editVoiceName').disabled=!isHost}
 function cleanState(d){return decodeState(d)}
 function applyState(data){applying=true;state=cleanState(data);renderAll();applying=false}
 function payload(){return {...encodeState(state),updatedAt:serverTimestamp()}}
-function saveSoon(){if(!isHost||applying||!roomRef)return;clearTimeout(saveTimer);setSync('同步中','');saveTimer=setTimeout(async()=>{try{await setDoc(roomRef,payload(),{merge:true});setSync('已同步','online')}catch(e){setSync('同步失敗','error');setError(formatError(e))}},120)}
+function saveSoon(){
+  if(!isHost||applying||!roomRef)return;
+  clearTimeout(saveTimer);
+  roomWriteScheduled=true;
+  updateSyncBadge();
+  saveTimer=setTimeout(()=>{
+    roomWriteScheduled=false;
+    pendingRoomWrites++;
+    updateSyncBadge();
+    setDoc(roomRef,payload(),{merge:true}).then(()=>{
+      pendingRoomWrites=Math.max(0,pendingRoomWrites-1);
+      updateSyncBadge();
+    }).catch(e=>{
+      pendingRoomWrites=Math.max(0,pendingRoomWrites-1);
+      setSync('同步失敗','error');
+      setError(formatError(e));
+    });
+  },120);
+}
 function page(n){all('.page').forEach(x=>x.classList.add('hidden'));$('page'+n).classList.remove('hidden');all('.tab').forEach(x=>x.classList.toggle('active',+x.dataset.page===n));if(n===0)renderDashboard();if(n===4)renderStats();if(n===5)renderHistory();if(n===6){markPollSeen();renderPoll()}if(n===7)loadBackups()}
 function renderRoster(){const box=$('roster'),q=($('playerSearch')?.value||'').trim().toLowerCase(),sort=$('playerSort')?.value||'favorite';let rows=state.roster.filter(p=>[p.name,p.racket,p.backupRacket,p.note].some(v=>String(v||'').toLowerCase().includes(q)));rows.sort((a,b)=>sort==='name'?a.name.localeCompare(b.name):sort==='games'?playerStats(b.id).games-playerStats(a.id).games:(Number(b.favorite)-Number(a.favorite)||a.name.localeCompare(b.name)));box.innerHTML=rows.map(p=>{const st=playerStats(p.id),status=playerStatus(p.id),main=[p.racket,p.racketTension,p.racketString].filter(Boolean).join(' · '),backup=[p.backupRacket,p.backupTension,p.backupString].filter(Boolean).join(' · '),expanded=expandedPlayerNotes.has(p.id);return `<button class="person card2 ${p.favorite?'favorite':''} ${status.kind||''}" data-edit="${p.id}"><span class="favorite-star" data-fav="${p.id}" title="收藏">${p.favorite?'⭐':'☆'}</span>${avatar(p.id)}<span class="person-info"><span class="name">${esc(p.name)}</span><span class="person-meta"><span class="mini-tag stats" title="歷史累計">${st.wins}勝／${st.games}場</span><span class="status-mini">${esc(status.label)}</span></span><span class="racket-lines">${main?`<span class="racket-line" title="主拍 ${esc(main)}">🏸 主拍 ${esc(main)}</span>`:''}${backup?`<span class="racket-line" title="備拍 ${esc(backup)}">🏸 備拍 ${esc(backup)}</span>`:''}${!main&&!backup?`<span class="racket-line">🏸 尚未登錄球拍</span>`:''}</span>${p.note?`<span class="person-note ${expanded?'expanded':''}" data-note-toggle="${p.id}" role="button" aria-expanded="${expanded}"><span class="person-note-text">📝 ${esc(p.note)}</span><span class="person-note-toggle">${expanded?'▲ 收合':'▼ 展開'}</span></span>`:''}</span></button>`}).join('')||'<p class="sub">找不到符合條件的球員。</p>';all('[data-edit]').forEach(b=>b.onclick=e=>{if(e.target.closest('[data-fav],[data-note-toggle]'))return;openEdit(b.dataset.edit)});all('[data-fav]').forEach(b=>b.onclick=async e=>{e.stopPropagation();const p=player(b.dataset.fav);if(!p)return;const before=!!p.favorite;p.favorite=!before;renderRoster();try{if(isHost)saveSoon();else await saveSelfPlayer({id:p.id,favorite:p.favorite})}catch(err){p.favorite=before;renderRoster();alert('收藏更新失敗：'+formatError(err))}});all('[data-note-toggle]').forEach(n=>n.onclick=e=>{e.preventDefault();e.stopPropagation();const id=n.dataset.noteToggle;if(expandedPlayerNotes.has(id))expandedPlayerNotes.delete(id);else expandedPlayerNotes.add(id);renderRoster()})}
 function uniqueIds(ids){return [...new Set((ids||[]).filter(Boolean))]}
