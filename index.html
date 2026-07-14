@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
 <title>7B 羽球社 2.3.6 簡化標線版</title>
 <link rel="preload" href="/assets/fonts/jason-handwriting-9-brand.woff2?v=20260714-277" as="font" type="font/woff2" crossorigin>
-<link rel="stylesheet" href="/src/styles.css?v=20260714-278">
+<link rel="stylesheet" href="/src/styles.css?v=20260715-279">
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="apple-touch-icon" sizes="180x180" href="icons/icon-180.png">
 <meta name="theme-color" content="#082947">
@@ -101,6 +101,9 @@
         <label class="field"><span>日期與時間</span><select id="confirmPollOption" class="input"></select></label>
         <label class="field"><span>場地</span><input id="confirmLocation" class="input" placeholder="例如：XX 羽球館 3、4 號場"></label>
         <label class="field"><span>公告備註</span><input id="confirmEventNote" class="input" placeholder="例如：請提前 10 分鐘到"></label>
+        <label class="field"><span>場租總金額（元）</span><input id="confirmRentalTotal" class="input" type="number" min="1" step="1" inputmode="numeric" placeholder="例如：2400"></label>
+        <label class="field"><span>每人需繳（自動計算）</span><input id="confirmPerPersonFee" class="input" type="text" readonly placeholder="選擇日期後計算"></label>
+        <div id="confirmFeeHint" class="confirm-fee-hint">依該日期投票人數平均分攤。</div>
       </div>
       <div class="confirm-event-actions"><button id="confirmNextEvent" class="btn primary">發布到總覽</button><button id="clearNextEvent" class="btn danger-outline">取消目前公告</button></div>
     </div>
@@ -190,6 +193,6 @@ window.addEventListener('unhandledrejection',event=>{
   if(box){box.textContent='程式執行失敗：'+(event.reason?.message||event.reason||'未知錯誤');box.classList.remove('hidden');}
 });
 </script>
-<script type="module" src="/src/main.js?v=20260714-278"></script>
+<script type="module" src="/src/main.js?v=20260715-279"></script>
 </body>
 </html>
