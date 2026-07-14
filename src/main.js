@@ -862,6 +862,19 @@ $('pollDeadline').onfocus=()=>{$('pollDeadline').min=pollDeadlineInputValue(new 
 $('pushNotificationBtn').onclick=setPushNotificationEnabled;
 $('pushTestBtn').onclick=testPushNotification;
 updatePushNotificationButton();
+const APP_THEME_KEY='bcmAppThemeV1';
+const APP_THEMES=new Set(['default','court','ocean','sunset','lavender','rose','midnight']);
+const APP_THEME_COLORS={default:'#eaf1f7',court:'#cce8da',ocean:'#cceaf6',sunset:'#f8dfd6',lavender:'#e5def7',rose:'#f5dfe7',midnight:'#0b2238'};
+const appThemeSelect=$('appThemeSelect');
+function applyAppTheme(value){
+  const theme=APP_THEMES.has(value)?value:'default';
+  document.documentElement.dataset.appTheme=theme;
+  if(appThemeSelect)appThemeSelect.value=theme;
+  document.querySelector('meta[name="theme-color"]')?.setAttribute('content',APP_THEME_COLORS[theme]);
+  localStorage.setItem(APP_THEME_KEY,theme);
+}
+applyAppTheme(localStorage.getItem(APP_THEME_KEY)||'default');
+if(appThemeSelect)appThemeSelect.onchange=()=>applyAppTheme(appThemeSelect.value);
 const roomMoreBtn=$('roomMoreBtn'),roomMoreMenu=$('roomMoreMenu');
 function setRoomMoreOpen(open){roomMoreMenu.classList.toggle('hidden',!open);roomMoreBtn.setAttribute('aria-expanded',open?'true':'false');roomMoreBtn.textContent=open?'收起':'⋯ 更多'}
 roomMoreBtn.onclick=e=>{e.stopPropagation();setRoomMoreOpen(roomMoreMenu.classList.contains('hidden'))};
