@@ -539,29 +539,30 @@ function replay(){const m=state.match;m.scores=[0,0];m.serving=0;m.positions=[[0
 function gamePoint(){const m=state.match;if(m.winner!==null)return false;for(let t=0;t<2;t++){const test=[...m.scores];test[t]++;if(winFor(test)===t)return true}return false}
 function currentResultKey(){const m=state.match;if(m.winner===null)return'';return m.matchId||[m.winner,(m.scores||[]).join('-'),...(m.players||[]).flat()].join('|')}
 function setServingPlayer(team,playerIndex){const m=state.match;if(!isHost||!m.active||m.winner!==null)return;m.serving=team;const serverSide=m.scores[team]%2===0?1:0;const positions=m.positions[team]||[0,1];const currentSide=positions.indexOf(playerIndex);if(currentSide!==serverSide&&currentSide>=0){const other=positions[serverSide];positions[serverSide]=playerIndex;positions[currentSide]=other;m.positions[team]=positions}renderScore();saveSoon()}
-let scoreWakeLock=null,scoreWakeLockRequest=null;
-async function releaseScoreWakeLock(){
-  const lock=scoreWakeLock;
-  scoreWakeLock=null;
+let appWakeLock=null,appWakeLockRequest=null;
+async function releaseAppWakeLock(){
+  const lock=appWakeLock;
+  appWakeLock=null;
   if(lock&&!lock.released){try{await lock.release()}catch{}}
 }
-async function syncScoreWakeLock(){
-  const shouldStayAwake=!!state.match?.active&&isHost&&!document.hidden;
-  if(!shouldStayAwake){await releaseScoreWakeLock();return}
-  if((scoreWakeLock&&!scoreWakeLock.released)||scoreWakeLockRequest||!navigator.wakeLock?.request)return;
-  scoreWakeLockRequest=navigator.wakeLock.request('screen');
+async function syncAppWakeLock(){
+  if(document.hidden){await releaseAppWakeLock();return}
+  if((appWakeLock&&!appWakeLock.released)||appWakeLockRequest||!navigator.wakeLock?.request)return;
+  appWakeLockRequest=navigator.wakeLock.request('screen');
   try{
-    const lock=await scoreWakeLockRequest;
-    if(!state.match?.active||!isHost||document.hidden){await lock.release();return}
-    scoreWakeLock=lock;
+    const lock=await appWakeLockRequest;
+    if(document.hidden){await lock.release();return}
+    appWakeLock=lock;
     lock.addEventListener('release',()=>{
-      if(scoreWakeLock===lock)scoreWakeLock=null;
+      if(appWakeLock===lock)appWakeLock=null;
     },{once:true});
-  }catch(error){console.warn('無法保持計分螢幕亮起',error)}
-  finally{scoreWakeLockRequest=null}
+  }catch(error){console.warn('無法保持 App 螢幕亮起',error)}
+  finally{appWakeLockRequest=null}
 }
-document.addEventListener('visibilitychange',()=>{void syncScoreWakeLock()});
-window.addEventListener('pagehide',()=>{void releaseScoreWakeLock()});
+document.addEventListener('visibilitychange',()=>{void syncAppWakeLock()});
+document.addEventListener('pointerdown',()=>{void syncAppWakeLock()},{once:true,passive:true});
+window.addEventListener('pagehide',()=>{void releaseAppWakeLock()});
+void syncAppWakeLock();
 function renderScore(){
   const m=state.match;
   const scoreAEl=$('scoreA'),scoreBEl=$('scoreB');
@@ -611,7 +612,6 @@ function renderScore(){
   $('serveText').textContent=m.winner!==null?'比賽結束':`${m.serving===0?'A隊':'B隊'} · ${pname(sid)} · ${side}發球區`;
   // 觀看者固定留在總覽／一般頁面；只有管理員進入全螢幕比分模式
   $('scoreView').classList.toggle('hidden',!m.active||!isHost);
-  void syncScoreWakeLock();
   const resultKey=currentResultKey();
   if(!isHost){
     $('resultModal').classList.add('hidden');
