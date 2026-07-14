@@ -1,4 +1,4 @@
-const CACHE='7b-bcm-20260715-remove-duplicate-poll-card-288';
+const CACHE='7b-bcm-20260715-poll-notification-copy-289';
 const ASSETS=['./','./index.html','./manifest.webmanifest','./icons/icon-180.png','./icons/icon-192.png','./icons/icon-512.png','./icons/icon-maskable-512.png','./assets/7b-logo-full.png','./assets/fonts/jason-handwriting-9-brand.woff2?v=20260714-277'];
 
 self.addEventListener('install',event=>event.waitUntil(caches.open(CACHE).then(cache=>cache.addAll(ASSETS)).then(()=>self.skipWaiting())));
@@ -25,8 +25,8 @@ self.addEventListener('fetch',event=>{
 self.addEventListener('push',event=>{
   let data={};
   try{data=event.data?.json()||{}}catch{data={body:event.data?.text()||''}}
-  event.waitUntil(self.registration.showNotification(data.title||'7B 羽球社',{
-    body:data.body||'下次球局投票即將截止。',
+  event.waitUntil(self.registration.showNotification(data.title||'🔥投票明日截止🔥',{
+    body:data.body||'還沒投票的球友們，點一下進行投票🏸',
     icon:data.icon||'./icons/icon-192.png',
     badge:data.badge||'./icons/icon-192.png',
     tag:data.tag||'7b-poll-reminder',
