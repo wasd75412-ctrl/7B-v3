@@ -34,7 +34,8 @@ body:before{content:"";position:fixed;inset:0;pointer-events:none;opacity:.32;ba
 .brand h1{letter-spacing:-.03em}.brand-copy small{letter-spacing:.12em}
 .card{border:1px solid rgba(163,181,198,.45);box-shadow:0 20px 55px rgba(27,49,70,.1);background:rgba(255,255,255,.92);backdrop-filter:blur(12px)}
 .tabs{padding:6px;border-radius:18px;background:rgba(210,222,232,.7);backdrop-filter:blur(12px)}
-.tab{border-radius:13px;background:transparent;color:#566577}.tab.active{background:linear-gradient(135deg,var(--dark),var(--dark2));box-shadow:0 8px 18px rgba(6,43,76,.24)}
+.tab{border-radius:13px;background:transparent;color:#566577;font-size:calc(1rem + 15pt);line-height:1.1;min-height:66px;white-space:nowrap}.tab.active{background:linear-gradient(135deg,var(--dark),var(--dark2));box-shadow:0 8px 18px rgba(6,43,76,.24)}
+@media(max-width:680px){.tabs{font-size:inherit}.tab{font-size:calc(.82rem + 6pt);min-height:52px;padding:12px 4px}}
 .player-tools{padding:10px;border-radius:18px;background:rgba(255,255,255,.72);border:1px solid rgba(170,187,202,.35)}
 .roster{grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:18px}
 .person.card2{min-height:270px;display:grid;grid-template-columns:74px 1fr;grid-template-rows:auto 1fr;column-gap:16px;row-gap:10px;align-items:start;padding:20px;border-radius:26px;border:1px solid rgba(151,174,195,.46);background:
