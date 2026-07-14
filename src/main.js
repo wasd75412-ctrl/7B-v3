@@ -317,7 +317,7 @@ function pollSignature(){return `${(state.schedulePoll?.options||[]).map(o=>o.id
 function pollSeenKey(){return `bcmPollSeenV1:${roomId||'local'}`}
 function isPollUnseen(){const sig=pollSignature();return !!(state.schedulePoll?.options||[]).length&&localStorage.getItem(pollSeenKey())!==sig}
 function markPollSeen(){const sig=pollSignature();if(sig)localStorage.setItem(pollSeenKey(),sig);renderPollNotice()}
-function renderPollNotice(){const poll=state.schedulePoll||{},unseen=isPollUnseen()&&!isPollClosed(poll),dot=$('pollTabDot'),card=$('pollReminder'),text=$('pollReminderText');if(dot)dot.classList.toggle('hidden',!unseen);if(card)card.classList.toggle('hidden',!unseen);if(text)text.textContent=poll.deadlineAt?`請於 ${formatPollDeadline(poll.deadlineAt)} 前完成投票；不能參加也可以直接回覆。`:'請查看可參加的日期；不能參加也可以直接回覆。'}
+function renderPollNotice(){const poll=state.schedulePoll||{},unseen=isPollUnseen()&&!isPollClosed(poll),dot=$('pollTabDot');if(dot)dot.classList.toggle('hidden',!unseen)}
 function ownedPlayerId(){return state.roster.find(p=>p.ownerHash&&p.ownerHash===selfHash)?.id||''}
 const PUSH_ENABLED_PREFIX='bcmPushEnabledV1:';
 function pushEnabledKey(id=roomId){return `${PUSH_ENABLED_PREFIX}${id||'none'}`}

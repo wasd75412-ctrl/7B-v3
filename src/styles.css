@@ -136,10 +136,7 @@ body:before{background-image:linear-gradient(var(--app-theme-grid) 1px,transpare
 /* BCM 2.2.4 — 下次球局提醒與無法參加 */
 .tab[data-page="6"]{position:relative}
 .poll-dot{display:inline-block;width:9px;height:9px;margin-left:5px;border-radius:50%;background:#e53935;vertical-align:.08em;box-shadow:0 0 0 3px rgba(229,57,53,.14)}
-.poll-reminder{display:flex;align-items:center;justify-content:space-between;gap:14px;margin:0 0 14px;padding:15px 16px;border:1px solid #efc35d;border-radius:18px;background:linear-gradient(135deg,#fff8dc,#ffedaa);box-shadow:0 10px 24px rgba(127,88,0,.10)}
-.poll-reminder strong{display:block;font-size:1.05rem}.poll-reminder p{margin:4px 0 0;color:#70520b;font-weight:850}.poll-reminder .btn{flex:0 0 auto}
 .poll-option.unavailable{border-color:#d8a2a2;background:#fff4f4}.poll-option.unavailable .poll-count{background:#ffe3e3;color:#8e2424}
-@media(max-width:620px){.poll-reminder{align-items:stretch;flex-direction:column}.poll-reminder .btn{width:100%}}
 
 
 
