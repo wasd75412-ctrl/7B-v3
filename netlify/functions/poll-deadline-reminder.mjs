@@ -50,8 +50,8 @@ export default async()=>{
     for(const item of items){
       if(!isReminderDue(poll,item.record.lastReminderDeadline))continue;
       const payload=JSON.stringify({
-        title:'🔥 下次球局投票明天截止！',
-        body:'還沒投票的球友，現在點一下完成選擇 🏸',
+        title:'🔥投票明日截止🔥',
+        body:'還沒投票的球友們，點一下進行投票🏸',
         url:`${siteUrl}/?room=${encodeURIComponent(roomId)}&page=poll`,
         icon:`${siteUrl}/icons/icon-192.png`,
         badge:`${siteUrl}/icons/icon-192.png`,
