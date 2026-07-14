@@ -161,7 +161,7 @@ body:before{content:"";position:fixed;inset:0;pointer-events:none;opacity:.32;ba
 body,*{font-family:"LXGW WenKai TC","Noto Sans TC",sans-serif!important;}
 @font-face{
   font-family:"JasonHandwriting9";
-  src:url("/assets/fonts/jason-handwriting-9-brand.woff2?v=20260714-272") format("woff2");
+  src:url("/assets/fonts/jason-handwriting-9-brand.woff2?v=20260714-273") format("woff2");
   font-display:swap;
   font-style:normal;
   font-weight:400;
@@ -171,8 +171,10 @@ body,*{font-family:"LXGW WenKai TC","Noto Sans TC",sans-serif!important;}
 .landing-brand h2,
 .brand-copy .brand-mark h1{
   font-family:"JasonHandwriting9","PingFang TC","Noto Sans TC",sans-serif!important;
-  font-weight:400!important;
-  font-synthesis:none;
+  font-weight:600!important;
+  font-synthesis:weight;
+  -webkit-text-stroke:.55px currentColor;
+  paint-order:stroke fill;
   letter-spacing:.04em;
 }
 /* BCM 2.2.6 — pair waiting queue rotation */
