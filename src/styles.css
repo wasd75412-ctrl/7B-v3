@@ -848,8 +848,10 @@ body,*{font-family:"LXGW WenKai TC","Noto Sans TC",sans-serif!important;}
 
 /* iPad 橫向與直向：加強遠距姓名辨識 */
 @media(min-width:761px) and (max-width:1400px){
+  .score-side.a .court-name{left:clamp(0px,.6vw,10px)}
+  .score-side.b .court-name{left:clamp(-10px,-.6vw,0px)}
   .court-player-name{
-    max-width:min(23vw,430px);
-    font-size:clamp(3rem,6.8vw,7.5rem);
+    max-width:min(24vw,450px);
+    font-size:clamp(3.3rem,7.6vw,8rem);
   }
 }
