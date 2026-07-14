@@ -213,12 +213,21 @@ body,*{font-family:"LXGW WenKai TC","Noto Sans TC",sans-serif!important;}
 }
 .score-actions{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
 .score-actions .btn{padding:9px 12px}
+.score-head .score-actions>.btn{
+  display:grid;
+  place-items:center;
+  width:44px;
+  height:44px;
+  padding:0;
+  font-size:1.28rem;
+  line-height:1;
+}
 .score-theme-control{
-  display:flex;
-  align-items:center;
-  gap:6px;
-  min-height:40px;
-  padding:4px 7px 4px 10px;
+  display:grid;
+  place-items:center;
+  width:54px;
+  min-height:44px;
+  padding:4px;
   border:1px solid rgba(255,255,255,.25);
   border-radius:10px;
   color:#fff;
@@ -227,14 +236,14 @@ body,*{font-family:"LXGW WenKai TC","Noto Sans TC",sans-serif!important;}
   white-space:nowrap;
 }
 .score-theme-select{
-  min-height:32px;
-  max-width:132px;
-  padding:4px 7px;
+  width:44px;
+  min-height:34px;
+  padding:4px 17px 4px 7px;
   border:0;
   border-radius:7px;
   color:#fff;
   background:#151c22;
-  font-size:16px;
+  font-size:18px;
   font-weight:900;
 }
 #randomThemeToggle[aria-pressed="true"]{
@@ -572,7 +581,7 @@ body,*{font-family:"LXGW WenKai TC","Noto Sans TC",sans-serif!important;}
   .score-head{align-items:flex-start}
   .score-head .room-code{font-size:.9rem}
   .score-head .score-actions{justify-content:flex-end}
-  .score-head .score-actions .btn{padding:8px;font-size:.78rem}
+  .score-head .score-actions .btn{padding:0;font-size:1.15rem}
   .score-side{padding:7px 5px}
   .score-side.a{padding-right:var(--score-clearance)}
   .score-side.b{padding-left:var(--score-clearance)}
