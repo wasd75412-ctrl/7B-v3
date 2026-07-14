@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
 <title>7B 羽球社 2.3.6 簡化標線版</title>
 <link rel="preload" href="/assets/fonts/jason-handwriting-9-brand.woff2?v=20260714-277" as="font" type="font/woff2" crossorigin>
-<link rel="stylesheet" href="/src/styles.css?v=20260715-282">
+<link rel="stylesheet" href="/src/styles.css?v=20260715-283">
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="apple-touch-icon" sizes="180x180" href="icons/icon-180.png">
 <meta name="theme-color" content="#082947">
@@ -37,7 +37,7 @@
       <div class="room-status-row"><span id="roleBadge" class="pill host">管理員</span><span id="syncBadge" class="pill">連線中</span><span><span class="room-code" id="roomCode"></span><span id="roomLocalName" class="room-local-name"></span></span></div>
       <div class="room-quick-actions"><button id="favoriteRoomBtn" class="btn">☆ 加入常用</button><button id="roomMoreBtn" class="btn room-more-btn" type="button" aria-expanded="false" aria-controls="roomMoreMenu">⋯ 更多</button></div>
       <div id="roomMoreMenu" class="room-more-menu hidden" role="menu">
-        <button id="renameRoomBtn" class="btn" role="menuitem">命名球局</button><button id="shareBtn" class="btn" role="menuitem">分享觀看網址</button><button id="qrBtn" class="btn" role="menuitem">QR Code</button><button id="adminLoginBtn" class="btn" role="menuitem">管理員登入</button><button id="installHelpBtn" class="btn" role="menuitem">iPad 加到主畫面</button><button id="pushNotificationBtn" class="btn" type="button" role="menuitem" aria-pressed="false">🔔 啟用投票通知</button><button id="wakeLockBtn" class="btn" type="button" role="menuitem" aria-pressed="false">☀️ 正在啟用恆亮…</button><button id="refreshAppMenu" class="btn" type="button" role="menuitem" data-refresh-app>↻ 重新整理</button><button id="leaveBtn" class="btn danger-outline room-leave-btn" role="menuitem">離開房間</button>
+        <button id="renameRoomBtn" class="btn" role="menuitem">命名球局</button><button id="shareBtn" class="btn" role="menuitem">分享觀看網址</button><button id="qrBtn" class="btn" role="menuitem">QR Code</button><button id="adminLoginBtn" class="btn" role="menuitem">管理員登入</button><button id="installHelpBtn" class="btn" role="menuitem">iPad 加到主畫面</button><button id="pushNotificationBtn" class="btn" type="button" role="menuitem" aria-pressed="false">🔔 啟用投票通知</button><button id="wakeLockBtn" class="btn" type="button" role="menuitem" aria-pressed="false">☀️ 正在啟用恆亮…</button><div id="wakeLockFeedback" class="wake-lock-feedback pending" role="status" aria-live="polite">正在確認螢幕恆亮狀態…</div><button id="refreshAppMenu" class="btn" type="button" role="menuitem" data-refresh-app>↻ 重新整理</button><button id="leaveBtn" class="btn danger-outline room-leave-btn" role="menuitem">離開房間</button>
       </div>
     </div>
   </header>
@@ -193,6 +193,6 @@ window.addEventListener('unhandledrejection',event=>{
   if(box){box.textContent='程式執行失敗：'+(event.reason?.message||event.reason||'未知錯誤');box.classList.remove('hidden');}
 });
 </script>
-<script type="module" src="/src/main.js?v=20260715-282"></script>
+<script type="module" src="/src/main.js?v=20260715-283"></script>
 </body>
 </html>
