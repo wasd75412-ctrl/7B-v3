@@ -621,31 +621,34 @@ function createVideoWakeLock(){
   };
 }
 const fallbackNoSleep=createVideoWakeLock();
+const APP_WAKE_LOCK_KEY='bcmWakeLockEnabledV1';
+let appWakeLockWanted=localStorage.getItem(APP_WAKE_LOCK_KEY)!=='0';
 let appWakeLock=null,appWakeLockRequest=null,fallbackWakeLockRequest=null,appWakeLockRetryTimer=null,appWakeLockLastError='';
 function appWakeLockActive(){return (!!appWakeLock&&!appWakeLock.released)||fallbackNoSleep.isEnabled}
 function renderAppWakeLockStatus(){
   const button=$('wakeLockBtn'),feedback=$('wakeLockFeedback');
   if(!button)return;
-  const active=appWakeLockActive(),pending=!!appWakeLockRequest||!!fallbackWakeLockRequest;
+  const active=appWakeLockWanted&&appWakeLockActive(),pending=appWakeLockWanted&&(!!appWakeLockRequest||!!fallbackWakeLockRequest);
   button.setAttribute('aria-pressed',active?'true':'false');
   button.setAttribute('aria-busy',pending?'true':'false');
-  button.textContent=active?'☀️ 螢幕恆亮中':pending?'☀️ 正在啟用恆亮…':'☀️ 點一下保持亮起';
-  button.title=active?'螢幕將在 App 開啟時保持亮起':'點一下重新啟用螢幕恆亮';
+  button.textContent=!appWakeLockWanted?'🌙 恆亮已關閉（點擊開啟）':active?'☀️ 恆亮已開啟（點擊關閉）':pending?'☀️ 正在啟用恆亮…':'☀️ 點擊開啟螢幕恆亮';
+  button.title=appWakeLockWanted?'點擊關閉螢幕恆亮':'點擊開啟螢幕恆亮';
   if(feedback){
-    feedback.className=`wake-lock-feedback ${active?'success':appWakeLockLastError?'error':pending?'pending':''}`;
-    feedback.textContent=active?'✅ 已啟用：App 保持在前景時，螢幕會持續亮著。':appWakeLockLastError?`⚠️ 尚未啟用：${appWakeLockLastError}`:pending?'正在向 iPad 取得螢幕恆亮權限…':'尚未啟用；請點上方按鈕。';
+    feedback.className=`wake-lock-feedback ${active?'success':appWakeLockWanted&&appWakeLockLastError?'error':pending?'pending':''}`;
+    feedback.textContent=!appWakeLockWanted?'已關閉；iPad 將依系統設定熄屏。':active?'✅ 已開啟；點按上方按鈕即可關閉。':appWakeLockLastError?`⚠️ 尚未啟用：${appWakeLockLastError}`:pending?'正在向 iPad 取得螢幕恆亮權限…':'尚未啟用；請點上方按鈕。';
   }
 }
 function enableFallbackWakeLock(){
+  if(!appWakeLockWanted)return Promise.resolve(false);
   if(fallbackNoSleep.isEnabled)return Promise.resolve(true);
   if(fallbackWakeLockRequest)return fallbackWakeLockRequest;
-  fallbackWakeLockRequest=fallbackNoSleep.enable().then(()=>{appWakeLockLastError='';return true}).catch(()=>{appWakeLockLastError='iPad 未允許防熄屏，請關閉低耗電模式後再點一次。';return false}).finally(()=>{fallbackWakeLockRequest=null;renderAppWakeLockStatus()});
+  fallbackWakeLockRequest=fallbackNoSleep.enable().then(()=>{if(!appWakeLockWanted){fallbackNoSleep.disable();return false}appWakeLockLastError='';return true}).catch(()=>{appWakeLockLastError='iPad 未允許防熄屏，請關閉低耗電模式後再點一次。';return false}).finally(()=>{fallbackWakeLockRequest=null;renderAppWakeLockStatus()});
   renderAppWakeLockStatus();
   return fallbackWakeLockRequest;
 }
 function scheduleAppWakeLockRetry(delay=1200){
   clearTimeout(appWakeLockRetryTimer);
-  if(document.hidden)return;
+  if(document.hidden||!appWakeLockWanted)return;
   appWakeLockRetryTimer=setTimeout(()=>{appWakeLockRetryTimer=null;void syncAppWakeLock()},delay);
 }
 async function releaseAppWakeLock(){
@@ -658,6 +661,7 @@ async function releaseAppWakeLock(){
   renderAppWakeLockStatus();
 }
 async function syncAppWakeLock(userActivated=false){
+  if(!appWakeLockWanted){await releaseAppWakeLock();return}
   if(document.hidden){await releaseAppWakeLock();return}
   if(appWakeLockActive()){renderAppWakeLockStatus();return}
   if(appWakeLockRequest){
@@ -676,7 +680,7 @@ async function syncAppWakeLock(userActivated=false){
   renderAppWakeLockStatus();
   try{
     const lock=await appWakeLockRequest;
-    if(document.hidden){await lock.release();return}
+    if(document.hidden||!appWakeLockWanted){await lock.release();return}
     appWakeLock=lock;
     appWakeLockLastError='';
     if(fallbackAttempt)await fallbackAttempt;
@@ -699,8 +703,15 @@ document.addEventListener('keydown',()=>{void syncAppWakeLock(true)});
 window.addEventListener('focus',()=>scheduleAppWakeLockRetry(100));
 window.addEventListener('pageshow',()=>scheduleAppWakeLockRetry(100));
 window.addEventListener('pagehide',()=>{void releaseAppWakeLock()});
-$('wakeLockBtn').onclick=async()=>{appWakeLockLastError='';renderAppWakeLockStatus();await syncAppWakeLock(true);renderAppWakeLockStatus()};
-setInterval(()=>{if(!document.hidden&&!appWakeLockActive())void syncAppWakeLock()},30000);
+$('wakeLockBtn').onclick=async()=>{
+  appWakeLockWanted=!appWakeLockWanted;
+  localStorage.setItem(APP_WAKE_LOCK_KEY,appWakeLockWanted?'1':'0');
+  appWakeLockLastError='';
+  renderAppWakeLockStatus();
+  if(appWakeLockWanted)await syncAppWakeLock(true);else await releaseAppWakeLock();
+  renderAppWakeLockStatus();
+};
+setInterval(()=>{if(appWakeLockWanted&&!document.hidden&&!appWakeLockActive())void syncAppWakeLock()},30000);
 void syncAppWakeLock();
 function renderScore(){
   const m=state.match;
