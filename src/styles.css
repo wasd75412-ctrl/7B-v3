@@ -189,6 +189,12 @@ html.brand-font-fallback .landing-brand h2,
 html.brand-font-fallback .brand-copy .brand-mark h1{
   font-family:"PingFang TC","Noto Sans TC",sans-serif!important;
 }
+.next-event-fees{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin-top:14px}
+.next-event-fee{padding:12px 14px;border:1px solid rgba(255,255,255,.24);border-radius:15px;background:rgba(255,255,255,.12)}
+.next-event-fee span,.next-event-fee small{display:block;color:#dcecff;font-weight:800}
+.next-event-fee strong{display:block;margin:3px 0;font-size:1.3rem}
+.confirm-fee-hint{grid-column:1/-1;color:var(--muted);font-size:.85rem;font-weight:850;padding:2px 4px}
+@media(max-width:520px){.next-event-fees{grid-template-columns:1fr}}
 /* BCM 2.2.6 — pair waiting queue rotation */
 .person.card2 .racket-lines{
   display:grid;
