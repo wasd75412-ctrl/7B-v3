@@ -506,6 +506,17 @@ const refreshAppButtons=all('[data-refresh-app]');
 refreshAppButtons.forEach(button=>button.onclick=()=>{refreshAppButtons.forEach(item=>{item.disabled=true;item.textContent='↻ 重新載入…'});const url=new URL(location.href);url.searchParams.set('_refresh',Date.now().toString());setTimeout(()=>location.replace(url.toString()),50)});
 
 const fullscreenScoreBtn=$('fullscreenScore'),fullscreenScoreView=$('scoreView');
+const SCORE_THEME_KEY='bcmScoreThemeV1';
+const SCORE_THEMES=new Set(['green','blue','black','purple','red','brown']);
+const scoreThemeSelect=$('scoreTheme');
+function applyScoreTheme(value){
+  const theme=SCORE_THEMES.has(value)?value:'green';
+  fullscreenScoreView.dataset.scoreTheme=theme;
+  if(scoreThemeSelect)scoreThemeSelect.value=theme;
+  localStorage.setItem(SCORE_THEME_KEY,theme);
+}
+applyScoreTheme(localStorage.getItem(SCORE_THEME_KEY)||'green');
+if(scoreThemeSelect)scoreThemeSelect.onchange=()=>applyScoreTheme(scoreThemeSelect.value);
 function currentFullscreenElement(){return document.fullscreenElement||document.webkitFullscreenElement||null}
 function isScoreFullscreen(){return !!currentFullscreenElement()||fullscreenScoreView?.classList.contains('immersive-mode')}
 function updateFullscreenButton(){if(fullscreenScoreBtn)fullscreenScoreBtn.textContent=isScoreFullscreen()?'⛶ 離開全螢幕':'⛶ 全螢幕'}
