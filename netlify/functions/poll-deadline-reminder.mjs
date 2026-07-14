@@ -30,10 +30,6 @@ async function getRoomPoll(roomId){
   return firestorePollFromDocument(await response.json());
 }
 
-function deadlineLabel(value){
-  return new Intl.DateTimeFormat('zh-TW',{timeZone:'Asia/Taipei',month:'numeric',day:'numeric',weekday:'short',hour:'2-digit',minute:'2-digit',hourCycle:'h23'}).format(new Date(value));
-}
-
 export default async()=>{
   const publicKey=process.env.VAPID_PUBLIC_KEY?.trim(),privateKey=process.env.VAPID_PRIVATE_KEY?.trim();
   if(!publicKey||!privateKey)return jsonResponse({error:'VAPID 金鑰尚未設定。'},503);
@@ -54,8 +50,8 @@ export default async()=>{
     for(const item of items){
       if(!isReminderDue(poll,item.record.lastReminderDeadline))continue;
       const payload=JSON.stringify({
-        title:'7B 羽球社｜投票明天截止',
-        body:`下次球局投票將於 ${deadlineLabel(poll.deadlineAt)} 截止，記得完成選擇。`,
+        title:'🔥 下次球局投票明天截止！',
+        body:'還沒投票的球友，現在點一下完成選擇 🏸',
         url:`${siteUrl}/?room=${encodeURIComponent(roomId)}&page=poll`,
         icon:`${siteUrl}/icons/icon-192.png`,
         badge:`${siteUrl}/icons/icon-192.png`,
