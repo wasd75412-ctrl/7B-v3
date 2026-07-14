@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
 <title>7B 羽球社</title>
 <link rel="preload" href="/assets/fonts/jason-handwriting-9-brand.woff2?v=20260714-277" as="font" type="font/woff2" crossorigin>
-<link rel="stylesheet" href="/src/styles.css?v=20260715-289">
+<link rel="stylesheet" href="/src/styles.css?v=20260715-290">
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="apple-touch-icon" sizes="180x180" href="icons/icon-180.png">
 <meta name="theme-color" content="#082947">
@@ -37,7 +37,7 @@
       <div class="room-status-row"><span id="roleBadge" class="pill host">管理員</span><span id="syncBadge" class="pill">連線中</span><span><span class="room-code" id="roomCode"></span><span id="roomLocalName" class="room-local-name"></span></span></div>
       <div class="room-quick-actions"><button id="favoriteRoomBtn" class="btn">☆ 加入常用</button><button id="roomMoreBtn" class="btn room-more-btn" type="button" aria-expanded="false" aria-controls="roomMoreMenu">⋯ 更多</button></div>
       <div id="roomMoreMenu" class="room-more-menu hidden" role="menu">
-        <button id="renameRoomBtn" class="btn" role="menuitem">命名球局</button><button id="shareBtn" class="btn" role="menuitem">分享觀看網址</button><button id="qrBtn" class="btn" role="menuitem">QR Code</button><button id="adminLoginBtn" class="btn" role="menuitem">管理員登入</button><button id="installHelpBtn" class="btn" role="menuitem">iPad 加到主畫面</button><button id="pushNotificationBtn" class="btn" type="button" role="menuitem" aria-pressed="false">🔔 啟用投票通知</button><button id="pushTestBtn" class="btn" type="button" role="menuitem">📳 傳送測試通知</button><label class="app-theme-control" for="appThemeSelect"><span>🎨 整體背景</span><select id="appThemeSelect" class="viewer-enabled" aria-label="選擇整體背景"><option value="default">雲霧藍</option><option value="court">羽球場綠</option><option value="ocean">海洋藍</option><option value="sunset">夕陽橘</option><option value="lavender">薰衣草紫</option><option value="rose">櫻花粉</option><option value="midnight">深夜藍</option></select></label><button id="wakeLockBtn" class="btn" type="button" role="menuitem" aria-pressed="false">☀️ 檢查恆亮狀態…</button><div id="wakeLockFeedback" class="wake-lock-feedback pending" role="status" aria-live="polite">正在確認螢幕恆亮狀態…</div><button id="refreshAppMenu" class="btn" type="button" role="menuitem" data-refresh-app>↻ 重新整理</button><button id="leaveBtn" class="btn danger-outline room-leave-btn" role="menuitem">離開房間</button>
+        <button id="renameRoomBtn" class="btn" role="menuitem">命名球局</button><button id="shareBtn" class="btn" role="menuitem">分享觀看網址</button><button id="qrBtn" class="btn" role="menuitem">QR Code</button><button id="adminLoginBtn" class="btn" role="menuitem">管理員登入</button><button id="pushNotificationBtn" class="btn" type="button" role="menuitem" aria-pressed="false">🔔 啟用投票通知</button><button id="pushTestBtn" class="btn" type="button" role="menuitem">📳 傳送測試通知</button><label class="app-theme-control" for="appThemeSelect"><span>🎨 整體背景</span><select id="appThemeSelect" class="viewer-enabled" aria-label="選擇整體背景"><option value="default">雲霧藍</option><option value="court">羽球場綠</option><option value="ocean">海洋藍</option><option value="sunset">夕陽橘</option><option value="lavender">薰衣草紫</option><option value="rose">櫻花粉</option><option value="midnight">深夜藍</option></select></label><button id="wakeLockBtn" class="btn" type="button" role="menuitem" aria-pressed="false">☀️ 檢查恆亮狀態…</button><div id="wakeLockFeedback" class="wake-lock-feedback pending" role="status" aria-live="polite">正在確認螢幕恆亮狀態…</div><button id="refreshAppMenu" class="btn" type="button" role="menuitem" data-refresh-app>↻ 重新整理</button><button id="leaveBtn" class="btn danger-outline room-leave-btn" role="menuitem">離開房間</button>
       </div>
     </div>
   </header>
@@ -181,8 +181,6 @@
 </div></div>
 
 <div id="qrModal" class="modal hidden"><div class="modal-card qr-box" style="max-width:430px"><h2>掃描加入球局</h2><img id="qrImage" alt="球局 QR Code"><p class="room-code" id="qrRoomCode"></p><button id="closeQr" class="btn">關閉</button></div></div>
-<div id="installModal" class="modal hidden"><div class="modal-card" style="max-width:520px"><h2>iPad 加到主畫面</h2><p>請用 Safari 開啟目前網址，點工具列的「分享」圖示（方框向上箭頭），再選「加入主畫面」，最後按「加入」。</p><p class="sub">要保留管理員模式，請在目前這個管理員頁面直接加入主畫面，不要改用分享給球友的觀看網址。</p><button id="closeInstall" class="btn">知道了</button></div></div>
-
 <script>
 window.addEventListener('error',event=>{
   const box=document.getElementById('landingError');
@@ -193,6 +191,6 @@ window.addEventListener('unhandledrejection',event=>{
   if(box){box.textContent='程式執行失敗：'+(event.reason?.message||event.reason||'未知錯誤');box.classList.remove('hidden');}
 });
 </script>
-<script type="module" src="/src/main.js?v=20260715-289"></script>
+<script type="module" src="/src/main.js?v=20260715-290"></script>
 </body>
 </html>
