@@ -845,3 +845,11 @@ body,*{font-family:"LXGW WenKai TC","Noto Sans TC",sans-serif!important;}
   .score-center .score-number{font-size:clamp(3.7rem,min(19.5vw,21vh),5.4rem)}
   .score-divider::before{font-size:clamp(2.35rem,min(9vw,12vh),3.4rem)}
 }
+
+/* iPad 橫向與直向：加強遠距姓名辨識 */
+@media(min-width:761px) and (max-width:1400px){
+  .court-player-name{
+    max-width:min(23vw,430px);
+    font-size:clamp(3rem,6.8vw,7.5rem);
+  }
+}
