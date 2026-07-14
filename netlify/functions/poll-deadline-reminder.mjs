@@ -73,7 +73,9 @@ export default async()=>{
       }
     }
   }
-  return jsonResponse({ok:true,checked:records.length,sent,removed,failed});
+  const result={ok:true,checked:records.length,sent,removed,failed};
+  console.log('Poll reminder run',result);
+  return jsonResponse(result);
 };
 
-export const config={schedule:'@hourly'};
+export const config={schedule:'*/5 * * * *'};
