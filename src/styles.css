@@ -188,6 +188,7 @@ body,*{font-family:"LXGW WenKai TC","Noto Sans TC",sans-serif!important;}
   --score-b:#ff5964;
   --serve-yellow:#ffe14f;
   --score-court-bg:#0b7048;
+  --score-court-image:none;
   --score-clearance:clamp(112px,12vw,210px);
   position:fixed;
   inset:0;
@@ -235,6 +236,12 @@ body,*{font-family:"LXGW WenKai TC","Noto Sans TC",sans-serif!important;}
   background:#151c22;
   font-size:16px;
   font-weight:900;
+}
+#randomThemeToggle[aria-pressed="true"]{
+  color:#17120e;
+  border-color:#fff18b;
+  background:var(--serve-yellow);
+  box-shadow:0 0 0 3px rgba(255,225,79,.18);
 }
 
 /* iPad fallback: hide scoreboard chrome while keeping an exit control visible. */
@@ -916,16 +923,51 @@ body,*{font-family:"LXGW WenKai TC","Noto Sans TC",sans-serif!important;}
   }
 }
 
-/* Solid scoreboard court: one green tone without gradients or shading. */
+/* Switchable court themes. Solid themes stay flat; decorative themes use CSS artwork. */
 .score-view[data-score-theme="green"]{--score-court-bg:#0b7048}
 .score-view[data-score-theme="blue"]{--score-court-bg:#0b4f78}
 .score-view[data-score-theme="black"]{--score-court-bg:#242a30}
 .score-view[data-score-theme="purple"]{--score-court-bg:#553d73}
 .score-view[data-score-theme="red"]{--score-court-bg:#743d46}
 .score-view[data-score-theme="brown"]{--score-court-bg:#765034}
+.score-view[data-score-theme="teal"]{--score-court-bg:#146b68}
+.score-view[data-score-theme="indigo"]{--score-court-bg:#394b7a}
+.score-view[data-score-theme="rose"]{--score-court-bg:#87536f}
+.score-view[data-score-theme="amber"]{--score-court-bg:#896322}
+.score-view[data-score-theme="aurora"]{
+  --score-court-bg:#123d45;
+  --score-court-image:
+    radial-gradient(circle at 18% 20%,rgba(52,255,203,.48),transparent 34%),
+    radial-gradient(circle at 82% 30%,rgba(105,116,255,.48),transparent 38%),
+    linear-gradient(135deg,rgba(0,92,84,.8),rgba(42,25,92,.72));
+}
+.score-view[data-score-theme="galaxy"]{
+  --score-court-bg:#11162f;
+  --score-court-image:
+    radial-gradient(circle at 12% 18%,rgba(255,255,255,.75) 0 1px,transparent 2px),
+    radial-gradient(circle at 28% 72%,rgba(190,224,255,.68) 0 1px,transparent 2px),
+    radial-gradient(circle at 64% 22%,rgba(255,255,255,.8) 0 1.5px,transparent 2.5px),
+    radial-gradient(circle at 86% 68%,rgba(212,190,255,.72) 0 1px,transparent 2px),
+    radial-gradient(ellipse at 52% 48%,rgba(113,65,181,.42),transparent 48%),
+    linear-gradient(145deg,#11162f,#291947 58%,#0c2637);
+}
+.score-view[data-score-theme="sunset"]{
+  --score-court-bg:#713a53;
+  --score-court-image:
+    radial-gradient(circle at 78% 22%,rgba(255,200,105,.42),transparent 28%),
+    linear-gradient(135deg,#713a53 0%,#9a4f4e 48%,#3f365f 100%);
+}
+.score-view[data-score-theme="waves"]{
+  --score-court-bg:#07516b;
+  --score-court-image:
+    radial-gradient(ellipse at 15% 110%,rgba(52,207,222,.32) 0 38%,transparent 39%),
+    radial-gradient(ellipse at 55% 115%,rgba(31,160,204,.3) 0 42%,transparent 43%),
+    radial-gradient(ellipse at 90% 108%,rgba(75,226,218,.22) 0 36%,transparent 37%),
+    linear-gradient(160deg,#07516b,#0a7185 55%,#08445f);
+}
 .scoreboard{
-  background:var(--score-court-bg,#0b7048)!important;
-  background-image:none!important;
+  background-color:var(--score-court-bg,#0b7048)!important;
+  background-image:var(--score-court-image,none)!important;
   box-shadow:none!important;
 }
 .score-side.a,

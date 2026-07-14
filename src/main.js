@@ -416,7 +416,7 @@ function renderHistory(){const list=state.history.map((h,index)=>({h,index})).re
 function deleteHistoryRecord(index){if(!isHost)return;const h=state.history[index];if(!h)return;const title=`${(h.teams?.[0]||[]).map(pname).join('／')} ${h.scores?.[0]??0}：${h.scores?.[1]??0} ${(h.teams?.[1]||[]).map(pname).join('／')}`;if(!confirm(`確定刪除這筆比賽紀錄？\n\n${title}\n${h.time||''}`))return;state.history.splice(index,1);renderAll();saveSoon()}
 function clearAllHistory(){if(!isHost)return;if(!state.history.length)return alert('目前沒有比賽紀錄。');if(!confirm(`即將刪除全部 ${state.history.length} 筆比賽紀錄。\n球員名單與目前比分不會被刪除。`))return;const text=prompt('為避免誤刪，請輸入「清空」：','');if(text!=='清空')return alert('輸入不正確，已取消清空。');state.history=[];renderAll();saveSoon();alert('全部比賽紀錄已清空。')}
 function renderAll(){renderRoster();renderAttendance();renderCourt();renderHistory();renderScore();renderDashboard();renderStats();renderPoll();applyRole()}
-function startMatch(){dismissedResultKey='';const ids=state.court.filter(Boolean);if(ids.length!==4||new Set(ids).size!==4)return alert('請選擇四位不同球員。');reconcileWaitingQueue(ids);state.queueDraftChosen=[];state.match={active:true,players:[[ids[0],ids[1]],[ids[2],ids[3]]],scores:[0,0],rallies:[],serving:0,positions:[[0,1],[0,1]],winner:null};saveSoon();renderScore()}
+function startMatch(){dismissedResultKey='';const ids=state.court.filter(Boolean);if(ids.length!==4||new Set(ids).size!==4)return alert('請選擇四位不同球員。');reconcileWaitingQueue(ids);state.queueDraftChosen=[];randomizeScoreThemeAtMatchStart();state.match={active:true,players:[[ids[0],ids[1]],[ids[2],ids[3]]],scores:[0,0],rallies:[],serving:0,positions:[[0,1],[0,1]],winner:null};saveSoon();renderScore()}
 function finishMatch(){
   const m=state.match;if(!m.active||m.winner===null)return;
   let newlyRecorded=false;
@@ -458,6 +458,7 @@ function startNext(){
   const finalCall=calloutText(vals);
   state.waitingQueue=projectedQueueForLineup(vals);state.queueDraftChosen=[];state.priority=state.waitingQueue[0]||null;
   state.court=[...vals];state.nextCall=null;
+  randomizeScoreThemeAtMatchStart();
   state.match={active:true,players:[[vals[0],vals[1]],[vals[2],vals[3]]],scores:[0,0],rallies:[],serving:0,positions:[[0,1],[0,1]],winner:null};
   $('resultModal').classList.add('hidden');renderAll();saveSoon();if(isHost&&voiceEnabled&&finalCall)setTimeout(()=>speak(finalCall),180)
 }
@@ -507,16 +508,36 @@ refreshAppButtons.forEach(button=>button.onclick=()=>{refreshAppButtons.forEach(
 
 const fullscreenScoreBtn=$('fullscreenScore'),fullscreenScoreView=$('scoreView');
 const SCORE_THEME_KEY='bcmScoreThemeV1';
-const SCORE_THEMES=new Set(['green','blue','black','purple','red','brown']);
+const SCORE_RANDOM_THEME_KEY='bcmRandomScoreThemeV1';
+const SCORE_THEMES=new Set(['green','blue','black','purple','red','brown','teal','indigo','rose','amber','aurora','galaxy','sunset','waves']);
 const scoreThemeSelect=$('scoreTheme');
+const randomThemeToggle=$('randomThemeToggle');
+let randomScoreThemeEnabled=localStorage.getItem(SCORE_RANDOM_THEME_KEY)==='1';
 function applyScoreTheme(value){
   const theme=SCORE_THEMES.has(value)?value:'green';
   fullscreenScoreView.dataset.scoreTheme=theme;
   if(scoreThemeSelect)scoreThemeSelect.value=theme;
   localStorage.setItem(SCORE_THEME_KEY,theme);
 }
+function updateRandomThemeButton(){
+  if(!randomThemeToggle)return;
+  randomThemeToggle.setAttribute('aria-pressed',randomScoreThemeEnabled?'true':'false');
+  randomThemeToggle.textContent=`🎲 下場隨機：${randomScoreThemeEnabled?'開':'關'}`;
+}
+function randomizeScoreThemeAtMatchStart(){
+  if(!randomScoreThemeEnabled)return;
+  const current=fullscreenScoreView.dataset.scoreTheme;
+  const choices=[...SCORE_THEMES].filter(theme=>theme!==current);
+  applyScoreTheme(choices[Math.floor(Math.random()*choices.length)]||'green');
+}
 applyScoreTheme(localStorage.getItem(SCORE_THEME_KEY)||'green');
 if(scoreThemeSelect)scoreThemeSelect.onchange=()=>applyScoreTheme(scoreThemeSelect.value);
+updateRandomThemeButton();
+if(randomThemeToggle)randomThemeToggle.onclick=()=>{
+  randomScoreThemeEnabled=!randomScoreThemeEnabled;
+  localStorage.setItem(SCORE_RANDOM_THEME_KEY,randomScoreThemeEnabled?'1':'0');
+  updateRandomThemeButton();
+};
 function currentFullscreenElement(){return document.fullscreenElement||document.webkitFullscreenElement||null}
 function isScoreFullscreen(){return !!currentFullscreenElement()||fullscreenScoreView?.classList.contains('immersive-mode')}
 function updateFullscreenButton(){if(fullscreenScoreBtn)fullscreenScoreBtn.textContent=isScoreFullscreen()?'⛶ 離開全螢幕':'⛶ 全螢幕'}
