@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
 <title>7B 羽球社</title>
 <link rel="preload" href="/assets/fonts/jason-handwriting-9-brand.woff2?v=20260714-277" as="font" type="font/woff2" crossorigin>
-<link rel="stylesheet" href="/src/styles.css?v=20260715-294">
+<link rel="stylesheet" href="/src/styles.css?v=20260716-295">
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="apple-touch-icon" sizes="180x180" href="icons/icon-180.png">
 <meta name="theme-color" content="#082947">
@@ -77,35 +77,48 @@
   <section id="page5" class="card page hidden"><div class="history-head"><div><h2 style="margin:0">比賽紀錄</h2><p class="sub" style="margin:5px 0 0">刪除後，今日／每月／生涯統計會立即重新計算。</p></div><button id="clearHistory" class="btn danger-outline host-only">清空全部紀錄</button></div><div id="history"></div></section>
 
   <section id="page6" class="card page hidden">
-    <div class="history-head"><div><h2 style="margin:0">📅 下次球局</h2><p class="sub" style="margin:5px 0 0">可複選所有能參加的日期；若都無法參加，也請選擇「無法參加」。</p></div><span id="pollStatus" class="poll-status">投票開放中</span></div>
-    <div id="pollSummary" class="poll-summary"></div>
-    <div id="pollDeadlineInfo" class="poll-deadline-info"></div>
-    <div class="poll-deadline-controls host-only">
-      <label class="field"><span>投票截止日期與時間</span><input id="pollDeadline" type="datetime-local"></label>
-      <button id="savePollDeadline" class="btn primary" type="button">儲存截止時間</button>
-      <button id="clearPollDeadline" class="btn danger-outline" type="button">清除截止時間</button>
-    </div>
-    <div class="poll-form host-only">
-      <label class="field"><span>候選日期</span><input id="pollDate" type="date"></label>
-      <label class="field"><span>開始時間</span><input id="pollTime" type="time"></label>
-      <label class="field"><span>備註（選填）</span><input id="pollNote" class="input" placeholder="例如：XX 羽球館"></label>
-      <button id="addPollOption" class="btn primary wide-mobile">新增候選</button>
-    </div>
-    <div class="field" style="margin-bottom:12px"><label>本裝置的投票人</label><select id="pollVoter" class="input viewer-enabled"></select></div>
-    <div id="pollOptions" class="poll-options"></div>
-    <div class="toolbar" style="margin-top:14px"><button id="submitVote" class="btn blue viewer-enabled">送出／更新我的投票</button><button id="endPollEarly" class="btn red host-only">提前結束投票</button><button id="togglePoll" class="btn host-only hidden">重新開放投票</button><button id="clearPollVotes" class="btn danger-outline host-only">清空所有票數</button></div>
-    <div class="confirm-event-panel host-only">
-      <h3 style="margin-top:0">📣 確定下一次球局</h3>
-      <p class="sub">預約到場地後，選擇日期並填入地點；公告會顯示在所有人的總覽。</p>
-      <div class="confirm-event-grid">
-        <label class="field"><span>日期與時間</span><select id="confirmPollOption" class="input"></select></label>
-        <label class="field"><span>場地</span><input id="confirmLocation" class="input" placeholder="例如：XX 羽球館 3、4 號場"></label>
-        <label class="field"><span>公告備註</span><input id="confirmEventNote" class="input" placeholder="例如：請提前 10 分鐘到"></label>
-        <label class="field"><span>場租總金額（元）</span><input id="confirmRentalTotal" class="input" type="number" min="1" step="1" inputmode="numeric" placeholder="例如：2400"></label>
-        <label class="field"><span>每人需繳（自動計算）</span><input id="confirmPerPersonFee" class="input" type="text" readonly placeholder="選擇日期後計算"></label>
-        <div id="confirmFeeHint" class="confirm-fee-hint">依該日期投票人數平均分攤。</div>
+    <div class="history-head"><div><h2 style="margin:0">📅 下次球局</h2><p class="sub" style="margin:5px 0 0">選擇能參加的日期，截止前都能更新。</p></div><span id="pollStatus" class="poll-status">尚未建立</span></div>
+
+    <div id="pollSetupPanel" class="poll-flow-section host-only">
+      <h3>建立投票</h3>
+      <div class="poll-form">
+        <label class="field"><span>候選日期</span><input id="pollDate" type="date"></label>
+        <label class="field"><span>開始時間</span><input id="pollTime" type="time"></label>
+        <label class="field"><span>備註（選填）</span><input id="pollNote" class="input" placeholder="例如：XX 羽球館"></label>
+        <button id="addPollOption" class="btn primary wide-mobile">新增候選</button>
       </div>
-      <div class="confirm-event-actions"><button id="confirmNextEvent" class="btn primary">發布到總覽</button><button id="clearNextEvent" class="btn danger-outline">取消目前公告</button></div>
+      <div class="poll-deadline-controls">
+        <label class="field"><span>截止日期與時間</span><input id="pollDeadline" type="datetime-local"></label>
+        <button id="savePollDeadline" class="btn primary" type="button">設定截止</button>
+        <button id="clearPollDeadline" class="btn danger-outline" type="button">清除</button>
+      </div>
+      <div class="poll-reminder-note">🔔 截止前一天自動提醒已開啟通知的球友</div>
+    </div>
+
+    <div id="pollVotingPanel" class="poll-voting-panel">
+      <div id="pollDeadlineInfo" class="poll-deadline-info"></div>
+      <div id="pollSummary" class="poll-summary"></div>
+      <div class="poll-voter-row"><label class="field"><span>投票人</span><select id="pollVoter" class="input viewer-enabled"></select></label><button id="submitVote" class="btn blue viewer-enabled">送出／更新投票</button></div>
+      <div id="pollOptions" class="poll-options"></div>
+    </div>
+
+    <div id="confirmEventPanel" class="poll-flow-section poll-finalize-panel host-only">
+      <h3>確認球局並結束投票</h3>
+      <div class="confirm-event-grid">
+        <label class="field"><span>確定日期與開始時間</span><select id="confirmPollOption" class="input"></select></label>
+        <label class="field"><span>結束時間</span><input id="confirmEndTime" class="input" type="time"></label>
+        <label class="field"><span>場地</span><input id="confirmLocation" class="input" placeholder="例如：XX 羽球館 3、4 號場"></label>
+        <label class="field"><span>場租總額（元）</span><input id="confirmRentalTotal" class="input" type="number" min="1" step="1" inputmode="numeric" placeholder="例如：2400"></label>
+        <label class="field"><span>每人需繳</span><input id="confirmPerPersonFee" class="input" type="text" readonly placeholder="自動計算"></label>
+        <label class="field"><span>公告備註（選填）</span><input id="confirmEventNote" class="input" placeholder="例如：請提前 10 分鐘到"></label>
+        <div id="confirmFeeHint" class="confirm-fee-hint">依選定日期的參加人數計算。</div>
+      </div>
+      <button id="confirmNextEvent" class="btn red wide poll-finish-btn">確認並結束投票</button>
+    </div>
+
+    <div id="pollCompletedPanel" class="poll-completed-panel hidden">
+      <div id="pollCompletedText"></div>
+      <div class="poll-completed-actions host-only"><button id="newPollBtn" class="btn primary">建立新投票</button><button id="clearNextEvent" class="btn danger-outline">刪除公告</button></div>
     </div>
   </section>
 
@@ -191,6 +204,6 @@ window.addEventListener('unhandledrejection',event=>{
   if(box){box.textContent='程式執行失敗：'+(event.reason?.message||event.reason||'未知錯誤');box.classList.remove('hidden');}
 });
 </script>
-<script type="module" src="/src/main.js?v=20260715-294"></script>
+<script type="module" src="/src/main.js?v=20260716-295"></script>
 </body>
 </html>
