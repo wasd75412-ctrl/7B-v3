@@ -28,7 +28,9 @@ export default async request=>{
     createdAt:existing?.createdAt||now,
     updatedAt:now,
     lastReminderDeadline:existing?.lastReminderDeadline||'',
-    lastReminderAt:existing?.lastReminderAt||''
+    lastReminderAt:existing?.lastReminderAt||'',
+    lastEventPublishedAt:existing?.lastEventPublishedAt||'',
+    lastEventAt:existing?.lastEventAt||''
   });
   return jsonResponse({ok:true,enabled:true});
 };

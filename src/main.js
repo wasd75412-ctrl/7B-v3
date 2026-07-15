@@ -432,7 +432,7 @@ function renderPoll(){
 }
 function addPollOption(){const date=$('pollDate').value,time=$('pollTime').value,note=$('pollNote').value.trim();if(isPollClosed(state.schedulePoll))return alert('請先建立新投票。');if(!date)return alert('請先選擇候選日期。');if(!time)return alert('請設定開始時間。');if(state.schedulePoll.options.some(o=>o.date===date&&o.time===time))return alert('這個日期與時間已經存在。');state.schedulePoll.options.push({id:randomToken(),date,time,note});state.schedulePoll.options.sort((a,b)=>(a.date+a.time).localeCompare(b.date+b.time));$('pollNote').value='';renderPoll();saveSoon()}
 function deletePollOption(id){if(!confirm('刪除這個候選日期？相關票數也會移除。'))return;state.schedulePoll.options=state.schedulePoll.options.filter(o=>o.id!==id);for(const key of Object.keys(state.schedulePoll.votes||{}))state.schedulePoll.votes[key]=pollSelectionList(state.schedulePoll.votes[key]).filter(x=>x!==id).join('|');renderPoll();saveSoon()}
-function confirmNextEvent(){
+async function confirmNextEvent(){
   const optionId=$('confirmPollOption').value,option=(state.schedulePoll.options||[]).find(o=>o.id===optionId),endTime=$('confirmEndTime').value,location=$('confirmLocation').value.trim(),note=$('confirmEventNote').value.trim();
   if(!option)return alert('請先選擇已確定的日期與開始時間。');
   if(!endTime)return alert('請設定結束時間。');
@@ -443,9 +443,26 @@ function confirmNextEvent(){
   if(!participantCount)return alert('這個日期目前沒有投票參加者，無法計算每人費用。');
   const summary=`${formatEventDate(option.date,option.time,endTime)}\n${location}\n場租 ${formatMoney(rentalTotal)} 元｜每人 ${formatMoney(perPersonFee)} 元\n\n結束後會刪除全部候選日期與票數。`;
   if(!confirm(`確定發布球局並結束投票？\n\n${summary}`))return;
-  state.nextEvent={optionId:option.id,date:option.date,time:option.time||'',endTime,location,note,rentalTotal,participantCount,perPersonFee,publishedAt:new Date().toISOString()};
+  const button=$('confirmNextEvent'),publishedAt=new Date().toISOString();
+  button.disabled=true;button.textContent='發布球局中…';
+  state.nextEvent={optionId:option.id,date:option.date,time:option.time||'',endTime,location,note,rentalTotal,participantCount,perPersonFee,publishedAt};
   state.schedulePoll={status:'closed',deadlineAt:'',options:[],votes:{},voterPlayers:{}};
-  renderDashboard();renderPoll();saveSoon();alert(`已結束投票並發布球局。\n每人需繳 ${formatMoney(perPersonFee)} 元。`);
+  renderDashboard();renderPoll();
+  let pushMessage='';
+  try{
+    await saveNow();
+    const result=await pushApi('event-announcement',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({roomId,hostToken,publishedAt})});
+    if(result.failed)pushMessage=`\n已送達 ${result.sent} 台裝置，另有 ${result.failed} 台暫時未送達。`;
+    else if(result.sent)pushMessage=`\n已推送通知給 ${result.sent} 台裝置。`;
+    else if(result.skipped)pushMessage='\n這次球局公告先前已推送完成。';
+    else pushMessage='\n目前沒有已開啟通知的裝置。';
+  }catch(error){
+    saveSoon();
+    pushMessage=`\n球局公告已保留，但通知暫時未送出：${error.message||'請稍後再試。'}`;
+  }finally{
+    button.disabled=false;button.textContent='確認並結束投票';
+  }
+  alert(`已結束投票並發布球局。\n每人需繳 ${formatMoney(perPersonFee)} 元。${pushMessage}`);
 }
 function clearNextEvent(){if(!state.nextEvent)return;if(!confirm('確定取消總覽中的下一次打球公告？'))return;state.nextEvent=null;renderDashboard();renderPoll();saveSoon()}
 function startNewPoll(){if(!confirm('建立新投票？目前的球局公告會保留在總覽。'))return;state.schedulePoll={status:'open',deadlineAt:'',options:[],votes:{},voterPlayers:{}};['confirmPollOption','confirmEndTime','confirmLocation','confirmRentalTotal','confirmPerPersonFee','confirmEventNote'].forEach(id=>{const input=$(id);if(input)input.value=''});renderPoll();renderDashboard();saveSoon()}
@@ -583,6 +600,17 @@ function saveSoon(){
       setError(formatError(e));
     });
   },120);
+}
+async function saveNow(){
+  if(!isHost||applying||!roomRef)throw new Error('只有管理員可以發布球局。');
+  clearTimeout(saveTimer);saveTimer=null;roomWriteScheduled=false;pendingRoomWrites++;updateSyncBadge();
+  try{
+    await setDoc(roomRef,payload(),{merge:true});
+  }catch(error){
+    setSync('同步失敗','error');setError(formatError(error));throw error;
+  }finally{
+    pendingRoomWrites=Math.max(0,pendingRoomWrites-1);updateSyncBadge();
+  }
 }
 function page(n){all('.page').forEach(x=>x.classList.add('hidden'));$('page'+n).classList.remove('hidden');all('.tab').forEach(x=>x.classList.toggle('active',+x.dataset.page===n));if(n===0)renderDashboard();if(n===4)renderStats();if(n===5)renderHistory();if(n===6){markPollSeen();renderPoll()}if(n===7)loadBackups()}
 function renderRoster(){const box=$('roster'),q=($('playerSearch')?.value||'').trim().toLowerCase(),sort=$('playerSort')?.value||'favorite';let rows=state.roster.filter(p=>[p.name,p.racket,p.backupRacket,p.note].some(v=>String(v||'').toLowerCase().includes(q)));rows.sort((a,b)=>sort==='name'?a.name.localeCompare(b.name):sort==='games'?playerStats(b.id).games-playerStats(a.id).games:(Number(b.favorite)-Number(a.favorite)||a.name.localeCompare(b.name)));box.innerHTML=rows.map(p=>{const st=playerStats(p.id),status=playerStatus(p.id),main=[p.racket,p.racketTension,p.racketString].filter(Boolean).join(' · '),backup=[p.backupRacket,p.backupTension,p.backupString].filter(Boolean).join(' · '),expanded=expandedPlayerNotes.has(p.id);return `<button class="person card2 ${p.favorite?'favorite':''} ${status.kind||''}" data-edit="${p.id}"><span class="favorite-star" data-fav="${p.id}" title="收藏">${p.favorite?'⭐':'☆'}</span>${avatar(p.id)}<span class="person-info"><span class="name">${esc(p.name)}</span><span class="person-meta"><span class="mini-tag stats" title="歷史累計">${st.wins}勝／${st.games}場</span><span class="status-mini">${esc(status.label)}</span></span><span class="racket-lines">${main?`<span class="racket-line" title="主拍 ${esc(main)}">🏸 主拍 ${esc(main)}</span>`:''}${backup?`<span class="racket-line" title="備拍 ${esc(backup)}">🏸 備拍 ${esc(backup)}</span>`:''}${!main&&!backup?`<span class="racket-line">🏸 尚未登錄球拍</span>`:''}</span>${p.note?`<span class="person-note ${expanded?'expanded':''}" data-note-toggle="${p.id}" role="button" aria-expanded="${expanded}"><span class="person-note-text">📝 ${esc(p.note)}</span><span class="person-note-toggle">${expanded?'▲ 收合':'▼ 展開'}</span></span>`:''}</span></button>`}).join('')||'<p class="sub">找不到符合條件的球員。</p>';all('[data-edit]').forEach(b=>b.onclick=e=>{if(e.target.closest('[data-fav],[data-note-toggle]'))return;openEdit(b.dataset.edit)});all('[data-fav]').forEach(b=>b.onclick=async e=>{e.stopPropagation();const p=player(b.dataset.fav);if(!p)return;const before=!!p.favorite;p.favorite=!before;renderRoster();try{if(isHost)saveSoon();else await saveSelfPlayer({id:p.id,favorite:p.favorite})}catch(err){p.favorite=before;renderRoster();alert('收藏更新失敗：'+formatError(err))}});all('[data-note-toggle]').forEach(n=>n.onclick=e=>{e.preventDefault();e.stopPropagation();const id=n.dataset.noteToggle;if(expandedPlayerNotes.has(id))expandedPlayerNotes.delete(id);else expandedPlayerNotes.add(id);renderRoster()})}
