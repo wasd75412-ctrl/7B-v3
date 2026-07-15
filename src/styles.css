@@ -128,6 +128,12 @@ html[data-app-theme="sunset"]{--app-theme-bg:radial-gradient(circle at 82% 4%,rg
 html[data-app-theme="lavender"]{--app-theme-bg:radial-gradient(circle at 18% 0%,rgba(139,92,246,.23),transparent 34%),linear-gradient(145deg,#f6f1ff 0%,#e5def7 56%,#e8f0ff 100%);--app-theme-grid:rgba(94,68,150,.05)}
 html[data-app-theme="rose"]{--app-theme-bg:radial-gradient(circle at 84% 0%,rgba(244,114,182,.20),transparent 34%),linear-gradient(145deg,#fff5f8 0%,#f5dfe7 55%,#f8edf1 100%);--app-theme-grid:rgba(157,68,102,.045)}
 html[data-app-theme="midnight"]{--app-theme-bg:radial-gradient(circle at 78% 0%,rgba(34,211,238,.18),transparent 34%),linear-gradient(145deg,#071727 0%,#0b2238 52%,#123d53 100%);--app-theme-grid:rgba(145,218,235,.055)}
+html[data-app-theme="dawn"]{--app-theme-bg:radial-gradient(circle at 18% 5%,rgba(255,214,102,.42),transparent 32%),radial-gradient(circle at 84% 0%,rgba(255,143,126,.24),transparent 38%),linear-gradient(145deg,#fff8de 0%,#f5dfb7 52%,#f7d9d1 100%);--app-theme-grid:rgba(157,105,31,.045)}
+html[data-app-theme="mint"]{--app-theme-bg:radial-gradient(circle at 82% 2%,rgba(45,212,191,.24),transparent 34%),linear-gradient(145deg,#f1fff9 0%,#ccefe1 54%,#e7f8f3 100%);--app-theme-grid:rgba(22,119,96,.05)}
+html[data-app-theme="peach"]{--app-theme-bg:radial-gradient(circle at 16% 0%,rgba(251,146,60,.24),transparent 33%),radial-gradient(circle at 88% 10%,rgba(244,114,182,.18),transparent 37%),linear-gradient(145deg,#fff5ee 0%,#f8d7cc 55%,#f8e4e4 100%);--app-theme-grid:rgba(166,83,64,.042)}
+html[data-app-theme="lagoon"]{--app-theme-bg:radial-gradient(circle at 18% 0%,rgba(6,182,212,.24),transparent 34%),linear-gradient(145deg,#edfffd 0%,#bfe7df 54%,#dff6ef 100%);--app-theme-grid:rgba(13,111,103,.052)}
+html[data-app-theme="starlight"]{--app-theme-bg:radial-gradient(circle at 78% 0%,rgba(168,85,247,.25),transparent 34%),radial-gradient(circle at 10% 25%,rgba(59,130,246,.18),transparent 30%),linear-gradient(145deg,#16142f 0%,#241b4b 54%,#203557 100%);--app-theme-grid:rgba(203,190,255,.055)}
+html[data-app-theme="sand"]{--app-theme-bg:radial-gradient(circle at 82% 0%,rgba(217,119,6,.16),transparent 34%),linear-gradient(145deg,#fffaf0 0%,#ead7ba 55%,#f4e9d6 100%);--app-theme-grid:rgba(130,92,47,.045)}
 html,body{background:var(--app-theme-bg)}
 body:before{background-image:linear-gradient(var(--app-theme-grid) 1px,transparent 1px),linear-gradient(90deg,var(--app-theme-grid) 1px,transparent 1px)}
 @media(max-width:599px){.app-theme-control{grid-template-columns:1fr}.app-theme-control select{min-width:0}}
