@@ -866,9 +866,12 @@ $('pushNotificationBtn').onclick=setPushNotificationEnabled;
 $('pushTestBtn').onclick=testPushNotification;
 updatePushNotificationButton();
 const APP_THEME_KEY='bcmAppThemeV1';
+const APP_RANDOM_THEME_KEY='bcmRandomAppThemeV1';
 const APP_THEMES=new Set(['default','court','ocean','sunset','lavender','rose','midnight']);
 const APP_THEME_COLORS={default:'#eaf1f7',court:'#cce8da',ocean:'#cceaf6',sunset:'#f8dfd6',lavender:'#e5def7',rose:'#f5dfe7',midnight:'#0b2238'};
 const appThemeSelect=$('appThemeSelect');
+const randomAppThemeToggle=$('randomAppThemeToggle');
+let randomAppThemeEnabled=localStorage.getItem(APP_RANDOM_THEME_KEY)==='1',appThemeWasHidden=false;
 function applyAppTheme(value){
   const theme=APP_THEMES.has(value)?value:'default';
   document.documentElement.dataset.appTheme=theme;
@@ -876,8 +879,13 @@ function applyAppTheme(value){
   document.querySelector('meta[name="theme-color"]')?.setAttribute('content',APP_THEME_COLORS[theme]);
   localStorage.setItem(APP_THEME_KEY,theme);
 }
-applyAppTheme(localStorage.getItem(APP_THEME_KEY)||'default');
+function randomAppTheme(){const current=localStorage.getItem(APP_THEME_KEY)||'default',themes=[...APP_THEMES].filter(theme=>theme!==current),value=crypto.getRandomValues(new Uint32Array(1))[0];return themes[value%themes.length]}
+function updateRandomAppThemeButton(){if(!randomAppThemeToggle)return;randomAppThemeToggle.setAttribute('aria-pressed',randomAppThemeEnabled?'true':'false');randomAppThemeToggle.textContent=randomAppThemeEnabled?'🎲 隨機背景已開啟':'🎲 開啟隨機背景';randomAppThemeToggle.title=randomAppThemeEnabled?'點擊關閉每次開啟隨機背景':'點擊開啟每次開啟隨機背景'}
+applyAppTheme(randomAppThemeEnabled?randomAppTheme():localStorage.getItem(APP_THEME_KEY)||'default');
+updateRandomAppThemeButton();
 if(appThemeSelect)appThemeSelect.onchange=()=>applyAppTheme(appThemeSelect.value);
+if(randomAppThemeToggle)randomAppThemeToggle.onclick=()=>{randomAppThemeEnabled=!randomAppThemeEnabled;localStorage.setItem(APP_RANDOM_THEME_KEY,randomAppThemeEnabled?'1':'0');if(randomAppThemeEnabled)applyAppTheme(randomAppTheme());updateRandomAppThemeButton()};
+document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='hidden'){appThemeWasHidden=true;return}if(appThemeWasHidden){appThemeWasHidden=false;if(randomAppThemeEnabled)applyAppTheme(randomAppTheme())}});
 const roomMoreBtn=$('roomMoreBtn'),roomMoreMenu=$('roomMoreMenu');
 function setRoomMoreOpen(open){roomMoreMenu.classList.toggle('hidden',!open);roomMoreBtn.setAttribute('aria-expanded',open?'true':'false');roomMoreBtn.textContent=open?'收起':'⋯ 更多'}
 roomMoreBtn.onclick=e=>{e.stopPropagation();setRoomMoreOpen(roomMoreMenu.classList.contains('hidden'))};
