@@ -61,7 +61,7 @@ export default async request=>{
   try{room=await getRoomAnnouncement(roomId)}catch(error){console.error(error);return jsonResponse({error:'暫時無法確認球局公告。'},502)}
   if(room.hostToken!==hostToken)return jsonResponse({error:'只有管理員可以發布球局通知。'},403);
   const event=room.event;
-  if(!event.date||!event.time||!event.endTime||event.publishedAt!==publishedAt)return jsonResponse({error:'球局公告尚未完成同步，請稍後再試。'},409);
+  if(!event.date||!event.time||event.publishedAt!==publishedAt)return jsonResponse({error:'球局公告尚未完成同步，請稍後再試。'},409);
 
   const publicKey=process.env.VAPID_PUBLIC_KEY?.trim(),privateKey=process.env.VAPID_PRIVATE_KEY?.trim();
   const siteUrl=(process.env.URL||process.env.DEPLOY_PRIME_URL||'').replace(/\/$/,'');
