@@ -404,7 +404,7 @@ function renderPoll(){
   const own=ownedPlayerId(),voter=$('pollVoter'),current=poll.voterPlayers?.[selfHash]||own||voter.value||'';
   voter.innerHTML='<option value="">請選擇姓名</option>'+state.roster.map(p=>`<option value="${p.id}">${esc(p.name)}</option>`).join('');
   voter.value=state.roster.some(p=>p.id===current)?current:'';voter.disabled=!!own||closed;
-  $('pollStatus').textContent=deadlineExpired?'投票已截止':closed?'投票已關閉':'投票開放中';$('pollStatus').className='poll-status '+(closed?'closed':'');$('togglePoll').textContent=closed?'重新開放投票':'關閉投票';
+  $('pollStatus').textContent=deadlineExpired?'投票已截止':closed?'投票已關閉':'投票開放中';$('pollStatus').className='poll-status '+(closed?'closed':'');$('endPollEarly').style.display=closed?'none':'';$('togglePoll').style.display=closed?'':'none';$('togglePoll').textContent='重新開放投票';
   const leaders=options.filter(o=>max>0&&counts[o.id]===max);
   $('pollSummary').innerHTML=options.length?(max?`目前最高票：<strong>${leaders.map(pollOptionLabel).map(esc).join('、')}</strong>（${max} 票）${unavailableCount?` · 無法參加 ${unavailableCount} 人`:''}`:`尚未有人選擇日期。${unavailableCount?`目前有 ${unavailableCount} 人無法參加。`:''}`):'管理員尚未新增候選日期。';
   const deadlineInfo=$('pollDeadlineInfo'),deadlineText=poll.deadlineAt?formatPollDeadline(poll.deadlineAt):'';deadlineInfo.className=`poll-deadline-info${closed?' closed':''}`;deadlineInfo.innerHTML=poll.deadlineAt?`<strong>${deadlineExpired?'⏰ 投票已截止':closed?'⏸️ 投票已關閉':'⏰ 投票截止'}</strong><span>${deadlineExpired?'截止時間：':closed?'原訂截止：':'請於 '}${esc(deadlineText)}${!closed?' 前完成投票':''}</span>`:`<strong>${closed?'⏸️ 投票已關閉':'⏰ 尚未設定投票截止時間'}</strong>`;
@@ -478,6 +478,7 @@ async function submitPollVote(){
 }
 function savePollDeadline(){const input=$('pollDeadline'),value=input.value;if(!value)return alert('請先選擇投票截止日期與時間。');const deadline=new Date(value);if(isNaN(deadline.getTime()))return alert('投票截止時間格式不正確。');if(deadline.getTime()<=Date.now())return alert('投票截止時間必須晚於現在。');const wasExpired=isPollDeadlinePassed(state.schedulePoll);state.schedulePoll.deadlineAt=deadline.toISOString();if(wasExpired)state.schedulePoll.status='open';renderPoll();renderDashboard();saveSoon();alert(`投票截止時間已設定為 ${formatPollDeadline(state.schedulePoll.deadlineAt)}。`)}
 function clearPollDeadline(){const poll=state.schedulePoll;if(!poll.deadlineAt)return;const wasExpired=isPollDeadlinePassed(poll);poll.deadlineAt='';if(wasExpired)poll.status='open';renderPoll();renderDashboard();saveSoon()}
+function endPollEarly(){const poll=state.schedulePoll;if(isPollClosed(poll))return;if(!(poll.options||[]).length)return alert('目前沒有可結束的投票。');if(!confirm('已確認人數與場地，要現在提前結束投票嗎？\n\n結束後球友將無法再修改投票。'))return;poll.status='closed';renderPoll();renderDashboard();saveSoon()}
 function togglePoll(){const poll=state.schedulePoll;if(isPollClosed(poll)){if(isPollDeadlinePassed(poll)){if(!confirm('截止時間已過；重新開放投票會清除原截止時間。確定繼續？'))return;poll.deadlineAt=''}poll.status='open'}else poll.status='closed';renderPoll();renderDashboard();saveSoon()}
 function clearPollVotes(){if(prompt('要清空所有人的投票，請輸入「清空」：')!=='清空')return;state.schedulePoll.votes={};state.schedulePoll.voterPlayers={};renderPoll();saveSoon()}
 function setError(msg=''){const b=$('cloudError');b.textContent=msg;b.classList.toggle('hidden',!msg)}function setLandingError(msg=''){const b=$('landingError');b.textContent=msg;b.classList.toggle('hidden',!msg)}function setSync(text,type=''){$('syncBadge').textContent=text;$('syncBadge').className='pill '+type}
@@ -861,6 +862,7 @@ $('statsSort').onchange=renderStats;
 $('statsOrder').onchange=renderStats;
 $('savePollDeadline').onclick=savePollDeadline;
 $('clearPollDeadline').onclick=clearPollDeadline;
+$('endPollEarly').onclick=endPollEarly;
 $('pollDeadline').onfocus=()=>{$('pollDeadline').min=pollDeadlineInputValue(new Date().toISOString())};
 $('pushNotificationBtn').onclick=setPushNotificationEnabled;
 $('pushTestBtn').onclick=testPushNotification;
