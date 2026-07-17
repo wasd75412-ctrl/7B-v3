@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
 <title>7B 羽球社</title>
 <link rel="preload" href="/assets/fonts/jason-handwriting-9-brand.woff2?v=20260714-277" as="font" type="font/woff2" crossorigin>
-<link rel="stylesheet" href="/src/styles.css?v=20260717-300">
+<link rel="stylesheet" href="/src/styles.css?v=20260717-301">
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="apple-touch-icon" sizes="180x180" href="icons/icon-180.png">
 <meta name="theme-color" content="#082947">
@@ -23,11 +23,11 @@
     <button id="landingDeviceSyncBtn" class="btn wide" style="margin-top:9px">👤 同步我的其他裝置</button>
     <div class="divider">或加入現有球局</div>
     <div class="join-grid"><input id="joinCode" class="input" maxlength="6" placeholder="輸入 6 位房間代碼"><button id="joinRoom" class="btn blue">加入觀看</button></div>
+    <div id="landingError" class="error-box hidden"></div>
     <label class="auto-return"><input type="checkbox" id="autoReturnRoom"> 開啟 App 時自動回到上次球局</label>
     <div id="continueRoom" class="continue-card hidden"></div>
     <div id="favoriteRooms" class="room-library hidden"></div>
     <div id="recentRooms" class="room-library hidden"></div>
-    <div id="landingError" class="error-box hidden"></div>
 </section>
 </div>
 
@@ -244,6 +244,6 @@ window.addEventListener('unhandledrejection',event=>{
 });
 bcmBootTimer=setTimeout(()=>{if(!window.__bcmBooted)bcmShowBootError('App 啟動時間過久，可能是更新快取不完整。');},8000);
 </script>
-<script type="module" src="/src/main.js?v=20260717-300"></script>
+<script type="module" src="/src/main.js?v=20260717-301"></script>
 </body>
 </html>
