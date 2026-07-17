@@ -1,7 +1,20 @@
-const CACHE='7b-bcm-20260717-ipad-poll-spacing-299';
-const ASSETS=['./','./index.html','./manifest.webmanifest','./icons/icon-180.png','./icons/icon-192.png','./icons/icon-512.png','./icons/icon-maskable-512.png','./assets/7b-logo-full.png','./assets/fonts/jason-handwriting-9-brand.woff2?v=20260714-277'];
+const CACHE='7b-bcm-20260717-ipad-startup-recovery-300';
+const ASSETS=['./manifest.webmanifest','./icons/icon-180.png','./icons/icon-192.png','./icons/icon-512.png','./icons/icon-maskable-512.png','./assets/7b-logo-full.png','./assets/fonts/jason-handwriting-9-brand.woff2?v=20260714-277'];
 
-self.addEventListener('install',event=>event.waitUntil(caches.open(CACHE).then(cache=>cache.addAll(ASSETS)).then(()=>self.skipWaiting())));
+async function installAppShell(){
+  const cache=await caches.open(CACHE);
+  const indexResponse=await fetch('./index.html',{cache:'no-store'});
+  if(!indexResponse.ok)throw new Error(`App shell ${indexResponse.status}`);
+  const html=await indexResponse.clone().text();
+  const versionAssets=[...html.matchAll(/(?:src|href)=["']([^"']+\.(?:js|css)(?:\?[^"']*)?)/gi)]
+    .map(match=>new URL(match[1],self.registration.scope).href)
+    .filter(url=>new URL(url).origin===self.location.origin);
+  await cache.addAll([...new Set([...ASSETS,...versionAssets])]);
+  await cache.put('./index.html',indexResponse.clone());
+  await cache.put('./',indexResponse);
+}
+
+self.addEventListener('install',event=>event.waitUntil(installAppShell().then(()=>self.skipWaiting())));
 
 self.addEventListener('activate',event=>event.waitUntil(caches.keys().then(keys=>Promise.all(keys.filter(key=>key!==CACHE).map(key=>caches.delete(key)))).then(()=>self.clients.claim())));
 
