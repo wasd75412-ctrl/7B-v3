@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
 <title>7B 羽球社</title>
 <link rel="preload" href="/assets/fonts/jason-handwriting-9-brand.woff2?v=20260714-277" as="font" type="font/woff2" crossorigin>
-<link rel="stylesheet" href="/src/styles.css?v=20260717-308">
+<link rel="stylesheet" href="/src/styles.css?v=20260717-309">
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="apple-touch-icon" sizes="180x180" href="icons/icon-180.png">
 <meta name="theme-color" content="#082947">
@@ -86,7 +86,7 @@
         <label class="field"><span>候選日期</span><input id="pollDate" type="date"></label>
         <label class="field"><span>開始時間</span><input id="pollTime" type="time"></label>
         <label class="field"><span>結束時間</span><input id="pollEndTime" type="time"></label>
-        <label class="field"><span>備註（選填）</span><input id="pollNote" class="input" placeholder="例如：XX 羽球館"></label>
+        <div class="field location-field"><label for="pollNote">場地（選填）</label><input id="pollNote" class="input" placeholder="例如：XX 羽球館"><a id="pollLocationMap" class="map-preview-link hidden" href="#" target="_blank" rel="noopener noreferrer">📍 在 Google Maps 查看</a></div>
         <button id="addPollOption" class="btn primary wide-mobile">新增候選</button>
       </div>
       <div class="poll-deadline-controls">
@@ -109,7 +109,7 @@
       <div class="confirm-event-grid">
         <label class="field"><span>確定日期與開始時間</span><select id="confirmPollOption" class="input"></select></label>
         <label class="field"><span>結束時間</span><input id="confirmEndTime" class="input" type="time"></label>
-        <label class="field"><span>場地</span><input id="confirmLocation" class="input" placeholder="例如：XX 羽球館 3、4 號場"></label>
+        <div class="field location-field"><label for="confirmLocation">場地</label><input id="confirmLocation" class="input" placeholder="例如：XX 羽球館 3、4 號場"><a id="confirmLocationMap" class="map-preview-link hidden" href="#" target="_blank" rel="noopener noreferrer">📍 在 Google Maps 查看</a></div>
         <label class="field"><span>場租總額（元）</span><input id="confirmRentalTotal" class="input" type="number" min="1" step="1" inputmode="numeric" placeholder="例如：2400"></label>
         <label class="field"><span>每人需繳</span><input id="confirmPerPersonFee" class="input" type="text" readonly placeholder="自動計算"></label>
         <label class="field"><span>公告備註（選填）</span><input id="confirmEventNote" class="input" placeholder="例如：請提前 10 分鐘到"></label>
@@ -244,6 +244,6 @@ window.addEventListener('unhandledrejection',event=>{
 });
 bcmBootTimer=setTimeout(()=>{if(!window.__bcmBooted)bcmShowBootError('App 啟動時間過久，可能是更新快取不完整。');},8000);
 </script>
-<script type="module" src="/src/main.js?v=20260717-308"></script>
+<script type="module" src="/src/main.js?v=20260717-309"></script>
 </body>
 </html>
