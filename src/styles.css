@@ -1304,3 +1304,33 @@ html.brand-font-fallback .brand-copy .brand-mark h1{
   box-shadow:0 16px 36px var(--app-surface-shadow)
 }
 #app .next-event-note{color:rgba(255,255,255,.82)}
+
+/* BCM 2.3.29 — Google Maps venue links */
+.location-field label{display:block;margin-bottom:5px;color:var(--muted);font-size:.82rem;font-weight:900}
+.map-preview-link,.map-link{
+  display:inline-flex;
+  align-items:center;
+  gap:4px;
+  width:max-content;
+  max-width:100%;
+  border:1px solid var(--app-surface-line);
+  border-radius:999px;
+  padding:7px 10px;
+  background:var(--app-surface-strong);
+  color:var(--app-active-start);
+  font-size:.82rem;
+  font-weight:950;
+  line-height:1.1;
+  text-decoration:none
+}
+.map-preview-link{margin-top:7px}
+.map-preview-link:hover,.map-link:hover{filter:brightness(.97);transform:translateY(-1px)}
+.poll-option-map{margin-top:7px}
+.next-event-place{display:flex;align-items:center;gap:9px;flex-wrap:wrap}
+.next-event-card .map-link{
+  border-color:rgba(255,255,255,.3);
+  background:rgba(255,255,255,.14);
+  color:#fff
+}
+.poll-completed-panel .map-link{margin-top:10px}
+@media(max-width:700px){.map-preview-link,.map-link{font-size:.78rem;padding:7px 9px}}
