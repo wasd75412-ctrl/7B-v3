@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
 <title>7B 羽球社</title>
 <link rel="preload" href="/assets/fonts/jason-handwriting-9-brand.woff2?v=20260714-277" as="font" type="font/woff2" crossorigin>
-<link rel="stylesheet" href="/src/styles.css?v=20260716-297">
+<link rel="stylesheet" href="/src/styles.css?v=20260717-298">
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="apple-touch-icon" sizes="180x180" href="icons/icon-180.png">
 <meta name="theme-color" content="#082947">
@@ -20,6 +20,7 @@
     <div class="landing-brand"><img src="icons/icon-512.png" alt="7B 羽球社"><h2>7B 羽球社</h2><div class="sub">Badminton Club Manager · BCM <span data-bcm-version></span></div></div>
     <p class="sub">建立球局後，把觀看網址或房間代碼分享給球友，即時同步球員與比分。</p>
     <button id="createRoom" class="btn primary wide">建立新球局（管理員）</button>
+    <button id="landingDeviceSyncBtn" class="btn wide" style="margin-top:9px">👤 同步我的其他裝置</button>
     <div class="divider">或加入現有球局</div>
     <div class="join-grid"><input id="joinCode" class="input" maxlength="6" placeholder="輸入 6 位房間代碼"><button id="joinRoom" class="btn blue">加入觀看</button></div>
     <label class="auto-return"><input type="checkbox" id="autoReturnRoom"> 開啟 App 時自動回到上次球局</label>
@@ -37,7 +38,7 @@
       <div class="room-status-row"><span id="roleBadge" class="pill host">管理員</span><span id="syncBadge" class="pill">連線中</span><span><span class="room-code" id="roomCode"></span><span id="roomLocalName" class="room-local-name"></span></span></div>
       <div class="room-quick-actions"><button id="favoriteRoomBtn" class="btn">☆ 加入常用</button><button id="roomMoreBtn" class="btn room-more-btn" type="button" aria-expanded="false" aria-controls="roomMoreMenu">⋯ 更多</button></div>
       <div id="roomMoreMenu" class="room-more-menu hidden" role="menu">
-        <button id="renameRoomBtn" class="btn" role="menuitem">命名球局</button><button id="shareBtn" class="btn" role="menuitem">分享觀看網址</button><button id="qrBtn" class="btn" role="menuitem">QR Code</button><button id="adminLoginBtn" class="btn" role="menuitem">管理員登入</button><button id="pushNotificationBtn" class="btn" type="button" role="menuitem" aria-pressed="false">🔔 啟用投票通知</button><button id="pushTestBtn" class="btn" type="button" role="menuitem">📳 傳送測試通知</button><label class="app-theme-control" for="appThemeSelect"><span>🎨 整體背景</span><select id="appThemeSelect" class="viewer-enabled" aria-label="選擇整體背景"><option value="default">雲霧藍</option><option value="court">羽球場綠</option><option value="ocean">海洋藍</option><option value="sunset">夕陽橘</option><option value="lavender">薰衣草紫</option><option value="rose">櫻花粉</option><option value="midnight">深夜藍</option><option value="dawn">晨曦金</option><option value="mint">薄荷青</option><option value="peach">蜜桃粉</option><option value="lagoon">湖水綠</option><option value="starlight">星夜紫</option><option value="sand">暖沙杏</option></select></label><button id="randomAppThemeToggle" class="btn" type="button" role="menuitem" aria-pressed="false">🎲 開啟隨機背景</button><button id="wakeLockBtn" class="btn" type="button" role="menuitem" aria-pressed="false">☀️ 檢查恆亮狀態…</button><div id="wakeLockFeedback" class="wake-lock-feedback pending" role="status" aria-live="polite">正在確認螢幕恆亮狀態…</div><button id="refreshAppMenu" class="btn" type="button" role="menuitem" data-refresh-app>↻ 重新整理</button><button id="leaveBtn" class="btn danger-outline room-leave-btn" role="menuitem">離開房間</button>
+        <button id="newRoomMenuBtn" class="btn" role="menuitem">＋ 建立新球局</button><button id="deviceSyncBtn" class="btn" role="menuitem">👤 裝置同步</button><button id="copyDeviceSyncBtn" class="btn hidden" role="menuitem">🔗 複製同步碼</button><button id="renameRoomBtn" class="btn" role="menuitem">命名球局</button><button id="shareBtn" class="btn" role="menuitem">分享觀看網址</button><button id="qrBtn" class="btn" role="menuitem">QR Code</button><button id="adminLoginBtn" class="btn" role="menuitem">管理員登入</button><button id="publishAdminNoticeBtn" class="btn host-only" role="menuitem">📣 發布事務公告</button><button id="clearAdminNoticeBtn" class="btn host-only" role="menuitem">移除事務公告</button><button id="pushNotificationBtn" class="btn" type="button" role="menuitem" aria-pressed="false">🔔 啟用投票通知</button><button id="pushTestBtn" class="btn" type="button" role="menuitem">📳 傳送測試通知</button><label class="app-theme-control" for="appThemeSelect"><span>🎨 整體背景</span><select id="appThemeSelect" class="viewer-enabled" aria-label="選擇整體背景"><option value="default">雲霧藍</option><option value="court">羽球場綠</option><option value="ocean">海洋藍</option><option value="sunset">夕陽橘</option><option value="lavender">薰衣草紫</option><option value="rose">櫻花粉</option><option value="midnight">深夜藍</option><option value="dawn">晨曦金</option><option value="mint">薄荷青</option><option value="peach">蜜桃粉</option><option value="lagoon">湖水綠</option><option value="starlight">星夜紫</option><option value="sand">暖沙杏</option></select></label><button id="randomAppThemeToggle" class="btn" type="button" role="menuitem" aria-pressed="false">🎲 開啟隨機背景</button><button id="wakeLockBtn" class="btn" type="button" role="menuitem" aria-pressed="false">☀️ 檢查恆亮狀態…</button><div id="wakeLockFeedback" class="wake-lock-feedback pending" role="status" aria-live="polite">正在確認螢幕恆亮狀態…</div><button id="refreshAppMenu" class="btn" type="button" role="menuitem" data-refresh-app>↻ 重新整理</button><button id="leaveBtn" class="btn danger-outline room-leave-btn" role="menuitem">離開房間</button>
       </div>
     </div>
   </header>
@@ -48,14 +49,14 @@
 
 
   <section id="page0" class="card page">
-    <div class="toolbar" style="justify-content:space-between"><div><h2 style="margin:0">今日球局總覽</h2><p class="sub" id="dashboardDate"></p></div><button id="announceBtn" class="btn host-only">🔊 播報下一場</button></div>
-    <div id="nextEventAnnouncement" class="next-event-card hidden"></div><div id="pollDeadlineAnnouncement" class="poll-deadline-card hidden"></div><div class="dashboard-grid"><div><div id="dashScore" class="dash-score"></div><div id="nextCall" class="callout hidden"></div></div><div><div id="dashMetrics" class="metric-grid"></div><h3>候場</h3><div id="dashWaiting" class="dash-list"></div></div></div>
+    <div class="toolbar" style="justify-content:space-between"><div><h2 style="margin:0">今日球局總覽</h2><p class="sub" id="dashboardDate"></p></div><div class="toolbar"><button id="announceBtn" class="btn host-only">🔊 播報下一場</button><button id="endSessionBtn" class="btn danger-outline host-only">結束今日球局</button></div></div>
+    <div id="adminAnnouncement" class="admin-announcement hidden"></div><div id="nextEventAnnouncement" class="next-event-card hidden"></div><div id="pollDeadlineAnnouncement" class="poll-deadline-card hidden"></div><div class="dashboard-grid"><div><div id="dashScore" class="dash-score"></div><div id="nextCall" class="callout hidden"></div></div><div><div id="dashMetrics" class="metric-grid"></div><h3>候場</h3><div id="dashWaiting" class="dash-list"></div></div></div>
     <div id="hotCold" class="leader-grid" style="margin-top:14px"></div>
   </section>
 
   <section id="page1" class="card page hidden">
     <h2>球員資料庫</h2>
-    <div class="add-row host-only"><input id="newName" class="input" placeholder="輸入球員姓名"><button id="addPlayer" class="btn primary">新增球員</button></div><div class="player-tools"><input id="playerSearch" class="input viewer-enabled" placeholder="🔍 搜尋球員、球拍或備註"><select id="playerSort" class="input viewer-enabled" style="max-width:190px"><option value="favorite">收藏優先</option><option value="name">姓名排序</option><option value="games">場次排序</option></select></div>
+    <div class="add-row"><input id="newName" class="input viewer-enabled" placeholder="輸入球員姓名"><button id="addPlayer" class="btn primary">新增球員</button></div><div class="player-tools"><input id="playerSearch" class="input viewer-enabled" placeholder="🔍 搜尋球員、球拍或備註"><select id="playerSort" class="input viewer-enabled" style="max-width:190px"><option value="favorite">收藏優先</option><option value="name">姓名排序</option><option value="games">場次排序</option></select></div>
     <div id="roster" class="grid roster"></div>
   </section>
 
@@ -84,6 +85,7 @@
       <div class="poll-form">
         <label class="field"><span>候選日期</span><input id="pollDate" type="date"></label>
         <label class="field"><span>開始時間</span><input id="pollTime" type="time"></label>
+        <label class="field"><span>結束時間</span><input id="pollEndTime" type="time"></label>
         <label class="field"><span>備註（選填）</span><input id="pollNote" class="input" placeholder="例如：XX 羽球館"></label>
         <button id="addPollOption" class="btn primary wide-mobile">新增候選</button>
       </div>
@@ -204,6 +206,6 @@ window.addEventListener('unhandledrejection',event=>{
   if(box){box.textContent='程式執行失敗：'+(event.reason?.message||event.reason||'未知錯誤');box.classList.remove('hidden');}
 });
 </script>
-<script type="module" src="/src/main.js?v=20260716-297"></script>
+<script type="module" src="/src/main.js?v=20260717-298"></script>
 </body>
 </html>
