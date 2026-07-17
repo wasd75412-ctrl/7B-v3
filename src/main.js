@@ -876,6 +876,7 @@ function renderScore(){
   scoreBEl.textContent=m.scores[1];
   scoreAEl.classList.toggle('two-digit',m.scores[0]>=10);
   scoreBEl.classList.toggle('two-digit',m.scores[1]>=10);
+  $('undo').disabled=!m.rallies.length;
 
   const scoreNameClass=name=>{
     const cleanName=String(name||'').trim();
@@ -1219,6 +1220,6 @@ const exitScoreBtn=$('exitScore');if(exitScoreBtn)exitScoreBtn.addEventListener(
 
 window.bcmMarkBooted?.();
 if('serviceWorker'in navigator&&location.protocol.startsWith('http')){
-  const swRevision='20260717-311';
+  const swRevision='20260717-312';
   navigator.serviceWorker.register(`./sw.js?v=${swRevision}`,{updateViaCache:'none'}).then(registration=>registration.update()).catch(()=>{});
 }
