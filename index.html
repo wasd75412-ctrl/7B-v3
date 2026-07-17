@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
 <title>7B 羽球社</title>
 <link rel="preload" href="/assets/fonts/jason-handwriting-9-brand.woff2?v=20260714-277" as="font" type="font/woff2" crossorigin>
-<link rel="stylesheet" href="/src/styles.css?v=20260717-309">
+<link rel="stylesheet" href="/src/styles.css?v=20260717-310">
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="apple-touch-icon" sizes="180x180" href="icons/icon-180.png">
 <meta name="theme-color" content="#082947">
@@ -164,6 +164,14 @@
 
 <div id="audioHelpModal" class="modal hidden"><div class="modal-card" style="max-width:620px"><h2>藍牙喇叭輸出</h2><p><strong>網頁無法直接替你選擇藍牙喇叭。</strong>請先在 iPad／手機的系統藍牙設定完成連線，聲音才會由系統送到喇叭。</p><ol style="line-height:1.8;padding-left:1.4em"><li>先到系統「設定 → 藍牙」連接喇叭。</li><li>回到本頁，按「📢 喇叭測試」。</li><li>若仍從裝置播放，開啟控制中心，點音訊輸出圖示並選擇藍牙喇叭。</li><li>把裝置音量與喇叭音量都調高。</li></ol><p class="viewer-note">比分播報音量已設為瀏覽器允許的最大值。實際音量仍由裝置與藍牙喇叭控制。</p><button id="closeAudioHelp" class="btn primary wide">知道了</button></div></div>
 
+<div id="adminNoticeModal" class="modal hidden"><div class="modal-card admin-notice-editor" style="max-width:620px">
+  <h2>📣 發布事務公告</h2>
+  <p class="sub">公告會同步顯示在所有球友的總覽。</p>
+  <div class="field"><label for="adminNoticeTitle">公告標題</label><input id="adminNoticeTitle" class="input" maxlength="40" placeholder="例如：場地異動通知"></div>
+  <div class="field" style="margin-top:13px"><label for="adminNoticeBody">公告內容</label><textarea id="adminNoticeBody" class="input admin-notice-body" maxlength="500" rows="6" placeholder="輸入要通知球友的內容"></textarea></div>
+  <div class="admin-notice-actions"><button id="saveAdminNotice" class="btn primary" type="button">發布公告</button><button id="cancelAdminNotice" class="btn" type="button">取消</button></div>
+</div></div>
+
 <div id="resultModal" class="modal hidden"><div class="modal-card"><h2 id="winnerTitle">比賽結束</h2><p id="finalScore" style="font-size:2rem;font-weight:1000"></p><p class="sub">勝方兩人保留，候場隊首兩人上場；敗方兩人排到候場尾端，四人再完全隨機分隊。</p><div class="next-grid"><div class="next-team a"><h3>A隊</h3><div class="slot"><select id="n0"></select></div><div class="slot"><select id="n1"></select></div></div><div class="next-team b"><h3>B隊</h3><div class="slot"><select id="n2"></select></div><div class="slot"><select id="n3"></select></div></div></div><p id="priorityText" class="viewer-note hidden"></p><div class="toolbar host-only" style="margin-top:15px"><button id="shuffleNext" class="btn">重新完全隨機</button><button id="startNext" class="btn primary">開始下一場</button></div><button id="closeResult" class="btn" style="margin-top:10px">關閉</button></div></div>
 
 <div id="editModal" class="modal hidden"><div class="modal-card" style="max-width:700px">
@@ -244,6 +252,6 @@ window.addEventListener('unhandledrejection',event=>{
 });
 bcmBootTimer=setTimeout(()=>{if(!window.__bcmBooted)bcmShowBootError('App 啟動時間過久，可能是更新快取不完整。');},8000);
 </script>
-<script type="module" src="/src/main.js?v=20260717-309"></script>
+<script type="module" src="/src/main.js?v=20260717-310"></script>
 </body>
 </html>

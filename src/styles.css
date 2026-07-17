@@ -1334,3 +1334,13 @@ html.brand-font-fallback .brand-copy .brand-mark h1{
 }
 .poll-completed-panel .map-link{margin-top:10px}
 @media(max-width:700px){.map-preview-link,.map-link{font-size:.78rem;padding:7px 9px}}
+
+/* BCM 2.3.30 — reliable in-app announcement editor */
+.admin-notice-editor h2{margin:0}
+.admin-notice-editor>.sub{margin:7px 0 18px}
+.admin-notice-body{display:block;min-height:150px;resize:vertical;line-height:1.55}
+.admin-notice-actions{display:flex;justify-content:flex-end;gap:9px;margin-top:16px}
+@media(max-width:560px){
+  .admin-notice-actions{display:grid;grid-template-columns:1fr}
+  .admin-notice-actions .btn{width:100%}
+}
