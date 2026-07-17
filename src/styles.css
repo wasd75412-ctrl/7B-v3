@@ -329,7 +329,15 @@ body>.modal .modal-card{
 
 
 
-body,*{font-family:"LXGW WenKai TC","Noto Sans TC",sans-serif!important;}
+@font-face{
+  font-family:"BCMBrandYu";
+  src:url("/assets/fonts/jason-handwriting-9-brand.woff2?v=20260714-277") format("woff2");
+  font-display:block;
+  font-style:normal;
+  font-weight:400;
+  unicode-range:U+7FBD;
+}
+body,*{font-family:"BCMBrandYu","LXGW WenKai TC","Noto Sans TC",sans-serif!important;}
 @font-face{
   font-family:"JasonHandwriting9";
   src:url("/assets/fonts/jason-handwriting-9-brand.woff2?v=20260714-277") format("woff2");
