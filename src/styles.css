@@ -1270,3 +1270,6 @@ html.brand-font-fallback .brand-copy .brand-mark h1{
     font-size:calc(clamp(3.3rem,7.6vw,8rem) + 10pt - var(--score-name-reduction,0pt));
   }
 }
+
+/* BCM 2.3.26 — end-of-session backup badge */
+.backup-type.session{background:#dcf7ef;color:#08735b}
