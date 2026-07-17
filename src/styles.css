@@ -1145,6 +1145,11 @@ html.brand-font-fallback .brand-copy .brand-mark h1{
 
 /* iPad 橫向與直向：加強遠距姓名辨識 */
 @media(min-width:761px) and (max-width:1400px){
+  .court-names{
+    align-content:space-between;
+    gap:0;
+    padding-block:clamp(34px,5.4vh,58px)
+  }
   .score-side.a .court-name{left:clamp(0px,.6vw,10px)}
   .score-side.b .court-name{left:clamp(-10px,-.6vw,0px)}
   .court-player-name{
