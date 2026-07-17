@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
 <title>7B 羽球社</title>
 <link rel="preload" href="/assets/fonts/jason-handwriting-9-brand.woff2?v=20260714-277" as="font" type="font/woff2" crossorigin>
-<link rel="stylesheet" href="/src/styles.css?v=20260717-299">
+<link rel="stylesheet" href="/src/styles.css?v=20260717-300">
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="apple-touch-icon" sizes="180x180" href="icons/icon-180.png">
 <meta name="theme-color" content="#082947">
@@ -197,15 +197,53 @@
 
 <div id="qrModal" class="modal hidden"><div class="modal-card qr-box" style="max-width:430px"><h2>掃描加入球局</h2><img id="qrImage" alt="球局 QR Code"><p class="room-code" id="qrRoomCode"></p><button id="closeQr" class="btn">關閉</button></div></div>
 <script>
+window.__bcmBooted=false;
+let bcmBootTimer;
+function bcmShowBootError(message){
+  const splash=document.getElementById('splash'),box=document.getElementById('landingError');
+  if(splash){splash.classList.add('hide');splash.style.display='none';}
+  if(!box)return;
+  box.replaceChildren(document.createTextNode(message));
+  const button=document.createElement('button');
+  button.type='button';
+  button.className='btn primary';
+  button.style.marginTop='12px';
+  button.textContent='修復快取並重新開啟';
+  button.onclick=async()=>{
+    button.disabled=true;
+    button.textContent='修復中…';
+    try{
+      if('caches'in window){
+        const keys=await caches.keys();
+        await Promise.all(keys.filter(key=>key.startsWith('7b-bcm-')).map(key=>caches.delete(key)));
+      }
+      if('serviceWorker'in navigator){
+        const registrations=await navigator.serviceWorker.getRegistrations();
+        await Promise.all(registrations.map(registration=>registration.unregister()));
+      }
+    }catch{}
+    sessionStorage.setItem('bcmSkipAutoReturnOnceV1','1');
+    const url=new URL(location.href);
+    url.searchParams.set('_recover',Date.now().toString());
+    location.replace(url.toString());
+  };
+  box.append(document.createElement('br'),button);
+  box.classList.remove('hidden');
+}
+window.bcmMarkBooted=()=>{
+  window.__bcmBooted=true;
+  clearTimeout(bcmBootTimer);
+};
 window.addEventListener('error',event=>{
+  if(event.target&&event.target!==window&&!['SCRIPT','LINK'].includes(event.target.tagName))return;
   const box=document.getElementById('landingError');
-  if(box){box.textContent='程式載入失敗：'+(event.message||'未知錯誤');box.classList.remove('hidden');}
-});
+  if(box)bcmShowBootError('程式載入失敗：'+(event.message||'新版檔案尚未完整下載'));
+},true);
 window.addEventListener('unhandledrejection',event=>{
-  const box=document.getElementById('landingError');
-  if(box){box.textContent='程式執行失敗：'+(event.reason?.message||event.reason||'未知錯誤');box.classList.remove('hidden');}
+  if(!window.__bcmBooted)bcmShowBootError('程式啟動失敗：'+(event.reason?.message||event.reason||'未知錯誤'));
 });
+bcmBootTimer=setTimeout(()=>{if(!window.__bcmBooted)bcmShowBootError('App 啟動時間過久，可能是更新快取不完整。');},8000);
 </script>
-<script type="module" src="/src/main.js?v=20260717-299"></script>
+<script type="module" src="/src/main.js?v=20260717-300"></script>
 </body>
 </html>
