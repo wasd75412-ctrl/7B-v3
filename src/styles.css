@@ -246,6 +246,32 @@ body>.modal .modal-card{
   -webkit-backdrop-filter:blur(22px);
   backdrop-filter:blur(22px)
 }
+#app #attendance .person{position:relative}
+#app #attendance .person.selected{
+  border-color:#15986a;
+  background:linear-gradient(145deg,rgba(226,251,239,.98),rgba(190,237,215,.95));
+  box-shadow:0 0 0 3px rgba(21,152,106,.18),0 13px 28px rgba(17,111,78,.18);
+  transform:translateY(-2px)
+}
+#app #attendance .person.selected::after{
+  content:"✓ 已出席";
+  position:absolute;
+  top:9px;
+  right:10px;
+  padding:5px 8px;
+  border-radius:999px;
+  color:#fff;
+  background:#12805e;
+  box-shadow:0 5px 12px rgba(18,128,94,.24);
+  font-size:.76rem;
+  font-weight:1000;
+  line-height:1
+}
+#app #attendance .person.selected .name{color:#0d6840}
+#app #attendance .person.selected .avatar{
+  border:3px solid rgba(21,152,106,.45);
+  box-shadow:0 7px 18px rgba(17,111,78,.18)
+}
 #app .sticky{
   border-color:var(--app-surface-line);
   background:var(--app-surface);
