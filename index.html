@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
 <title>7B 羽球社</title>
 <link rel="preload" href="/assets/fonts/jason-handwriting-9-brand.woff2?v=20260714-277" as="font" type="font/woff2" crossorigin>
-<link rel="stylesheet" href="/src/styles.css?v=20260717-312">
+<link rel="stylesheet" href="/src/styles.css?v=20260717-313">
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="apple-touch-icon" sizes="180x180" href="icons/icon-180.png">
 <meta name="theme-color" content="#082947">
@@ -38,7 +38,7 @@
       <div class="room-status-row"><span id="roleBadge" class="pill host">管理員</span><span id="syncBadge" class="pill">連線中</span><span><span class="room-code" id="roomCode"></span><span id="roomLocalName" class="room-local-name"></span></span></div>
       <div class="room-quick-actions"><button id="favoriteRoomBtn" class="btn">☆ 加入常用</button><button id="roomMoreBtn" class="btn room-more-btn" type="button" aria-expanded="false" aria-controls="roomMoreMenu">⋯ 更多</button></div>
       <div id="roomMoreMenu" class="room-more-menu hidden" role="menu">
-        <button id="newRoomMenuBtn" class="btn" role="menuitem">＋ 建立新球局</button><button id="deviceSyncBtn" class="btn" role="menuitem">👤 裝置同步</button><button id="copyDeviceSyncBtn" class="btn hidden" role="menuitem">🔗 複製同步碼</button><button id="renameRoomBtn" class="btn" role="menuitem">命名球局</button><button id="shareBtn" class="btn" role="menuitem">分享觀看網址</button><button id="qrBtn" class="btn" role="menuitem">QR Code</button><button id="adminLoginBtn" class="btn" role="menuitem">管理員登入</button><button id="publishAdminNoticeBtn" class="btn host-only" role="menuitem">➕ 新增公告</button><button id="editAdminNoticeBtn" class="btn host-only" role="menuitem">✏️ 編輯最新公告</button><button id="clearAdminNoticeBtn" class="btn host-only" role="menuitem">🗑️ 刪除最新公告</button><button id="pushNotificationBtn" class="btn" type="button" role="menuitem" aria-pressed="false">🔔 啟用投票通知</button><button id="pushTestBtn" class="btn" type="button" role="menuitem">📳 傳送測試通知</button><label class="app-theme-control" for="appThemeSelect"><span>🎨 整體背景</span><select id="appThemeSelect" class="viewer-enabled" aria-label="選擇整體背景"><option value="default">雲霧藍</option><option value="court">羽球場綠</option><option value="ocean">海洋藍</option><option value="sunset">夕陽橘</option><option value="lavender">薰衣草紫</option><option value="rose">櫻花粉</option><option value="midnight">深夜藍</option><option value="dawn">晨曦金</option><option value="mint">薄荷青</option><option value="peach">蜜桃粉</option><option value="lagoon">湖水綠</option><option value="starlight">星夜紫</option><option value="sand">暖沙杏</option></select></label><button id="randomAppThemeToggle" class="btn" type="button" role="menuitem" aria-pressed="false">🎲 開啟隨機背景</button><button id="wakeLockBtn" class="btn" type="button" role="menuitem" aria-pressed="false">☀️ 檢查恆亮狀態…</button><div id="wakeLockFeedback" class="wake-lock-feedback pending" role="status" aria-live="polite">正在確認螢幕恆亮狀態…</div><button id="refreshAppMenu" class="btn" type="button" role="menuitem" data-refresh-app>↻ 重新整理</button><button id="leaveBtn" class="btn danger-outline room-leave-btn" role="menuitem">離開房間</button>
+        <button id="newRoomMenuBtn" class="btn" role="menuitem">＋ 建立新球局</button><button id="deviceSyncBtn" class="btn" role="menuitem">👤 裝置同步</button><button id="copyDeviceSyncBtn" class="btn hidden" role="menuitem">🔗 複製同步碼</button><button id="renameRoomBtn" class="btn" role="menuitem">命名球局</button><button id="shareBtn" class="btn" role="menuitem">分享觀看網址</button><button id="qrBtn" class="btn" role="menuitem">QR Code</button><button id="adminLoginBtn" class="btn" role="menuitem">管理員登入</button><button id="adminNoticeManagerBtn" class="btn host-only" role="menuitem">📣 事務公告</button><button id="pushNotificationBtn" class="btn" type="button" role="menuitem" aria-pressed="false">🔔 啟用投票通知</button><button id="pushTestBtn" class="btn" type="button" role="menuitem">📳 傳送測試通知</button><label class="app-theme-control" for="appThemeSelect"><span>🎨 整體背景</span><select id="appThemeSelect" class="viewer-enabled" aria-label="選擇整體背景"><option value="default">雲霧藍</option><option value="court">羽球場綠</option><option value="ocean">海洋藍</option><option value="sunset">夕陽橘</option><option value="lavender">薰衣草紫</option><option value="rose">櫻花粉</option><option value="midnight">深夜藍</option><option value="dawn">晨曦金</option><option value="mint">薄荷青</option><option value="peach">蜜桃粉</option><option value="lagoon">湖水綠</option><option value="starlight">星夜紫</option><option value="sand">暖沙杏</option></select></label><button id="randomAppThemeToggle" class="btn" type="button" role="menuitem" aria-pressed="false">🎲 開啟隨機背景</button><button id="wakeLockBtn" class="btn" type="button" role="menuitem" aria-pressed="false">☀️ 檢查恆亮狀態…</button><div id="wakeLockFeedback" class="wake-lock-feedback pending" role="status" aria-live="polite">正在確認螢幕恆亮狀態…</div><button id="refreshAppMenu" class="btn" type="button" role="menuitem" data-refresh-app>↻ 重新整理</button><button id="leaveBtn" class="btn danger-outline room-leave-btn" role="menuitem">離開房間</button>
       </div>
     </div>
   </header>
@@ -164,12 +164,19 @@
 
 <div id="audioHelpModal" class="modal hidden"><div class="modal-card" style="max-width:620px"><h2>藍牙喇叭輸出</h2><p><strong>網頁無法直接替你選擇藍牙喇叭。</strong>請先在 iPad／手機的系統藍牙設定完成連線，聲音才會由系統送到喇叭。</p><ol style="line-height:1.8;padding-left:1.4em"><li>先到系統「設定 → 藍牙」連接喇叭。</li><li>回到本頁，按「📢 喇叭測試」。</li><li>若仍從裝置播放，開啟控制中心，點音訊輸出圖示並選擇藍牙喇叭。</li><li>把裝置音量與喇叭音量都調高。</li></ol><p class="viewer-note">比分播報音量已設為瀏覽器允許的最大值。實際音量仍由裝置與藍牙喇叭控制。</p><button id="closeAudioHelp" class="btn primary wide">知道了</button></div></div>
 
-<div id="adminNoticeModal" class="modal hidden"><div class="modal-card admin-notice-editor" style="max-width:620px">
-  <h2 id="adminNoticeEditorTitle">📣 新增公告</h2>
-  <p class="sub">公告會同步顯示在所有球友的總覽。</p>
-  <div class="field"><label for="adminNoticeTitle">公告標題</label><input id="adminNoticeTitle" class="input" maxlength="40" placeholder="例如：場地異動通知"></div>
-  <div class="field" style="margin-top:13px"><label for="adminNoticeBody">公告內容</label><textarea id="adminNoticeBody" class="input admin-notice-body" maxlength="500" rows="6" placeholder="輸入要通知球友的內容"></textarea></div>
-  <div class="admin-notice-actions"><button id="saveAdminNotice" class="btn primary" type="button">發布公告</button><button id="cancelAdminNotice" class="btn" type="button">取消</button></div>
+<div id="adminNoticeModal" class="modal hidden"><div class="modal-card admin-notice-manager">
+  <div class="admin-notice-manager-head"><div><h2>📣 事務公告</h2><p class="sub">在這裡發布、編輯或刪除公告，內容會同步到所有球友的總覽。</p></div><button id="closeAdminNotice" class="btn admin-notice-close" type="button" aria-label="關閉事務公告" title="關閉">✕</button></div>
+  <section class="admin-notice-library">
+    <div class="admin-notice-section-head"><h3>已發布公告</h3><button id="newAdminNotice" class="btn" type="button">＋ 新增公告</button></div>
+    <div id="adminNoticeManagerList" class="admin-notice-manager-list"></div>
+  </section>
+  <section id="adminNoticeEditorPanel" class="admin-notice-editor">
+    <h3 id="adminNoticeEditorTitle">發布新公告</h3>
+    <div class="field"><label for="adminNoticeTitle">公告標題</label><input id="adminNoticeTitle" class="input" maxlength="40" placeholder="例如：場地異動通知"></div>
+    <div class="field" style="margin-top:13px"><label for="adminNoticeBody">公告內容</label><textarea id="adminNoticeBody" class="input admin-notice-body" maxlength="500" rows="5" placeholder="輸入要通知球友的內容"></textarea></div>
+    <div id="adminNoticeFeedback" class="admin-notice-feedback hidden" role="status" aria-live="polite"></div>
+    <div class="admin-notice-actions"><button id="saveAdminNotice" class="btn primary" type="button">發布公告</button><button id="cancelAdminNoticeEdit" class="btn hidden" type="button">取消編輯</button></div>
+  </section>
 </div></div>
 
 <div id="resultModal" class="modal hidden"><div class="modal-card"><h2 id="winnerTitle">比賽結束</h2><p id="finalScore" style="font-size:2rem;font-weight:1000"></p><p class="sub">勝方兩人保留，候場隊首兩人上場；敗方兩人排到候場尾端，四人再完全隨機分隊。</p><div class="next-grid"><div class="next-team a"><h3>A隊</h3><div class="slot"><select id="n0"></select></div><div class="slot"><select id="n1"></select></div></div><div class="next-team b"><h3>B隊</h3><div class="slot"><select id="n2"></select></div><div class="slot"><select id="n3"></select></div></div></div><p id="priorityText" class="viewer-note hidden"></p><div class="toolbar host-only" style="margin-top:15px"><button id="shuffleNext" class="btn">重新完全隨機</button><button id="startNext" class="btn primary">開始下一場</button></div><button id="closeResult" class="btn" style="margin-top:10px">關閉</button></div></div>
@@ -252,6 +259,6 @@ window.addEventListener('unhandledrejection',event=>{
 });
 bcmBootTimer=setTimeout(()=>{if(!window.__bcmBooted)bcmShowBootError('App 啟動時間過久，可能是更新快取不完整。');},8000);
 </script>
-<script type="module" src="/src/main.js?v=20260717-312"></script>
+<script type="module" src="/src/main.js?v=20260717-313"></script>
 </body>
 </html>
