@@ -999,7 +999,33 @@ let pendingAvatar=null;function refreshProfilePreview(){const p=player(editId),s
 function canEditPlayer(p){return !!p&&(isHost||p.ownerHash===selfHash)}
 function updateProfilePermissions(){const p=player(editId),editable=canEditPlayer(p),claimable=!isHost&&p&&!editable;const claimBtn=$('claimPlayer');claimBtn.classList.toggle('hidden',!claimable);claimBtn.textContent=p?.ownerHash?'這是我的資料／重新認領':'這是我／認領資料';$('saveEdit').classList.toggle('hidden',!editable);$('profileEditFields').classList.toggle('hidden',!editable);$('photoHint').classList.toggle('hidden',!editable);['editName','editRacket','editRacketTension','editRacketString','editBackupRacket','editBackupTension','editBackupString','editNote','editPhoto','removePhoto'].forEach(id=>{const el=$(id);if(el)el.disabled=!editable});const voiceSection=$('voiceAdminSection');if(voiceSection)voiceSection.classList.toggle('hidden',!isHost);const voiceInput=$('editVoiceName');if(voiceInput)voiceInput.disabled=!isHost;const testVoice=$('testVoiceName');if(testVoice)testVoice.disabled=!isHost}
 function openEdit(id){editId=id;const p=player(id);pendingAvatar=null;profileOriginal={name:p?.name||'',voiceName:p?.voiceName||defaultVoiceName(p?.name),racket:p?.racket||'',racketTension:p?.racketTension||'',racketString:p?.racketString||'',backupRacket:p?.backupRacket||'',backupTension:p?.backupTension||'',backupString:p?.backupString||'',note:p?.note||''};profileDirty={name:false,voiceName:false,racket:false,racketTension:false,racketString:false,backupRacket:false,backupTension:false,backupString:false,note:false};$('editName').value=profileOriginal.name;$('editVoiceName').value=profileOriginal.voiceName;$('editRacket').value=profileOriginal.racket;$('editRacketTension').value=profileOriginal.racketTension;$('editRacketString').value=profileOriginal.racketString;$('editBackupRacket').value=profileOriginal.backupRacket;$('editBackupTension').value=profileOriginal.backupTension;$('editBackupString').value=profileOriginal.backupString;$('editNote').value=profileOriginal.note;refreshProfilePreview();updateProfilePermissions();$('editModal').classList.remove('hidden')}
-function compressPhoto(file){return new Promise((resolve,reject)=>{const img=new Image(),url=URL.createObjectURL(file);img.onload=()=>{try{const size=128,canvas=document.createElement('canvas');canvas.width=size;canvas.height=size;const ctx=canvas.getContext('2d'),scale=Math.max(size/img.width,size/img.height),w=img.width*scale,h=img.height*scale;ctx.drawImage(img,(size-w)/2,(size-h)/2,w,h);URL.revokeObjectURL(url);resolve(canvas.toDataURL('image/jpeg',.72))}catch(e){reject(e)}};img.onerror=()=>{URL.revokeObjectURL(url);reject(new Error('照片讀取失敗'))};img.src=url})}
+function compressPhoto(file){
+  return new Promise((resolve,reject)=>{
+    if(!file?.type?.startsWith('image/'))return reject(new Error('請選擇圖片檔案'));
+    const img=new Image(),url=URL.createObjectURL(file),sizes=[256,224,192],qualities=[.86,.8,.74,.68,.62],maxDataLength=44000;
+    img.onload=()=>{
+      try{
+        let fallback='';
+        for(const size of sizes){
+          const canvas=document.createElement('canvas');canvas.width=size;canvas.height=size;
+          const ctx=canvas.getContext('2d');
+          if(!ctx)throw new Error('裝置無法處理照片');
+          ctx.imageSmoothingEnabled=true;ctx.imageSmoothingQuality='high';
+          ctx.fillStyle='#fff';ctx.fillRect(0,0,size,size);
+          const scale=Math.max(size/img.width,size/img.height),w=img.width*scale,h=img.height*scale;
+          ctx.drawImage(img,(size-w)/2,(size-h)/2,w,h);
+          for(const quality of qualities){
+            fallback=canvas.toDataURL('image/jpeg',quality);
+            if(fallback.length<=maxDataLength){URL.revokeObjectURL(url);return resolve(fallback)}
+          }
+        }
+        URL.revokeObjectURL(url);resolve(fallback);
+      }catch(error){URL.revokeObjectURL(url);reject(error)}
+    };
+    img.onerror=()=>{URL.revokeObjectURL(url);reject(new Error('照片讀取失敗'))};
+    img.src=url;
+  });
+}
 async function saveSelfPlayer(updated){try{setSync('同步中');const snap=await getDoc(roomRef);if(!snap.exists())throw new Error('房間不存在');const data=snap.data(),decoded=decodeState(data),idx=decoded.roster.findIndex(p=>p.id===updated.id);if(idx<0)throw new Error('找不到球員');decoded.roster[idx]={...decoded.roster[idx],...updated};await setDoc(roomRef,{roster:decoded.roster,updatedAt:serverTimestamp()},{merge:true});setSync('已同步','online')}catch(e){setSync('同步失敗','error');setError(formatError(e));throw e}}
 async function saveEdit(){const p=player(editId);if(!canEditPlayer(p))return alert('你只能修改自己的資料。');const n=$('editName').value.trim();if(profileDirty.name&&!n)return alert('姓名不可空白');if(profileDirty.name&&state.roster.some(x=>x.id!==editId&&x.name===n))return alert('已有相同姓名');const updated={id:p.id};if(profileDirty.name)updated.name=n;if(isHost&&profileDirty.voiceName)updated.voiceName=$('editVoiceName').value.trim();if(profileDirty.racket)updated.racket=$('editRacket').value.trim();if(profileDirty.racketTension)updated.racketTension=$('editRacketTension').value.trim();if(profileDirty.racketString)updated.racketString=$('editRacketString').value.trim();if(profileDirty.backupRacket)updated.backupRacket=$('editBackupRacket').value.trim();if(profileDirty.backupTension)updated.backupTension=$('editBackupTension').value.trim();if(profileDirty.backupString)updated.backupString=$('editBackupString').value.trim();if(profileDirty.note)updated.note=$('editNote').value.trim();if(pendingAvatar!==null)updated.avatar=pendingAvatar;if(Object.keys(updated).length===1){$('editModal').classList.add('hidden');return}try{if(isHost){Object.assign(p,updated);renderAll();saveSoon()}else{await saveSelfPlayer(updated);Object.assign(p,updated);renderAll()}$('editModal').classList.add('hidden');alert('球員資料已儲存。')}catch(e){alert('球員資料儲存失敗：'+formatError(e))}}
 async function addPlayerRecord(){
@@ -1257,6 +1283,6 @@ const exitScoreBtn=$('exitScore');if(exitScoreBtn)exitScoreBtn.addEventListener(
 
 window.bcmMarkBooted?.();
 if('serviceWorker'in navigator&&location.protocol.startsWith('http')){
-  const swRevision='20260717-313';
+  const swRevision='20260718-314';
   navigator.serviceWorker.register(`./sw.js?v=${swRevision}`,{updateViaCache:'none'}).then(registration=>registration.update()).catch(()=>{});
 }
