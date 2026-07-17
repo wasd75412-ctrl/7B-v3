@@ -1252,6 +1252,49 @@ html.brand-font-fallback .brand-copy .brand-mark h1{
   background:none!important;
 }
 
+/* BCM 2.3.35 — subtle 7B club watermark behind the scoreboard */
+.score-watermark{
+  position:absolute;
+  inset:0;
+  z-index:0;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  flex-direction:column;
+  overflow:hidden;
+  color:rgba(237,255,247,.09);
+  text-align:center;
+  pointer-events:none;
+  user-select:none;
+  transform:rotate(-4deg);
+  text-shadow:0 3px 18px rgba(0,20,12,.12);
+}
+.score-watermark strong,
+.score-watermark span{
+  font-family:"JasonHandwriting9","PingFang TC","Noto Sans TC",sans-serif!important;
+  font-synthesis:weight;
+  white-space:nowrap;
+}
+.score-watermark strong{
+  font-size:clamp(9rem,23vw,23rem);
+  font-weight:600;
+  letter-spacing:-.08em;
+  line-height:.62;
+}
+.score-watermark span{
+  margin-top:clamp(20px,4.5vh,54px);
+  padding-left:.3em;
+  font-size:clamp(2rem,4.8vw,5rem);
+  font-weight:600;
+  letter-spacing:.3em;
+  line-height:1;
+}
+@media(max-width:760px){
+  .score-watermark{color:rgba(237,255,247,.075)}
+  .score-watermark strong{font-size:clamp(7.5rem,23vw,11rem)}
+  .score-watermark span{margin-top:clamp(14px,3vh,28px);font-size:clamp(1.65rem,5vw,3rem)}
+}
+
 /* Keep the established responsive scale, with a 10pt boost for names and scores. */
 .court-player-name{
   font-size:calc(clamp(2.8rem,6vw,7rem) + 10pt - var(--score-name-reduction,0pt));

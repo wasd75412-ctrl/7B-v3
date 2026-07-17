@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
 <title>7B 羽球社</title>
 <link rel="preload" href="/assets/fonts/jason-handwriting-9-brand.woff2?v=20260714-277" as="font" type="font/woff2" crossorigin>
-<link rel="stylesheet" href="/src/styles.css?v=20260718-314">
+<link rel="stylesheet" href="/src/styles.css?v=20260718-315">
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="apple-touch-icon" sizes="180x180" href="icons/icon-180.png">
 <meta name="theme-color" content="#082947">
@@ -158,7 +158,7 @@
     </div>
   </header>
   <div id="matchPoint" class="match-point hidden">🔥 MATCH POINT</div>
-  <div class="scoreboard"><article class="score-side a"><div class="score-title">A隊</div><div id="namesA" class="court-names"></div></article><div class="score-center"><div id="scoreA" class="score-number clickable" title="A隊加分">0</div><div class="score-divider"></div><div id="scoreB" class="score-number clickable" title="B隊加分">0</div></div><article class="score-side b"><div class="score-title">B隊</div><div id="namesB" class="court-names"></div></article></div>
+  <div class="scoreboard"><div class="score-watermark" aria-hidden="true"><strong>7B</strong><span>羽球社</span></div><article class="score-side a"><div class="score-title">A隊</div><div id="namesA" class="court-names"></div></article><div class="score-center"><div id="scoreA" class="score-number clickable" title="A隊加分">0</div><div class="score-divider"></div><div id="scoreB" class="score-number clickable" title="B隊加分">0</div></div><article class="score-side b"><div class="score-title">B隊</div><div id="namesB" class="court-names"></div></article></div>
   <footer class="score-foot"><div class="server-control host-only"><span class="server-control-label">選擇發球員</span><div id="serverButtons" class="server-buttons"></div></div><span id="serveText">準備開賽</span><div class="score-actions host-only"><button id="minusA" class="btn">A −1</button><button id="minusB" class="btn">B −1</button></div></footer>
 </section>
 
@@ -259,6 +259,6 @@ window.addEventListener('unhandledrejection',event=>{
 });
 bcmBootTimer=setTimeout(()=>{if(!window.__bcmBooted)bcmShowBootError('App 啟動時間過久，可能是更新快取不完整。');},8000);
 </script>
-<script type="module" src="/src/main.js?v=20260718-314"></script>
+<script type="module" src="/src/main.js?v=20260718-315"></script>
 </body>
 </html>
