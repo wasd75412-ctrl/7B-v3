@@ -1344,3 +1344,15 @@ html.brand-font-fallback .brand-copy .brand-mark h1{
   .admin-notice-actions{display:grid;grid-template-columns:1fr}
   .admin-notice-actions .btn{width:100%}
 }
+
+/* BCM 2.3.31 — multiple announcement management */
+.admin-notice-entry+.admin-notice-entry{margin-top:15px;padding-top:15px;border-top:1px solid var(--app-surface-line)}
+.admin-notice-entry-head{display:flex;align-items:flex-start;justify-content:space-between;gap:12px}
+.admin-notice-entry-head h3{min-width:0}
+.admin-notice-entry-actions{display:flex;flex:0 0 auto;gap:6px}
+.admin-notice-entry-actions .btn{padding:7px 10px;font-size:.78rem}
+@media(max-width:560px){
+  .admin-notice-entry-head{display:block}
+  .admin-notice-entry-actions{margin:9px 0 2px}
+  .admin-notice-entry-actions .btn{flex:1}
+}
