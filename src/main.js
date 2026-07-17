@@ -1092,7 +1092,7 @@ const exitScoreBtn=$('exitScore');if(exitScoreBtn)exitScoreBtn.addEventListener(
 
 window.bcmMarkBooted?.();
 if('serviceWorker'in navigator&&location.protocol.startsWith('http')){
-  const swRevision='20260717-301',reloadKey=`bcmSwReloadV1:${swRevision}`;
+  const swRevision='20260717-302',reloadKey=`bcmSwReloadV1:${swRevision}`;
   navigator.serviceWorker.addEventListener('controllerchange',()=>{
     if(sessionStorage.getItem(reloadKey)==='1')return;
     sessionStorage.setItem(reloadKey,'1');
