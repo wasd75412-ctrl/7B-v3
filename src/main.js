@@ -8,7 +8,10 @@ const fbApp=initializeApp(firebaseConfig);
 const db=initializeFirestore(fbApp,{localCache:persistentLocalCache({tabManager:persistentMultipleTabManager()})});
 const wait=ms=>new Promise(resolve=>setTimeout(resolve,ms));
 const BCM_VERSION=appPackage.version;
-const brandFontRequest=document.fonts?.load('400 1em "JasonHandwriting9"','7B 羽球社').then(faces=>faces.length>0).catch(()=>false)??Promise.resolve(false);
+const brandFontRequest=document.fonts?Promise.all([
+  document.fonts.load('400 1em "JasonHandwriting9"','7B 羽球社'),
+  document.fonts.load('400 1em "BCMBrandYu"','羽')
+]).then(results=>results.every(faces=>faces.length>0)).catch(()=>false):Promise.resolve(false);
 const brandFontGate=Promise.race([brandFontRequest,wait(2500).then(()=>false)]);
 brandFontGate.then(loaded=>document.documentElement.classList.add(loaded?'brand-font-ready':'brand-font-fallback'));
 Promise.all([brandFontGate,wait(900)]).then(()=>document.getElementById('splash')?.classList.add('hide'));
@@ -1124,6 +1127,6 @@ const exitScoreBtn=$('exitScore');if(exitScoreBtn)exitScoreBtn.addEventListener(
 
 window.bcmMarkBooted?.();
 if('serviceWorker'in navigator&&location.protocol.startsWith('http')){
-  const swRevision='20260717-307';
+  const swRevision='20260717-308';
   navigator.serviceWorker.register(`./sw.js?v=${swRevision}`,{updateViaCache:'none'}).then(registration=>registration.update()).catch(()=>{});
 }
