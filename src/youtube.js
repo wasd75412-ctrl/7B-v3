@@ -15,3 +15,7 @@ export function normalizeYouTubePlaylistUrl(value){
     return'';
   }
 }
+
+export function normalizeMatchReplayTitle(value){
+  return String(value||'').trim().replace(/\s+/g,' ').slice(0,60);
+}

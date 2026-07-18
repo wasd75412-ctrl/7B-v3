@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { normalizeYouTubePlaylistUrl } from '../src/youtube.js';
+import { normalizeMatchReplayTitle, normalizeYouTubePlaylistUrl } from '../src/youtube.js';
 
 test('normalizes a YouTube playlist share URL',()=>{
   assert.equal(
@@ -30,4 +30,9 @@ test('accepts a YouTube Studio playlist management URL',()=>{
 test('rejects non-playlist and non-YouTube URLs',()=>{
   assert.equal(normalizeYouTubePlaylistUrl('https://www.youtube.com/watch?v=video123'),'');
   assert.equal(normalizeYouTubePlaylistUrl('https://example.com/playlist?list=PLabcdefghijk'),'');
+});
+
+test('cleans and limits a custom replay title',()=>{
+  assert.equal(normalizeMatchReplayTitle('  2026/07/05   球局影片  '),'2026/07/05 球局影片');
+  assert.equal(normalizeMatchReplayTitle('回'.repeat(80)).length,60);
 });

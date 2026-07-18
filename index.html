@@ -80,12 +80,16 @@
     <div class="history-head"><div><h2 style="margin:0">比賽紀錄</h2><p class="sub" style="margin:5px 0 0">查看歷史比分與比賽影片回放。</p></div><button id="clearHistory" class="btn danger-outline host-only">清空全部紀錄</button></div>
     <div id="matchReplayCard" class="match-replay-card hidden">
       <div class="match-replay-icon" aria-hidden="true">▶</div>
-      <div class="match-replay-copy"><h3>比賽影片回放</h3><p>前往 7B 羽球社 YouTube 播放清單觀看完整比賽。</p></div>
+      <div class="match-replay-copy"><h3 id="matchReplayTitleText">比賽影片回放</h3><p>前往 7B 羽球社 YouTube 播放清單觀看完整比賽。</p></div>
       <a id="matchReplayLink" class="btn match-replay-link" href="#" target="_blank" rel="noopener noreferrer">開啟 YouTube</a>
     </div>
     <div class="match-replay-settings host-only">
-      <div><h3>設定回放播放清單</h3><p class="sub">貼上 YouTube 播放清單網址；若要讓所有球友觀看，請將播放清單設為「不公開」。</p></div>
-      <div class="match-replay-form"><input id="matchReplayUrl" class="input" type="url" inputmode="url" autocomplete="url" placeholder="https://www.youtube.com/playlist?list=..."><button id="saveMatchReplay" class="btn primary" type="button">儲存連結</button><button id="clearMatchReplay" class="btn danger-outline" type="button">移除</button></div>
+      <div><h3>設定比賽影片回放</h3><p class="sub">自行命名標題並貼上 YouTube 播放清單網址；若要讓所有球友觀看，請將播放清單設為「不公開」。</p></div>
+      <div class="match-replay-form">
+        <label class="field"><span>顯示標題</span><input id="matchReplayTitle" class="input" type="text" maxlength="60" autocomplete="off" placeholder="例如：2026/07/05 球局影片"></label>
+        <label class="field"><span>播放清單網址</span><input id="matchReplayUrl" class="input" type="url" inputmode="url" autocomplete="url" placeholder="https://www.youtube.com/playlist?list=..."></label>
+        <div class="match-replay-actions"><button id="saveMatchReplay" class="btn primary" type="button">儲存設定</button><button id="clearMatchReplay" class="btn danger-outline" type="button">移除</button></div>
+      </div>
       <div id="matchReplayFeedback" class="match-replay-feedback" role="status" aria-live="polite"></div>
     </div>
     <div id="history"></div>
