@@ -1002,7 +1002,7 @@ function openEdit(id){editId=id;const p=player(id);pendingAvatar=null;profileOri
 function compressPhoto(file){
   return new Promise((resolve,reject)=>{
     if(!file?.type?.startsWith('image/'))return reject(new Error('請選擇圖片檔案'));
-    const img=new Image(),url=URL.createObjectURL(file),sizes=[256,224,192],qualities=[.86,.8,.74,.68,.62],maxDataLength=44000;
+    const img=new Image(),url=URL.createObjectURL(file),sizes=[448,384,320,256],qualities=[.82,.76,.7,.64,.58],formats=['image/webp','image/jpeg'],maxDataLength=44000;
     img.onload=()=>{
       try{
         let fallback='';
@@ -1014,9 +1014,13 @@ function compressPhoto(file){
           ctx.fillStyle='#fff';ctx.fillRect(0,0,size,size);
           const scale=Math.max(size/img.width,size/img.height),w=img.width*scale,h=img.height*scale;
           ctx.drawImage(img,(size-w)/2,(size-h)/2,w,h);
-          for(const quality of qualities){
-            fallback=canvas.toDataURL('image/jpeg',quality);
-            if(fallback.length<=maxDataLength){URL.revokeObjectURL(url);return resolve(fallback)}
+          for(const format of formats){
+            for(const quality of qualities){
+              const candidate=canvas.toDataURL(format,quality);
+              if(format==='image/webp'&&!candidate.startsWith('data:image/webp'))continue;
+              fallback=candidate;
+              if(candidate.length<=maxDataLength){URL.revokeObjectURL(url);return resolve(candidate)}
+            }
           }
         }
         URL.revokeObjectURL(url);resolve(fallback);
@@ -1283,6 +1287,6 @@ const exitScoreBtn=$('exitScore');if(exitScoreBtn)exitScoreBtn.addEventListener(
 
 window.bcmMarkBooted?.();
 if('serviceWorker'in navigator&&location.protocol.startsWith('http')){
-  const swRevision='20260718-318';
+  const swRevision='20260718-319';
   navigator.serviceWorker.register(`./sw.js?v=${swRevision}`,{updateViaCache:'none'}).then(registration=>registration.update()).catch(()=>{});
 }

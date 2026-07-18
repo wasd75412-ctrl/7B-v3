@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
 <title>7B 羽球社</title>
 <link rel="preload" href="/assets/fonts/jason-handwriting-9-brand.woff2?v=20260714-277" as="font" type="font/woff2" crossorigin>
-<link rel="stylesheet" href="/src/styles.css?v=20260718-318">
+<link rel="stylesheet" href="/src/styles.css?v=20260718-319">
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="apple-touch-icon" sizes="180x180" href="icons/icon-180.png">
 <meta name="theme-color" content="#082947">
@@ -206,7 +206,7 @@
   <div class="field" style="margin-top:10px"><label>備用球拍</label><div class="field-grid-3"><input id="editBackupRacket" class="input" placeholder="例如：88D Pro"><input id="editBackupTension" class="input" placeholder="磅數"><input id="editBackupString" class="input" placeholder="線種"></div></div>
   <div class="field" style="margin-top:10px"><label>備註（會直接顯示在球員卡）</label><textarea id="editNote" class="input" rows="3" maxlength="120" placeholder="例如：今天九點先走、避免連打"></textarea></div>
   <div id="profileEditFields" class="photo-actions" style="margin-top:12px"><label class="btn" for="editPhoto">選擇照片</label><input id="editPhoto" type="file" accept="image/*" hidden><button id="removePhoto" class="btn" type="button">移除照片</button></div>
-  <p id="photoHint" class="sub">新上傳照片會保留最高 256×256 高畫質頭像；舊照片需重新選擇一次才會變清楚。</p>
+  <p id="photoHint" class="sub">新上傳照片會在相同容量內優先保留最高 448×448 高畫質頭像；舊照片重新選擇一次即可升級清晰度。</p>
   <div class="toolbar" style="margin-top:14px"><button id="claimPlayer" class="btn blue hidden">這是我／認領資料</button><button id="saveEdit" class="btn primary">儲存球員資料</button><button id="deletePlayer" class="btn red host-only">刪除</button><button id="closeEdit" class="btn">關閉</button></div>
 </div></div>
 
@@ -259,6 +259,6 @@ window.addEventListener('unhandledrejection',event=>{
 });
 bcmBootTimer=setTimeout(()=>{if(!window.__bcmBooted)bcmShowBootError('App 啟動時間過久，可能是更新快取不完整。');},8000);
 </script>
-<script type="module" src="/src/main.js?v=20260718-318"></script>
+<script type="module" src="/src/main.js?v=20260718-319"></script>
 </body>
 </html>
