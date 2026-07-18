@@ -1252,7 +1252,7 @@ html.brand-font-fallback .brand-copy .brand-mark h1{
   background:none!important;
 }
 
-/* BCM 2.3.36 — subtle 7B icon watermark behind the scoreboard */
+/* BCM 2.3.37 — subtle 7B icon watermark behind the scoreboard */
 .score-watermark{
   position:absolute;
   inset:0;
@@ -1268,13 +1268,13 @@ html.brand-font-fallback .brand-copy .brand-mark h1{
   width:clamp(250px,30vw,470px);
   max-height:min(72vh,470px);
   height:auto;
-  opacity:.15;
+  opacity:.19;
 }
 @media(max-width:760px){
   .score-watermark img{
     width:clamp(190px,31vw,270px);
     max-height:min(66vh,270px);
-    opacity:.13;
+    opacity:.17;
   }
 }
 
