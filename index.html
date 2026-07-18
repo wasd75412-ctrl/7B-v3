@@ -76,7 +76,20 @@
   </section>
 
   <section id="page4" class="card page hidden"><h2>今日／每月／生涯戰績</h2><div class="month-picker"><label class="field">月份 <input id="monthPick" type="month"></label><button id="thisMonthBtn" class="btn">本月</button><label class="field">排序依據 <select id="statsSort" class="input viewer-enabled"><option value="month-record">本月戰績</option><option value="month-rate">本月勝率</option><option value="career-record">生涯戰績</option><option value="career-rate">生涯勝率</option></select></label><label class="field">排序方向 <select id="statsOrder" class="input viewer-enabled"><option value="desc">由高到低</option><option value="asc">由低到高</option></select></label></div><div id="statsSummary" class="metric-grid"></div><div id="hotColdStats" class="leader-grid" style="margin-top:14px"></div><div style="overflow:auto;margin-top:14px"><table class="stats-table"><thead><tr><th>球員</th><th>今日</th><th>本月</th><th>生涯</th><th>目前連勝／敗</th></tr></thead><tbody id="statsBody"></tbody></table></div></section>
-  <section id="page5" class="card page hidden"><div class="history-head"><div><h2 style="margin:0">比賽紀錄</h2><p class="sub" style="margin:5px 0 0">刪除後，今日／每月／生涯統計會立即重新計算。</p></div><button id="clearHistory" class="btn danger-outline host-only">清空全部紀錄</button></div><div id="history"></div></section>
+  <section id="page5" class="card page hidden">
+    <div class="history-head"><div><h2 style="margin:0">比賽紀錄</h2><p class="sub" style="margin:5px 0 0">查看歷史比分與比賽影片回放。</p></div><button id="clearHistory" class="btn danger-outline host-only">清空全部紀錄</button></div>
+    <div id="matchReplayCard" class="match-replay-card hidden">
+      <div class="match-replay-icon" aria-hidden="true">▶</div>
+      <div class="match-replay-copy"><h3>比賽影片回放</h3><p>前往 7B 羽球社 YouTube 播放清單觀看完整比賽。</p></div>
+      <a id="matchReplayLink" class="btn match-replay-link" href="#" target="_blank" rel="noopener noreferrer">開啟 YouTube</a>
+    </div>
+    <div class="match-replay-settings host-only">
+      <div><h3>設定回放播放清單</h3><p class="sub">貼上 YouTube 播放清單網址；若要讓所有球友觀看，請將播放清單設為「不公開」。</p></div>
+      <div class="match-replay-form"><input id="matchReplayUrl" class="input" type="url" inputmode="url" autocomplete="url" placeholder="https://www.youtube.com/playlist?list=..."><button id="saveMatchReplay" class="btn primary" type="button">儲存連結</button><button id="clearMatchReplay" class="btn danger-outline" type="button">移除</button></div>
+      <div id="matchReplayFeedback" class="match-replay-feedback" role="status" aria-live="polite"></div>
+    </div>
+    <div id="history"></div>
+  </section>
 
   <section id="page6" class="card page hidden">
     <div class="history-head"><div><h2 style="margin:0">📅 下次球局</h2><p class="sub" style="margin:5px 0 0">選擇能參加的日期，截止前都能更新。</p></div><span id="pollStatus" class="poll-status">尚未建立</span></div>

@@ -3,6 +3,7 @@ import { initializeFirestore, persistentLocalCache, persistentMultipleTabManager
 import noSleepMedia from 'nosleep.js/src/media.js';
 import appPackage from '../package.json';
 import { arrangeLineupByGender, normalizeGender } from './lineup.js';
+import { normalizeYouTubePlaylistUrl } from './youtube.js';
 
 const firebaseConfig={apiKey:'AIzaSyBrakbTPK7UqEChPBI6pM8-i03IcLq0IvM',authDomain:'badminton-7a1c3.firebaseapp.com',projectId:'badminton-7a1c3',storageBucket:'badminton-7a1c3.firebasestorage.app',messagingSenderId:'883534015507',appId:'1:883534015507:web:a7f6fb318151b6d07563e6',measurementId:'G-C97B98H7YW'};
 const fbApp=initializeApp(firebaseConfig);
@@ -34,7 +35,7 @@ function normalizeAdminNotices(source){
   }).filter(notice=>{if(seen.has(notice.id))return false;seen.add(notice.id);return true}).sort((a,b)=>(Date.parse(b.publishedAt)||0)-(Date.parse(a.publishedAt)||0)).slice(0,20);
 }
 function setAdminNotices(rows){state.adminNotices=normalizeAdminNotices({adminNotices:rows});state.adminNotice=state.adminNotices[0]||null}
-const initialState=()=>({version:9.5,roster:[],attendance:[],court:[],waitingQueue:[],queueDraftChosen:[],priority:null,match:{active:false,players:[[],[]],scores:[0,0],rallies:[],serving:0,positions:[[0,1],[0,1]],winner:null,startedAt:''},rules:{target:11,cap:15,deuce:true},history:[],nextCall:null,schedulePoll:{status:'open',createdAt:'',deadlineAt:'',options:[],votes:{},voterPlayers:{}},nextEvent:null,adminNotice:null,adminNotices:[],updatedAt:null});
+const initialState=()=>({version:9.5,roster:[],attendance:[],court:[],waitingQueue:[],queueDraftChosen:[],priority:null,match:{active:false,players:[[],[]],scores:[0,0],rallies:[],serving:0,positions:[[0,1],[0,1]],winner:null,startedAt:''},rules:{target:11,cap:15,deuce:true},history:[],matchReplayPlaylistUrl:'',nextCall:null,schedulePoll:{status:'open',createdAt:'',deadlineAt:'',options:[],votes:{},voterPlayers:{}},nextEvent:null,adminNotice:null,adminNotices:[],updatedAt:null});
 const DEVICE_SYNC_CODE_KEY='bcmDeviceSyncCodeV1',DEVICE_SYNC_TOKEN_KEY='bcmDeviceSyncTokenV1',DEVICE_SYNC_NAME_KEY='bcmDeviceSyncNameV1',DEVICE_SYNC_PLAYER_KEY='bcmDeviceSyncPlayerV1';
 let state=initialState(), roomId='', roomRef=null, isHost=false, hostToken='', adminPinHash='', unsubscribe=null, applying=false, saveTimer=null, editId=null;const expandedPlayerNotes=new Set();let profileOriginal=null,profileDirty={name:false,gender:false,voiceName:false,racket:false,racketTension:false,racketString:false,backupRacket:false,backupTension:false,backupString:false,note:false};let voiceEnabled=localStorage.getItem('bdV76Voice')!=='0';let dismissedResultKey='';const selfToken=localStorage.getItem(DEVICE_SYNC_TOKEN_KEY)||localStorage.getItem('bdV73SelfToken')||randomToken();localStorage.setItem('bdV73SelfToken',selfToken);let selfHash='';
 let deviceProfileUnsubscribe=null,deviceProfileApplying=false,deviceProfileSaveTimer=null,identitySyncing=false,roomConnectInProgress=false;
@@ -67,6 +68,7 @@ function encodeState(src){
       startedAt:m.startedAt||''
     },
     rules:{...src.rules},
+    matchReplayPlaylistUrl:normalizeYouTubePlaylistUrl(src.matchReplayPlaylistUrl),
     nextCall:src.nextCall&&Array.isArray(src.nextCall.players)?{
       players:src.nextCall.players.filter(Boolean).slice(0,4),
       createdAt:src.nextCall.createdAt||''
@@ -129,6 +131,7 @@ function decodeState(d){
     court:Array.isArray(d.court)?d.court:[],
     waitingQueue:Array.isArray(d.waitingQueue)?d.waitingQueue:[],
     queueDraftChosen:Array.isArray(d.queueDraftChosen)?d.queueDraftChosen:[],
+    matchReplayPlaylistUrl:normalizeYouTubePlaylistUrl(d.matchReplayPlaylistUrl),
     nextCall:d.nextCall&&Array.isArray(d.nextCall.players)?{
       players:d.nextCall.players.filter(Boolean).slice(0,4),
       createdAt:d.nextCall.createdAt||''
@@ -930,7 +933,57 @@ function renderScore(){
     $('resultModal').classList.add('hidden');
   }
 }
-function renderHistory(){const list=state.history.map((h,index)=>({h,index})).reverse();$('history').innerHTML=list.map(({h,index})=>`<div class="history-item"><div class="history-main"><strong>${esc((h.teams?.[0]||[]).map(pname).join('／'))} ${h.scores?.[0]??0}：${h.scores?.[1]??0} ${esc((h.teams?.[1]||[]).map(pname).join('／'))}</strong><div class="sub">${esc(h.time||'')}</div></div><div class="history-actions host-only"><button class="btn danger-outline" data-delete-history="${index}">刪除</button></div></div>`).join('')||'<p class="sub">尚無比賽紀錄。</p>';all('[data-delete-history]').forEach(btn=>btn.onclick=()=>deleteHistoryRecord(+btn.dataset.deleteHistory));applyRole()}
+function setMatchReplayFeedback(message='',kind=''){
+  const feedback=$('matchReplayFeedback');
+  if(!feedback)return;
+  feedback.textContent=message;
+  feedback.className=`match-replay-feedback ${kind}`.trim();
+}
+function renderMatchReplay(){
+  const url=normalizeYouTubePlaylistUrl(state.matchReplayPlaylistUrl),card=$('matchReplayCard'),link=$('matchReplayLink'),input=$('matchReplayUrl'),clear=$('clearMatchReplay');
+  card.classList.toggle('hidden',!url);
+  link.href=url||'#';
+  if(document.activeElement!==input)input.value=url;
+  clear.disabled=!url;
+}
+async function saveMatchReplayPlaylist(){
+  if(!isHost)return;
+  const input=$('matchReplayUrl'),button=$('saveMatchReplay'),url=normalizeYouTubePlaylistUrl(input.value);
+  if(!url)return setMatchReplayFeedback('請貼上正確的 YouTube 播放清單網址。','error');
+  const previous=state.matchReplayPlaylistUrl;
+  button.disabled=true;setMatchReplayFeedback('正在同步播放清單…','pending');
+  try{
+    state.matchReplayPlaylistUrl=url;
+    await saveNow();
+    renderMatchReplay();
+    setMatchReplayFeedback('播放清單已同步，所有球友都能在此開啟。','success');
+  }catch(error){
+    state.matchReplayPlaylistUrl=previous;
+    renderMatchReplay();
+    setMatchReplayFeedback('儲存失敗：'+formatError(error),'error');
+  }finally{
+    button.disabled=false;
+  }
+}
+async function clearMatchReplayPlaylist(){
+  if(!isHost||!state.matchReplayPlaylistUrl)return;
+  if(!confirm('確定移除比賽影片播放清單連結？'))return;
+  const previous=state.matchReplayPlaylistUrl,button=$('clearMatchReplay');
+  button.disabled=true;setMatchReplayFeedback('正在移除連結…','pending');
+  try{
+    state.matchReplayPlaylistUrl='';
+    await saveNow();
+    renderMatchReplay();
+    setMatchReplayFeedback('播放清單連結已移除。','success');
+  }catch(error){
+    state.matchReplayPlaylistUrl=previous;
+    renderMatchReplay();
+    setMatchReplayFeedback('移除失敗：'+formatError(error),'error');
+  }finally{
+    button.disabled=!state.matchReplayPlaylistUrl;
+  }
+}
+function renderHistory(){renderMatchReplay();const list=state.history.map((h,index)=>({h,index})).reverse();$('history').innerHTML=list.map(({h,index})=>`<div class="history-item"><div class="history-main"><strong>${esc((h.teams?.[0]||[]).map(pname).join('／'))} ${h.scores?.[0]??0}：${h.scores?.[1]??0} ${esc((h.teams?.[1]||[]).map(pname).join('／'))}</strong><div class="sub">${esc(h.time||'')}</div></div><div class="history-actions host-only"><button class="btn danger-outline" data-delete-history="${index}">刪除</button></div></div>`).join('')||'<p class="sub">尚無比賽紀錄。</p>';all('[data-delete-history]').forEach(btn=>btn.onclick=()=>deleteHistoryRecord(+btn.dataset.deleteHistory));applyRole()}
 function deleteHistoryRecord(index){if(!isHost)return;const h=state.history[index];if(!h)return;const title=`${(h.teams?.[0]||[]).map(pname).join('／')} ${h.scores?.[0]??0}：${h.scores?.[1]??0} ${(h.teams?.[1]||[]).map(pname).join('／')}`;if(!confirm(`確定刪除這筆比賽紀錄？\n\n${title}\n${h.time||''}`))return;state.history.splice(index,1);renderAll();saveSoon()}
 function clearAllHistory(){if(!isHost)return;if(!state.history.length)return alert('目前沒有比賽紀錄。');if(!confirm(`即將刪除全部 ${state.history.length} 筆比賽紀錄。\n球員名單與目前比分不會被刪除。`))return;const text=prompt('為避免誤刪，請輸入「清空」：','');if(text!=='清空')return alert('輸入不正確，已取消清空。');state.history=[];renderAll();saveSoon();alert('全部比賽紀錄已清空。')}
 function renderAll(){renderRoster();renderAttendance();renderCourt();renderHistory();renderScore();renderDashboard();renderStats();renderPoll();applyRole()}
@@ -1191,6 +1244,9 @@ $('shuffleNext').onclick=()=>{
   vals.forEach((value,index)=>{$('n'+index).value=value});
   updatePriority();
 };
+$('saveMatchReplay').onclick=saveMatchReplayPlaylist;
+$('clearMatchReplay').onclick=clearMatchReplayPlaylist;
+$('matchReplayUrl').addEventListener('keydown',event=>{if(event.key==='Enter'){event.preventDefault();saveMatchReplayPlaylist()}});
 $('newRoomMenuBtn').onclick=()=>{if(confirm('建立另一個全新球局房間？\n目前房間不會被刪除。'))createRoom()};
 $('deviceSyncBtn').onclick=()=>setupDeviceSync().catch(error=>alert(formatError(error)));
 $('landingDeviceSyncBtn').onclick=()=>setupDeviceSync().catch(error=>showRoomCreationError(formatError(error)));
