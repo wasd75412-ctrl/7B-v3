@@ -1077,6 +1077,10 @@ html.brand-font-fallback .brand-copy .brand-mark h1{
   max-width:min(16.5vw,25vh);
   max-height:min(16.5vw,25vh);
 }
+.avatar.score-large img{
+  image-rendering:-webkit-optimize-contrast;
+  filter:contrast(1.06) saturate(1.04);
+}
 .court-player-name{
   max-width:min(22vw,390px);
   font-size:clamp(2.8rem,6vw,7rem);
