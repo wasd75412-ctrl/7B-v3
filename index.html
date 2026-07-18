@@ -68,6 +68,7 @@
 
   <section id="page3" class="card page hidden">
     <h2>場上安排</h2>
+    <p class="sub gender-lineup-note">已設定為男性的球員會優先分到不同隊；三位以上男性同場時，系統會採用男性同隊最少的分法。</p>
     <div class="court"><div class="team a"><h3>A隊</h3><div class="slot"><select id="p0"></select></div><div class="slot"><select id="p1"></select></div></div><div class="team b"><h3>B隊</h3><div class="slot"><select id="p2"></select></div><div class="slot"><select id="p3"></select></div></div></div>
     <h3>候場</h3><div id="waiting" class="waiting"></div>
     <div class="rules"><div class="field"><label>勝利分</label><input id="target" type="number" min="1" max="99"></div><div class="field"><label>封頂分</label><input id="cap" type="number" min="1" max="199"></div><div class="field"><label>Deuce</label><select id="deuce"><option value="1">開啟</option><option value="0">關閉</option></select></div></div>
@@ -196,6 +197,7 @@
   <div class="profile-edit-divider"></div>
   <h3>編輯球員資料</h3>
   <div class="field"><label>姓名</label><input id="editName" class="input"></div>
+  <div class="field" style="margin-top:10px"><label>性別</label><select id="editGender" class="input"><option value="">尚未設定</option><option value="male">♂ 男性</option><option value="female">♀ 女性</option></select><div class="gender-field-note">管理員或球員本人皆可設定；安排上場時男性會優先分在不同隊。</div></div>
   <div id="voiceAdminSection" class="profile-panel host-only" style="margin-top:14px">
     <h3>🎤 播報設定（僅管理員）</h3>
     <div class="field"><label>播報名稱</label><input id="editVoiceName" class="input" placeholder="留空時使用姓名；例如：緁可填潔"></div>

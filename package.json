@@ -1,11 +1,12 @@
 {
   "name": "7b-v3-recovered",
   "private": true,
-  "version": "2.3.39",
+  "version": "2.3.40",
   "type": "module",
   "scripts": {
     "dev": "vite",
     "build": "vite build",
+    "test": "node --test",
     "preview": "vite preview"
   },
   "devDependencies": {
