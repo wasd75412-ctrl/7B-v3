@@ -1444,3 +1444,22 @@ html.brand-font-fallback .brand-copy .brand-mark h1{
   .admin-notice-entry-actions{margin:9px 0 2px}
   .admin-notice-entry-actions .btn{flex:1}
 }
+
+/* BCM 2.3.43 YouTube replay title and button contrast */
+#app .match-replay-link{
+  border-color:#e62117!important;
+  background:#e62117!important;
+  color:#fff!important;
+  box-shadow:0 8px 18px rgba(230,33,23,.2)
+}
+#app .match-replay-link:hover{border-color:#c91610!important;background:#c91610!important;color:#fff!important}
+.match-replay-form{grid-template-columns:minmax(210px,.75fr) minmax(320px,1.25fr);align-items:end}
+.match-replay-form .field{min-width:0}
+.match-replay-form .field>span{display:block;margin-bottom:6px;color:var(--muted);font-size:.82rem;font-weight:900}
+.match-replay-actions{grid-column:1/-1;display:flex;justify-content:flex-end;gap:9px}
+@media(max-width:800px){
+  .match-replay-form{grid-template-columns:1fr}
+  .match-replay-form .field,.match-replay-actions{grid-column:1}
+  .match-replay-actions{display:grid;grid-template-columns:1fr 1fr}
+  .match-replay-actions .btn{width:100%}
+}
