@@ -3,6 +3,8 @@ import { initializeFirestore, persistentLocalCache, persistentMultipleTabManager
 import noSleepMedia from 'nosleep.js/src/media.js';
 import appPackage from '../package.json';
 import { arrangeLineupByGender, normalizeGender } from './lineup.js';
+import { calculatePerPersonFee } from './next-event.js';
+import { shouldShowNotificationPrompt } from './notifications.js';
 import { normalizeMatchReplayTitle, normalizeYouTubePlaylistUrl } from './youtube.js';
 
 const firebaseConfig={apiKey:'AIzaSyBrakbTPK7UqEChPBI6pM8-i03IcLq0IvM',authDomain:'badminton-7a1c3.firebaseapp.com',projectId:'badminton-7a1c3',storageBucket:'badminton-7a1c3.firebasestorage.app',messagingSenderId:'883534015507',appId:'1:883534015507:web:a7f6fb318151b6d07563e6',measurementId:'G-C97B98H7YW'};
@@ -222,15 +224,38 @@ function formatMoney(value){return new Intl.NumberFormat('zh-TW',{maximumFractio
 function googleMapsUrl(place){const query=String(place||'').trim();return query?`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(query)}`:''}
 function googleMapsLink(place,label='Google Maps'){const href=googleMapsUrl(place);return href?`<a class="map-link" href="${esc(href)}" target="_blank" rel="noopener noreferrer" aria-label="在 Google Maps 查看 ${esc(place)}">📍 ${esc(label)}</a>`:''}
 function updateMapPreview(inputId,linkId){const input=$(inputId),link=$(linkId),href=googleMapsUrl(input?.value);if(!link)return;link.classList.toggle('hidden',!href);if(href){link.href=href;link.setAttribute('aria-label',`在 Google Maps 查看 ${input.value.trim()}`)}}
-function updateVenueMapPreviews(){updateMapPreview('pollNote','pollLocationMap');updateMapPreview('confirmLocation','confirmLocationMap')}
+function updateVenueMapPreviews(){updateMapPreview('pollNote','pollLocationMap');updateMapPreview('confirmLocation','confirmLocationMap');updateMapPreview('editNextEventLocation','editNextEventLocationMap')}
 function renderNextEventAnnouncement(){
   const box=$('nextEventAnnouncement'),e=state.nextEvent;
   if(!box)return;
   box.classList.toggle('hidden',!e?.date);
   if(!e?.date){box.innerHTML='';return}
-  const perPersonFee=wholeAmount(e.perPersonFee),payment=perPersonFee?`<div class="next-event-payment">每人需繳 ${formatMoney(perPersonFee)} 元</div>`:'';
-  box.innerHTML=`<h3>📣 下一次打球</h3><div class="next-event-main">${esc(formatEventDate(e.date,e.time,e.endTime))}</div><div class="next-event-place"><span>📍 ${esc(e.location||'場地待公告')}</span>${e.location?googleMapsLink(e.location,'開啟地圖'):''}</div>${e.note?`<div class="next-event-note">${esc(e.note)}</div>`:''}${payment}`;
+  const participantCount=wholeAmount(e.participantCount),perPersonFee=wholeAmount(e.perPersonFee),participantText=participantCount?`預計參與 ${formatMoney(participantCount)} 人`:'預計參與人數待確認',payment=perPersonFee?`<div class="next-event-payment">每人需繳 ${formatMoney(perPersonFee)} 元</div>`:'';
+  const editButton=isHost?'<button id="editNextEventAnnouncement" class="btn next-event-edit-btn" type="button">✏️ 編輯公告</button>':'';
+  box.innerHTML=`<div class="next-event-card-head"><h3>📣 下一次打球</h3>${editButton}</div><div class="next-event-main">${esc(formatEventDate(e.date,e.time,e.endTime))}</div><div class="next-event-place"><span>📍 ${esc(e.location||'場地待公告')}</span>${e.location?googleMapsLink(e.location,'開啟地圖'):''}</div>${e.note?`<div class="next-event-note">${esc(e.note)}</div>`:''}<div class="next-event-facts"><div class="next-event-participants">👥 ${participantText}</div>${payment}</div>`;
+  $('editNextEventAnnouncement')?.addEventListener('click',openNextEventEditor);
 }
+function updateNextEventEditFeePreview(){
+  const rentalTotal=wholeAmount($('editNextEventRentalTotal')?.value),participantCount=wholeAmount($('editNextEventParticipants')?.value),perPersonFee=calculatePerPersonFee(rentalTotal,participantCount);
+  if($('editNextEventPerPersonFee'))$('editNextEventPerPersonFee').value=perPersonFee?`${formatMoney(perPersonFee)} 元`:'';
+  if($('editNextEventFeeHint'))$('editNextEventFeeHint').textContent=!rentalTotal?'輸入場租總額後自動計算。':!participantCount?'請輸入預計參與總人數。':`場租 ${formatMoney(rentalTotal)} 元 ÷ ${formatMoney(participantCount)} 人＝每人 ${formatMoney(perPersonFee)} 元`;
+  return{rentalTotal,participantCount,perPersonFee};
+}
+function openNextEventEditor(){
+  if(!isHost||!state.nextEvent?.date)return;
+  const event=state.nextEvent;
+  $('editNextEventDate').value=event.date||'';
+  $('editNextEventTime').value=event.time||'';
+  $('editNextEventEndTime').value=event.endTime||'';
+  $('editNextEventLocation').value=event.location||'';
+  $('editNextEventRentalTotal').value=wholeAmount(event.rentalTotal)||'';
+  $('editNextEventParticipants').value=wholeAmount(event.participantCount)||'';
+  $('editNextEventNote').value=event.note||'';
+  updateNextEventEditFeePreview();
+  updateVenueMapPreviews();
+  $('nextEventEditModal').classList.remove('hidden');
+}
+function closeNextEventEditor(){$('nextEventEditModal').classList.add('hidden')}
 function renderAdminAnnouncement(){
   const box=$('adminAnnouncement'),notices=normalizeAdminNotices(state);
   if(!box)return;
@@ -362,14 +387,31 @@ function isPollUnseen(){const sig=pollSignature(),poll=state.schedulePoll||{};re
 function markPollSeen(){const sig=pollSignature();if(sig)localStorage.setItem(pollSeenKey(),sig);renderPollNotice()}
 function renderPollNotice(){const poll=state.schedulePoll||{},unseen=isPollUnseen()&&!isPollClosed(poll),dot=$('pollTabDot');if(dot)dot.classList.toggle('hidden',!unseen)}
 function ownedPlayerId(){return state.roster.find(p=>p.ownerHash&&p.ownerHash===selfHash)?.id||''}
-const PUSH_ENABLED_PREFIX='bcmPushEnabledV1:';
+const PUSH_ENABLED_PREFIX='bcmPushEnabledV1:',PUSH_PROMPT_PREFIX='bcmPushPromptV1:',PUSH_PROMPT_VERSION='20260720-1';
+let pushPromptShownRoom='';
 function pushEnabledKey(id=roomId){return `${PUSH_ENABLED_PREFIX}${id||'none'}`}
+function pushPromptKey(id=roomId){return `${PUSH_PROMPT_PREFIX}${id||'none'}`}
 function supportsPush(){return 'serviceWorker'in navigator&&'PushManager'in window&&'Notification'in window}
 function isIosLike(){return /iPad|iPhone|iPod/i.test(navigator.userAgent)||(navigator.platform==='MacIntel'&&navigator.maxTouchPoints>1)}
 function isStandaloneApp(){return window.matchMedia?.('(display-mode: standalone)').matches||navigator.standalone===true}
 function base64UrlBytes(value){const padded=value.padEnd(Math.ceil(value.length/4)*4,'=').replace(/-/g,'+').replace(/_/g,'/'),raw=atob(padded),bytes=new Uint8Array(raw.length);for(let i=0;i<raw.length;i++)bytes[i]=raw.charCodeAt(i);return bytes}
 async function pushApi(path,options={}){const response=await fetch(`/.netlify/functions/${path}`,options);let data={};try{data=await response.json()}catch{}if(!response.ok){const error=new Error(data.error||'通知服務暫時無法使用');error.status=response.status;throw error}return data}
-function updatePushNotificationButton(){const button=$('pushNotificationBtn'),testButton=$('pushTestBtn');if(!button)return;const supported=supportsPush(),enabled=!!roomId&&localStorage.getItem(pushEnabledKey())==='1'&&Notification.permission==='granted';button.setAttribute('aria-pressed',enabled?'true':'false');button.disabled=!roomId||!supported;if(testButton)testButton.disabled=!enabled||!supported;if(!supported)button.textContent='🔕 此裝置不支援通知';else if(Notification.permission==='denied')button.textContent='🔕 通知已被封鎖';else button.textContent=enabled?'🔔 本球局通知已開啟':'🔔 啟用投票通知'}
+function pushNotificationEnabled(){return supportsPush()&&!!roomId&&localStorage.getItem(pushEnabledKey())==='1'&&Notification.permission==='granted'}
+function updatePushNotificationButton(){const button=$('pushNotificationBtn'),testButton=$('pushTestBtn');if(!button)return;const supported=supportsPush(),enabled=pushNotificationEnabled();button.setAttribute('aria-pressed',enabled?'true':'false');button.disabled=!roomId||!supported;if(testButton)testButton.disabled=!enabled||!supported;if(!supported)button.textContent='🔕 此裝置不支援通知';else if(Notification.permission==='denied')button.textContent='🔕 通知已被封鎖';else button.textContent=enabled?'🔔 本球局通知已開啟':'🔔 啟用投票通知'}
+function rememberPushPromptChoice(){if(roomId)localStorage.setItem(pushPromptKey(),PUSH_PROMPT_VERSION)}
+function closePushPrompt({remember=true}={}){if(remember)rememberPushPromptChoice();$('pushPromptModal')?.classList.add('hidden')}
+function maybeShowPushNotificationPrompt(){
+  const supported=supportsPush(),enabled=pushNotificationEnabled(),alreadyAnswered=localStorage.getItem(pushPromptKey())===PUSH_PROMPT_VERSION,alreadyShown=pushPromptShownRoom===roomId;
+  if(!shouldShowNotificationPrompt({roomId,supported,enabled,alreadyAnswered,alreadyShown}))return;
+  pushPromptShownRoom=roomId;
+  const iosInstallRequired=isIosLike()&&!isStandaloneApp(),blocked=Notification.permission==='denied';
+  $('pushPromptText').textContent=blocked?'通知目前被系統封鎖；若要接收提醒，請先到手機設定允許 7B 羽球社通知。':iosInstallRequired?'iPhone／iPad 請先用 Safari 加入主畫面，再從主畫面開啟 App 設定通知。':'開啟後會收到投票截止提醒與下一次打球公告。';
+  $('pushPromptModal').classList.remove('hidden');
+}
+async function enablePushFromPrompt(){
+  closePushPrompt();
+  if(!pushNotificationEnabled())await setPushNotificationEnabled();
+}
 async function sendPushTest(subscription){return pushApi('push-test',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({roomId,endpoint:subscription.endpoint})})}
 async function testPushNotification(){
   const button=$('pushTestBtn');
@@ -418,6 +460,7 @@ async function setPushNotificationEnabled(){
     const playerId=ownedPlayerId()||$('pollVoter')?.value||'',playerName=playerId?pname(playerId):'';
     await pushApi('push-subscription',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({enabled:true,roomId,clientHash:selfHash,playerId,playerName,subscription:subscription.toJSON()})});
     localStorage.setItem(pushEnabledKey(),'1');
+    rememberPushPromptChoice();
     try{await sendPushTest(subscription);alert('投票通知已開啟，測試通知也已送出。之後會在投票截止前一天提醒。')}catch{alert('投票通知已開啟，但測試通知未成功送達；請稍後使用「傳送測試通知」再試一次。')}
   }catch(error){alert(error.message||'無法設定通知。')}finally{updatePushNotificationButton()}
 }
@@ -434,7 +477,7 @@ function pollParticipantCount(optionId){
 }
 function pollOptionLabel(o){if(!o?.date)return '未設定日期';const d=new Date(`${o.date}T${o.time||'00:00'}`);const date=isNaN(d)?o.date:d.toLocaleDateString('zh-TW',{month:'long',day:'numeric',weekday:'short'}),time=o.time?` ${o.time}${o.endTime?`-${o.endTime}`:''}`:'';return `${date}${time}${o.note?` · ${o.note}`:''}`}
 function updateConfirmFeePreview(){
-  const optionId=$('confirmPollOption')?.value||'',rentalTotal=wholeAmount($('confirmRentalTotal')?.value),participantCount=pollParticipantCount(optionId),perPersonFee=rentalTotal&&participantCount?Math.ceil(rentalTotal/participantCount):0;
+  const optionId=$('confirmPollOption')?.value||'',rentalTotal=wholeAmount($('confirmRentalTotal')?.value),participantCount=pollParticipantCount(optionId),perPersonFee=calculatePerPersonFee(rentalTotal,participantCount);
   if($('confirmPerPersonFee'))$('confirmPerPersonFee').value=perPersonFee?`${formatMoney(perPersonFee)} 元`:'';
   if($('confirmFeeHint'))$('confirmFeeHint').textContent=!optionId?'請先選擇確定日期。':!participantCount?'這個日期目前沒有人投票參加。':!rentalTotal?`參加 ${participantCount} 人；輸入場租後自動計算。`:`場租 ${formatMoney(rentalTotal)} 元 ÷ ${participantCount} 人＝每人 ${formatMoney(perPersonFee)} 元`;
   return{rentalTotal,participantCount,perPersonFee};
@@ -460,7 +503,7 @@ function renderPoll(){
   voter.value=state.roster.some(p=>p.id===current)?current:'';voter.disabled=!!own||closed;
   $('pollStatus').textContent=completed?'已完成':deadlineExpired?'投票已截止':closed?'投票已關閉':options.length?'投票中':poll.createdAt?'建立中':'尚未建立';$('pollStatus').className='poll-status '+(closed?'closed':'');
   $('pollSetupPanel').style.display=closed?'none':'';$('pollVotingPanel').style.display=completed?'none':'';$('confirmEventPanel').style.display=completed||!options.length?'none':'';$('pollCompletedPanel').classList.toggle('hidden',!completed);
-  if(completed){const event=state.nextEvent,detail=event?.date?`${formatEventDate(event.date,event.time,event.endTime)} · ${event.location||'場地待公告'}${event.rentalTotal?` · 場租總額 ${formatMoney(event.rentalTotal)} 元`:''}${event.perPersonFee?` · 每人 ${formatMoney(event.perPersonFee)} 元`:''}`:'投票已結束，候選日期已清除。';$('pollCompletedText').innerHTML=`<strong>✅ ${event?.date?'球局已確認':'投票已結束'}</strong><p>${esc(detail)}</p>${event?.location?googleMapsLink(event.location,'開啟地圖'):''}`}
+  if(completed){const event=state.nextEvent,detail=event?.date?`${formatEventDate(event.date,event.time,event.endTime)} · ${event.location||'場地待公告'}${event.participantCount?` · 預計參與 ${formatMoney(event.participantCount)} 人`:''}${event.rentalTotal?` · 場租總額 ${formatMoney(event.rentalTotal)} 元`:''}${event.perPersonFee?` · 每人 ${formatMoney(event.perPersonFee)} 元`:''}`:'投票已結束，候選日期已清除。';$('pollCompletedText').innerHTML=`<strong>✅ ${event?.date?'球局已確認':'投票已結束'}</strong><p>${esc(detail)}</p>${event?.location?googleMapsLink(event.location,'開啟地圖'):''}`}
   $('pollSummary').innerHTML=options.length?`已收到 <strong>${submittedCount}</strong> 人投票${unavailableCount?` · 無法參加 ${unavailableCount} 人`:''}`:'新增候選日期後即可開始投票。';
   const deadlineInfo=$('pollDeadlineInfo'),deadlineText=poll.deadlineAt?formatPollDeadline(poll.deadlineAt):'';deadlineInfo.className=`poll-deadline-info${closed?' closed':''}`;deadlineInfo.innerHTML=poll.deadlineAt?`<strong>${deadlineExpired?'⏰ 投票已截止':closed?'⏸️ 投票已關閉':'⏰ 投票截止'}</strong><span>${deadlineExpired?'截止時間：':closed?'原訂截止：':'請於 '}${esc(deadlineText)}${!closed?' 前完成投票':''}</span>`:`<strong>${closed?'⏸️ 投票已關閉':'⏰ 尚未設定投票截止時間'}</strong>`;
   const deadlineInput=$('pollDeadline');if(deadlineInput&&document.activeElement!==deadlineInput)deadlineInput.value=pollDeadlineInputValue(poll.deadlineAt);if($('clearPollDeadline'))$('clearPollDeadline').disabled=!poll.deadlineAt;
@@ -480,12 +523,54 @@ function renderPoll(){
     cp.value=options.some(o=>o.id===current)?current:'';
     if(hasCurrentEventOption){$('confirmLocation').value=state.nextEvent.location||'';$('confirmLocation').dataset.autoVenue='0';$('confirmEventNote').value=state.nextEvent.note||'';$('confirmRentalTotal').value=state.nextEvent.rentalTotal||'';$('confirmEndTime').value=state.nextEvent.endTime||''}
     $('clearNextEvent').disabled=!state.nextEvent?.date;
+    $('editNextEventFromPoll').disabled=!state.nextEvent?.date;
     updateConfirmFeePreview();
   }
   updateVenueMapPreviews();schedulePollDeadlineTimer(poll);renderPollNotice();
 }
 async function addPollOption(){const date=$('pollDate').value,time=$('pollTime').value,endTime=$('pollEndTime').value,note=$('pollNote').value.trim(),button=$('addPollOption');if(isPollClosed(state.schedulePoll))return alert('請先建立新投票。');if(!date)return alert('請先選擇候選日期。');if(!time)return alert('請設定開始時間。');if(!endTime)return alert('請設定結束時間。');if(endTime<=time)return alert('結束時間必須晚於開始時間。');if(state.schedulePoll.options.some(o=>o.date===date&&o.time===time&&o.endTime===endTime))return alert('這個日期與時間已經存在。');state.schedulePoll.createdAt=state.schedulePoll.createdAt||new Date().toISOString();state.schedulePoll.options.push({id:randomToken(),date,time,endTime,note});state.schedulePoll.options.sort((a,b)=>(a.date+a.time).localeCompare(b.date+b.time));$('pollNote').value='';renderPoll();renderDashboard();button.disabled=true;try{await saveNow()}catch(error){alert(`候選日期已保留在這台裝置，但暫時無法同步：${formatError(error)}`);saveSoon()}finally{button.disabled=false}}
 function deletePollOption(id){if(!confirm('刪除這個候選日期？相關票數也會移除。'))return;state.schedulePoll.options=state.schedulePoll.options.filter(o=>o.id!==id);for(const key of Object.keys(state.schedulePoll.votes||{}))state.schedulePoll.votes[key]=pollSelectionList(state.schedulePoll.votes[key]).filter(x=>x!==id).join('|');renderPoll();saveSoon()}
+async function nextEventPushMessage(publishedAt){
+  try{
+    const result=await pushApi('event-announcement',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({roomId,hostToken,publishedAt})});
+    if(result.failed)return `\n已送達 ${result.sent} 台裝置，另有 ${result.failed} 台暫時未送達。`;
+    if(result.sent)return `\n已推送通知給 ${result.sent} 台裝置。`;
+    if(result.skipped)return '\n這次球局公告先前已推送完成。';
+    return '\n目前沒有已開啟通知的裝置。';
+  }catch(error){
+    return `\n球局公告已發布，但通知暫時未送出：${error.message||'請稍後再試。'}`;
+  }
+}
+async function saveNextEventEdits(){
+  if(!isHost||!state.nextEvent?.date)return alert('目前沒有可編輯的下一次打球公告。');
+  const date=$('editNextEventDate').value,time=$('editNextEventTime').value,endTime=$('editNextEventEndTime').value,location=$('editNextEventLocation').value.trim(),note=$('editNextEventNote').value.trim();
+  if(!date)return alert('請設定打球日期。');
+  if(!time)return alert('請設定開始時間。');
+  if(!endTime)return alert('請設定結束時間。');
+  if(endTime<=time)return alert('結束時間必須晚於開始時間。');
+  if(!location)return alert('請填寫場地。');
+  const {rentalTotal,participantCount,perPersonFee}=updateNextEventEditFeePreview();
+  if(!rentalTotal)return alert('請填寫場租總額。');
+  if(!participantCount)return alert('請填寫預計參與總人數。');
+  const summary=`${formatEventDate(date,time,endTime)}\n${location}\n預計 ${participantCount} 人｜每人 ${formatMoney(perPersonFee)} 元`;
+  if(!confirm(`確定更新下一次打球公告？\n\n${summary}`))return;
+  const button=$('saveNextEventEdits'),previous={...state.nextEvent},publishedAt=new Date().toISOString();
+  button.disabled=true;button.textContent='正在儲存…';
+  state.nextEvent={...previous,date,time,endTime,location,note,rentalTotal,participantCount,perPersonFee,publishedAt};
+  renderDashboard();renderPoll();
+  try{
+    await saveNow();
+    closeNextEventEditor();
+    const pushMessage=await nextEventPushMessage(publishedAt);
+    alert(`下一次打球公告已更新。\n預計參與 ${participantCount} 人，每人需繳 ${formatMoney(perPersonFee)} 元。${pushMessage}`);
+  }catch(error){
+    state.nextEvent=previous;
+    renderDashboard();renderPoll();
+    alert(`公告更新失敗：${formatError(error)}`);
+  }finally{
+    button.disabled=false;button.textContent='儲存並通知球友';
+  }
+}
 async function confirmNextEvent(){
   if(!isHost)return alert('只有管理員可以結束投票。');
   const optionId=$('confirmPollOption').value,option=(state.schedulePoll.options||[]).find(o=>o.id===optionId),endTime=$('confirmEndTime').value,location=$('confirmLocation').value.trim(),note=$('confirmEventNote').value.trim();
@@ -515,7 +600,7 @@ async function confirmNextEvent(){
         remoteParticipants.add(poll.voterPlayers?.[deviceHash]||deviceHash);
       }
       if(!remoteParticipants.size)throw new Error('這個日期目前沒有投票參加者，無法計算每人費用。');
-      finalFee=Math.ceil(rentalTotal/remoteParticipants.size);
+      finalFee=calculatePerPersonFee(rentalTotal,remoteParticipants.size);
       finalEvent={optionId:remoteOption.id,date:remoteOption.date,time:remoteOption.time||'',endTime,location,note,rentalTotal,participantCount:remoteParticipants.size,perPersonFee:finalFee,publishedAt};
       tx.update(roomRef,{nextEvent:finalEvent,schedulePoll:{status:'closed',createdAt:poll.createdAt||'',deadlineAt:'',options:[],votes:{},voterPlayers:{}},updatedAt:serverTimestamp()});
     });
@@ -527,21 +612,11 @@ async function confirmNextEvent(){
     alert(error.message||formatError(error));
     return;
   }
-  let pushMessage='';
-  try{
-    const result=await pushApi('event-announcement',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({roomId,hostToken,publishedAt})});
-    if(result.failed)pushMessage=`\n已送達 ${result.sent} 台裝置，另有 ${result.failed} 台暫時未送達。`;
-    else if(result.sent)pushMessage=`\n已推送通知給 ${result.sent} 台裝置。`;
-    else if(result.skipped)pushMessage='\n這次球局公告先前已推送完成。';
-    else pushMessage='\n目前沒有已開啟通知的裝置。';
-  }catch(error){
-    pushMessage=`\n球局公告已發布，但通知暫時未送出：${error.message||'請稍後再試。'}`;
-  }finally{
-    button.disabled=false;button.textContent='確認並結束投票';
-  }
+  const pushMessage=await nextEventPushMessage(publishedAt);
+  button.disabled=false;button.textContent='確認並結束投票';
   alert(`已結束投票並發布球局。\n每人需繳 ${formatMoney(finalFee)} 元。${pushMessage}`);
 }
-function clearNextEvent(){if(!state.nextEvent)return;if(!confirm('確定取消總覽中的下一次打球公告？'))return;state.nextEvent=null;renderDashboard();renderPoll();saveSoon()}
+function clearNextEvent(){if(!state.nextEvent)return;if(!confirm('確定取消總覽中的下一次打球公告？'))return;state.nextEvent=null;closeNextEventEditor();renderDashboard();renderPoll();saveSoon()}
 async function startNewPoll(){if(!confirm('建立新投票？目前的球局公告會保留在總覽。'))return;state.schedulePoll={status:'open',createdAt:new Date().toISOString(),deadlineAt:'',options:[],votes:{},voterPlayers:{}};['confirmPollOption','confirmEndTime','confirmLocation','confirmRentalTotal','confirmPerPersonFee','confirmEventNote'].forEach(id=>{const input=$(id);if(input)input.value=''});renderPoll();renderDashboard();try{await saveNow();alert('新投票已建立，現在可以新增候選日期。')}catch(error){saveSoon();alert(`新投票已建立，但雲端同步尚未完成：${formatError(error)}`)}}
 async function submitPollVote(){
   if(isPollClosed(state.schedulePoll))return alert('投票已截止。');
@@ -679,7 +754,7 @@ async function connectRoom(id){
     $('viewerNote').classList.toggle('hidden',isHost);
     applyRole();
     updatePushNotificationButton();
-    reconcilePushSubscription();
+    reconcilePushSubscription().finally(()=>setTimeout(maybeShowPushNotificationPrompt,650));
     ensureSyncedPlayerIdentity().catch(error=>console.warn('Player identity sync failed',error));
     if(requestedPage==='poll')page(6);
     unsubscribe=onSnapshot(roomRef,{includeMetadataChanges:true},s=>{
@@ -700,7 +775,7 @@ async function connectRoom(id){
     roomConnectInProgress=false;
   }
 }
-function applyRole(){all('.host-only').forEach(el=>el.classList.toggle('hidden',!isHost));if(!isHost){$('resultModal').classList.add('hidden');$('scoreView').classList.add('hidden');}$('adminLoginBtn').classList.toggle('hidden',isHost);$('scoreRole').textContent=isHost?'管理員':'觀看模式';$('scoreA').classList.toggle('clickable',isHost);$('scoreB').classList.toggle('clickable',isHost);all('input,select,textarea').forEach(el=>{if(['editName','editGender','editRacket','editRacketTension','editRacketString','editBackupRacket','editBackupTension','editBackupString','editNote','editPhoto','joinCode','playerSearch','playerSort'].includes(el.id)||el.classList.contains('viewer-enabled'))return;if(!isHost)el.disabled=true;else el.disabled=false});if($('editVoiceName'))$('editVoiceName').disabled=!isHost}
+function applyRole(){all('.host-only').forEach(el=>el.classList.toggle('hidden',!isHost));if(!isHost){$('resultModal').classList.add('hidden');$('scoreView').classList.add('hidden');$('nextEventEditModal')?.classList.add('hidden')}$('adminLoginBtn').classList.toggle('hidden',isHost);$('scoreRole').textContent=isHost?'管理員':'觀看模式';$('scoreA').classList.toggle('clickable',isHost);$('scoreB').classList.toggle('clickable',isHost);all('input,select,textarea').forEach(el=>{if(['editName','editGender','editRacket','editRacketTension','editRacketString','editBackupRacket','editBackupTension','editBackupString','editNote','editPhoto','joinCode','playerSearch','playerSort'].includes(el.id)||el.classList.contains('viewer-enabled'))return;if(!isHost)el.disabled=true;else el.disabled=false});if($('editVoiceName'))$('editVoiceName').disabled=!isHost}
 function cleanState(d){return decodeState(d)}
 function applyState(data){applying=true;state=cleanState(data);renderAll();applying=false}
 function payload(){return {...encodeState(state),updatedAt:serverTimestamp()}}
@@ -1267,6 +1342,15 @@ $('cancelAdminNoticeEdit').onclick=()=>resetAdminNoticeEditor(true);
 $('closeAdminNotice').onclick=closeAdminNoticeManager;
 $('adminNoticeBody').addEventListener('keydown',event=>{if((event.ctrlKey||event.metaKey)&&event.key==='Enter')publishAdminNotice()});
 $('endSessionBtn').onclick=endTodaySession;
+if($('editNextEventFromPoll'))$('editNextEventFromPoll').onclick=openNextEventEditor;
+$('closeNextEventEditor').onclick=closeNextEventEditor;
+$('cancelNextEventEdits').onclick=closeNextEventEditor;
+$('saveNextEventEdits').onclick=saveNextEventEdits;
+$('editNextEventRentalTotal').addEventListener('input',updateNextEventEditFeePreview);
+$('editNextEventParticipants').addEventListener('input',updateNextEventEditFeePreview);
+$('editNextEventLocation').addEventListener('input',()=>updateMapPreview('editNextEventLocation','editNextEventLocationMap'));
+$('enablePushPrompt').onclick=enablePushFromPrompt;
+$('dismissPushPrompt').onclick=()=>closePushPrompt();
 const originalAdminLoginHandler=$('adminLoginBtn').onclick;
 $('adminLoginBtn').onclick=async()=>{await originalAdminLoginHandler();if(isHost)updateRoomRecord(roomId,{lastRole:'host',hostToken,lastUsed:Date.now()})};
 $('confirmPollOption').addEventListener('change',updateConfirmOptionDetails);
