@@ -18,6 +18,7 @@ export function roomAnnouncementFromDocument(document){
       time:fieldString(eventFields.time),
       endTime:fieldString(eventFields.endTime),
       location:fieldString(eventFields.location),
+      note:fieldString(eventFields.note),
       participantCount:fieldNumber(eventFields.participantCount),
       perPersonFee:fieldNumber(eventFields.perPersonFee),
       publishedAt:fieldString(eventFields.publishedAt)
@@ -36,6 +37,7 @@ export function eventAnnouncementBody(event){
   const time=event.time&&event.endTime?`${event.time}–${event.endTime}`:event.time||event.endTime||'';
   const parts=[`${shortDate(event.date)}${time?` ${time}`:''}`];
   if(event.location)parts.push(event.location);
+  if(event.note)parts.push(`場地備註：${event.note}`);
   if(event.participantCount)parts.push(`預計 ${event.participantCount.toLocaleString('zh-TW')} 人`);
   if(event.perPersonFee)parts.push(`每人 ${event.perPersonFee.toLocaleString('zh-TW')} 元`);
   return parts.join('｜');

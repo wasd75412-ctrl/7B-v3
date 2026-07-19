@@ -232,7 +232,7 @@ function renderNextEventAnnouncement(){
   if(!e?.date){box.innerHTML='';return}
   const participantCount=wholeAmount(e.participantCount),perPersonFee=wholeAmount(e.perPersonFee),participantText=participantCount?`預計參與 ${formatMoney(participantCount)} 人`:'預計參與人數待確認',payment=perPersonFee?`<div class="next-event-payment">每人需繳 ${formatMoney(perPersonFee)} 元</div>`:'';
   const editButton=isHost?'<button id="editNextEventAnnouncement" class="btn next-event-edit-btn" type="button">✏️ 編輯公告</button>':'';
-  box.innerHTML=`<div class="next-event-card-head"><h3>📣 下一次打球</h3>${editButton}</div><div class="next-event-main">${esc(formatEventDate(e.date,e.time,e.endTime))}</div><div class="next-event-place"><span>📍 ${esc(e.location||'場地待公告')}</span>${e.location?googleMapsLink(e.location,'開啟地圖'):''}</div>${e.note?`<div class="next-event-note">${esc(e.note)}</div>`:''}<div class="next-event-facts"><div class="next-event-participants">👥 ${participantText}</div>${payment}</div>`;
+  box.innerHTML=`<div class="next-event-card-head"><h3>📣 下一次打球</h3>${editButton}</div><div class="next-event-main">${esc(formatEventDate(e.date,e.time,e.endTime))}</div><div class="next-event-place"><span>📍 ${esc(e.location||'場地待公告')}</span>${e.location?googleMapsLink(e.location,'開啟地圖'):''}</div>${e.note?`<div class="next-event-note"><strong>🏸 場地備註：</strong>${esc(e.note)}</div>`:''}<div class="next-event-facts"><div class="next-event-participants">👥 ${participantText}</div>${payment}</div>`;
   $('editNextEventAnnouncement')?.addEventListener('click',openNextEventEditor);
 }
 function updateNextEventEditFeePreview(){
@@ -503,7 +503,7 @@ function renderPoll(){
   voter.value=state.roster.some(p=>p.id===current)?current:'';voter.disabled=!!own||closed;
   $('pollStatus').textContent=completed?'已完成':deadlineExpired?'投票已截止':closed?'投票已關閉':options.length?'投票中':poll.createdAt?'建立中':'尚未建立';$('pollStatus').className='poll-status '+(closed?'closed':'');
   $('pollSetupPanel').style.display=closed?'none':'';$('pollVotingPanel').style.display=completed?'none':'';$('confirmEventPanel').style.display=completed||!options.length?'none':'';$('pollCompletedPanel').classList.toggle('hidden',!completed);
-  if(completed){const event=state.nextEvent,detail=event?.date?`${formatEventDate(event.date,event.time,event.endTime)} · ${event.location||'場地待公告'}${event.participantCount?` · 預計參與 ${formatMoney(event.participantCount)} 人`:''}${event.rentalTotal?` · 場租總額 ${formatMoney(event.rentalTotal)} 元`:''}${event.perPersonFee?` · 每人 ${formatMoney(event.perPersonFee)} 元`:''}`:'投票已結束，候選日期已清除。';$('pollCompletedText').innerHTML=`<strong>✅ ${event?.date?'球局已確認':'投票已結束'}</strong><p>${esc(detail)}</p>${event?.location?googleMapsLink(event.location,'開啟地圖'):''}`}
+  if(completed){const event=state.nextEvent,detail=event?.date?`${formatEventDate(event.date,event.time,event.endTime)} · ${event.location||'場地待公告'}${event.note?` · 場地備註：${event.note}`:''}${event.participantCount?` · 預計參與 ${formatMoney(event.participantCount)} 人`:''}${event.rentalTotal?` · 場租總額 ${formatMoney(event.rentalTotal)} 元`:''}${event.perPersonFee?` · 每人 ${formatMoney(event.perPersonFee)} 元`:''}`:'投票已結束，候選日期已清除。';$('pollCompletedText').innerHTML=`<strong>✅ ${event?.date?'球局已確認':'投票已結束'}</strong><p>${esc(detail)}</p>${event?.location?googleMapsLink(event.location,'開啟地圖'):''}`}
   $('pollSummary').innerHTML=options.length?`已收到 <strong>${submittedCount}</strong> 人投票${unavailableCount?` · 無法參加 ${unavailableCount} 人`:''}`:'新增候選日期後即可開始投票。';
   const deadlineInfo=$('pollDeadlineInfo'),deadlineText=poll.deadlineAt?formatPollDeadline(poll.deadlineAt):'';deadlineInfo.className=`poll-deadline-info${closed?' closed':''}`;deadlineInfo.innerHTML=poll.deadlineAt?`<strong>${deadlineExpired?'⏰ 投票已截止':closed?'⏸️ 投票已關閉':'⏰ 投票截止'}</strong><span>${deadlineExpired?'截止時間：':closed?'原訂截止：':'請於 '}${esc(deadlineText)}${!closed?' 前完成投票':''}</span>`:`<strong>${closed?'⏸️ 投票已關閉':'⏰ 尚未設定投票截止時間'}</strong>`;
   const deadlineInput=$('pollDeadline');if(deadlineInput&&document.activeElement!==deadlineInput)deadlineInput.value=pollDeadlineInputValue(poll.deadlineAt);if($('clearPollDeadline'))$('clearPollDeadline').disabled=!poll.deadlineAt;
@@ -552,7 +552,7 @@ async function saveNextEventEdits(){
   const {rentalTotal,participantCount,perPersonFee}=updateNextEventEditFeePreview();
   if(!rentalTotal)return alert('請填寫場租總額。');
   if(!participantCount)return alert('請填寫預計參與總人數。');
-  const summary=`${formatEventDate(date,time,endTime)}\n${location}\n預計 ${participantCount} 人｜每人 ${formatMoney(perPersonFee)} 元`;
+  const summary=`${formatEventDate(date,time,endTime)}\n${location}${note?`\n場地備註：${note}`:''}\n預計 ${participantCount} 人｜每人 ${formatMoney(perPersonFee)} 元`;
   if(!confirm(`確定更新下一次打球公告？\n\n${summary}`))return;
   const button=$('saveNextEventEdits'),previous={...state.nextEvent},publishedAt=new Date().toISOString();
   button.disabled=true;button.textContent='正在儲存…';
@@ -581,7 +581,7 @@ async function confirmNextEvent(){
   const {rentalTotal,participantCount,perPersonFee}=updateConfirmFeePreview();
   if(!rentalTotal)return alert('請填寫場租總金額。');
   if(!participantCount)return alert('這個日期目前沒有投票參加者，無法計算每人費用。');
-  const summary=`${formatEventDate(option.date,option.time,endTime)}\n${location}\n場租 ${formatMoney(rentalTotal)} 元｜每人 ${formatMoney(perPersonFee)} 元\n\n結束後會刪除全部候選日期與票數。`;
+  const summary=`${formatEventDate(option.date,option.time,endTime)}\n${location}${note?`\n場地備註：${note}`:''}\n場租 ${formatMoney(rentalTotal)} 元｜每人 ${formatMoney(perPersonFee)} 元\n\n結束後會刪除全部候選日期與票數。`;
   if(!confirm(`確定發布球局並結束投票？\n\n${summary}`))return;
   const button=$('confirmNextEvent'),publishedAt=new Date().toISOString();
   button.disabled=true;button.textContent='發布球局中…';
