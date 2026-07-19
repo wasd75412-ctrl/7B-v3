@@ -1463,3 +1463,38 @@ html.brand-font-fallback .brand-copy .brand-mark h1{
   .match-replay-actions{display:grid;grid-template-columns:1fr 1fr}
   .match-replay-actions .btn{width:100%}
 }
+
+/* BCM 2.3.44 editable next-event announcement and notification prompt */
+.next-event-card-head{display:flex;align-items:center;justify-content:space-between;gap:12px}
+.next-event-card-head h3{margin:0}
+#app .next-event-edit-btn{flex:0 0 auto;border-color:rgba(255,255,255,.34)!important;background:rgba(255,255,255,.16)!important;color:#fff!important;box-shadow:none}
+#app .next-event-edit-btn:hover{background:rgba(255,255,255,.24)!important}
+.next-event-facts{display:flex;align-items:center;gap:9px;flex-wrap:wrap;margin-top:13px}
+.next-event-participants,.next-event-facts .next-event-payment{display:inline-flex;margin:0;padding:9px 13px;border:1px solid rgba(255,255,255,.28);border-radius:999px;background:rgba(255,255,255,.14);font-size:1rem;font-weight:1000}
+.next-event-editor{width:min(820px,100%)}
+.next-event-editor-head{display:flex;align-items:flex-start;justify-content:space-between;gap:14px}
+.next-event-editor-head h2{margin:0 0 5px}
+.next-event-editor-head p{margin:0}
+.next-event-edit-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:13px;margin-top:20px}
+.next-event-edit-grid .field{min-width:0}
+.next-event-edit-grid .field>span{display:block;margin-bottom:6px;color:var(--muted);font-size:.82rem;font-weight:900}
+.next-event-edit-grid .location-field,.next-event-edit-note{grid-column:span 2}
+.next-event-editor .confirm-fee-hint{margin-top:14px}
+.next-event-editor-actions{display:flex;justify-content:flex-end;gap:9px;margin-top:18px}
+.push-prompt-card{width:min(440px,100%);text-align:center;padding:28px}
+.push-prompt-icon{width:72px;height:72px;margin:0 auto 14px;border-radius:22px;display:grid;place-items:center;background:#fff3c9;font-size:2rem;box-shadow:0 10px 24px rgba(120,82,0,.14)}
+.push-prompt-card h2{margin:0 0 10px}
+.push-prompt-card p{margin:0;color:var(--muted);font-weight:800;line-height:1.6}
+.push-prompt-actions{display:grid;grid-template-columns:1fr 1fr;gap:9px;margin-top:22px}
+@media(max-width:700px){
+  .next-event-card-head{align-items:flex-start}
+  #app .next-event-edit-btn{padding:9px 11px;font-size:.82rem}
+  .next-event-facts{align-items:stretch;flex-direction:column}
+  .next-event-participants,.next-event-facts .next-event-payment{justify-content:center;width:100%}
+  .next-event-editor-head{display:block}
+  .next-event-editor-head .btn{width:100%;margin-top:12px}
+  .next-event-edit-grid{grid-template-columns:1fr}
+  .next-event-edit-grid .location-field,.next-event-edit-note{grid-column:1}
+  .next-event-editor-actions,.push-prompt-actions{grid-template-columns:1fr;display:grid}
+  .next-event-editor-actions .btn,.push-prompt-actions .btn{width:100%}
+}

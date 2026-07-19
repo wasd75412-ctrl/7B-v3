@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
 <title>7B 羽球社</title>
 <link rel="preload" href="/assets/fonts/jason-handwriting-9-brand.woff2?v=20260714-277" as="font" type="font/woff2" crossorigin>
-<link rel="stylesheet" href="/src/styles.css?v=20260718-319">
+<link rel="stylesheet" href="/src/styles.css?v=20260720-324">
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="apple-touch-icon" sizes="180x180" href="icons/icon-180.png">
 <meta name="theme-color" content="#082947">
@@ -138,7 +138,7 @@
 
     <div id="pollCompletedPanel" class="poll-completed-panel hidden">
       <div id="pollCompletedText"></div>
-      <div class="poll-completed-actions host-only"><button id="newPollBtn" class="btn primary">建立新投票</button><button id="clearNextEvent" class="btn danger-outline">刪除公告</button></div>
+      <div class="poll-completed-actions host-only"><button id="editNextEventFromPoll" class="btn">✏️ 編輯公告</button><button id="newPollBtn" class="btn primary">建立新投票</button><button id="clearNextEvent" class="btn danger-outline">刪除公告</button></div>
     </div>
   </section>
 
@@ -195,6 +195,29 @@
     <div id="adminNoticeFeedback" class="admin-notice-feedback hidden" role="status" aria-live="polite"></div>
     <div class="admin-notice-actions"><button id="saveAdminNotice" class="btn primary" type="button">發布公告</button><button id="cancelAdminNoticeEdit" class="btn hidden" type="button">取消編輯</button></div>
   </section>
+</div></div>
+
+<div id="nextEventEditModal" class="modal hidden"><div class="modal-card next-event-editor">
+  <div class="next-event-editor-head"><div><h2>編輯下一次打球公告</h2><p class="sub">臨時增減人數後，每人費用會依場租重新計算。</p></div><button id="closeNextEventEditor" class="btn" type="button">關閉</button></div>
+  <div class="next-event-edit-grid">
+    <label class="field"><span>打球日期</span><input id="editNextEventDate" class="input" type="date"></label>
+    <label class="field"><span>開始時間</span><input id="editNextEventTime" class="input" type="time"></label>
+    <label class="field"><span>結束時間</span><input id="editNextEventEndTime" class="input" type="time"></label>
+    <div class="field location-field"><label for="editNextEventLocation">場地</label><input id="editNextEventLocation" class="input" placeholder="例如：XX 羽球館 3、4 號場"><a id="editNextEventLocationMap" class="map-preview-link hidden" href="#" target="_blank" rel="noopener noreferrer">📍 在 Google Maps 查看</a></div>
+    <label class="field"><span>場租總額（元）</span><input id="editNextEventRentalTotal" class="input" type="number" min="1" step="1" inputmode="numeric"></label>
+    <label class="field"><span>預計參與總人數</span><input id="editNextEventParticipants" class="input" type="number" min="1" step="1" inputmode="numeric"></label>
+    <label class="field"><span>每人需繳</span><input id="editNextEventPerPersonFee" class="input" type="text" readonly></label>
+    <label class="field next-event-edit-note"><span>公告備註（選填）</span><input id="editNextEventNote" class="input" maxlength="120" placeholder="例如：請提前 10 分鐘到"></label>
+  </div>
+  <div id="editNextEventFeeHint" class="confirm-fee-hint"></div>
+  <div class="next-event-editor-actions"><button id="saveNextEventEdits" class="btn primary" type="button">儲存並通知球友</button><button id="cancelNextEventEdits" class="btn" type="button">取消</button></div>
+</div></div>
+
+<div id="pushPromptModal" class="modal hidden"><div class="modal-card push-prompt-card">
+  <div class="push-prompt-icon" aria-hidden="true">🔔</div>
+  <h2>要開啟球局通知嗎？</h2>
+  <p id="pushPromptText">開啟後會收到投票截止提醒與下一次打球公告。</p>
+  <div class="push-prompt-actions"><button id="enablePushPrompt" class="btn primary" type="button">開啟通知</button><button id="dismissPushPrompt" class="btn" type="button">暫時不要</button></div>
 </div></div>
 
 <div id="resultModal" class="modal hidden"><div class="modal-card"><h2 id="winnerTitle">比賽結束</h2><p id="finalScore" style="font-size:2rem;font-weight:1000"></p><p class="sub">勝方兩人保留，候場隊首兩人上場；敗方兩人排到候場尾端，四人再完全隨機分隊。</p><div class="next-grid"><div class="next-team a"><h3>A隊</h3><div class="slot"><select id="n0"></select></div><div class="slot"><select id="n1"></select></div></div><div class="next-team b"><h3>B隊</h3><div class="slot"><select id="n2"></select></div><div class="slot"><select id="n3"></select></div></div></div><p id="priorityText" class="viewer-note hidden"></p><div class="toolbar host-only" style="margin-top:15px"><button id="shuffleNext" class="btn">重新完全隨機</button><button id="startNext" class="btn primary">開始下一場</button></div><button id="closeResult" class="btn" style="margin-top:10px">關閉</button></div></div>
@@ -278,6 +301,6 @@ window.addEventListener('unhandledrejection',event=>{
 });
 bcmBootTimer=setTimeout(()=>{if(!window.__bcmBooted)bcmShowBootError('App 啟動時間過久，可能是更新快取不完整。');},8000);
 </script>
-<script type="module" src="/src/main.js?v=20260718-319"></script>
+<script type="module" src="/src/main.js?v=20260720-324"></script>
 </body>
 </html>
