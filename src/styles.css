@@ -1498,3 +1498,7 @@ html.brand-font-fallback .brand-copy .brand-mark h1{
   .next-event-editor-actions,.push-prompt-actions{grid-template-columns:1fr;display:grid}
   .next-event-editor-actions .btn,.push-prompt-actions .btn{width:100%}
 }
+
+/* BCM 2.3.45 court-number note */
+#app .next-event-note{display:flex;align-items:flex-start;gap:5px;width:fit-content;max-width:100%;padding:8px 11px;border:1px solid rgba(255,255,255,.25);border-radius:12px;background:rgba(255,255,255,.12);color:#fff}
+#app .next-event-note strong{flex:0 0 auto;color:#fff}

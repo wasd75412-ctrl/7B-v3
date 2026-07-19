@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
 <title>7B 羽球社</title>
 <link rel="preload" href="/assets/fonts/jason-handwriting-9-brand.woff2?v=20260714-277" as="font" type="font/woff2" crossorigin>
-<link rel="stylesheet" href="/src/styles.css?v=20260720-324">
+<link rel="stylesheet" href="/src/styles.css?v=20260720-325">
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="apple-touch-icon" sizes="180x180" href="icons/icon-180.png">
 <meta name="theme-color" content="#082947">
@@ -127,10 +127,10 @@
       <div class="confirm-event-grid">
         <label class="field"><span>確定日期與開始時間</span><select id="confirmPollOption" class="input"></select></label>
         <label class="field"><span>結束時間</span><input id="confirmEndTime" class="input" type="time"></label>
-        <div class="field location-field"><label for="confirmLocation">場地</label><input id="confirmLocation" class="input" placeholder="例如：XX 羽球館 3、4 號場"><a id="confirmLocationMap" class="map-preview-link hidden" href="#" target="_blank" rel="noopener noreferrer">📍 在 Google Maps 查看</a></div>
+        <div class="field location-field"><label for="confirmLocation">場地</label><input id="confirmLocation" class="input" placeholder="例如：XX 羽球館"><a id="confirmLocationMap" class="map-preview-link hidden" href="#" target="_blank" rel="noopener noreferrer">📍 在 Google Maps 查看</a></div>
         <label class="field"><span>場租總額（元）</span><input id="confirmRentalTotal" class="input" type="number" min="1" step="1" inputmode="numeric" placeholder="例如：2400"></label>
         <label class="field"><span>每人需繳</span><input id="confirmPerPersonFee" class="input" type="text" readonly placeholder="自動計算"></label>
-        <label class="field"><span>公告備註（選填）</span><input id="confirmEventNote" class="input" placeholder="例如：請提前 10 分鐘到"></label>
+        <label class="field"><span>場地／場號備註（選填）</span><input id="confirmEventNote" class="input" maxlength="120" placeholder="例如：3、4 號場；請提前 10 分鐘到"></label>
         <div id="confirmFeeHint" class="confirm-fee-hint">依選定日期的參加人數計算。</div>
       </div>
       <button id="confirmNextEvent" class="btn red wide poll-finish-btn">確認並結束投票</button>
@@ -203,11 +203,11 @@
     <label class="field"><span>打球日期</span><input id="editNextEventDate" class="input" type="date"></label>
     <label class="field"><span>開始時間</span><input id="editNextEventTime" class="input" type="time"></label>
     <label class="field"><span>結束時間</span><input id="editNextEventEndTime" class="input" type="time"></label>
-    <div class="field location-field"><label for="editNextEventLocation">場地</label><input id="editNextEventLocation" class="input" placeholder="例如：XX 羽球館 3、4 號場"><a id="editNextEventLocationMap" class="map-preview-link hidden" href="#" target="_blank" rel="noopener noreferrer">📍 在 Google Maps 查看</a></div>
+    <div class="field location-field"><label for="editNextEventLocation">場地</label><input id="editNextEventLocation" class="input" placeholder="例如：XX 羽球館"><a id="editNextEventLocationMap" class="map-preview-link hidden" href="#" target="_blank" rel="noopener noreferrer">📍 在 Google Maps 查看</a></div>
     <label class="field"><span>場租總額（元）</span><input id="editNextEventRentalTotal" class="input" type="number" min="1" step="1" inputmode="numeric"></label>
     <label class="field"><span>預計參與總人數</span><input id="editNextEventParticipants" class="input" type="number" min="1" step="1" inputmode="numeric"></label>
     <label class="field"><span>每人需繳</span><input id="editNextEventPerPersonFee" class="input" type="text" readonly></label>
-    <label class="field next-event-edit-note"><span>公告備註（選填）</span><input id="editNextEventNote" class="input" maxlength="120" placeholder="例如：請提前 10 分鐘到"></label>
+    <label class="field next-event-edit-note"><span>場地／場號備註（選填）</span><input id="editNextEventNote" class="input" maxlength="120" placeholder="例如：3、4 號場；請提前 10 分鐘到"></label>
   </div>
   <div id="editNextEventFeeHint" class="confirm-fee-hint"></div>
   <div class="next-event-editor-actions"><button id="saveNextEventEdits" class="btn primary" type="button">儲存並通知球友</button><button id="cancelNextEventEdits" class="btn" type="button">取消</button></div>
@@ -301,6 +301,6 @@ window.addEventListener('unhandledrejection',event=>{
 });
 bcmBootTimer=setTimeout(()=>{if(!window.__bcmBooted)bcmShowBootError('App 啟動時間過久，可能是更新快取不完整。');},8000);
 </script>
-<script type="module" src="/src/main.js?v=20260720-324"></script>
+<script type="module" src="/src/main.js?v=20260720-325"></script>
 </body>
 </html>
