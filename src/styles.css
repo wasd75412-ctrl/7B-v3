@@ -1503,32 +1503,32 @@ html.brand-font-fallback .brand-copy .brand-mark h1{
 #app .next-event-note{display:flex;align-items:flex-start;gap:5px;width:fit-content;max-width:100%;padding:8px 11px;border:1px solid rgba(255,255,255,.25);border-radius:12px;background:rgba(255,255,255,.12);color:#fff}
 #app .next-event-note strong{flex:0 0 auto;color:#fff}
 
-/* BCM 2.3.47 scoreboard side labels fit cleanly inside player cards */
+/* BCM 2.3.48 scoreboard side labels reduced by about 40% */
 .court-position{
   --score-position-reduction:0pt;
   min-width:0;
-  padding:clamp(6px,.65vw,11px) clamp(10px,.95vw,17px);
-  font-size:calc(clamp(2.8rem,6vw,7rem) + 1pt - var(--score-position-reduction));
+  padding:clamp(4px,.4vw,7px) clamp(6px,.6vw,10px);
+  font-size:calc(clamp(1.68rem,3.6vw,4.2rem) + .6pt - var(--score-position-reduction));
 }
-.court-position.score-name-yoyo{--score-position-reduction:4pt}
-.court-position.score-name-yuxuan-jr{--score-position-reduction:17pt}
+.court-position.score-name-yoyo{--score-position-reduction:2.4pt}
+.court-position.score-name-yuxuan-jr{--score-position-reduction:10.2pt}
 @media(max-width:980px){
-  .court-position{font-size:calc(clamp(2.25rem,5.7vw,5.2rem) + 1pt - var(--score-position-reduction))}
+  .court-position{font-size:calc(clamp(1.35rem,3.42vw,3.12rem) + .6pt - var(--score-position-reduction))}
 }
 @media(max-width:760px){
   .court-position{
-    padding:4px 7px;
-    font-size:calc(clamp(1.75rem,7.5vw,3.45rem) + 1pt - var(--score-position-reduction));
+    padding:2px 4px;
+    font-size:calc(clamp(1.05rem,4.5vw,2.07rem) + .6pt - var(--score-position-reduction));
   }
-  .court-position.score-name-yoyo{--score-position-reduction:2pt}
-  .court-position.score-name-yuxuan-jr{--score-position-reduction:8pt}
+  .court-position.score-name-yoyo{--score-position-reduction:1.2pt}
+  .court-position.score-name-yuxuan-jr{--score-position-reduction:4.8pt}
 }
 @media(max-width:430px){
   .court-position{
-    padding:3px 7px;
-    font-size:calc(clamp(1.45rem,7.1vw,2.5rem) + 1pt - var(--score-position-reduction));
+    padding:2px 4px;
+    font-size:calc(clamp(.87rem,4.26vw,1.5rem) + .6pt - var(--score-position-reduction));
   }
 }
 @media(min-width:761px) and (max-width:1400px){
-  .court-position{font-size:calc(clamp(3.3rem,7.6vw,8rem) + 1pt - var(--score-position-reduction))}
+  .court-position{font-size:calc(clamp(1.98rem,4.56vw,4.8rem) + .6pt - var(--score-position-reduction))}
 }
