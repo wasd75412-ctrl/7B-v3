@@ -978,7 +978,8 @@ function renderScore(){
       const displayName=pname(id);
       const physicalSide=sideIndex===1?'右邊':'左邊';
       const serving=m.serving===t&&serverIndex===i&&m.winner===null;
-      return `<div class="court-name ${serving?'server':''}"><span class="score-player">${avatar(id,'score-large')}<span class="court-player-copy"><span class="court-position">${physicalSide}</span><span class="court-player-name${scoreNameClass(displayName)}">${esc(displayName)}</span></span></span></div>`;
+      const nameClass=scoreNameClass(displayName);
+      return `<div class="court-name ${serving?'server':''}"><span class="score-player">${avatar(id,'score-large')}<span class="court-player-copy"><span class="court-position${nameClass}">${physicalSide}</span><span class="court-player-name${nameClass}">${esc(displayName)}</span></span></span></div>`;
     }).join('');
   };
   renderTeam(0,$('namesA'));
