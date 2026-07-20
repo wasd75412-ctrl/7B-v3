@@ -1,4 +1,4 @@
-const CACHE='7b-bcm-20260720-score-side-labels-326';
+const CACHE='7b-bcm-20260720-score-side-pills-327';
 const ASSETS=['./manifest.webmanifest','./icons/icon-180.png','./icons/icon-192.png','./icons/icon-512.png','./icons/icon-maskable-512.png','./assets/7b-score-icon.png','./assets/7b-logo-full.png','./assets/fonts/jason-handwriting-9-brand.woff2?v=20260714-277'];
 
 async function installAppShell(){
