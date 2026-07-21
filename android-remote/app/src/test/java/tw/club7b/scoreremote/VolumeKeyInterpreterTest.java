@@ -35,4 +35,21 @@ public final class VolumeKeyInterpreterTest {
         interpreter.onKeyDown(KeyEvent.KEYCODE_VOLUME_DOWN, 100L, 0);
         assertEquals(VolumeKeyInterpreter.Action.UNDO, interpreter.onKeyUp(KeyEvent.KEYCODE_VOLUME_DOWN, 900L));
     }
+
+    @Test
+    public void missingKeyUpFallsBackToShortPressOnlyOnce() {
+        VolumeKeyInterpreter interpreter = new VolumeKeyInterpreter();
+        interpreter.onKeyDown(KeyEvent.KEYCODE_VOLUME_UP, 100L, 0);
+        assertEquals(VolumeKeyInterpreter.Action.TEAM_A_PLUS, interpreter.onMissingKeyUp(KeyEvent.KEYCODE_VOLUME_UP));
+        assertEquals(VolumeKeyInterpreter.Action.NONE, interpreter.onKeyUp(KeyEvent.KEYCODE_VOLUME_UP, 1200L));
+    }
+
+    @Test
+    public void commonCameraRemoteKeysAreSupported() {
+        VolumeKeyInterpreter interpreter = new VolumeKeyInterpreter();
+        interpreter.onKeyDown(KeyEvent.KEYCODE_CAMERA, 100L, 0);
+        assertEquals(VolumeKeyInterpreter.Action.TEAM_A_PLUS, interpreter.onKeyUp(KeyEvent.KEYCODE_CAMERA, 180L));
+        interpreter.onKeyDown(KeyEvent.KEYCODE_ENTER, 300L, 0);
+        assertEquals(VolumeKeyInterpreter.Action.TEAM_B_PLUS, interpreter.onKeyUp(KeyEvent.KEYCODE_ENTER, 380L));
+    }
 }
