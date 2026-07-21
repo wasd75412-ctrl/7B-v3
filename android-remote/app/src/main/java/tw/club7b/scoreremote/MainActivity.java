@@ -39,6 +39,7 @@ public final class MainActivity extends Activity {
     private final Handler keyHandler = new Handler(Looper.getMainLooper());
     private final RemoteKeyRelay.Listener remoteKeyListener = this::handleRemoteKeyEvent;
     private WebView webView;
+    private Runnable pendingLongPress;
     private Runnable pendingKeyFallback;
     private long lastActionAt;
 
@@ -64,7 +65,7 @@ public final class MainActivity extends Activity {
         settings.setDisplayZoomControls(false);
         settings.setMediaPlaybackRequiresUserGesture(false);
         settings.setMixedContentMode(WebSettings.MIXED_CONTENT_NEVER_ALLOW);
-        settings.setUserAgentString(settings.getUserAgentString() + " 7BAndroidRemote/1.1.0");
+        settings.setUserAgentString(settings.getUserAgentString() + " 7BAndroidRemote/1.1.1");
         CookieManager.getInstance().setAcceptCookie(true);
         CookieManager.getInstance().setAcceptThirdPartyCookies(view, true);
         view.addJavascriptInterface(new AndroidBridge(), "BcmAndroid");
@@ -119,15 +120,41 @@ public final class MainActivity extends Activity {
             action = volumeKeys.onKeyDown(keyCode, event.getEventTime(), event.getRepeatCount());
             if (event.getRepeatCount() == 0) {
                 notifyKeyDetected(keyCode);
+                scheduleLongPress(keyCode, event.getEventTime());
                 scheduleMissingKeyUpFallback(keyCode);
             }
-            if (action == VolumeKeyInterpreter.Action.UNDO) cancelMissingKeyUpFallback();
+            if (action == VolumeKeyInterpreter.Action.UNDO) {
+                cancelLongPress();
+                cancelMissingKeyUpFallback();
+            }
         } else if (event.getAction() == KeyEvent.ACTION_UP) {
+            cancelLongPress();
             cancelMissingKeyUpFallback();
             action = volumeKeys.onKeyUp(keyCode, event.getEventTime());
         }
         if (action != VolumeKeyInterpreter.Action.NONE) sendRemoteAction(action);
         return true;
+    }
+
+    private void scheduleLongPress(int keyCode, long pressedAt) {
+        cancelLongPress();
+        pendingLongPress = () -> {
+            pendingLongPress = null;
+            VolumeKeyInterpreter.Action action = volumeKeys.onLongPressTimeout(
+                    keyCode,
+                    pressedAt + VolumeKeyInterpreter.LONG_PRESS_MS
+            );
+            if (action == VolumeKeyInterpreter.Action.NONE) return;
+            cancelMissingKeyUpFallback();
+            sendRemoteAction(action);
+        };
+        keyHandler.postDelayed(pendingLongPress, VolumeKeyInterpreter.LONG_PRESS_MS);
+    }
+
+    private void cancelLongPress() {
+        if (pendingLongPress == null) return;
+        keyHandler.removeCallbacks(pendingLongPress);
+        pendingLongPress = null;
     }
 
     private void scheduleMissingKeyUpFallback(int keyCode) {
@@ -252,6 +279,7 @@ public final class MainActivity extends Activity {
 
     @Override
     protected void onDestroy() {
+        cancelLongPress();
         cancelMissingKeyUpFallback();
         RemoteKeyRelay.clearListener(remoteKeyListener);
         if (webView != null) {
