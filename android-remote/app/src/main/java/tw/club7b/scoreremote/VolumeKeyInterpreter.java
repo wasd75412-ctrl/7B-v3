@@ -24,11 +24,13 @@ final class VolumeKeyInterpreter {
             ignoredKeyUp = -1;
             return Action.NONE;
         }
-        if (activeKey == keyCode && !undoSent && eventTime - pressedAt >= LONG_PRESS_MS) {
-            undoSent = true;
-            return Action.UNDO;
-        }
-        return Action.NONE;
+        return onLongPressTimeout(keyCode, eventTime);
+    }
+
+    Action onLongPressTimeout(int keyCode, long eventTime) {
+        if (activeKey != keyCode || undoSent || eventTime - pressedAt < LONG_PRESS_MS) return Action.NONE;
+        undoSent = true;
+        return Action.UNDO;
     }
 
     Action onKeyUp(int keyCode, long eventTime) {

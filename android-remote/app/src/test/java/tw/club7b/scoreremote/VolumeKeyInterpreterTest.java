@@ -37,6 +37,16 @@ public final class VolumeKeyInterpreterTest {
     }
 
     @Test
+    public void longPressTimerUndoesBeforeMissingKeyUpFallback() {
+        VolumeKeyInterpreter interpreter = new VolumeKeyInterpreter();
+        interpreter.onKeyDown(KeyEvent.KEYCODE_VOLUME_UP, 100L, 0);
+        assertEquals(VolumeKeyInterpreter.Action.NONE, interpreter.onLongPressTimeout(KeyEvent.KEYCODE_VOLUME_UP, 699L));
+        assertEquals(VolumeKeyInterpreter.Action.UNDO, interpreter.onLongPressTimeout(KeyEvent.KEYCODE_VOLUME_UP, 700L));
+        assertEquals(VolumeKeyInterpreter.Action.NONE, interpreter.onMissingKeyUp(KeyEvent.KEYCODE_VOLUME_UP));
+        assertEquals(VolumeKeyInterpreter.Action.NONE, interpreter.onKeyUp(KeyEvent.KEYCODE_VOLUME_UP, 900L));
+    }
+
+    @Test
     public void missingKeyUpFallsBackToShortPressOnlyOnce() {
         VolumeKeyInterpreter interpreter = new VolumeKeyInterpreter();
         interpreter.onKeyDown(KeyEvent.KEYCODE_VOLUME_UP, 100L, 0);
