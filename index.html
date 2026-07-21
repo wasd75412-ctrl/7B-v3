@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
 <title>7B 羽球社</title>
 <link rel="preload" href="/assets/fonts/jason-handwriting-9-brand.woff2?v=20260714-277" as="font" type="font/woff2" crossorigin>
-<link rel="stylesheet" href="/src/styles.css?v=20260720-328">
+<link rel="stylesheet" href="/src/styles.css?v=20260721-329">
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="apple-touch-icon" sizes="180x180" href="icons/icon-180.png">
 <meta name="theme-color" content="#082947">
@@ -38,6 +38,7 @@
       <div class="room-status-row"><span id="roleBadge" class="pill host">管理員</span><span id="syncBadge" class="pill">連線中</span><span><span class="room-code" id="roomCode"></span><span id="roomLocalName" class="room-local-name"></span></span></div>
       <div class="room-quick-actions"><button id="favoriteRoomBtn" class="btn">☆ 加入常用</button><button id="roomMoreBtn" class="btn room-more-btn" type="button" aria-expanded="false" aria-controls="roomMoreMenu">⋯ 更多</button></div>
       <div id="roomMoreMenu" class="room-more-menu hidden" role="menu">
+        <button id="scoreRemoteBtn" class="btn host-only" type="button" role="menuitem" aria-pressed="false">🎮 比分遙控器</button>
         <button id="newRoomMenuBtn" class="btn" role="menuitem">＋ 建立新球局</button><button id="deviceSyncBtn" class="btn" role="menuitem">👤 裝置同步</button><button id="copyDeviceSyncBtn" class="btn hidden" role="menuitem">🔗 複製同步碼</button><button id="renameRoomBtn" class="btn" role="menuitem">命名球局</button><button id="shareBtn" class="btn" role="menuitem">分享觀看網址</button><button id="qrBtn" class="btn" role="menuitem">QR Code</button><button id="adminLoginBtn" class="btn" role="menuitem">管理員登入</button><button id="adminNoticeManagerBtn" class="btn host-only" role="menuitem">📣 事務公告</button><button id="pushNotificationBtn" class="btn" type="button" role="menuitem" aria-pressed="false">🔔 啟用投票通知</button><button id="pushTestBtn" class="btn" type="button" role="menuitem">📳 傳送測試通知</button><label class="app-theme-control" for="appThemeSelect"><span>🎨 整體背景</span><select id="appThemeSelect" class="viewer-enabled" aria-label="選擇整體背景"><option value="default">雲霧藍</option><option value="court">羽球場綠</option><option value="ocean">海洋藍</option><option value="sunset">夕陽橘</option><option value="lavender">薰衣草紫</option><option value="rose">櫻花粉</option><option value="midnight">深夜藍</option><option value="dawn">晨曦金</option><option value="mint">薄荷青</option><option value="peach">蜜桃粉</option><option value="lagoon">湖水綠</option><option value="starlight">星夜紫</option><option value="sand">暖沙杏</option></select></label><button id="randomAppThemeToggle" class="btn" type="button" role="menuitem" aria-pressed="false">🎲 開啟隨機背景</button><button id="wakeLockBtn" class="btn" type="button" role="menuitem" aria-pressed="false">☀️ 檢查恆亮狀態…</button><div id="wakeLockFeedback" class="wake-lock-feedback pending" role="status" aria-live="polite">正在確認螢幕恆亮狀態…</div><button id="refreshAppMenu" class="btn" type="button" role="menuitem" data-refresh-app>↻ 重新整理</button><button id="leaveBtn" class="btn danger-outline room-leave-btn" role="menuitem">離開房間</button>
       </div>
     </div>
@@ -170,15 +171,31 @@
       <button id="refreshApp" class="btn" type="button" data-refresh-app aria-label="重新整理" title="重新整理">↻</button>
       <button id="voiceToggle" class="btn host-only" type="button" aria-label="關閉比分播報" title="關閉比分播報" aria-pressed="true">🔊</button>
       <button id="speakerTest" class="btn host-only" type="button" aria-label="喇叭測試" title="喇叭測試">📢</button>
+      <button id="scoreRemoteQuickBtn" class="btn host-only" type="button" aria-label="比分遙控器設定" title="比分遙控器設定" aria-pressed="false">🎮</button>
       <button id="audioHelp" class="btn hidden" type="button" hidden aria-hidden="true" tabindex="-1">藍牙說明</button>
       <button id="undo" class="btn host-only" type="button" aria-label="撤銷上一分" title="撤銷上一分">↶<span class="score-undo-label">撤銷</span></button>
       <button id="exitScore" class="btn" type="button" aria-label="返回管理畫面" title="返回管理畫面">✕</button>
     </div>
   </header>
+  <div id="scoreRemoteIndicator" class="score-remote-indicator hidden" aria-live="polite"></div>
   <div id="matchPoint" class="match-point hidden">🔥 MATCH POINT</div>
   <div class="scoreboard"><div class="score-watermark" aria-hidden="true"><img src="/assets/7b-score-icon.png" alt=""></div><article class="score-side a"><div class="score-title">A隊</div><div id="namesA" class="court-names"></div></article><div class="score-center"><div id="scoreA" class="score-number clickable" title="A隊加分">0</div><div class="score-divider"></div><div id="scoreB" class="score-number clickable" title="B隊加分">0</div></div><article class="score-side b"><div class="score-title">B隊</div><div id="namesB" class="court-names"></div></article></div>
   <footer class="score-foot"><div class="server-control host-only"><span class="server-control-label">選擇發球員</span><div id="serverButtons" class="server-buttons"></div></div><span id="serveText">準備開賽</span><div class="score-actions host-only"><button id="minusA" class="btn">A −1</button><button id="minusB" class="btn">B −1</button></div></footer>
 </section>
+
+<div id="scoreRemoteModal" class="modal hidden"><div class="modal-card score-remote-card">
+  <div class="score-remote-head"><div><h2>🎮 藍牙比分遙控器</h2><p>先在 iPad「設定 → 藍牙」配對鍵盤型遙控器，再回來學習每顆按鍵。</p></div><button id="closeScoreRemote" class="btn" type="button" aria-label="關閉比分遙控器設定" title="關閉">✕</button></div>
+  <div class="score-remote-enable"><div><strong>遙控計分</strong><span id="scoreRemoteStatus">目前未啟用</span></div><button id="scoreRemoteToggle" class="btn primary" type="button" aria-pressed="false">開啟</button></div>
+  <div class="score-remote-note">支援會送出鍵盤按鍵的藍牙簡報器、遙控器或鍵盤。iPad 音量鍵與純相機快門鍵不會傳給網頁，無法設定。</div>
+  <div class="score-remote-bindings" aria-label="比分遙控器按鍵設定">
+    <div class="score-remote-row"><span class="score-remote-action team-a">A隊 ＋1</span><kbd id="remoteBindingTeamAPlus">←</kbd><button class="btn" type="button" data-remote-learn="teamAPlus">學習按鍵</button></div>
+    <div class="score-remote-row"><span class="score-remote-action team-b">B隊 ＋1</span><kbd id="remoteBindingTeamBPlus">→</kbd><button class="btn" type="button" data-remote-learn="teamBPlus">學習按鍵</button></div>
+    <div class="score-remote-row"><span class="score-remote-action">撤銷上一分</span><kbd id="remoteBindingUndo">↓</kbd><button class="btn" type="button" data-remote-learn="undo">學習按鍵</button></div>
+    <div class="score-remote-row"><span class="score-remote-action team-a">A隊 −1</span><kbd id="remoteBindingTeamAMinus">Page Up</kbd><button class="btn" type="button" data-remote-learn="teamAMinus">學習按鍵</button></div>
+    <div class="score-remote-row"><span class="score-remote-action team-b">B隊 −1</span><kbd id="remoteBindingTeamBMinus">Page Down</kbd><button class="btn" type="button" data-remote-learn="teamBMinus">學習按鍵</button></div>
+  </div>
+  <div class="score-remote-footer"><span>只有管理員進入比分畫面時才會更動分數。</span><button id="resetScoreRemote" class="btn" type="button">恢復預設按鍵</button></div>
+</div></div>
 
 <div id="audioHelpModal" class="modal hidden"><div class="modal-card" style="max-width:620px"><h2>藍牙喇叭輸出</h2><p><strong>網頁無法直接替你選擇藍牙喇叭。</strong>請先在 iPad／手機的系統藍牙設定完成連線，聲音才會由系統送到喇叭。</p><ol style="line-height:1.8;padding-left:1.4em"><li>先到系統「設定 → 藍牙」連接喇叭。</li><li>回到本頁，按「📢 喇叭測試」。</li><li>若仍從裝置播放，開啟控制中心，點音訊輸出圖示並選擇藍牙喇叭。</li><li>把裝置音量與喇叭音量都調高。</li></ol><p class="viewer-note">比分播報音量已設為瀏覽器允許的最大值。實際音量仍由裝置與藍牙喇叭控制。</p><button id="closeAudioHelp" class="btn primary wide">知道了</button></div></div>
 
@@ -301,6 +318,6 @@ window.addEventListener('unhandledrejection',event=>{
 });
 bcmBootTimer=setTimeout(()=>{if(!window.__bcmBooted)bcmShowBootError('App 啟動時間過久，可能是更新快取不完整。');},8000);
 </script>
-<script type="module" src="/src/main.js?v=20260720-328"></script>
+<script type="module" src="/src/main.js?v=20260721-329"></script>
 </body>
 </html>
