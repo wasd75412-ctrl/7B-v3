@@ -5,3 +5,11 @@ dist
 
 # Local Netlify folder
 .netlify
+
+# Android build and private signing material
+android-remote/.gradle/
+android-remote/app/build/
+android-remote/build/
+android-remote/local.properties
+android-remote/keystore.properties
+android-remote/signing/

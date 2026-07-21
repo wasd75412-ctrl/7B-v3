@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
 <title>7B 羽球社</title>
 <link rel="preload" href="/assets/fonts/jason-handwriting-9-brand.woff2?v=20260714-277" as="font" type="font/woff2" crossorigin>
-<link rel="stylesheet" href="/src/styles.css?v=20260721-330">
+<link rel="stylesheet" href="/src/styles.css?v=20260721-331">
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="apple-touch-icon" sizes="180x180" href="icons/icon-180.png">
 <meta name="theme-color" content="#082947">
@@ -17,11 +17,11 @@
 <div id="splash" class="splash"><div class="splash-inner"><img class="splash-logo" src="icons/icon-512.png" alt="7B 羽球社"><h1>7B 羽球社</h1><p>BADMINTON CLUB MANAGER</p></div></div>
 <div id="landing" class="shell landing">
   <section class="card landing-card">
-    <div class="landing-brand"><img src="icons/icon-512.png" alt="7B 羽球社"><h2>7B 羽球社</h2><div class="sub">Badminton Club Manager · BCM <span data-bcm-version></span></div></div>
-    <p class="sub">建立球局後，把觀看網址或房間代碼分享給球友，即時同步球員與比分。</p>
+    <div class="landing-brand"><img src="icons/icon-512.png" alt="7B 羽球社"><h2 id="landingTitle">7B 羽球社</h2><div id="landingProduct" class="sub">Badminton Club Manager · BCM <span data-bcm-version></span></div></div>
+    <p id="landingDescription" class="sub">建立球局後，把觀看網址或房間代碼分享給球友，即時同步球員與比分。</p>
     <button id="createRoom" class="btn primary wide">建立新球局（管理員）</button>
     <button id="landingDeviceSyncBtn" class="btn wide" style="margin-top:9px">👤 同步我的其他裝置</button>
-    <div class="divider">或加入現有球局</div>
+    <div id="landingJoinDivider" class="divider">或加入現有球局</div>
     <div class="join-grid"><input id="joinCode" class="input" maxlength="6" placeholder="輸入 6 位房間代碼"><button id="joinRoom" class="btn blue">加入觀看</button></div>
     <div id="landingError" class="error-box hidden"></div>
     <label class="auto-return"><input type="checkbox" id="autoReturnRoom"> 開啟 App 時自動回到上次球局</label>
@@ -183,6 +183,25 @@
   <footer class="score-foot"><div class="server-control host-only"><span class="server-control-label">選擇發球員</span><div id="serverButtons" class="server-buttons"></div></div><span id="serveText">準備開賽</span><div class="score-actions host-only"><button id="minusA" class="btn">A −1</button><button id="minusB" class="btn">B −1</button></div></footer>
 </section>
 
+<section id="androidRemoteView" class="android-remote-view hidden" aria-label="7B Android 比分遙控器">
+  <header class="android-remote-head">
+    <div class="android-remote-brand"><img src="/icons/icon-192.png" alt="7B"><div><strong>7B 比分遙控器</strong><span>Android 快門接收器 · <span data-bcm-version></span></span></div></div>
+    <button id="androidRemoteRefresh" class="android-remote-icon-btn" type="button" aria-label="重新整理" title="重新整理">↻</button>
+  </header>
+  <div class="android-remote-roombar"><span>房號 <strong id="androidRemoteRoom">—</strong></span><span id="androidRemoteConnection" class="android-remote-connection">連線中</span></div>
+  <div id="androidRemotePermission" class="android-remote-permission hidden">
+    <strong>需要管理員權限</strong><span>首次使用請輸入這個球局的管理員 PIN。</span><button id="androidRemoteLogin" class="btn primary" type="button">管理員登入</button>
+  </div>
+  <div id="androidRemoteIdle" class="android-remote-idle"><strong>🏸 等待比賽開始</strong><span>請先在 iPad 安排球員並開始比賽。</span></div>
+  <div id="androidRemoteMatch" class="android-remote-match hidden">
+    <div class="android-remote-team team-a"><span>A隊 · 音量＋</span><strong id="androidRemoteScoreA">0</strong><small id="androidRemoteNamesA">—</small><button id="androidRemoteAPlus" type="button">A隊 ＋1</button></div>
+    <div class="android-remote-team team-b"><span>B隊 · 音量－</span><strong id="androidRemoteScoreB">0</strong><small id="androidRemoteNamesB">—</small><button id="androidRemoteBPlus" type="button">B隊 ＋1</button></div>
+  </div>
+  <button id="androidRemoteUndo" class="android-remote-undo" type="button">↶ 撤銷上一分</button>
+  <div id="androidRemoteFeedback" class="android-remote-feedback" role="status" aria-live="polite">等待快門遙控器按鍵</div>
+  <div class="android-remote-guide"><span><b>短按音量＋</b>A隊加分</span><span><b>短按音量－</b>B隊加分</span><span><b>按住任一鍵</b>撤銷上一分</span></div>
+</section>
+
 <div id="scoreRemoteModal" class="modal hidden"><div class="modal-card score-remote-card">
   <div class="score-remote-head"><div><h2>🎮 藍牙比分遙控器</h2><p><strong>App 內不會直接配對藍牙。</strong>請先在 iPad「設定 → 藍牙」完成連接，再回來學習每顆按鍵。</p></div><button id="closeScoreRemote" class="btn" type="button" aria-label="關閉比分遙控器設定" title="關閉">✕</button></div>
   <div class="score-remote-enable"><div><strong>遙控計分</strong><span id="scoreRemoteStatus">目前未啟用</span></div><button id="scoreRemoteToggle" class="btn primary" type="button" aria-pressed="false">開啟</button></div>
@@ -318,6 +337,6 @@ window.addEventListener('unhandledrejection',event=>{
 });
 bcmBootTimer=setTimeout(()=>{if(!window.__bcmBooted)bcmShowBootError('App 啟動時間過久，可能是更新快取不完整。');},8000);
 </script>
-<script type="module" src="/src/main.js?v=20260721-330"></script>
+<script type="module" src="/src/main.js?v=20260721-331"></script>
 </body>
 </html>

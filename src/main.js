@@ -43,7 +43,16 @@ const DEVICE_SYNC_CODE_KEY='bcmDeviceSyncCodeV1',DEVICE_SYNC_TOKEN_KEY='bcmDevic
 let state=initialState(), roomId='', roomRef=null, isHost=false, hostToken='', adminPinHash='', unsubscribe=null, applying=false, saveTimer=null, editId=null;const expandedPlayerNotes=new Set();let profileOriginal=null,profileDirty={name:false,gender:false,voiceName:false,racket:false,racketTension:false,racketString:false,backupRacket:false,backupTension:false,backupString:false,note:false};let voiceEnabled=localStorage.getItem('bdV76Voice')!=='0';let dismissedResultKey='';const selfToken=localStorage.getItem(DEVICE_SYNC_TOKEN_KEY)||localStorage.getItem('bdV73SelfToken')||randomToken();localStorage.setItem('bdV73SelfToken',selfToken);let selfHash='';
 let deviceProfileUnsubscribe=null,deviceProfileApplying=false,deviceProfileSaveTimer=null,identitySyncing=false,roomConnectInProgress=false;
 let roomSnapshotFromCache=false,snapshotHasPendingWrites=false,pendingRoomWrites=0,roomWriteScheduled=false;
-const requestedPage=new URLSearchParams(location.search).get('page');
+const requestParams=new URLSearchParams(location.search),requestedPage=requestParams.get('page'),requestedAndroidRemote=requestParams.get('androidRemote')==='1';
+if(requestedAndroidRemote){
+  document.documentElement.classList.add('android-remote-mode');
+  document.title=`7B 比分遙控器 ${BCM_VERSION}`;
+  $('landingTitle').textContent='7B 比分遙控器';
+  $('landingProduct').innerHTML=`Android 快門接收器 · BCM <span data-bcm-version>${esc(BCM_VERSION)}</span>`;
+  $('landingDescription').textContent='輸入 iPad 正在使用的球局房號，讓藍牙快門控制比分。';
+  $('landingJoinDivider').textContent='連接目前球局';
+  $('joinRoom').textContent='連接球局';
+}
 const SCORE_REMOTE_ENABLED_KEY='bcmScoreRemoteEnabledV1',SCORE_REMOTE_BINDINGS_KEY='bcmScoreRemoteBindingsV1';
 const SCORE_REMOTE_ACTION_LABELS={teamAPlus:'A隊 ＋1',teamBPlus:'B隊 ＋1',undo:'撤銷上一分',teamAMinus:'A隊 −1',teamBMinus:'B隊 −1'};
 const SCORE_REMOTE_BINDING_IDS={teamAPlus:'remoteBindingTeamAPlus',teamBPlus:'remoteBindingTeamBPlus',undo:'remoteBindingUndo',teamAMinus:'remoteBindingTeamAMinus',teamBMinus:'remoteBindingTeamBMinus'};
@@ -81,10 +90,10 @@ function showScoreRemoteIndicator(message){
   clearTimeout(scoreRemoteIndicatorTimer);indicator.textContent=`🎮 ${message}`;indicator.classList.remove('hidden');
   scoreRemoteIndicatorTimer=setTimeout(()=>indicator.classList.add('hidden'),900);
 }
-function performScoreRemoteAction(action){
+function performScoreRemoteAction(action,{announce=true}={}){
   const match=state.match;
   if(action==='teamAPlus'||action==='teamBPlus'){
-    match.rallies.push(action==='teamAPlus'?0:1);replay();if(voiceEnabled)setTimeout(announceScore,80);return true;
+    match.rallies.push(action==='teamAPlus'?0:1);replay();if(announce&&voiceEnabled)setTimeout(announceScore,80);return true;
   }
   if(action==='undo'){
     if(!match.rallies.length)return false;match.rallies.pop();replay();return true;
@@ -92,6 +101,39 @@ function performScoreRemoteAction(action){
   const team=action==='teamAMinus'?0:action==='teamBMinus'?1:-1,index=match.rallies.lastIndexOf(team);
   if(index<0)return false;match.rallies.splice(index,1);replay();return true;
 }
+let androidRemoteFeedbackTimer=null,scoreSnapshotReady=false;
+function setAndroidRemoteFeedback(message,kind=''){
+  const feedback=$('androidRemoteFeedback');if(!feedback)return;
+  clearTimeout(androidRemoteFeedbackTimer);feedback.textContent=message;feedback.className=`android-remote-feedback ${kind}`.trim();
+  androidRemoteFeedbackTimer=setTimeout(()=>{feedback.textContent='等待快門遙控器按鍵';feedback.className='android-remote-feedback'},1800);
+}
+function renderAndroidRemote(){
+  const view=$('androidRemoteView');if(!view)return;
+  if(!requestedAndroidRemote||!roomId){view.classList.add('hidden');return}
+  $('landing').classList.add('hidden');$('app').classList.add('hidden');$('scoreView').classList.add('hidden');view.classList.remove('hidden');
+  const match=state.match,ready=isHost&&match.active&&match.winner===null;
+  $('androidRemoteRoom').textContent=roomId;
+  $('androidRemoteConnection').textContent=navigator.onLine?'已連線':'離線中';
+  $('androidRemoteConnection').classList.toggle('offline',!navigator.onLine);
+  $('androidRemotePermission').classList.toggle('hidden',isHost);
+  $('androidRemoteIdle').classList.toggle('hidden',isHost&&match.active&&match.winner===null);
+  $('androidRemoteIdle').querySelector('strong').textContent=!isHost?'🔒 尚未取得管理員權限':match.winner!==null?'🏁 本場比賽結束':'🏸 等待比賽開始';
+  $('androidRemoteIdle').querySelector('span').textContent=!isHost?'請點上方按鈕輸入管理員 PIN。':match.winner!==null?'請在 iPad 安排並開始下一場。':'請先在 iPad 安排球員並開始比賽。';
+  $('androidRemoteMatch').classList.toggle('hidden',!isHost||!match.active);
+  $('androidRemoteScoreA').textContent=match.scores?.[0]??0;$('androidRemoteScoreB').textContent=match.scores?.[1]??0;
+  $('androidRemoteNamesA').textContent=(match.players?.[0]||[]).map(pname).join('／')||'—';$('androidRemoteNamesB').textContent=(match.players?.[1]||[]).map(pname).join('／')||'—';
+  $('androidRemoteAPlus').disabled=!ready;$('androidRemoteBPlus').disabled=!ready;$('androidRemoteUndo').disabled=!ready||!match.rallies.length;
+}
+function handleAndroidRemoteAction(action){
+  if(!requestedAndroidRemote)return false;
+  if(!isHost){setAndroidRemoteFeedback('請先完成管理員登入','error');return false}
+  if(!state.match.active){setAndroidRemoteFeedback('iPad 尚未開始比賽','error');return false}
+  if(state.match.winner!==null){setAndroidRemoteFeedback('本場已結束，請等待下一場','error');return false}
+  const changed=performScoreRemoteAction(action,{announce:false});
+  if(!changed){setAndroidRemoteFeedback(action==='undo'?'目前沒有可撤銷的分數':'操作未完成','error');return false}
+  setAndroidRemoteFeedback(action==='teamAPlus'?'A隊 ＋1':action==='teamBPlus'?'B隊 ＋1':'已撤銷上一分','success');renderAndroidRemote();return true;
+}
+window.bcmAndroidRemoteInput=action=>handleAndroidRemoteAction(String(action||''));
 function handleScoreRemoteCode(event,code){
   if(scoreRemoteLearningAction){
     if(!code||['ShiftLeft','ShiftRight','ControlLeft','ControlRight','AltLeft','AltRight','MetaLeft','MetaRight'].includes(code))return;
@@ -738,7 +780,7 @@ window.addEventListener('offline',updateSyncBadge);
 window.addEventListener('online',()=>{if(roomRef){setSync('重新連線中','pending');setError('')}});
 function formatError(e){const code=e?.code||'unknown';if(!navigator.onLine&&(code==='unavailable'||code==='not-found'))return '目前沒有網路，而且這台裝置尚未快取此球局。請先連線進入一次，之後即可離線使用。';if(code==='permission-denied')return 'Firestore 權限被拒絕（permission-denied）。請到 Firebase → Firestore → 規則，發布 ZIP 內 FIRESTORE_RULES.txt 的內容。';if(code==='invalid-argument'&&String(e?.message||'').includes('Nested arrays'))return '資料格式錯誤：Firestore 不支援巢狀陣列。請部署 BCM 2.2.18 Two-Digit Score Fix 最新版。';return `Firebase 連線失敗：${code}\n${e?.message||e}`}
 function hostKey(id){return `bcmHost_${id}`}
-function currentUrl(id=roomId){const u=new URL(location.href);u.search='';u.hash='';u.searchParams.set('room',id);return u.toString()}
+function currentUrl(id=roomId){const u=new URL(location.href);u.search='';u.hash='';if(requestedAndroidRemote)u.searchParams.set('androidRemote','1');u.searchParams.set('room',id);return u.toString()}
 function hostUrl(id=roomId,token=hostToken){const u=new URL(currentUrl(id));u.hash=`host=${encodeURIComponent(token)}`;return u.toString()}
 function parseHostHash(){const m=location.hash.match(/(?:^#|&)host=([^&]+)/);return m?decodeURIComponent(m[1]):''}
 
@@ -801,6 +843,7 @@ async function enterRoom(id){id=id.trim().toUpperCase().replace(/[^A-Z0-9]/g,'')
 async function connectRoom(id){
   if(roomConnectInProgress)return;
   roomConnectInProgress=true;
+  scoreSnapshotReady=false;
   roomId=id;
   roomRef=doc(db,'badmintonRooms',id);
   selfHash=await sha256(selfToken);
@@ -816,9 +859,10 @@ async function connectRoom(id){
     isHost=!!hostToken&&hostToken===data.hostToken;
     if(isHost)localStorage.setItem(hostKey(id),hostToken);
     rememberRoom(id,isHost);
+    if(requestedAndroidRemote)localStorage.setItem(ROOM_AUTO_KEY,'1');
     applyState(data);
     $('landing').classList.add('hidden');
-    $('app').classList.remove('hidden');
+    $('app').classList.toggle('hidden',requestedAndroidRemote);
     $('roomCode').textContent=id;
     $('scoreRoom').textContent=id;
     updateCurrentRoomControls();
@@ -826,6 +870,7 @@ async function connectRoom(id){
     $('roleBadge').className='pill '+(isHost?'host':'');
     $('viewerNote').classList.toggle('hidden',isHost);
     applyRole();
+    renderAndroidRemote();
     updatePushNotificationButton();
     reconcilePushSubscription().finally(()=>setTimeout(maybeShowPushNotificationPrompt,650));
     ensureSyncedPlayerIdentity().catch(error=>console.warn('Player identity sync failed',error));
@@ -850,7 +895,8 @@ async function connectRoom(id){
 }
 function applyRole(){all('.host-only').forEach(el=>el.classList.toggle('hidden',!isHost));if(!isHost){$('resultModal').classList.add('hidden');$('scoreView').classList.add('hidden');$('nextEventEditModal')?.classList.add('hidden')}$('adminLoginBtn').classList.toggle('hidden',isHost);$('scoreRole').textContent=isHost?'管理員':'觀看模式';$('scoreA').classList.toggle('clickable',isHost);$('scoreB').classList.toggle('clickable',isHost);all('input,select,textarea').forEach(el=>{if(['editName','editGender','editRacket','editRacketTension','editRacketString','editBackupRacket','editBackupTension','editBackupString','editNote','editPhoto','joinCode','playerSearch','playerSort'].includes(el.id)||el.classList.contains('viewer-enabled'))return;if(!isHost)el.disabled=true;else el.disabled=false});if($('editVoiceName'))$('editVoiceName').disabled=!isHost}
 function cleanState(d){return decodeState(d)}
-function applyState(data){applying=true;state=cleanState(data);renderAll();applying=false}
+function matchScoreSignature(source=state){const match=source?.match||{};return `${!!match.active}|${(match.rallies||[]).join('')}|${match.winner??''}`}
+function applyState(data){const before=matchScoreSignature();applying=true;state=cleanState(data);renderAll();applying=false;const changed=before!==matchScoreSignature();if(scoreSnapshotReady&&changed&&isHost&&!requestedAndroidRemote&&state.match.active&&voiceEnabled)setTimeout(announceScore,80);scoreSnapshotReady=true}
 function payload(){return {...encodeState(state),updatedAt:serverTimestamp()}}
 function saveSoon(){
   if(!isHost||applying||!roomRef)return;
@@ -1074,9 +1120,9 @@ function renderScore(){
   const sid=m.players[m.serving]?.[m.positions[m.serving]?.[m.scores[m.serving]%2===0?1:0]??0];
   $('serveText').textContent=m.winner!==null?'比賽結束':`${m.serving===0?'A隊':'B隊'} · ${pname(sid)} · ${side}發球區`;
   // 觀看者固定留在總覽／一般頁面；只有管理員進入全螢幕比分模式
-  $('scoreView').classList.toggle('hidden',!m.active||!isHost);
+  $('scoreView').classList.toggle('hidden',!m.active||!isHost||requestedAndroidRemote);
   const resultKey=currentResultKey();
-  if(!isHost){
+  if(!isHost||requestedAndroidRemote){
     $('resultModal').classList.add('hidden');
   }else if(m.active&&m.winner!==null&&resultKey&&resultKey!==dismissedResultKey){
     $('resultModal').classList.remove('hidden');
@@ -1143,7 +1189,7 @@ async function clearMatchReplayPlaylist(){
 function renderHistory(){renderMatchReplay();const list=state.history.map((h,index)=>({h,index})).reverse();$('history').innerHTML=list.map(({h,index})=>`<div class="history-item"><div class="history-main"><strong>${esc((h.teams?.[0]||[]).map(pname).join('／'))} ${h.scores?.[0]??0}：${h.scores?.[1]??0} ${esc((h.teams?.[1]||[]).map(pname).join('／'))}</strong><div class="sub">${esc(h.time||'')}</div></div><div class="history-actions host-only"><button class="btn danger-outline" data-delete-history="${index}">刪除</button></div></div>`).join('')||'<p class="sub">尚無比賽紀錄。</p>';all('[data-delete-history]').forEach(btn=>btn.onclick=()=>deleteHistoryRecord(+btn.dataset.deleteHistory));applyRole()}
 function deleteHistoryRecord(index){if(!isHost)return;const h=state.history[index];if(!h)return;const title=`${(h.teams?.[0]||[]).map(pname).join('／')} ${h.scores?.[0]??0}：${h.scores?.[1]??0} ${(h.teams?.[1]||[]).map(pname).join('／')}`;if(!confirm(`確定刪除這筆比賽紀錄？\n\n${title}\n${h.time||''}`))return;state.history.splice(index,1);renderAll();saveSoon()}
 function clearAllHistory(){if(!isHost)return;if(!state.history.length)return alert('目前沒有比賽紀錄。');if(!confirm(`即將刪除全部 ${state.history.length} 筆比賽紀錄。\n球員名單與目前比分不會被刪除。`))return;const text=prompt('為避免誤刪，請輸入「清空」：','');if(text!=='清空')return alert('輸入不正確，已取消清空。');state.history=[];renderAll();saveSoon();alert('全部比賽紀錄已清空。')}
-function renderAll(){renderRoster();renderAttendance();renderCourt();renderHistory();renderScore();renderDashboard();renderStats();renderPoll();applyRole()}
+function renderAll(){renderRoster();renderAttendance();renderCourt();renderHistory();renderScore();renderDashboard();renderStats();renderPoll();applyRole();renderAndroidRemote()}
 function startMatch(){dismissedResultKey='';const selected=state.court.filter(Boolean);if(selected.length!==4||new Set(selected).size!==4)return alert('請選擇四位不同球員。');const ids=genderAwareLineup(selected);state.court=[...ids];reconcileWaitingQueue(ids);state.queueDraftChosen=[];randomizeScoreThemeAtMatchStart();state.match={active:true,players:[[ids[0],ids[1]],[ids[2],ids[3]]],scores:[0,0],rallies:[],serving:0,positions:[[0,1],[0,1]],winner:null,startedAt:new Date().toISOString()};saveSoon();renderScore();renderDashboard()}
 function finishMatch(){
   const m=state.match;if(!m.active||m.winner===null)return;
@@ -1440,6 +1486,11 @@ $('pollDeadline').onfocus=()=>{$('pollDeadline').min=pollDeadlineInputValue(new 
 $('pushNotificationBtn').onclick=setPushNotificationEnabled;
 $('pushTestBtn').onclick=testPushNotification;
 updatePushNotificationButton();
+$('androidRemoteAPlus').onclick=()=>handleAndroidRemoteAction('teamAPlus');
+$('androidRemoteBPlus').onclick=()=>handleAndroidRemoteAction('teamBPlus');
+$('androidRemoteUndo').onclick=()=>handleAndroidRemoteAction('undo');
+$('androidRemoteLogin').onclick=()=>$('adminLoginBtn').click();
+$('androidRemoteRefresh').onclick=()=>location.reload();
 $('scoreRemoteBtn').onclick=openScoreRemoteSettings;
 $('scoreRemoteQuickBtn').onclick=openScoreRemoteSettings;
 $('closeScoreRemote').onclick=closeScoreRemoteSettings;
@@ -1544,6 +1595,6 @@ const exitScoreBtn=$('exitScore');if(exitScoreBtn)exitScoreBtn.addEventListener(
 
 window.bcmMarkBooted?.();
 if('serviceWorker'in navigator&&location.protocol.startsWith('http')){
-  const swRevision='20260718-319';
+  const swRevision='20260721-331';
   navigator.serviceWorker.register(`./sw.js?v=${swRevision}`,{updateViaCache:'none'}).then(registration=>registration.update()).catch(()=>{});
 }
