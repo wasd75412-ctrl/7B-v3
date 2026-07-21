@@ -19,6 +19,3 @@ service cloud.firestore {
     }
   }
 }
-
-// 目前為方便測試的公開規則：知道房間代碼的人可讀寫。
-// 正式長期使用建議加入 Firebase Authentication 與管理員權限。
