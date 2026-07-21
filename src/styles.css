@@ -1546,6 +1546,8 @@ html.brand-font-fallback .brand-copy .brand-mark h1{
 .score-remote-enable span{margin-top:4px;color:#3d6a55;font-size:.86rem;font-weight:850}
 .score-remote-enable .btn{min-width:96px}
 .score-remote-enable .score-remote-on{border-color:#bb4a4a;background:#fff;color:#a71919}
+.score-remote-enable.detection-error{border-color:#e3a0a0;background:#fff0f0}
+.score-remote-enable.detection-error span{color:#9a2020}
 .score-remote-note{margin:13px 0;padding:11px 13px;border-radius:13px;background:#fff6d9;color:#725400;font-size:.85rem;font-weight:800;line-height:1.5}
 .score-remote-bindings{display:grid;gap:8px}
 .score-remote-row{display:grid;grid-template-columns:minmax(120px,1fr) minmax(90px,.7fr) auto;align-items:center;gap:10px;padding:10px 12px;border:1px solid #dce4eb;border-radius:14px;background:#f8fafc}

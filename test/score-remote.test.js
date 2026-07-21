@@ -2,6 +2,8 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
   DEFAULT_SCORE_REMOTE_BINDINGS,
+  VIRTUAL_REMOTE_CLICK_CODE,
+  advanceRemotePressState,
   assignRemoteBinding,
   isEditableRemoteTarget,
   normalizeRemoteBindings,
@@ -42,4 +44,21 @@ test('does not capture typing fields',()=>{
   assert.equal(isEditableRemoteTarget({tagName:'INPUT'}),true);
   assert.equal(isEditableRemoteTarget({tagName:'div',isContentEditable:true}),true);
   assert.equal(isEditableRemoteTarget({tagName:'BUTTON'}),false);
+});
+
+test('supports keyup-only remotes without double handling normal key presses',()=>{
+  let state=advanceRemotePressState(new Set(),'ArrowLeft','keydown');
+  assert.equal(state.shouldHandle,true);
+  state=advanceRemotePressState(state.pressedCodes,'ArrowLeft','keypress');
+  assert.equal(state.shouldHandle,false);
+  state=advanceRemotePressState(state.pressedCodes,'ArrowLeft','keyup');
+  assert.equal(state.shouldHandle,false);
+  assert.equal(advanceRemotePressState(new Set(),'ArrowRight','keyup').shouldHandle,true);
+  assert.equal(advanceRemotePressState(new Set(),'ArrowLeft','keydown',true).shouldHandle,false);
+  assert.equal(advanceRemotePressState(new Set(['ArrowLeft']),'ArrowLeft','keydown',false).shouldHandle,true);
+});
+
+test('can learn a keyboard-generated virtual click fallback',()=>{
+  const bindings=assignRemoteBinding(DEFAULT_SCORE_REMOTE_BINDINGS,'teamAPlus',VIRTUAL_REMOTE_CLICK_CODE);
+  assert.equal(remoteActionForCode(bindings,VIRTUAL_REMOTE_CLICK_CODE),'teamAPlus');
 });

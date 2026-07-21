@@ -1,4 +1,5 @@
 export const SCORE_REMOTE_ACTIONS=['teamAPlus','teamBPlus','undo','teamAMinus','teamBMinus'];
+export const VIRTUAL_REMOTE_CLICK_CODE='VirtualClick';
 
 export const DEFAULT_SCORE_REMOTE_BINDINGS={
   teamAPlus:'ArrowLeft',
@@ -32,6 +33,22 @@ export function remoteActionForCode(bindings,code){
   const normalizedCode=normalizeRemoteBinding(code);
   if(!normalizedCode)return'';
   return SCORE_REMOTE_ACTIONS.find(action=>normalizeRemoteBinding(bindings?.[action])===normalizedCode)||'';
+}
+
+export function advanceRemotePressState(pressedCodes,code,phase='keydown',repeat=false){
+  const next=new Set(pressedCodes||[]),normalizedCode=normalizeRemoteBinding(code);
+  if(!normalizedCode)return{pressedCodes:next,shouldHandle:false};
+  if(phase==='keyup'){
+    const hadEarlierEvent=next.delete(normalizedCode);
+    return{pressedCodes:next,shouldHandle:!hadEarlierEvent};
+  }
+  if(phase==='keydown'){
+    next.add(normalizedCode);
+    return{pressedCodes:next,shouldHandle:!repeat};
+  }
+  if(next.has(normalizedCode))return{pressedCodes:next,shouldHandle:false};
+  next.add(normalizedCode);
+  return{pressedCodes:next,shouldHandle:true};
 }
 
 export function assignRemoteBinding(bindings,action,code){

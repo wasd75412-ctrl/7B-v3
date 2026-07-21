@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
 <title>7B 羽球社</title>
 <link rel="preload" href="/assets/fonts/jason-handwriting-9-brand.woff2?v=20260714-277" as="font" type="font/woff2" crossorigin>
-<link rel="stylesheet" href="/src/styles.css?v=20260721-329">
+<link rel="stylesheet" href="/src/styles.css?v=20260721-330">
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="apple-touch-icon" sizes="180x180" href="icons/icon-180.png">
 <meta name="theme-color" content="#082947">
@@ -184,9 +184,9 @@
 </section>
 
 <div id="scoreRemoteModal" class="modal hidden"><div class="modal-card score-remote-card">
-  <div class="score-remote-head"><div><h2>🎮 藍牙比分遙控器</h2><p>先在 iPad「設定 → 藍牙」配對鍵盤型遙控器，再回來學習每顆按鍵。</p></div><button id="closeScoreRemote" class="btn" type="button" aria-label="關閉比分遙控器設定" title="關閉">✕</button></div>
+  <div class="score-remote-head"><div><h2>🎮 藍牙比分遙控器</h2><p><strong>App 內不會直接配對藍牙。</strong>請先在 iPad「設定 → 藍牙」完成連接，再回來學習每顆按鍵。</p></div><button id="closeScoreRemote" class="btn" type="button" aria-label="關閉比分遙控器設定" title="關閉">✕</button></div>
   <div class="score-remote-enable"><div><strong>遙控計分</strong><span id="scoreRemoteStatus">目前未啟用</span></div><button id="scoreRemoteToggle" class="btn primary" type="button" aria-pressed="false">開啟</button></div>
-  <div class="score-remote-note">支援會送出鍵盤按鍵的藍牙簡報器、遙控器或鍵盤。iPad 音量鍵與純相機快門鍵不會傳給網頁，無法設定。</div>
+  <div class="score-remote-note">按下「學習按鍵」後有 7 秒可按實體遙控器。新版同時偵測按下、放開與鍵盤式遙控點擊；iPad 音量鍵與純相機快門鍵仍不會傳給網頁。</div>
   <div class="score-remote-bindings" aria-label="比分遙控器按鍵設定">
     <div class="score-remote-row"><span class="score-remote-action team-a">A隊 ＋1</span><kbd id="remoteBindingTeamAPlus">←</kbd><button class="btn" type="button" data-remote-learn="teamAPlus">學習按鍵</button></div>
     <div class="score-remote-row"><span class="score-remote-action team-b">B隊 ＋1</span><kbd id="remoteBindingTeamBPlus">→</kbd><button class="btn" type="button" data-remote-learn="teamBPlus">學習按鍵</button></div>
@@ -318,6 +318,6 @@ window.addEventListener('unhandledrejection',event=>{
 });
 bcmBootTimer=setTimeout(()=>{if(!window.__bcmBooted)bcmShowBootError('App 啟動時間過久，可能是更新快取不完整。');},8000);
 </script>
-<script type="module" src="/src/main.js?v=20260721-329"></script>
+<script type="module" src="/src/main.js?v=20260721-330"></script>
 </body>
 </html>
