@@ -109,6 +109,13 @@ function isAndroidRemoteKeyAccessEnabled(){
   if(!hasAndroidRemoteKeyAccessBridge())return true;
   try{return Boolean(window.BcmAndroid.isRemoteKeyAccessEnabled())}catch{return false}
 }
+function hasAndroidRecordingModeBridge(){
+  return requestedAndroidRemote&&typeof window.BcmAndroid?.isRecordingModeEnabled==='function';
+}
+function isAndroidRecordingModeEnabled(){
+  if(!hasAndroidRecordingModeBridge())return false;
+  try{return Boolean(window.BcmAndroid.isRecordingModeEnabled())}catch{return false}
+}
 function setAndroidRemoteFeedback(message,kind=''){
   const feedback=$('androidRemoteFeedback');if(!feedback)return;
   clearTimeout(androidRemoteFeedbackTimer);feedback.textContent=message;feedback.className=`android-remote-feedback ${kind}`.trim();
@@ -120,11 +127,20 @@ function renderAndroidRemote(){
   $('landing').classList.add('hidden');$('app').classList.add('hidden');$('scoreView').classList.add('hidden');view.classList.remove('hidden');
   const match=state.match,ready=isHost&&match.active&&match.winner===null;
   const hasKeyAccessBridge=hasAndroidRemoteKeyAccessBridge(),keyAccessEnabled=isAndroidRemoteKeyAccessEnabled();
+  const hasRecordingBridge=hasAndroidRecordingModeBridge(),recordingModeEnabled=isAndroidRecordingModeEnabled();
   $('androidRemoteRoom').textContent=roomId;
   $('androidRemoteConnection').textContent=!navigator.onLine?'離線中':hasKeyAccessBridge&&!keyAccessEnabled?'待開啟按鍵權限':'已連線';
   $('androidRemoteConnection').classList.toggle('offline',!navigator.onLine);
   $('androidRemoteConnection').classList.toggle('pending',navigator.onLine&&hasKeyAccessBridge&&!keyAccessEnabled);
   $('androidRemoteKeyAccess').classList.toggle('hidden',!hasKeyAccessBridge||keyAccessEnabled);
+  $('androidRemoteRecording').classList.toggle('hidden',!hasRecordingBridge);
+  $('androidRemoteRecording').classList.toggle('active',recordingModeEnabled);
+  $('androidRemoteRecordingToggle').textContent=recordingModeEnabled?'關閉錄影計分':'開啟錄影計分';
+  $('androidRemoteRecordingToggle').classList.toggle('recording-on',recordingModeEnabled);
+  $('androidRemoteRecordingToggle').setAttribute('aria-pressed',recordingModeEnabled?'true':'false');
+  $('androidRemoteRecordingToggle').disabled=!keyAccessEnabled||!isHost;
+  $('androidRemoteOpenCamera').disabled=!keyAccessEnabled||!isHost;
+  $('androidRemoteRecordingHint').textContent=!keyAccessEnabled?'請先開啟按鍵存取權限。':!isHost?'請先完成管理員登入。':recordingModeEnabled?'錄影計分已開啟；切到相機後遙控器仍會控制比分。':'錄影結束回到此頁後，可以關閉錄影計分模式。';
   $('androidRemotePermission').classList.toggle('hidden',isHost);
   $('androidRemoteIdle').classList.toggle('hidden',isHost&&match.active&&match.winner===null);
   $('androidRemoteIdle').querySelector('strong').textContent=!isHost?'🔒 尚未取得管理員權限':match.winner!==null?'🏁 本場比賽結束':'🏸 等待比賽開始';
@@ -145,6 +161,7 @@ function handleAndroidRemoteAction(action){
 }
 window.bcmAndroidRemoteInput=action=>handleAndroidRemoteAction(String(action||''));
 window.bcmAndroidKeyAccessChanged=()=>{renderAndroidRemote();return true};
+window.bcmAndroidRecordingModeChanged=()=>{renderAndroidRemote();return true};
 window.bcmAndroidRemoteKeyDetected=label=>{
   if(!requestedAndroidRemote)return false;
   setAndroidRemoteFeedback(`已收到 ${String(label||'遙控器按鍵')}，處理中…`,'detected');
@@ -1509,6 +1526,16 @@ $('androidRemoteLogin').onclick=()=>$('adminLoginBtn').click();
 $('androidRemoteKeyAccessBtn').onclick=()=>{
   try{window.BcmAndroid?.openRemoteKeyAccessSettings?.()}catch{setAndroidRemoteFeedback('請到 Android 設定開啟按鍵存取權限','error')}
 };
+$('androidRemoteRecordingToggle').onclick=()=>{
+  if(!isHost){setAndroidRemoteFeedback('請先完成管理員登入','error');return}
+  if(!isAndroidRemoteKeyAccessEnabled()){setAndroidRemoteFeedback('請先開啟按鍵存取權限','error');return}
+  try{window.BcmAndroid?.setRecordingModeEnabled?.(!isAndroidRecordingModeEnabled());renderAndroidRemote()}catch{setAndroidRemoteFeedback('無法切換錄影計分模式','error')}
+};
+$('androidRemoteOpenCamera').onclick=()=>{
+  if(!isHost){setAndroidRemoteFeedback('請先完成管理員登入','error');return}
+  if(!isAndroidRemoteKeyAccessEnabled()){setAndroidRemoteFeedback('請先開啟按鍵存取權限','error');return}
+  try{window.BcmAndroid?.openVideoCamera?.()}catch{setAndroidRemoteFeedback('無法開啟相機錄影','error')}
+};
 $('androidRemoteRefresh').onclick=()=>location.reload();
 $('scoreRemoteBtn').onclick=openScoreRemoteSettings;
 $('scoreRemoteQuickBtn').onclick=openScoreRemoteSettings;
@@ -1614,6 +1641,6 @@ const exitScoreBtn=$('exitScore');if(exitScoreBtn)exitScoreBtn.addEventListener(
 
 window.bcmMarkBooted?.();
 if('serviceWorker'in navigator&&location.protocol.startsWith('http')){
-  const swRevision='20260721-334';
+  const swRevision='20260721-335';
   navigator.serviceWorker.register(`./sw.js?v=${swRevision}`,{updateViaCache:'none'}).then(registration=>registration.update()).catch(()=>{});
 }

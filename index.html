@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
 <title>7B 羽球社</title>
 <link rel="preload" href="/assets/fonts/jason-handwriting-9-brand.woff2?v=20260714-277" as="font" type="font/woff2" crossorigin>
-<link rel="stylesheet" href="/src/styles.css?v=20260721-334">
+<link rel="stylesheet" href="/src/styles.css?v=20260721-335">
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="apple-touch-icon" sizes="180x180" href="icons/icon-180.png">
 <meta name="theme-color" content="#082947">
@@ -195,6 +195,11 @@
     <button id="androidRemoteKeyAccessBtn" class="btn primary" type="button">前往開啟按鍵權限</button>
     <small>請在設定中選擇「7B 比分遙控器按鍵存取」，再開啟允許。</small>
   </div>
+  <div id="androidRemoteRecording" class="android-remote-recording hidden">
+    <div class="android-remote-recording-copy"><strong>🎥 錄影計分模式</strong><span>開啟後切到相機錄影，遙控器仍會在背景控制比分，不會調整音量或中斷錄影。</span></div>
+    <div class="android-remote-recording-actions"><button id="androidRemoteRecordingToggle" class="btn" type="button" aria-pressed="false">開啟錄影計分</button><button id="androidRemoteOpenCamera" class="btn primary" type="button">開啟相機錄影</button></div>
+    <small id="androidRemoteRecordingHint">錄影結束回到此頁後，可以關閉錄影計分模式。</small>
+  </div>
   <div id="androidRemotePermission" class="android-remote-permission hidden">
     <strong>需要管理員權限</strong><span>首次使用請輸入這個球局的管理員 PIN。</span><button id="androidRemoteLogin" class="btn primary" type="button">管理員登入</button>
   </div>
@@ -343,6 +348,6 @@ window.addEventListener('unhandledrejection',event=>{
 });
 bcmBootTimer=setTimeout(()=>{if(!window.__bcmBooted)bcmShowBootError('App 啟動時間過久，可能是更新快取不完整。');},8000);
 </script>
-<script type="module" src="/src/main.js?v=20260721-334"></script>
+<script type="module" src="/src/main.js?v=20260721-335"></script>
 </body>
 </html>
