@@ -6,7 +6,7 @@ import { arrangeLineupByGender, normalizeGender } from './lineup.js';
 import { calculatePerPersonFee } from './next-event.js';
 import { shouldShowNotificationPrompt } from './notifications.js';
 import { normalizeMatchReplayTitle, normalizeYouTubePlaylistUrl } from './youtube.js';
-import { DEFAULT_SCORE_REMOTE_BINDINGS, assignRemoteBinding, isEditableRemoteTarget, normalizeRemoteBindings, remoteActionForCode, remoteEventCode, shouldHandleRemoteInput } from './score-remote.js';
+import { DEFAULT_SCORE_REMOTE_BINDINGS, VIRTUAL_REMOTE_CLICK_CODE, advanceRemotePressState, assignRemoteBinding, isEditableRemoteTarget, normalizeRemoteBindings, remoteActionForCode, remoteEventCode, shouldHandleRemoteInput } from './score-remote.js';
 
 const firebaseConfig={apiKey:'AIzaSyBrakbTPK7UqEChPBI6pM8-i03IcLq0IvM',authDomain:'badminton-7a1c3.firebaseapp.com',projectId:'badminton-7a1c3',storageBucket:'badminton-7a1c3.firebasestorage.app',messagingSenderId:'883534015507',appId:'1:883534015507:web:a7f6fb318151b6d07563e6',measurementId:'G-C97B98H7YW'};
 const fbApp=initializeApp(firebaseConfig);
@@ -47,13 +47,13 @@ const requestedPage=new URLSearchParams(location.search).get('page');
 const SCORE_REMOTE_ENABLED_KEY='bcmScoreRemoteEnabledV1',SCORE_REMOTE_BINDINGS_KEY='bcmScoreRemoteBindingsV1';
 const SCORE_REMOTE_ACTION_LABELS={teamAPlus:'A隊 ＋1',teamBPlus:'B隊 ＋1',undo:'撤銷上一分',teamAMinus:'A隊 −1',teamBMinus:'B隊 −1'};
 const SCORE_REMOTE_BINDING_IDS={teamAPlus:'remoteBindingTeamAPlus',teamBPlus:'remoteBindingTeamBPlus',undo:'remoteBindingUndo',teamAMinus:'remoteBindingTeamAMinus',teamBMinus:'remoteBindingTeamBMinus'};
-let scoreRemoteEnabled=localStorage.getItem(SCORE_REMOTE_ENABLED_KEY)==='1',scoreRemoteBindings=loadScoreRemoteBindings(),scoreRemoteLearningAction='',scoreRemoteLastInputAt=0,scoreRemoteIndicatorTimer=null,scoreRemoteStatusMessage='';
+let scoreRemoteEnabled=localStorage.getItem(SCORE_REMOTE_ENABLED_KEY)==='1',scoreRemoteBindings=loadScoreRemoteBindings(),scoreRemoteLearningAction='',scoreRemoteLastInputAt=0,scoreRemoteIndicatorTimer=null,scoreRemoteLearningTimer=null,scoreRemoteStatusMessage='',scoreRemoteStatusKind='',scoreRemotePressedCodes=new Set();
 
 function loadScoreRemoteBindings(){
   try{return normalizeRemoteBindings(JSON.parse(localStorage.getItem(SCORE_REMOTE_BINDINGS_KEY)||'{}'))}catch{return normalizeRemoteBindings()}
 }
 function saveScoreRemoteBindings(){localStorage.setItem(SCORE_REMOTE_BINDINGS_KEY,JSON.stringify(scoreRemoteBindings))}
-function scoreRemoteKeyLabel(code){return({ArrowLeft:'←',ArrowRight:'→',ArrowUp:'↑',ArrowDown:'↓',PageUp:'Page Up',PageDown:'Page Down',Space:'空白鍵',Enter:'Enter',Escape:'Esc',Backspace:'Backspace'}[code]||String(code||'尚未設定').replace(/^Key/,'').replace(/^Digit/,''))}
+function scoreRemoteKeyLabel(code){return({ArrowLeft:'←',ArrowRight:'→',ArrowUp:'↑',ArrowDown:'↓',PageUp:'Page Up',PageDown:'Page Down',Space:'空白鍵',Enter:'Enter',Escape:'Esc',Backspace:'Backspace',[VIRTUAL_REMOTE_CLICK_CODE]:'遙控點擊'}[code]||String(code||'尚未設定').replace(/^Key/,'').replace(/^Digit/,''))}
 function updateScoreRemoteUi(){
   const status=$('scoreRemoteStatus'),toggle=$('scoreRemoteToggle'),menuButton=$('scoreRemoteBtn'),quickButton=$('scoreRemoteQuickBtn');
   const pressed=scoreRemoteEnabled?'true':'false';
@@ -61,11 +61,21 @@ function updateScoreRemoteUi(){
   if(menuButton)menuButton.textContent=scoreRemoteEnabled?'🎮 遙控器已開啟':'🎮 比分遙控器';
   if(toggle){toggle.textContent=scoreRemoteEnabled?'關閉':'開啟';toggle.classList.toggle('primary',!scoreRemoteEnabled);toggle.classList.toggle('score-remote-on',scoreRemoteEnabled)}
   if(status)status.textContent=scoreRemoteLearningAction?`請按下「${SCORE_REMOTE_ACTION_LABELS[scoreRemoteLearningAction]}」要使用的遙控器按鍵…`:scoreRemoteStatusMessage||(scoreRemoteEnabled?'已開啟，等待遙控器按鍵':'目前未啟用');
+  status?.closest('.score-remote-enable')?.classList.toggle('detection-error',scoreRemoteStatusKind==='error');
   for(const [action,id] of Object.entries(SCORE_REMOTE_BINDING_IDS)){const element=$(id);if(element)element.textContent=scoreRemoteKeyLabel(scoreRemoteBindings[action])}
   all('[data-remote-learn]').forEach(button=>{const learning=button.dataset.remoteLearn===scoreRemoteLearningAction;button.classList.toggle('learning',learning);button.textContent=learning?'等待按鍵…':'學習按鍵'});
 }
-function openScoreRemoteSettings(){scoreRemoteStatusMessage='';scoreRemoteLearningAction='';updateScoreRemoteUi();$('scoreRemoteModal').classList.remove('hidden')}
-function closeScoreRemoteSettings(){scoreRemoteLearningAction='';$('scoreRemoteModal').classList.add('hidden');updateScoreRemoteUi()}
+function clearScoreRemoteLearningTimer(){clearTimeout(scoreRemoteLearningTimer);scoreRemoteLearningTimer=null}
+function openScoreRemoteSettings(){clearScoreRemoteLearningTimer();scoreRemoteStatusMessage='';scoreRemoteStatusKind='';scoreRemoteLearningAction='';updateScoreRemoteUi();$('scoreRemoteModal').classList.remove('hidden')}
+function closeScoreRemoteSettings(){clearScoreRemoteLearningTimer();scoreRemoteLearningAction='';$('scoreRemoteModal').classList.add('hidden');updateScoreRemoteUi()}
+function startScoreRemoteLearning(action){
+  clearScoreRemoteLearningTimer();scoreRemoteLearningAction=action;scoreRemoteStatusMessage='';scoreRemoteStatusKind='';updateScoreRemoteUi();
+  scoreRemoteLearningTimer=setTimeout(()=>{if(scoreRemoteLearningAction!==action)return;scoreRemoteLearningAction='';scoreRemoteStatusKind='error';scoreRemoteStatusMessage='沒有收到按鍵訊號。請確認已先在 iPad 藍牙設定完成配對；音量／快門型遙控器無法傳給網頁。';updateScoreRemoteUi()},7000);
+}
+function completeScoreRemoteLearning(action,code,event){
+  event?.preventDefault();event?.stopPropagation();clearScoreRemoteLearningTimer();
+  scoreRemoteBindings=assignRemoteBinding(scoreRemoteBindings,action,code);saveScoreRemoteBindings();scoreRemoteLearningAction='';scoreRemoteLastInputAt=performance.now();scoreRemoteStatusKind='';scoreRemoteStatusMessage=`已設定「${SCORE_REMOTE_ACTION_LABELS[action]}」為 ${scoreRemoteKeyLabel(code)}`;updateScoreRemoteUi();
+}
 function showScoreRemoteIndicator(message){
   const indicator=$('scoreRemoteIndicator');if(!indicator)return;
   clearTimeout(scoreRemoteIndicatorTimer);indicator.textContent=`🎮 ${message}`;indicator.classList.remove('hidden');
@@ -82,20 +92,29 @@ function performScoreRemoteAction(action){
   const team=action==='teamAMinus'?0:action==='teamBMinus'?1:-1,index=match.rallies.lastIndexOf(team);
   if(index<0)return false;match.rallies.splice(index,1);replay();return true;
 }
-function handleScoreRemoteKeydown(event){
-  const code=remoteEventCode(event);
+function handleScoreRemoteCode(event,code){
   if(scoreRemoteLearningAction){
     if(!code||['ShiftLeft','ShiftRight','ControlLeft','ControlRight','AltLeft','AltRight','MetaLeft','MetaRight'].includes(code))return;
-    event.preventDefault();
-    if(code==='Escape'){scoreRemoteLearningAction='';scoreRemoteStatusMessage='已取消按鍵學習';updateScoreRemoteUi();return}
+    if(code==='Escape'){event.preventDefault();clearScoreRemoteLearningTimer();scoreRemoteLearningAction='';scoreRemoteStatusMessage='已取消按鍵學習';updateScoreRemoteUi();return}
     const action=scoreRemoteLearningAction;
-    scoreRemoteBindings=assignRemoteBinding(scoreRemoteBindings,action,code);saveScoreRemoteBindings();scoreRemoteLearningAction='';scoreRemoteStatusMessage=`已設定「${SCORE_REMOTE_ACTION_LABELS[action]}」為 ${scoreRemoteKeyLabel(code)}`;updateScoreRemoteUi();return;
+    completeScoreRemoteLearning(action,code,event);return;
   }
   const action=remoteActionForCode(scoreRemoteBindings,code);
   if(!action||!shouldHandleRemoteInput({enabled:scoreRemoteEnabled,isHost,scoreVisible:!$('scoreView').classList.contains('hidden'),matchActive:state.match.active,matchFinished:state.match.winner!==null,repeat:event.repeat,editable:isEditableRemoteTarget(event.target)}))return;
   const now=performance.now();if(now-scoreRemoteLastInputAt<280)return;scoreRemoteLastInputAt=now;
   event.preventDefault();
   if(performScoreRemoteAction(action)){scoreRemoteStatusMessage=`收到：${SCORE_REMOTE_ACTION_LABELS[action]}`;showScoreRemoteIndicator(SCORE_REMOTE_ACTION_LABELS[action]);updateScoreRemoteUi()}
+}
+function handleScoreRemoteKeyboard(event){
+  const code=remoteEventCode(event),phase=event.type;
+  const decision=advanceRemotePressState(scoreRemotePressedCodes,code,phase,event.repeat);scoreRemotePressedCodes=decision.pressedCodes;
+  if(phase==='keypress'&&code)setTimeout(()=>scoreRemotePressedCodes.delete(code),650);
+  if(decision.shouldHandle)handleScoreRemoteCode(event,code);
+}
+function handleScoreRemoteVirtualClick(event){
+  if(event.detail!==0)return;
+  if(scoreRemoteLearningAction){completeScoreRemoteLearning(scoreRemoteLearningAction,VIRTUAL_REMOTE_CLICK_CODE,event);return}
+  handleScoreRemoteCode(event,VIRTUAL_REMOTE_CLICK_CODE);
 }
 
 async function sha256(text){const buf=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(text));return [...new Uint8Array(buf)].map(b=>b.toString(16).padStart(2,'0')).join('')}
@@ -1424,11 +1443,14 @@ updatePushNotificationButton();
 $('scoreRemoteBtn').onclick=openScoreRemoteSettings;
 $('scoreRemoteQuickBtn').onclick=openScoreRemoteSettings;
 $('closeScoreRemote').onclick=closeScoreRemoteSettings;
-$('scoreRemoteToggle').onclick=()=>{scoreRemoteEnabled=!scoreRemoteEnabled;localStorage.setItem(SCORE_REMOTE_ENABLED_KEY,scoreRemoteEnabled?'1':'0');scoreRemoteStatusMessage=scoreRemoteEnabled?'已開啟，等待遙控器按鍵':'遙控計分已關閉';updateScoreRemoteUi()};
+$('scoreRemoteToggle').onclick=()=>{scoreRemoteEnabled=!scoreRemoteEnabled;localStorage.setItem(SCORE_REMOTE_ENABLED_KEY,scoreRemoteEnabled?'1':'0');scoreRemoteStatusKind='';scoreRemoteStatusMessage=scoreRemoteEnabled?'已開啟，等待遙控器按鍵':'遙控計分已關閉';updateScoreRemoteUi()};
 $('resetScoreRemote').onclick=()=>{if(!confirm('恢復預設按鍵設定？'))return;scoreRemoteBindings={...DEFAULT_SCORE_REMOTE_BINDINGS};saveScoreRemoteBindings();scoreRemoteLearningAction='';scoreRemoteStatusMessage='已恢復預設按鍵';updateScoreRemoteUi()};
-all('[data-remote-learn]').forEach(button=>button.onclick=()=>{scoreRemoteLearningAction=button.dataset.remoteLearn;scoreRemoteStatusMessage='';updateScoreRemoteUi()});
+all('[data-remote-learn]').forEach(button=>button.onclick=()=>startScoreRemoteLearning(button.dataset.remoteLearn));
 $('scoreRemoteModal').addEventListener('click',event=>{if(event.target===$('scoreRemoteModal'))closeScoreRemoteSettings()});
-document.addEventListener('keydown',handleScoreRemoteKeydown,true);
+document.addEventListener('keydown',handleScoreRemoteKeyboard,true);
+document.addEventListener('keypress',handleScoreRemoteKeyboard,true);
+document.addEventListener('keyup',handleScoreRemoteKeyboard,true);
+document.addEventListener('click',handleScoreRemoteVirtualClick,true);
 updateScoreRemoteUi();
 if(!$('pollTime').value)$('pollTime').value='01:00';
 if(!$('pollEndTime').value)$('pollEndTime').value=suggestedEndTime($('pollTime').value);
