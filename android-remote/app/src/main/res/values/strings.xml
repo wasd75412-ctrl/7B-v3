@@ -1,4 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">7B 比分遙控器</string>
+    <string name="key_access_service_name">7B 比分遙控器按鍵存取</string>
+    <string name="accessibility_service_description">攔截已配對藍牙快門的音量鍵，將按鍵轉為 A隊、B隊加分或撤銷；不讀取畫面內容。</string>
 </resources>

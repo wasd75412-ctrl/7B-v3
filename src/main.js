@@ -102,6 +102,13 @@ function performScoreRemoteAction(action,{announce=true}={}){
   if(index<0)return false;match.rallies.splice(index,1);replay();return true;
 }
 let androidRemoteFeedbackTimer=null,scoreSnapshotReady=false;
+function hasAndroidRemoteKeyAccessBridge(){
+  return requestedAndroidRemote&&typeof window.BcmAndroid?.isRemoteKeyAccessEnabled==='function';
+}
+function isAndroidRemoteKeyAccessEnabled(){
+  if(!hasAndroidRemoteKeyAccessBridge())return true;
+  try{return Boolean(window.BcmAndroid.isRemoteKeyAccessEnabled())}catch{return false}
+}
 function setAndroidRemoteFeedback(message,kind=''){
   const feedback=$('androidRemoteFeedback');if(!feedback)return;
   clearTimeout(androidRemoteFeedbackTimer);feedback.textContent=message;feedback.className=`android-remote-feedback ${kind}`.trim();
@@ -112,9 +119,12 @@ function renderAndroidRemote(){
   if(!requestedAndroidRemote||!roomId){view.classList.add('hidden');return}
   $('landing').classList.add('hidden');$('app').classList.add('hidden');$('scoreView').classList.add('hidden');view.classList.remove('hidden');
   const match=state.match,ready=isHost&&match.active&&match.winner===null;
+  const hasKeyAccessBridge=hasAndroidRemoteKeyAccessBridge(),keyAccessEnabled=isAndroidRemoteKeyAccessEnabled();
   $('androidRemoteRoom').textContent=roomId;
-  $('androidRemoteConnection').textContent=navigator.onLine?'已連線':'離線中';
+  $('androidRemoteConnection').textContent=!navigator.onLine?'離線中':hasKeyAccessBridge&&!keyAccessEnabled?'待開啟按鍵權限':'已連線';
   $('androidRemoteConnection').classList.toggle('offline',!navigator.onLine);
+  $('androidRemoteConnection').classList.toggle('pending',navigator.onLine&&hasKeyAccessBridge&&!keyAccessEnabled);
+  $('androidRemoteKeyAccess').classList.toggle('hidden',!hasKeyAccessBridge||keyAccessEnabled);
   $('androidRemotePermission').classList.toggle('hidden',isHost);
   $('androidRemoteIdle').classList.toggle('hidden',isHost&&match.active&&match.winner===null);
   $('androidRemoteIdle').querySelector('strong').textContent=!isHost?'🔒 尚未取得管理員權限':match.winner!==null?'🏁 本場比賽結束':'🏸 等待比賽開始';
@@ -134,6 +144,7 @@ function handleAndroidRemoteAction(action){
   setAndroidRemoteFeedback(action==='teamAPlus'?'A隊 ＋1':action==='teamBPlus'?'B隊 ＋1':'已撤銷上一分','success');renderAndroidRemote();return true;
 }
 window.bcmAndroidRemoteInput=action=>handleAndroidRemoteAction(String(action||''));
+window.bcmAndroidKeyAccessChanged=()=>{renderAndroidRemote();return true};
 window.bcmAndroidRemoteKeyDetected=label=>{
   if(!requestedAndroidRemote)return false;
   setAndroidRemoteFeedback(`已收到 ${String(label||'遙控器按鍵')}，處理中…`,'detected');
@@ -1495,6 +1506,9 @@ $('androidRemoteAPlus').onclick=()=>handleAndroidRemoteAction('teamAPlus');
 $('androidRemoteBPlus').onclick=()=>handleAndroidRemoteAction('teamBPlus');
 $('androidRemoteUndo').onclick=()=>handleAndroidRemoteAction('undo');
 $('androidRemoteLogin').onclick=()=>$('adminLoginBtn').click();
+$('androidRemoteKeyAccessBtn').onclick=()=>{
+  try{window.BcmAndroid?.openRemoteKeyAccessSettings?.()}catch{setAndroidRemoteFeedback('請到 Android 設定開啟按鍵存取權限','error')}
+};
 $('androidRemoteRefresh').onclick=()=>location.reload();
 $('scoreRemoteBtn').onclick=openScoreRemoteSettings;
 $('scoreRemoteQuickBtn').onclick=openScoreRemoteSettings;
@@ -1600,6 +1614,6 @@ const exitScoreBtn=$('exitScore');if(exitScoreBtn)exitScoreBtn.addEventListener(
 
 window.bcmMarkBooted?.();
 if('serviceWorker'in navigator&&location.protocol.startsWith('http')){
-  const swRevision='20260721-332';
+  const swRevision='20260721-333';
   navigator.serviceWorker.register(`./sw.js?v=${swRevision}`,{updateViaCache:'none'}).then(registration=>registration.update()).catch(()=>{});
 }

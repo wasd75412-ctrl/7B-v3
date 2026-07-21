@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
 <title>7B 羽球社</title>
 <link rel="preload" href="/assets/fonts/jason-handwriting-9-brand.woff2?v=20260714-277" as="font" type="font/woff2" crossorigin>
-<link rel="stylesheet" href="/src/styles.css?v=20260721-332">
+<link rel="stylesheet" href="/src/styles.css?v=20260721-333">
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="apple-touch-icon" sizes="180x180" href="icons/icon-180.png">
 <meta name="theme-color" content="#082947">
@@ -189,6 +189,12 @@
     <button id="androidRemoteRefresh" class="android-remote-icon-btn" type="button" aria-label="重新整理" title="重新整理">↻</button>
   </header>
   <div class="android-remote-roombar"><span>房號 <strong id="androidRemoteRoom">—</strong></span><span id="androidRemoteConnection" class="android-remote-connection">連線中</span></div>
+  <div id="androidRemoteKeyAccess" class="android-remote-key-access hidden">
+    <strong>需要開啟按鍵存取權限</strong>
+    <span>快門被手機當成音量鍵。開啟一次後，App 才能在音量改變前攔截並用來計分。</span>
+    <button id="androidRemoteKeyAccessBtn" class="btn primary" type="button">前往開啟按鍵權限</button>
+    <small>請在設定中選擇「7B 比分遙控器按鍵存取」，再開啟允許。</small>
+  </div>
   <div id="androidRemotePermission" class="android-remote-permission hidden">
     <strong>需要管理員權限</strong><span>首次使用請輸入這個球局的管理員 PIN。</span><button id="androidRemoteLogin" class="btn primary" type="button">管理員登入</button>
   </div>
@@ -337,6 +343,6 @@ window.addEventListener('unhandledrejection',event=>{
 });
 bcmBootTimer=setTimeout(()=>{if(!window.__bcmBooted)bcmShowBootError('App 啟動時間過久，可能是更新快取不完整。');},8000);
 </script>
-<script type="module" src="/src/main.js?v=20260721-332"></script>
+<script type="module" src="/src/main.js?v=20260721-333"></script>
 </body>
 </html>
