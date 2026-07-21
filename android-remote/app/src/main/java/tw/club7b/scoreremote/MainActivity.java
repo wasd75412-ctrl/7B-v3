@@ -1,6 +1,9 @@
 package tw.club7b.scoreremote;
 
+import android.accessibilityservice.AccessibilityServiceInfo;
 import android.app.Activity;
+import android.content.ComponentName;
+import android.content.Context;
 import android.content.Intent;
 import android.graphics.Color;
 import android.net.Uri;
@@ -12,10 +15,13 @@ import android.os.SystemClock;
 import android.os.VibrationEffect;
 import android.os.Vibrator;
 import android.os.VibratorManager;
+import android.provider.Settings;
 import android.view.KeyEvent;
 import android.view.ViewGroup;
 import android.view.WindowManager;
+import android.view.accessibility.AccessibilityManager;
 import android.webkit.CookieManager;
+import android.webkit.JavascriptInterface;
 import android.webkit.WebChromeClient;
 import android.webkit.WebResourceRequest;
 import android.webkit.WebSettings;
@@ -31,6 +37,7 @@ public final class MainActivity extends Activity {
 
     private final VolumeKeyInterpreter volumeKeys = new VolumeKeyInterpreter();
     private final Handler keyHandler = new Handler(Looper.getMainLooper());
+    private final RemoteKeyRelay.Listener remoteKeyListener = this::handleRemoteKeyEvent;
     private WebView webView;
     private Runnable pendingKeyFallback;
     private long lastActionAt;
@@ -57,9 +64,10 @@ public final class MainActivity extends Activity {
         settings.setDisplayZoomControls(false);
         settings.setMediaPlaybackRequiresUserGesture(false);
         settings.setMixedContentMode(WebSettings.MIXED_CONTENT_NEVER_ALLOW);
-        settings.setUserAgentString(settings.getUserAgentString() + " 7BAndroidRemote/1.0.1");
+        settings.setUserAgentString(settings.getUserAgentString() + " 7BAndroidRemote/1.1.0");
         CookieManager.getInstance().setAcceptCookie(true);
         CookieManager.getInstance().setAcceptThirdPartyCookies(view, true);
+        view.addJavascriptInterface(new AndroidBridge(), "BcmAndroid");
         view.setWebChromeClient(new WebChromeClient());
         view.setWebViewClient(new WebViewClient() {
             @Override
@@ -69,7 +77,7 @@ public final class MainActivity extends Activity {
                 try {
                     startActivity(new Intent(Intent.ACTION_VIEW, uri));
                 } catch (Exception ignored) {
-                    Toast.makeText(MainActivity.this, "無法開啟外部連結", Toast.LENGTH_SHORT).show();
+                    Toast.makeText(MainActivity.this, "無法開啟連結", Toast.LENGTH_SHORT).show();
                 }
                 return true;
             }
@@ -80,9 +88,32 @@ public final class MainActivity extends Activity {
     }
 
     @Override
+    protected void onStart() {
+        super.onStart();
+        RemoteKeyRelay.setListener(remoteKeyListener);
+    }
+
+    @Override
+    protected void onResume() {
+        super.onResume();
+        notifyKeyAccessChanged();
+    }
+
+    @Override
+    protected void onStop() {
+        RemoteKeyRelay.clearListener(remoteKeyListener);
+        super.onStop();
+    }
+
+    @Override
     public boolean dispatchKeyEvent(KeyEvent event) {
+        if (handleRemoteKeyEvent(event)) return true;
+        return super.dispatchKeyEvent(event);
+    }
+
+    private boolean handleRemoteKeyEvent(KeyEvent event) {
         int keyCode = event.getKeyCode();
-        if (!VolumeKeyInterpreter.isSupportedRemoteKey(keyCode)) return super.dispatchKeyEvent(event);
+        if (!VolumeKeyInterpreter.isSupportedRemoteKey(keyCode)) return false;
         VolumeKeyInterpreter.Action action = VolumeKeyInterpreter.Action.NONE;
         if (event.getAction() == KeyEvent.ACTION_DOWN) {
             action = volumeKeys.onKeyDown(keyCode, event.getEventTime(), event.getRepeatCount());
@@ -116,6 +147,7 @@ public final class MainActivity extends Activity {
     }
 
     private void notifyKeyDetected(int keyCode) {
+        if (webView == null) return;
         String label = VolumeKeyInterpreter.keyLabel(keyCode);
         webView.post(() -> webView.evaluateJavascript(
                 "window.bcmAndroidRemoteKeyDetected&&window.bcmAndroidRemoteKeyDetected('" + label + "')",
@@ -124,6 +156,7 @@ public final class MainActivity extends Activity {
     }
 
     private void sendRemoteAction(VolumeKeyInterpreter.Action action) {
+        if (webView == null) return;
         long now = SystemClock.uptimeMillis();
         if (now - lastActionAt < ACTION_DEBOUNCE_MS) return;
         lastActionAt = now;
@@ -159,6 +192,45 @@ public final class MainActivity extends Activity {
         ));
     }
 
+    private boolean isRemoteKeyAccessEnabled() {
+        AccessibilityManager manager = (AccessibilityManager) getSystemService(Context.ACCESSIBILITY_SERVICE);
+        if (manager == null || !manager.isEnabled()) return false;
+        ComponentName expected = new ComponentName(this, RemoteKeyAccessibilityService.class);
+        for (AccessibilityServiceInfo info : manager.getEnabledAccessibilityServiceList(AccessibilityServiceInfo.FEEDBACK_ALL_MASK)) {
+            ComponentName enabled = ComponentName.unflattenFromString(info.getId());
+            if (expected.equals(enabled)) return true;
+        }
+        return false;
+    }
+
+    private void openRemoteKeyAccessSettings() {
+        try {
+            startActivity(new Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS));
+        } catch (Exception ignored) {
+            Toast.makeText(this, "請到設定開啟無障礙服務", Toast.LENGTH_LONG).show();
+        }
+    }
+
+    private void notifyKeyAccessChanged() {
+        if (webView == null) return;
+        webView.post(() -> webView.evaluateJavascript(
+                "window.bcmAndroidKeyAccessChanged&&window.bcmAndroidKeyAccessChanged()",
+                null
+        ));
+    }
+
+    private final class AndroidBridge {
+        @JavascriptInterface
+        public boolean isRemoteKeyAccessEnabled() {
+            return MainActivity.this.isRemoteKeyAccessEnabled();
+        }
+
+        @JavascriptInterface
+        public void openRemoteKeyAccessSettings() {
+            runOnUiThread(MainActivity.this::openRemoteKeyAccessSettings);
+        }
+    }
+
     private void vibrate(long milliseconds) {
         Vibrator vibrator;
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
@@ -181,6 +253,7 @@ public final class MainActivity extends Activity {
     @Override
     protected void onDestroy() {
         cancelMissingKeyUpFallback();
+        RemoteKeyRelay.clearListener(remoteKeyListener);
         if (webView != null) {
             webView.stopLoading();
             webView.destroy();
