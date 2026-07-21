@@ -1532,3 +1532,40 @@ html.brand-font-fallback .brand-copy .brand-mark h1{
 @media(min-width:761px) and (max-width:1400px){
   .court-position{font-size:calc(clamp(1.98rem,4.56vw,4.8rem) + .6pt - var(--score-position-reduction))}
 }
+
+/* BCM 2.3.49 Bluetooth HID scoreboard remote */
+.room-more-menu #scoreRemoteBtn[aria-pressed="true"],.score-head #scoreRemoteQuickBtn[aria-pressed="true"]{border-color:#5ac391;background:#e7f8ef;color:#0b6540}
+.score-remote-card{width:min(720px,100%);padding:22px}
+.score-remote-head{display:flex;align-items:flex-start;justify-content:space-between;gap:16px}
+.score-remote-head h2{margin:0 0 7px}
+.score-remote-head p{margin:0;color:#617080;font-weight:800;line-height:1.5}
+.score-remote-head>.btn{flex:0 0 44px;width:44px;height:44px;padding:0}
+.score-remote-enable{display:flex;align-items:center;justify-content:space-between;gap:15px;margin-top:18px;padding:15px 17px;border:1px solid #bad9ca;border-radius:17px;background:#edf9f3}
+.score-remote-enable strong,.score-remote-enable span{display:block}
+.score-remote-enable strong{font-size:1.05rem}
+.score-remote-enable span{margin-top:4px;color:#3d6a55;font-size:.86rem;font-weight:850}
+.score-remote-enable .btn{min-width:96px}
+.score-remote-enable .score-remote-on{border-color:#bb4a4a;background:#fff;color:#a71919}
+.score-remote-note{margin:13px 0;padding:11px 13px;border-radius:13px;background:#fff6d9;color:#725400;font-size:.85rem;font-weight:800;line-height:1.5}
+.score-remote-bindings{display:grid;gap:8px}
+.score-remote-row{display:grid;grid-template-columns:minmax(120px,1fr) minmax(90px,.7fr) auto;align-items:center;gap:10px;padding:10px 12px;border:1px solid #dce4eb;border-radius:14px;background:#f8fafc}
+.score-remote-action{font-weight:950}
+.score-remote-action.team-a{color:#155a91}
+.score-remote-action.team-b{color:#a71919}
+.score-remote-row kbd{display:grid;place-items:center;min-height:39px;padding:7px 10px;border:1px solid #b9c6d1;border-bottom-width:3px;border-radius:9px;background:#fff;color:#19324a;font-family:inherit;font-size:.88rem;font-weight:950;text-align:center}
+.score-remote-row .btn{padding:9px 12px}
+.score-remote-row .btn.learning{border-color:#de9c17;background:#fff2c8;color:#785100;animation:score-remote-pulse .85s ease-in-out infinite alternate}
+.score-remote-footer{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-top:15px;color:#617080;font-size:.82rem;font-weight:800}
+.score-remote-footer .btn{flex:0 0 auto;padding:9px 12px}
+.score-remote-indicator{position:fixed;z-index:150;top:max(74px,calc(env(safe-area-inset-top) + 64px));left:50%;transform:translateX(-50%);pointer-events:none;border:1px solid rgba(255,255,255,.45);border-radius:999px;padding:10px 18px;background:rgba(5,30,48,.88);color:#fff;font-size:clamp(1rem,2.3vw,1.45rem);font-weight:1000;box-shadow:0 10px 26px rgba(0,0,0,.24);backdrop-filter:blur(8px)}
+@keyframes score-remote-pulse{to{transform:scale(1.03);box-shadow:0 0 0 4px rgba(222,156,23,.14)}}
+@media(max-width:560px){
+  .score-remote-card{padding:16px}
+  .score-remote-head{gap:9px}
+  .score-remote-head p{font-size:.84rem}
+  .score-remote-row{grid-template-columns:1fr auto;padding:10px}
+  .score-remote-row kbd{grid-column:1;grid-row:2}
+  .score-remote-row .btn{grid-column:2;grid-row:1/3}
+  .score-remote-footer{align-items:stretch;flex-direction:column}
+  .score-remote-footer .btn{width:100%}
+}
