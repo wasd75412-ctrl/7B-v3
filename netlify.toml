@@ -2,6 +2,10 @@
   command = "npm run build"
   publish = "dist"
 
+[build.environment]
+  # Firebase web API keys are public client configuration, not server secrets.
+  SECRETS_SCAN_SMART_DETECTION_OMIT_VALUES = "AIzaSyBrakbTPK7UqEChPBI6pM8-i03IcLq0IvM"
+
 [functions]
   directory = "netlify/functions"
   node_bundler = "esbuild"
