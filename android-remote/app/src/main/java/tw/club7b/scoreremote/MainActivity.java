@@ -15,6 +15,7 @@ import android.os.SystemClock;
 import android.os.VibrationEffect;
 import android.os.Vibrator;
 import android.os.VibratorManager;
+import android.provider.MediaStore;
 import android.provider.Settings;
 import android.view.KeyEvent;
 import android.view.ViewGroup;
@@ -42,6 +43,8 @@ public final class MainActivity extends Activity {
     private Runnable pendingLongPress;
     private Runnable pendingKeyFallback;
     private long lastActionAt;
+    private volatile boolean activityStarted;
+    private volatile boolean recordingModeEnabled;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -65,9 +68,10 @@ public final class MainActivity extends Activity {
         settings.setDisplayZoomControls(false);
         settings.setMediaPlaybackRequiresUserGesture(false);
         settings.setMixedContentMode(WebSettings.MIXED_CONTENT_NEVER_ALLOW);
-        settings.setUserAgentString(settings.getUserAgentString() + " 7BAndroidRemote/1.1.1");
+        settings.setUserAgentString(settings.getUserAgentString() + " 7BAndroidRemote/1.2.0");
         CookieManager.getInstance().setAcceptCookie(true);
         CookieManager.getInstance().setAcceptThirdPartyCookies(view, true);
+        view.setRendererPriorityPolicy(WebView.RENDERER_PRIORITY_IMPORTANT, true);
         view.addJavascriptInterface(new AndroidBridge(), "BcmAndroid");
         view.setWebChromeClient(new WebChromeClient());
         view.setWebViewClient(new WebViewClient() {
@@ -91,6 +95,7 @@ public final class MainActivity extends Activity {
     @Override
     protected void onStart() {
         super.onStart();
+        activityStarted = true;
         RemoteKeyRelay.setListener(remoteKeyListener);
     }
 
@@ -102,7 +107,8 @@ public final class MainActivity extends Activity {
 
     @Override
     protected void onStop() {
-        RemoteKeyRelay.clearListener(remoteKeyListener);
+        activityStarted = false;
+        if (!recordingModeEnabled) RemoteKeyRelay.clearListener(remoteKeyListener);
         super.onStop();
     }
 
@@ -246,6 +252,31 @@ public final class MainActivity extends Activity {
         ));
     }
 
+    private void setRecordingModeEnabled(boolean enabled) {
+        recordingModeEnabled = enabled;
+        if (enabled) RemoteKeyRelay.setListener(remoteKeyListener);
+        else if (!activityStarted) RemoteKeyRelay.clearListener(remoteKeyListener);
+        notifyRecordingModeChanged();
+    }
+
+    private void notifyRecordingModeChanged() {
+        if (webView == null) return;
+        webView.post(() -> webView.evaluateJavascript(
+                "window.bcmAndroidRecordingModeChanged&&window.bcmAndroidRecordingModeChanged()",
+                null
+        ));
+    }
+
+    private void openVideoCamera() {
+        setRecordingModeEnabled(true);
+        Intent intent = new Intent(MediaStore.INTENT_ACTION_VIDEO_CAMERA);
+        if (intent.resolveActivity(getPackageManager()) == null) {
+            Toast.makeText(this, "找不到可用的錄影相機", Toast.LENGTH_LONG).show();
+            return;
+        }
+        startActivity(intent);
+    }
+
     private final class AndroidBridge {
         @JavascriptInterface
         public boolean isRemoteKeyAccessEnabled() {
@@ -255,6 +286,21 @@ public final class MainActivity extends Activity {
         @JavascriptInterface
         public void openRemoteKeyAccessSettings() {
             runOnUiThread(MainActivity.this::openRemoteKeyAccessSettings);
+        }
+
+        @JavascriptInterface
+        public boolean isRecordingModeEnabled() {
+            return recordingModeEnabled;
+        }
+
+        @JavascriptInterface
+        public void setRecordingModeEnabled(boolean enabled) {
+            MainActivity.this.setRecordingModeEnabled(enabled);
+        }
+
+        @JavascriptInterface
+        public void openVideoCamera() {
+            runOnUiThread(MainActivity.this::openVideoCamera);
         }
     }
 
