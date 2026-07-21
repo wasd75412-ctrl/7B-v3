@@ -69,7 +69,6 @@
 
   <section id="page3" class="card page hidden">
     <h2>場上安排</h2>
-    <p class="sub gender-lineup-note">已設定為男性的球員會優先分到不同隊；三位以上男性同場時，系統會採用男性同隊最少的分法。</p>
     <div class="court"><div class="team a"><h3>A隊</h3><div class="slot"><select id="p0"></select></div><div class="slot"><select id="p1"></select></div></div><div class="team b"><h3>B隊</h3><div class="slot"><select id="p2"></select></div><div class="slot"><select id="p3"></select></div></div></div>
     <h3>候場</h3><div id="waiting" class="waiting"></div>
     <div class="rules"><div class="field"><label>勝利分</label><input id="target" type="number" min="1" max="99"></div><div class="field"><label>封頂分</label><input id="cap" type="number" min="1" max="199"></div><div class="field"><label>Deuce</label><select id="deuce"><option value="1">開啟</option><option value="0">關閉</option></select></div></div>
@@ -159,7 +158,7 @@
 
 <section id="scoreView" class="score-view hidden">
   <header class="score-head">
-    <div><strong id="scoreRole">管理員</strong> · <span class="room-code" id="scoreRoom"></span></div>
+    <div class="score-connection"><span><strong id="scoreRole">管理員</strong> · <span class="room-code" id="scoreRoom"></span></span><span id="scoreSyncBadge" class="score-sync-badge pending" role="status" aria-live="polite">連線中</span></div>
     <div class="score-actions">
       <label class="score-theme-control host-only" for="scoreTheme" title="選擇計分模式背景">
         <select id="scoreTheme" class="score-theme-select" aria-label="選擇計分模式背景" title="選擇計分模式背景">
@@ -269,7 +268,8 @@
 
 <div id="resultModal" class="modal hidden"><div class="modal-card"><h2 id="winnerTitle">比賽結束</h2><p id="finalScore" style="font-size:2rem;font-weight:1000"></p><p class="sub">勝方兩人保留，候場隊首兩人上場；敗方兩人排到候場尾端，四人再完全隨機分隊。</p><div class="next-grid"><div class="next-team a"><h3>A隊</h3><div class="slot"><select id="n0"></select></div><div class="slot"><select id="n1"></select></div></div><div class="next-team b"><h3>B隊</h3><div class="slot"><select id="n2"></select></div><div class="slot"><select id="n3"></select></div></div></div><p id="priorityText" class="viewer-note hidden"></p><div class="toolbar host-only" style="margin-top:15px"><button id="shuffleNext" class="btn">重新完全隨機</button><button id="startNext" class="btn primary">開始下一場</button></div><button id="closeResult" class="btn" style="margin-top:10px">關閉</button></div></div>
 
-<div id="editModal" class="modal hidden"><div class="modal-card" style="max-width:700px">
+<div id="editModal" class="modal hidden"><div class="modal-card player-profile-modal-card" style="max-width:700px">
+  <div class="player-modal-toolbar"><button id="closeEditTop" class="btn modal-close-button" type="button" aria-label="關閉球員卡">✕ 關閉</button></div>
   <div class="hero-card">
     <span id="editAvatarPreview" class="avatar large"></span>
     <div><div id="profileTitle" class="hero-name">球員資料</div><div id="profileSummary" class="hero-racket"></div><div id="profileStatus" class="status-chip">今日尚未出賽</div></div>
@@ -284,7 +284,6 @@
   <div class="profile-edit-divider"></div>
   <h3>編輯球員資料</h3>
   <div class="field"><label>姓名</label><input id="editName" class="input"></div>
-  <div class="field" style="margin-top:10px"><label>性別</label><select id="editGender" class="input"><option value="">尚未設定</option><option value="male">♂ 男性</option><option value="female">♀ 女性</option></select><div class="gender-field-note">管理員或球員本人皆可設定；安排上場時男性會優先分在不同隊。</div></div>
   <div id="voiceAdminSection" class="profile-panel host-only" style="margin-top:14px">
     <h3>🎤 播報設定（僅管理員）</h3>
     <div class="field"><label>播報名稱</label><input id="editVoiceName" class="input" placeholder="留空時使用姓名；例如：緁可填潔"></div>
