@@ -134,6 +134,11 @@ function handleAndroidRemoteAction(action){
   setAndroidRemoteFeedback(action==='teamAPlus'?'A隊 ＋1':action==='teamBPlus'?'B隊 ＋1':'已撤銷上一分','success');renderAndroidRemote();return true;
 }
 window.bcmAndroidRemoteInput=action=>handleAndroidRemoteAction(String(action||''));
+window.bcmAndroidRemoteKeyDetected=label=>{
+  if(!requestedAndroidRemote)return false;
+  setAndroidRemoteFeedback(`已收到 ${String(label||'遙控器按鍵')}，處理中…`,'detected');
+  return true;
+};
 function handleScoreRemoteCode(event,code){
   if(scoreRemoteLearningAction){
     if(!code||['ShiftLeft','ShiftRight','ControlLeft','ControlRight','AltLeft','AltRight','MetaLeft','MetaRight'].includes(code))return;
@@ -1595,6 +1600,6 @@ const exitScoreBtn=$('exitScore');if(exitScoreBtn)exitScoreBtn.addEventListener(
 
 window.bcmMarkBooted?.();
 if('serviceWorker'in navigator&&location.protocol.startsWith('http')){
-  const swRevision='20260721-331';
+  const swRevision='20260721-332';
   navigator.serviceWorker.register(`./sw.js?v=${swRevision}`,{updateViaCache:'none'}).then(registration=>registration.update()).catch(()=>{});
 }
