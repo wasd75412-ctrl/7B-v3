@@ -142,7 +142,7 @@ function renderAndroidRemote(){
   $('androidRemoteRecordingToggle').setAttribute('aria-pressed',recordingModeEnabled?'true':'false');
   $('androidRemoteRecordingToggle').disabled=!keyAccessEnabled||!isHost;
   $('androidRemoteOpenCamera').disabled=!keyAccessEnabled||!isHost;
-  $('androidRemoteRecordingHint').textContent=!keyAccessEnabled?'請先開啟按鍵存取權限。':!isHost?'請先完成管理員登入。':recordingModeEnabled?'錄影計分已開啟；切到相機後遙控器仍會控制比分。':'錄影結束回到此頁後，可以關閉錄影計分模式。';
+  $('androidRemoteRecordingHint').textContent=!keyAccessEnabled?'請先開啟按鍵存取權限。':!isHost?'請先完成管理員登入。':recordingModeEnabled?'錄影計分已開啟；切到相機後遙控器仍會控制比分。':'按「開啟相機錄影」後會先連接即時比分，再切到相機。';
   $('androidRemotePermission').classList.toggle('hidden',isHost);
   $('androidRemoteIdle').classList.toggle('hidden',isHost&&match.active&&match.winner===null);
   $('androidRemoteIdle').querySelector('strong').textContent=!isHost?'🔒 尚未取得管理員權限':match.winner!==null?'🏁 本場比賽結束':'🏸 等待比賽開始';
@@ -1764,6 +1764,6 @@ const exitScoreBtn=$('exitScore');if(exitScoreBtn)exitScoreBtn.addEventListener(
 
 window.bcmMarkBooted?.();
 if('serviceWorker'in navigator&&location.protocol.startsWith('http')){
-  const swRevision='20260722-339';
+  const swRevision='20260723-340';
   navigator.serviceWorker.register(`./sw.js?v=${swRevision}`,{updateViaCache:'none'}).then(registration=>registration.update()).catch(()=>{});
 }

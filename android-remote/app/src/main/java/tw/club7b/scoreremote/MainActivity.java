@@ -29,12 +29,14 @@ import android.webkit.WebSettings;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
 import android.widget.Toast;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 public final class MainActivity extends Activity {
     private static final String APP_HOST = "frolicking-taffy-4c3e5b.netlify.app";
     private static final String APP_URL = "https://" + APP_HOST + "/?androidRemote=1";
     private static final long MISSING_KEY_UP_DELAY_MS = 800L;
     private static final long ACTION_DEBOUNCE_MS = 240L;
+    private static final long CAMERA_PRECONNECT_TIMEOUT_MS = 5000L;
 
     private final VolumeKeyInterpreter volumeKeys = new VolumeKeyInterpreter();
     private final Handler keyHandler = new Handler(Looper.getMainLooper());
@@ -45,6 +47,7 @@ public final class MainActivity extends Activity {
     private long lastActionAt;
     private volatile boolean activityStarted;
     private volatile boolean recordingModeEnabled;
+    private BackgroundScoreController backgroundScoreController;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -69,7 +72,7 @@ public final class MainActivity extends Activity {
         settings.setDisplayZoomControls(false);
         settings.setMediaPlaybackRequiresUserGesture(false);
         settings.setMixedContentMode(WebSettings.MIXED_CONTENT_NEVER_ALLOW);
-        settings.setUserAgentString(settings.getUserAgentString() + " 7BAndroidRemote/1.3.0");
+        settings.setUserAgentString(settings.getUserAgentString() + " 7BAndroidRemote/1.3.1");
         CookieManager.getInstance().setAcceptCookie(true);
         CookieManager.getInstance().setAcceptThirdPartyCookies(view, true);
         view.setRendererPriorityPolicy(WebView.RENDERER_PRIORITY_IMPORTANT, true);
@@ -272,13 +275,38 @@ public final class MainActivity extends Activity {
     }
 
     private void openVideoCamera() {
-        setRecordingModeEnabled(true);
         Intent intent = new Intent(MediaStore.INTENT_ACTION_VIDEO_CAMERA);
         if (intent.resolveActivity(getPackageManager()) == null) {
             Toast.makeText(this, "找不到可用的錄影相機", Toast.LENGTH_LONG).show();
             return;
         }
-        startActivity(intent);
+        setRecordingModeEnabled(true);
+        if (backgroundScoreController == null) {
+            backgroundScoreController = new BackgroundScoreController(this);
+        }
+
+        Toast.makeText(this, "正在連接即時比分…", Toast.LENGTH_SHORT).show();
+        AtomicBoolean cameraStarted = new AtomicBoolean(false);
+        Runnable launchCamera = () -> {
+            if (!cameraStarted.compareAndSet(false, true)) return;
+            startActivity(intent);
+        };
+        Runnable timeout = () -> {
+            if (cameraStarted.get()) return;
+            Toast.makeText(this, "連線較慢，將在背景繼續同步", Toast.LENGTH_SHORT).show();
+            launchCamera.run();
+        };
+        keyHandler.postDelayed(timeout, CAMERA_PRECONNECT_TIMEOUT_MS);
+        backgroundScoreController.warmUp((success, message) -> keyHandler.post(() -> {
+            if (cameraStarted.get()) return;
+            keyHandler.removeCallbacks(timeout);
+            Toast.makeText(
+                    this,
+                    success ? "比分已連線，開始錄影" : message,
+                    success ? Toast.LENGTH_SHORT : Toast.LENGTH_LONG
+            ).show();
+            launchCamera.run();
+        }));
     }
 
     private final class AndroidBridge {
