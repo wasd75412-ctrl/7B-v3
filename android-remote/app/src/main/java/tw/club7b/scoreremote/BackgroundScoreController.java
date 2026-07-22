@@ -7,6 +7,7 @@ import com.google.firebase.firestore.DocumentReference;
 import com.google.firebase.firestore.DocumentSnapshot;
 import com.google.firebase.firestore.FieldValue;
 import com.google.firebase.firestore.FirebaseFirestore;
+import com.google.firebase.firestore.Source;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -21,6 +22,10 @@ final class BackgroundScoreController {
 
     interface Callback {
         void onComplete(boolean success, String message, VolumeKeyInterpreter.Action action);
+    }
+
+    interface WarmUpCallback {
+        void onComplete(boolean success, String message);
     }
 
     private final Context context;
@@ -51,6 +56,20 @@ final class BackgroundScoreController {
         if (!processing) processNext();
     }
 
+    void warmUp(WarmUpCallback callback) {
+        RemoteSessionStore.Session session = RemoteSessionStore.getSession(context);
+        if (!session.isReady()) {
+            callback.onComplete(false, "請先連接球局、登入管理員並開始比賽");
+            return;
+        }
+        liveScoreReference(session).get(Source.SERVER)
+                .addOnSuccessListener(snapshot -> callback.onComplete(
+                        snapshot.exists(),
+                        snapshot.exists() ? "即時比分已連線" : "找不到即時比分，請回 App 重新整理"
+                ))
+                .addOnFailureListener(error -> callback.onComplete(false, errorMessage(error)));
+    }
+
     private synchronized void processNext() {
         Request request = pending.pollFirst();
         if (request == null) {
@@ -64,10 +83,7 @@ final class BackgroundScoreController {
             return;
         }
 
-        DocumentReference liveScore = firestore.collection("badmintonRooms")
-                .document(session.roomId)
-                .collection("liveScore")
-                .document("current");
+        DocumentReference liveScore = liveScoreReference(session);
         firestore.runTransaction(transaction -> {
             DocumentSnapshot snapshot = transaction.get(liveScore);
             if (!snapshot.exists()) throw new IllegalStateException("找不到即時比分，請回 App 重新整理");
@@ -101,6 +117,13 @@ final class BackgroundScoreController {
             return result;
         }).addOnSuccessListener(result -> complete(request, true, successMessage(request.action, result)))
                 .addOnFailureListener(error -> complete(request, false, errorMessage(error)));
+    }
+
+    private DocumentReference liveScoreReference(RemoteSessionStore.Session session) {
+        return firestore.collection("badmintonRooms")
+                .document(session.roomId)
+                .collection("liveScore")
+                .document("current");
     }
 
     private void complete(Request request, boolean success, String message) {
