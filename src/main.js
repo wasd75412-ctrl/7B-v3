@@ -7,6 +7,7 @@ import { shouldShowNotificationPrompt } from './notifications.js';
 import { normalizeMatchReplayTitle, normalizeYouTubePlaylistUrl } from './youtube.js';
 import { DEFAULT_SCORE_REMOTE_BINDINGS, VIRTUAL_REMOTE_CLICK_CODE, advanceRemotePressState, assignRemoteBinding, isEditableRemoteTarget, normalizeRemoteBindings, remoteActionForCode, remoteEventCode, shouldHandleRemoteInput } from './score-remote.js';
 import { createLiveScoreData, decodeLiveMatch, liveMatchKey, shouldAnnounceSyncedLiveScore } from './live-score.js';
+import { canAutoSyncPlayerIdentity } from './device-sync.js';
 
 const firebaseConfig={apiKey:'AIzaSyBrakbTPK7UqEChPBI6pM8-i03IcLq0IvM',authDomain:'badminton-7a1c3.firebaseapp.com',projectId:'badminton-7a1c3',storageBucket:'badminton-7a1c3.firebasestorage.app',messagingSenderId:'883534015507',appId:'1:883534015507:web:a7f6fb318151b6d07563e6',measurementId:'G-C97B98H7YW'};
 const fbApp=initializeApp(firebaseConfig);
@@ -883,7 +884,7 @@ async function setupDeviceSync(){
   location.reload();
 }
 async function copyDeviceSyncCode(){const code=deviceSyncCode();if(!code)return setupDeviceSync();try{await navigator.clipboard.writeText(code);alert(`裝置同步碼已複製：${code}`)}catch{prompt('複製這組裝置同步碼：',code)}}
-async function ensureSyncedPlayerIdentity(){if(identitySyncing||!roomRef||!selfHash)return;const name=(localStorage.getItem(DEVICE_SYNC_PLAYER_KEY)||localStorage.getItem(DEVICE_SYNC_NAME_KEY)||'').trim();if(!name)return;const p=state.roster.find(item=>item.name.trim()===name);if(!p||p.ownerHash===selfHash)return;identitySyncing=true;try{const updated={...p,ownerHash:selfHash};if(isHost){Object.assign(p,updated);await saveNow()}else await saveSelfPlayer(updated);state.roster=state.roster.map(item=>item.id===p.id?updated:item);$('selfNote').textContent=`三台裝置已共同使用「${name}」身分。`;$('selfNote').classList.remove('hidden');renderRoster()}finally{identitySyncing=false}}
+async function ensureSyncedPlayerIdentity(){if(!canAutoSyncPlayerIdentity({syncing:identitySyncing,roomReady:!!roomRef,hasIdentity:!!selfHash,fromCache:roomSnapshotFromCache,hasPendingWrites:snapshotHasPendingWrites}))return;const name=(localStorage.getItem(DEVICE_SYNC_PLAYER_KEY)||localStorage.getItem(DEVICE_SYNC_NAME_KEY)||'').trim();if(!name)return;const p=state.roster.find(item=>item.name.trim()===name);if(!p||p.ownerHash===selfHash)return;identitySyncing=true;try{const updated={...p,ownerHash:selfHash};await saveSelfPlayer(updated);state.roster=state.roster.map(item=>item.id===p.id?updated:item);$('selfNote').textContent=`三台裝置已共同使用「${name}」身分。`;$('selfNote').classList.remove('hidden');renderRoster()}finally{identitySyncing=false}}
 function roomRecord(id){return roomLibrary().find(r=>r.id===id)||null}
 function roomDisplayName(r){return r?.name?.trim()||`7B 球局 ${r?.id||''}`}
 function rememberRoom(id,host=false){const now=Date.now(),rows=roomLibrary();const old=rows.find(r=>r.id===id)||{};const next={id,name:old.name||'',favorite:!!old.favorite,lastUsed:now,lastRole:host?'host':'viewer',hostToken:host?(hostToken||old.hostToken||''):(old.hostToken||''),modifiedAt:now};saveRoomLibrary([next,...rows.filter(r=>r.id!==id)].sort((a,b)=>Number(b.favorite)-Number(a.favorite)||b.lastUsed-a.lastUsed));localStorage.setItem('bcmLastRoomV1',id);renderRoomLibrary();return next}
@@ -944,10 +945,10 @@ async function connectRoom(id){
     unsubscribe=onSnapshot(roomRef,{includeMetadataChanges:true},s=>{
       if(!s.exists())return;
       lastRoomSnapshotData=s.data();
-      applyState(lastRoomSnapshotData);
-      ensureSyncedPlayerIdentity().catch(error=>console.warn('Player identity sync failed',error));
       roomSnapshotFromCache=!!s.metadata.fromCache;
       snapshotHasPendingWrites=!!s.metadata.hasPendingWrites;
+      applyState(lastRoomSnapshotData);
+      if(!roomSnapshotFromCache&&!snapshotHasPendingWrites)ensureSyncedPlayerIdentity().catch(error=>console.warn('Player identity sync failed',error));
       updateSyncBadge();
       if(!roomSnapshotFromCache&&!snapshotHasPendingWrites)setError('');
     },e=>{setSync(navigator.onLine?'同步中斷':isHost?'離線計分中':'離線瀏覽中',navigator.onLine?'error':'offline');setError(formatError(e))});
@@ -1444,7 +1445,7 @@ function compressPhoto(file){
     img.src=url;
   });
 }
-async function saveSelfPlayer(updated){try{setSync('同步中');const snap=await getDoc(roomRef);if(!snap.exists())throw new Error('房間不存在');const data=snap.data(),decoded=decodeState(data),idx=decoded.roster.findIndex(p=>p.id===updated.id);if(idx<0)throw new Error('找不到球員');decoded.roster[idx]={...decoded.roster[idx],...updated};await setDoc(roomRef,{roster:decoded.roster,updatedAt:serverTimestamp()},{merge:true});setSync('已同步','online')}catch(e){setSync('同步失敗','error');setError(formatError(e));throw e}}
+async function saveSelfPlayer(updated){try{setSync('同步中');await runTransaction(db,async tx=>{const snap=await tx.get(roomRef);if(!snap.exists())throw new Error('房間不存在');const decoded=decodeState(snap.data()),idx=decoded.roster.findIndex(p=>p.id===updated.id);if(idx<0)throw new Error('找不到球員');decoded.roster[idx]={...decoded.roster[idx],...updated};tx.update(roomRef,{roster:encodeState(decoded).roster,updatedAt:serverTimestamp()})});setSync('已同步','online')}catch(e){setSync('同步失敗','error');setError(formatError(e));throw e}}
 async function saveEdit(){const p=player(editId);if(!canEditPlayer(p))return alert('你只能修改自己的資料。');const n=$('editName').value.trim();if(profileDirty.name&&!n)return alert('姓名不可空白');if(profileDirty.name&&state.roster.some(x=>x.id!==editId&&x.name===n))return alert('已有相同姓名');const updated={id:p.id};if(profileDirty.name)updated.name=n;if(isHost&&profileDirty.voiceName)updated.voiceName=$('editVoiceName').value.trim();if(profileDirty.racket)updated.racket=$('editRacket').value.trim();if(profileDirty.racketTension)updated.racketTension=$('editRacketTension').value.trim();if(profileDirty.racketString)updated.racketString=$('editRacketString').value.trim();if(profileDirty.backupRacket)updated.backupRacket=$('editBackupRacket').value.trim();if(profileDirty.backupTension)updated.backupTension=$('editBackupTension').value.trim();if(profileDirty.backupString)updated.backupString=$('editBackupString').value.trim();if(profileDirty.note)updated.note=$('editNote').value.trim();if(pendingAvatar!==null)updated.avatar=pendingAvatar;if(Object.keys(updated).length===1){closePlayerModal();return}try{if(isHost){Object.assign(p,updated);renderAll();saveSoon()}else{await saveSelfPlayer(updated);Object.assign(p,updated);renderAll()}closePlayerModal();alert('球員資料已儲存。')}catch(e){alert('球員資料儲存失敗：'+formatError(e))}}
 async function addPlayerRecord(){
   const input=$('newName'),button=$('addPlayer'),name=input.value.trim();
@@ -1764,6 +1765,6 @@ const exitScoreBtn=$('exitScore');if(exitScoreBtn)exitScoreBtn.addEventListener(
 
 window.bcmMarkBooted?.();
 if('serviceWorker'in navigator&&location.protocol.startsWith('http')){
-  const swRevision='20260723-341';
+  const swRevision='20260723-342';
   navigator.serviceWorker.register(`./sw.js?v=${swRevision}`,{updateViaCache:'none'}).then(registration=>registration.update()).catch(()=>{});
 }
