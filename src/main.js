@@ -1725,7 +1725,7 @@ initializeDeviceProfileSync().catch(error=>console.warn('Device profile initiali
 const APP_THEME_KEY='bcmAppThemeV1';
 const APP_RANDOM_THEME_KEY='bcmRandomAppThemeV1';
 const APP_THEMES=new Set(['default','court','ocean','sunset','lavender','rose','midnight','dawn','mint','peach','lagoon','starlight','sand']);
-const APP_THEME_COLORS={default:'#eaf1f7',court:'#cce8da',ocean:'#cceaf6',sunset:'#f8dfd6',lavender:'#e5def7',rose:'#f5dfe7',midnight:'#0b2238',dawn:'#f5dfb7',mint:'#ccefe1',peach:'#f8d7cc',lagoon:'#bfe7df',starlight:'#241b4b',sand:'#ead7ba'};
+const APP_THEME_COLORS={default:'#031523',court:'#072a24',ocean:'#05263a',sunset:'#2d1b23',lavender:'#1d1936',rose:'#301b2b',midnight:'#02111f',dawn:'#302617',mint:'#082a25',peach:'#321f22',lagoon:'#062a2b',starlight:'#11102b',sand:'#2b2419'};
 const appThemeSelect=$('appThemeSelect');
 const randomAppThemeToggle=$('randomAppThemeToggle');
 let randomAppThemeEnabled=localStorage.getItem(APP_RANDOM_THEME_KEY)==='1',appThemeWasHidden=false;
