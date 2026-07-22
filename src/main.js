@@ -1097,19 +1097,24 @@ function gamePoint(){const m=state.match;if(m.winner!==null)return false;for(let
 function currentResultKey(){const m=state.match;if(m.winner===null)return'';return m.matchId||[m.winner,(m.scores||[]).join('-'),...(m.players||[]).flat()].join('|')}
 function setServingPlayer(team,playerIndex){const m=state.match;if(!isHost||!m.active||m.winner!==null)return;m.serving=team;const serverSide=m.scores[team]%2===0?1:0;const positions=m.positions[team]||[0,1];const currentSide=positions.indexOf(playerIndex);if(currentSide!==serverSide&&currentSide>=0){const other=positions[serverSide];positions[serverSide]=playerIndex;positions[currentSide]=other;m.positions[team]=positions}renderScore();saveLiveScoreSoon()}
 const hasNativeWakeLock=()=>!!navigator.wakeLock?.request;
-const appleTouchDevice=/iPad|iPhone|iPod/i.test(navigator.userAgent)||(navigator.platform==='MacIntel'&&navigator.maxTouchPoints>1);
 function createVideoWakeLock(){
   const video=document.createElement('video');
   video.setAttribute('title','螢幕恆亮備援');
+  video.setAttribute('aria-hidden','true');
   video.setAttribute('playsinline','');
+  video.setAttribute('webkit-playsinline','');
   video.setAttribute('loop','');
   video.setAttribute('preload','auto');
   video.loop=true;
   video.preload='auto';
+  video.style.cssText='position:fixed;width:1px;height:1px;left:0;bottom:0;opacity:.01;pointer-events:none;z-index:-1';
   for(const type of ['webm','mp4']){const source=document.createElement('source');source.src=noSleepMedia[type];source.type=`video/${type}`;video.appendChild(source)}
   video.addEventListener('loadedmetadata',()=>{if(video.duration<=1)video.loop=true});
   video.addEventListener('timeupdate',()=>{if(video.duration>1&&video.currentTime>.5)video.currentTime=Math.random()*.4});
   let enabled=false;
+  video.addEventListener('playing',()=>{enabled=true});
+  video.addEventListener('pause',()=>{enabled=false});
+  document.body.appendChild(video);
   return{
     get isEnabled(){return enabled&&!video.paused},
     async enable(){await video.play();enabled=true},
@@ -1120,12 +1125,13 @@ const fallbackNoSleep=createVideoWakeLock();
 const APP_WAKE_LOCK_KEY='bcmWakeLockEnabledV1';
 let appWakeLockWanted=localStorage.getItem(APP_WAKE_LOCK_KEY)!=='0';
 let appWakeLock=null,appWakeLockRequest=null,fallbackWakeLockRequest=null,appWakeLockRetryTimer=null,appWakeLockLastError='';
-let appWakeLockNeedsGesture=appWakeLockWanted&&!hasNativeWakeLock();
+let appWakeLockNeedsGesture=false;
 function appWakeLockActive(){return (!!appWakeLock&&!appWakeLock.released)||fallbackNoSleep.isEnabled}
+function appWakeLockProtected(){return fallbackNoSleep.isEnabled}
 function renderAppWakeLockStatus(){
   const button=$('wakeLockBtn'),feedback=$('wakeLockFeedback');
   if(!button)return;
-  const active=appWakeLockWanted&&appWakeLockActive(),pending=appWakeLockWanted&&(!!appWakeLockRequest||!!fallbackWakeLockRequest);
+  const active=appWakeLockWanted&&appWakeLockProtected(),pending=appWakeLockWanted&&(!!appWakeLockRequest||!!fallbackWakeLockRequest);
   button.setAttribute('aria-pressed',active?'true':'false');
   button.setAttribute('aria-busy',pending?'true':'false');
   button.textContent=!appWakeLockWanted?'🌙 恆亮已關閉（點擊開啟）':active?'☀️ 恆亮已開啟（點擊關閉）':pending?'☀️ 正在啟用恆亮…':appWakeLockNeedsGesture?'☀️ 恆亮待啟用（點一下畫面）':'☀️ 點擊開啟螢幕恆亮';
@@ -1161,26 +1167,26 @@ async function releaseAppWakeLock(){
 async function syncAppWakeLock(userActivated=false){
   if(!appWakeLockWanted){await releaseAppWakeLock();return}
   if(document.hidden){await releaseAppWakeLock();return}
-  const startPersistentVideo=shouldStartPersistentVideoWakeLock({wanted:appWakeLockWanted,userActivated,appleTouchDevice,videoActive:fallbackNoSleep.isEnabled});
+  const startPersistentVideo=shouldStartPersistentVideoWakeLock({wanted:appWakeLockWanted,userActivated,videoActive:fallbackNoSleep.isEnabled});
   if(appWakeLockActive()){
-    if(startPersistentVideo)await enableFallbackWakeLock();
+    if(startPersistentVideo||(!fallbackNoSleep.isEnabled&&!appWakeLockNeedsGesture))await enableFallbackWakeLock();
     renderAppWakeLockStatus();
     return;
   }
   if(appWakeLockRequest){
-    if(userActivated&&!fallbackNoSleep.isEnabled)void enableFallbackWakeLock().then(()=>{if(appWakeLock&&!appWakeLock.released&&fallbackNoSleep.isEnabled&&!appleTouchDevice)fallbackNoSleep.disable();renderAppWakeLockStatus()});
+    if(userActivated&&!fallbackNoSleep.isEnabled)void enableFallbackWakeLock();
     renderAppWakeLockStatus();
     try{await appWakeLockRequest}catch{}
     if(fallbackWakeLockRequest)await fallbackWakeLockRequest;
     return;
   }
   if(!hasNativeWakeLock()){
-    if(!userActivated){appWakeLockNeedsGesture=true;renderAppWakeLockStatus();return}
+    if(!userActivated&&appWakeLockNeedsGesture){renderAppWakeLockStatus();return}
     appWakeLockLastError='';
     await enableFallbackWakeLock();
     return;
   }
-  const fallbackAttempt=userActivated?enableFallbackWakeLock():null;
+  const fallbackAttempt=enableFallbackWakeLock();
   appWakeLockRequest=navigator.wakeLock.request('screen');
   renderAppWakeLockStatus();
   try{
@@ -1188,9 +1194,8 @@ async function syncAppWakeLock(userActivated=false){
     if(document.hidden||!appWakeLockWanted){await lock.release();return}
     appWakeLock=lock;
     appWakeLockLastError='';
-    appWakeLockNeedsGesture=false;
-    if(fallbackAttempt)await fallbackAttempt;
-    if(fallbackNoSleep.isEnabled&&!appleTouchDevice)fallbackNoSleep.disable();
+    const fallbackEnabled=await fallbackAttempt;
+    appWakeLockNeedsGesture=!fallbackEnabled;
     lock.addEventListener('release',()=>{
       if(appWakeLock===lock)appWakeLock=null;
       renderAppWakeLockStatus();
@@ -1203,15 +1208,16 @@ async function syncAppWakeLock(userActivated=false){
   finally{appWakeLockRequest=null;renderAppWakeLockStatus()}
 }
 document.addEventListener('visibilitychange',()=>{void syncAppWakeLock()});
-function resumeWakeLockFromGesture(event){if(event.target instanceof Element&&event.target.closest('#wakeLockBtn'))return;void syncAppWakeLock(true)}
-document.addEventListener('pointerdown',resumeWakeLockFromGesture,{passive:true});
-document.addEventListener('touchend',resumeWakeLockFromGesture,{passive:true});
-document.addEventListener('keydown',()=>{void syncAppWakeLock(true)});
+function resumeWakeLockFromGesture(){void syncAppWakeLock(true)}
+document.addEventListener('pointerdown',resumeWakeLockFromGesture,{capture:true,passive:true});
+document.addEventListener('touchstart',resumeWakeLockFromGesture,{capture:true,passive:true});
+document.addEventListener('click',resumeWakeLockFromGesture,{capture:true,passive:true});
+document.addEventListener('keydown',resumeWakeLockFromGesture,{capture:true});
 window.addEventListener('focus',()=>scheduleAppWakeLockRetry(100));
 window.addEventListener('pageshow',()=>scheduleAppWakeLockRetry(100));
 window.addEventListener('pagehide',()=>{void releaseAppWakeLock()});
 $('wakeLockBtn').onclick=async()=>{
-  const intent=wakeLockButtonIntent({wanted:appWakeLockWanted,active:appWakeLockActive()});
+  const intent=wakeLockButtonIntent({wanted:appWakeLockWanted,active:appWakeLockProtected()});
   if(intent==='retry'){
     appWakeLockLastError='';
     await syncAppWakeLock(true);
@@ -1225,7 +1231,7 @@ $('wakeLockBtn').onclick=async()=>{
   if(appWakeLockWanted)await syncAppWakeLock(true);else await releaseAppWakeLock();
   renderAppWakeLockStatus();
 };
-setInterval(()=>{if(appWakeLockWanted&&!document.hidden&&!appWakeLockActive())void syncAppWakeLock()},30000);
+setInterval(()=>{if(appWakeLockWanted&&!document.hidden&&!appWakeLockProtected())void syncAppWakeLock()},30000);
 void syncAppWakeLock();
 function renderScore(){
   const m=state.match;
@@ -1787,6 +1793,6 @@ const exitScoreBtn=$('exitScore');if(exitScoreBtn)exitScoreBtn.addEventListener(
 
 window.bcmMarkBooted?.();
 if('serviceWorker'in navigator&&location.protocol.startsWith('http')){
-  const swRevision='20260723-346';
+  const swRevision='20260723-347';
   navigator.serviceWorker.register(`./sw.js?v=${swRevision}`,{updateViaCache:'none'}).then(registration=>registration.update()).catch(()=>{});
 }
