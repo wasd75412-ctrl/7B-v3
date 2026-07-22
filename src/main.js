@@ -9,6 +9,7 @@ import { DEFAULT_SCORE_REMOTE_BINDINGS, VIRTUAL_REMOTE_CLICK_CODE, advanceRemote
 import { createLiveScoreData, decodeLiveMatch, liveMatchKey, shouldAnnounceSyncedLiveScore } from './live-score.js';
 import { canAutoSyncPlayerIdentity } from './device-sync.js';
 import { shouldRequestNativeWakeLock, shouldStartPersistentVideoWakeLock, wakeLockButtonIntent, wakeLockControlIsActive } from './wake-lock.js';
+import { arrangeTeamsWithTeammateLimit, lineupExceedsTeammateLimit } from './team-rotation.js';
 
 const firebaseConfig={apiKey:'AIzaSyBrakbTPK7UqEChPBI6pM8-i03IcLq0IvM',authDomain:'badminton-7a1c3.firebaseapp.com',projectId:'badminton-7a1c3',storageBucket:'badminton-7a1c3.firebasestorage.app',messagingSenderId:'883534015507',appId:'1:883534015507:web:a7f6fb318151b6d07563e6',measurementId:'G-C97B98H7YW'};
 const fbApp=initializeApp(firebaseConfig);
@@ -29,6 +30,7 @@ const esc=s=>String(s??'').replace(/[&<>'"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&
 const randomCode=()=>{const chars='ABCDEFGHJKLMNPQRSTUVWXYZ23456789';let x='';crypto.getRandomValues(new Uint32Array(6)).forEach(n=>x+=chars[n%chars.length]);return x};
 const randomToken=()=>crypto.randomUUID?.()||([...crypto.getRandomValues(new Uint32Array(4))].map(n=>n.toString(36)).join(''));
 const shuffle=a=>{a=[...a];const r=new Uint32Array(Math.max(1,a.length));crypto.getRandomValues(r);for(let i=a.length-1;i>0;i--){const j=r[i]% (i+1);[a[i],a[j]]=[a[j],a[i]]}return a};
+function teammateSafeLineup(ids,{randomize=false}={}){const values=ids.filter(Boolean);if(values.length!==4||new Set(values).size!==4)return values;if(!randomize&&!lineupExceedsTeammateLimit(values,state.history))return values;const random=crypto.getRandomValues(new Uint32Array(1))[0];return arrangeTeamsWithTeammateLimit(shuffle(values),state.history,random)}
 function wholeAmount(value){const n=Number(value);return Number.isFinite(n)&&n>0?Math.round(n):0}
 function normalizeAdminNotices(source){
   const rows=Array.isArray(source?.adminNotices)?source.adminNotices:(source?.adminNotice?.body?[source.adminNotice]:[]);
@@ -1366,7 +1368,7 @@ function renderHistory(){renderMatchReplay();const list=state.history.map((h,ind
 function deleteHistoryRecord(index){if(!isHost)return;const h=state.history[index];if(!h)return;const title=`${(h.teams?.[0]||[]).map(pname).join('／')} ${h.scores?.[0]??0}：${h.scores?.[1]??0} ${(h.teams?.[1]||[]).map(pname).join('／')}`;if(!confirm(`確定刪除這筆比賽紀錄？\n\n${title}\n${h.time||''}`))return;state.history.splice(index,1);renderAll();saveSoon()}
 function clearAllHistory(){if(!isHost)return;if(!state.history.length)return alert('目前沒有比賽紀錄。');if(!confirm(`即將刪除全部 ${state.history.length} 筆比賽紀錄。\n球員名單與目前比分不會被刪除。`))return;const text=prompt('為避免誤刪，請輸入「清空」：','');if(text!=='清空')return alert('輸入不正確，已取消清空。');state.history=[];renderAll();saveSoon();alert('全部比賽紀錄已清空。')}
 function renderAll(){renderRoster();renderAttendance();renderCourt();renderHistory();renderScore();renderDashboard();renderStats();renderPoll();applyRole();renderAndroidRemote()}
-function startMatch(){dismissedResultKey='';const selected=state.court.filter(Boolean);if(selected.length!==4||new Set(selected).size!==4)return alert('請選擇四位不同球員。');const ids=[...selected];state.court=[...ids];reconcileWaitingQueue(ids);state.queueDraftChosen=[];randomizeScoreThemeAtMatchStart();state.match={active:true,players:[[ids[0],ids[1]],[ids[2],ids[3]]],scores:[0,0],rallies:[],serving:0,positions:[[0,1],[0,1]],winner:null,startedAt:new Date().toISOString()};saveSoon();renderScore();renderDashboard()}
+function startMatch(){dismissedResultKey='';const selected=state.court.filter(Boolean);if(selected.length!==4||new Set(selected).size!==4)return alert('請選擇四位不同球員。');const ids=teammateSafeLineup(selected);state.court=[...ids];reconcileWaitingQueue(ids);state.queueDraftChosen=[];randomizeScoreThemeAtMatchStart();state.match={active:true,players:[[ids[0],ids[1]],[ids[2],ids[3]]],scores:[0,0],rallies:[],serving:0,positions:[[0,1],[0,1]],winner:null,startedAt:new Date().toISOString()};saveSoon();renderScore();renderDashboard()}
 function finishMatch(){
   const m=state.match;if(!m.active||m.winner===null)return;
   let newlyRecorded=false;
@@ -1383,7 +1385,7 @@ function finishMatch(){
   state.waitingQueue=uniqueIds([...queue,...losersToTail]).filter(id=>state.attendance.includes(id)&&!winners.includes(id)&&!chosen.includes(id));
   state.queueDraftChosen=[...chosen];
   state.priority=state.waitingQueue[0]||null;
-  const four=shuffle([...winners,...chosen]);
+  const four=teammateSafeLineup([...winners,...chosen],{randomize:true});
   state.nextCall={players:[...four],createdAt:new Date().toISOString()};
   for(let i=0;i<4;i++){$('n'+i).innerHTML=options(four[i]||'');$('n'+i).value=four[i]||'';$('n'+i).onchange=updatePriority}
   updatePriority();
@@ -1404,7 +1406,7 @@ function updatePriority(){
 function startNext(){
   dismissedResultKey='';const selected=[0,1,2,3].map(i=>$('n'+i).value);
   if(selected.some(x=>!x)||new Set(selected).size!==4)return alert('下一場需要四位不同球員。');
-  const vals=[...selected];
+  const vals=teammateSafeLineup(selected);
   const winners=state.match.players[state.match.winner];if(!winners.every(id=>vals.includes(id)))return alert('勝方兩位必須留場。');
   const finalCall=calloutText(vals);
   state.waitingQueue=projectedQueueForLineup(vals);state.queueDraftChosen=[];state.priority=state.waitingQueue[0]||null;
@@ -1633,15 +1635,16 @@ document.addEventListener('keydown',event=>{if(event.key==='Escape'&&!$('editMod
 $('deletePlayer').onclick=()=>{if(!confirm('刪除這位球員？'))return;state.roster=state.roster.filter(p=>p.id!==editId);state.attendance=state.attendance.filter(x=>x!==editId);state.court=state.court.filter(x=>x!==editId);state.waitingQueue=state.waitingQueue.filter(x=>x!==editId);state.queueDraftChosen=state.queueDraftChosen.filter(x=>x!==editId);closePlayerModal();renderAll();saveSoon()};
 $('goCourt').onclick=()=>{
   if(state.attendance.length<4)return alert('至少需要四位出席球員');
-  state.court=uniqueIds(state.court.length>=4?state.court:state.attendance.slice(0,4)).slice(0,4);
+  const current=uniqueIds(state.court.length>=4?state.court:state.attendance.slice(0,4)).slice(0,4);
+  state.court=teammateSafeLineup(current,{randomize:state.court.length<4});
   reconcileWaitingQueue(state.court);renderAll();page(3);saveSoon();
 };
 $('randomCourt').onclick=()=>{
-  state.court=shuffle(state.attendance).slice(0,4);
+  state.court=teammateSafeLineup(shuffle(state.attendance).slice(0,4),{randomize:true});
   reconcileWaitingQueue(state.court);renderAll();saveSoon();
 };
 $('shuffleNext').onclick=()=>{
-  const vals=shuffle([0,1,2,3].map(i=>$('n'+i).value));
+  const vals=teammateSafeLineup([0,1,2,3].map(i=>$('n'+i).value),{randomize:true});
   vals.forEach((value,index)=>{$('n'+index).value=value});
   updatePriority();
 };

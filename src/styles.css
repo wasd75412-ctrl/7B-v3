@@ -2566,3 +2566,176 @@ body>.modal .win-ring:before{background:var(--broadcast-night)}
   #app .dash-vs{width:42px;height:42px;font-size:.82rem}
   #app .dash-players{font-size:.78rem}
 }
+
+/* BCM 2.4.12 — dedicated phone layout */
+@media(max-width:620px){
+  html,body{overflow-x:hidden}
+  .shell{
+    width:100%;
+    padding:max(8px,env(safe-area-inset-top)) 8px calc(86px + env(safe-area-inset-bottom))
+  }
+  #app .top{
+    display:grid;
+    grid-template-columns:1fr;
+    gap:11px;
+    margin-bottom:8px;
+    padding:12px;
+    border-radius:22px
+  }
+  #app .brand{width:100%;gap:10px}
+  #app .brand-logo{width:46px;height:46px;border-radius:14px}
+  #app .brand-copy{min-width:0;flex:1}
+  #app .brand-mark{gap:7px;justify-content:space-between}
+  #app .brand h1{font-size:clamp(1.38rem,7vw,1.72rem);white-space:nowrap}
+  #app .brand-copy small{display:none}
+  #app .bcm-version{padding:4px 7px;font-size:.68rem;white-space:nowrap}
+  #app .roombar{width:100%;min-width:0;grid-template-columns:1fr;gap:9px}
+  #app .room-status-row{display:grid;grid-template-columns:auto auto minmax(0,1fr);gap:6px;align-items:center}
+  #app .room-status-row .pill{padding:6px 8px;font-size:.72rem;white-space:nowrap}
+  #app .room-status-row>span:last-child{min-width:0;text-align:right;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  #app .room-code{font-size:.86rem;letter-spacing:.08em}
+  #app .room-local-name{display:none}
+  #app .room-quick-actions{display:grid;grid-template-columns:1fr auto;gap:7px}
+  #app .room-quick-actions .btn{min-height:44px;padding:9px 11px;border-radius:13px;font-size:.84rem}
+  #app .room-more-menu{
+    grid-template-columns:repeat(2,minmax(0,1fr));
+    gap:7px;
+    max-height:min(62dvh,520px);
+    overflow:auto;
+    padding:9px;
+    border-radius:18px
+  }
+  #app .room-more-menu .btn{min-height:46px;padding:8px 6px;font-size:.78rem}
+  #app .room-more-menu .wake-lock-feedback{grid-column:1/-1}
+
+  #app .tabs{
+    position:sticky;
+    top:max(6px,env(safe-area-inset-top));
+    z-index:45;
+    grid-template-columns:repeat(4,minmax(0,1fr));
+    gap:4px;
+    margin:8px 0;
+    padding:6px;
+    border-radius:18px;
+    box-shadow:0 12px 30px rgba(25,64,94,.15),inset 0 1px 0 #fff
+  }
+  #app .tab{
+    min-height:45px;
+    padding:8px 2px;
+    border-radius:12px;
+    font-size:.86rem;
+    letter-spacing:0
+  }
+  #app .tab.active:after{left:32%;right:32%;bottom:4px;height:2px}
+
+  #app .page{
+    padding:15px;
+    border-radius:22px;
+    box-shadow:0 14px 36px rgba(25,64,94,.11),inset 0 1px 0 #fff
+  }
+  #app .page h2{font-size:1.38rem}
+  #app .page h3{font-size:1.05rem}
+  #app .page>.toolbar:first-child{display:grid;grid-template-columns:1fr;gap:10px;align-items:start}
+  #app .page>.toolbar:first-child>.toolbar{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));width:100%}
+  #app .page>.toolbar:first-child>.toolbar .btn{width:100%;min-height:42px;padding:9px 7px;font-size:.8rem}
+  #app .sub{font-size:.84rem;line-height:1.45}
+
+  #app .dashboard-grid{gap:12px}
+  #app .dash-score{
+    grid-template-columns:1fr 1fr;
+    gap:20px;
+    min-height:220px;
+    padding:42px 12px 18px;
+    border-radius:22px
+  }
+  #app .dash-vs{
+    position:absolute;
+    left:50%;
+    top:54%;
+    z-index:4;
+    width:38px;
+    height:38px;
+    transform:translate(-50%,-50%);
+    font-size:.72rem
+  }
+  #app .dash-num{font-size:clamp(4rem,24vw,6.2rem)}
+  #app .dash-team>div:first-child{font-size:.94rem}
+  #app .dash-players{font-size:.75rem;line-height:1.35;overflow-wrap:anywhere}
+  #app .dash-score:not(.empty):before{top:13px;left:14px;padding:4px 8px;font-size:.64rem}
+  #app #dashMetrics{grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+  #app #dashMetrics .metric{min-height:82px;padding:9px}
+  #app #dashMetrics .metric strong{font-size:1.6rem}
+  #app .dash-row{padding:11px;border-radius:14px!important}
+  #app .callout{padding:14px;border-radius:17px}
+
+  #app .next-event-card{padding:15px;border-radius:20px}
+  #app .next-event-card-head{align-items:flex-start}
+  #app .next-event-card-head .btn{padding:7px 9px;font-size:.75rem}
+  #app .next-event-main{font-size:1.05rem}
+  #app .next-event-facts{display:grid;grid-template-columns:1fr;gap:7px}
+  #app .next-event-payment{justify-content:center;width:100%;margin-top:4px;font-size:1rem}
+  #app .admin-announcement,#app .poll-deadline-card{padding:14px;border-radius:18px}
+
+  #app .roster{grid-template-columns:1fr;gap:10px}
+  #app .person,#app .person.card2{
+    display:grid;
+    grid-template-columns:58px minmax(0,1fr);
+    gap:11px;
+    align-items:center;
+    padding:13px;
+    text-align:left;
+    border-radius:17px
+  }
+  #app .person .avatar{width:58px;height:58px;flex-basis:58px}
+  #app .person.card2 .favorite-star{top:8px;right:9px}
+  #app .person.card2 .person-note,#app .person.card2 .racket-lines{grid-column:1/-1}
+  #app .person.card2 .person-note{width:100%;max-width:100%;margin-left:0!important;margin-right:0!important}
+  #app #attendance .person.selected::after{top:8px;right:8px;padding:4px 6px;font-size:.68rem}
+  #app .add-row,#app .player-tools{display:grid;grid-template-columns:1fr;gap:8px}
+  #app .player-tools .input{min-width:0;max-width:none!important;width:100%}
+
+  #app .court,#app .next-grid{grid-template-columns:1fr;gap:11px}
+  #app .team,#app .next-team{padding:14px;border-radius:19px}
+  #app .slot{padding:9px;margin-top:7px}
+  #app .rules{grid-template-columns:repeat(3,minmax(0,1fr));gap:7px}
+  #app .rules .field{padding:9px 7px;border:1px solid var(--glass-line);border-radius:14px;background:rgba(255,255,255,.66)}
+  #app .rules .field label{font-size:.72rem;text-align:center}
+  #app .rules .field :is(input,select){padding:8px 4px;text-align:center}
+  #app .toolbar{gap:7px}
+  #app .toolbar .btn{flex:1 1 calc(50% - 7px);min-height:43px;padding:9px 7px;font-size:.82rem}
+
+  #app .metric-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+  #app .metric{min-height:78px;padding:10px}
+  #app .leader-grid{grid-template-columns:1fr}
+  #app .history-item{grid-template-columns:1fr;gap:8px;padding:12px}
+  #app .history-actions{justify-content:flex-end}
+  #app .stats-table{min-width:660px;font-size:.82rem}
+  #app .stats-table th,#app .stats-table td{padding:9px 7px}
+  #app .month-picker{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+  #app .month-picker .field{min-width:0}
+  #app .month-picker .field :is(input,select){width:100%}
+
+  #app .poll-flow-section{padding:13px;border-radius:17px}
+  #app .poll-option{grid-template-columns:auto minmax(0,1fr);gap:9px;padding:11px}
+  #app .poll-count{grid-column:2;justify-self:start}
+  #app .poll-completed-actions{display:grid;grid-template-columns:1fr}
+
+  .modal{align-items:end;padding:0}
+  body>.modal .modal-card{
+    width:100%;
+    max-height:92dvh;
+    margin:0;
+    padding:18px 15px calc(18px + env(safe-area-inset-bottom));
+    border-radius:26px 26px 0 0
+  }
+  .modal-close-button{min-height:40px}
+
+  #landing.shell{padding-inline:10px}
+  #landing .landing{min-height:calc(100dvh - 20px);align-items:start;padding-top:12px}
+  #landing .landing-card{padding:18px 15px;border-radius:24px}
+  #landing .landing-brand{margin-bottom:14px}
+  #landing .landing-brand img{width:108px;height:108px;border-radius:23px}
+  #landing .landing-brand h2{font-size:1.55rem}
+  #landing .join-grid{grid-template-columns:1fr}
+  #landing .join-grid .btn{width:100%}
+}
