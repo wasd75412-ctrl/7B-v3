@@ -8,6 +8,7 @@ import { normalizeMatchReplayTitle, normalizeYouTubePlaylistUrl } from './youtub
 import { DEFAULT_SCORE_REMOTE_BINDINGS, VIRTUAL_REMOTE_CLICK_CODE, advanceRemotePressState, assignRemoteBinding, isEditableRemoteTarget, normalizeRemoteBindings, remoteActionForCode, remoteEventCode, shouldHandleRemoteInput } from './score-remote.js';
 import { createLiveScoreData, decodeLiveMatch, liveMatchKey, shouldAnnounceSyncedLiveScore } from './live-score.js';
 import { canAutoSyncPlayerIdentity } from './device-sync.js';
+import { wakeLockButtonIntent } from './wake-lock.js';
 
 const firebaseConfig={apiKey:'AIzaSyBrakbTPK7UqEChPBI6pM8-i03IcLq0IvM',authDomain:'badminton-7a1c3.firebaseapp.com',projectId:'badminton-7a1c3',storageBucket:'badminton-7a1c3.firebasestorage.app',messagingSenderId:'883534015507',appId:'1:883534015507:web:a7f6fb318151b6d07563e6',measurementId:'G-C97B98H7YW'};
 const fbApp=initializeApp(firebaseConfig);
@@ -1116,6 +1117,7 @@ const fallbackNoSleep=createVideoWakeLock();
 const APP_WAKE_LOCK_KEY='bcmWakeLockEnabledV1';
 let appWakeLockWanted=localStorage.getItem(APP_WAKE_LOCK_KEY)!=='0';
 let appWakeLock=null,appWakeLockRequest=null,fallbackWakeLockRequest=null,appWakeLockRetryTimer=null,appWakeLockLastError='';
+let appWakeLockNeedsGesture=appWakeLockWanted&&!hasNativeWakeLock();
 function appWakeLockActive(){return (!!appWakeLock&&!appWakeLock.released)||fallbackNoSleep.isEnabled}
 function renderAppWakeLockStatus(){
   const button=$('wakeLockBtn'),feedback=$('wakeLockFeedback');
@@ -1123,18 +1125,18 @@ function renderAppWakeLockStatus(){
   const active=appWakeLockWanted&&appWakeLockActive(),pending=appWakeLockWanted&&(!!appWakeLockRequest||!!fallbackWakeLockRequest);
   button.setAttribute('aria-pressed',active?'true':'false');
   button.setAttribute('aria-busy',pending?'true':'false');
-  button.textContent=!appWakeLockWanted?'🌙 恆亮已關閉（點擊開啟）':active?'☀️ 恆亮已開啟（點擊關閉）':pending?'☀️ 正在啟用恆亮…':'☀️ 點擊開啟螢幕恆亮';
-  button.title=appWakeLockWanted?'點擊關閉螢幕恆亮':'點擊開啟螢幕恆亮';
+  button.textContent=!appWakeLockWanted?'🌙 恆亮已關閉（點擊開啟）':active?'☀️ 恆亮已開啟（點擊關閉）':pending?'☀️ 正在啟用恆亮…':appWakeLockNeedsGesture?'☀️ 恆亮待啟用（點一下畫面）':'☀️ 點擊開啟螢幕恆亮';
+  button.title=!appWakeLockWanted?'點擊開啟螢幕恆亮':active?'點擊關閉螢幕恆亮':'點擊重新啟用螢幕恆亮';
   if(feedback){
     feedback.className=`wake-lock-feedback ${active?'success':appWakeLockWanted&&appWakeLockLastError?'error':pending?'pending':''}`;
-    feedback.textContent=!appWakeLockWanted?'已關閉；iPad 將依系統設定熄屏。':active?'✅ 已開啟；點按上方按鈕即可關閉。':appWakeLockLastError?`⚠️ 尚未啟用：${appWakeLockLastError}`:pending?'正在向 iPad 取得螢幕恆亮權限…':'尚未啟用；請點上方按鈕。';
+    feedback.textContent=!appWakeLockWanted?'已關閉；iPad 將依系統設定熄屏。':active?'✅ 已開啟；點按上方按鈕即可關閉。':appWakeLockLastError?`⚠️ 尚未啟用：${appWakeLockLastError}`:appWakeLockNeedsGesture?'請在畫面任一處點一下，即會自動恢復恆亮。':pending?'正在向 iPad 取得螢幕恆亮權限…':'尚未啟用；請點上方按鈕。';
   }
 }
 function enableFallbackWakeLock(){
   if(!appWakeLockWanted)return Promise.resolve(false);
   if(fallbackNoSleep.isEnabled)return Promise.resolve(true);
   if(fallbackWakeLockRequest)return fallbackWakeLockRequest;
-  fallbackWakeLockRequest=fallbackNoSleep.enable().then(()=>{if(!appWakeLockWanted){fallbackNoSleep.disable();return false}appWakeLockLastError='';return true}).catch(()=>{appWakeLockLastError='iPad 未允許防熄屏，請關閉低耗電模式後再點一次。';return false}).finally(()=>{fallbackWakeLockRequest=null;renderAppWakeLockStatus()});
+  fallbackWakeLockRequest=fallbackNoSleep.enable().then(()=>{if(!appWakeLockWanted){fallbackNoSleep.disable();return false}appWakeLockLastError='';appWakeLockNeedsGesture=false;return true}).catch(()=>{appWakeLockNeedsGesture=true;appWakeLockLastError='iPad 未允許防熄屏，請關閉低耗電模式後再點一次。';return false}).finally(()=>{fallbackWakeLockRequest=null;renderAppWakeLockStatus()});
   renderAppWakeLockStatus();
   return fallbackWakeLockRequest;
 }
@@ -1150,6 +1152,7 @@ async function releaseAppWakeLock(){
   appWakeLock=null;
   if(lock&&!lock.released){try{await lock.release()}catch{}}
   if(fallbackNoSleep.isEnabled){try{fallbackNoSleep.disable()}catch{}}
+  if(appWakeLockWanted&&!hasNativeWakeLock())appWakeLockNeedsGesture=true;
   renderAppWakeLockStatus();
 }
 async function syncAppWakeLock(userActivated=false){
@@ -1164,6 +1167,8 @@ async function syncAppWakeLock(userActivated=false){
     return;
   }
   if(!hasNativeWakeLock()){
+    if(!userActivated){appWakeLockNeedsGesture=true;renderAppWakeLockStatus();return}
+    appWakeLockLastError='';
     await enableFallbackWakeLock();
     return;
   }
@@ -1183,20 +1188,28 @@ async function syncAppWakeLock(userActivated=false){
       scheduleAppWakeLockRetry();
     },{once:true});
   }catch(error){
-    const fallbackEnabled=fallbackAttempt?await fallbackAttempt:await enableFallbackWakeLock();
-    if(!fallbackEnabled){appWakeLockLastError='iPad 拒絕螢幕恆亮，請關閉低耗電模式後再試。';console.warn('無法保持 App 螢幕亮起',error)}
+    const fallbackEnabled=fallbackAttempt?await fallbackAttempt:false;
+    if(!fallbackEnabled){appWakeLockNeedsGesture=true;if(userActivated)appWakeLockLastError='iPad 拒絕螢幕恆亮，請關閉低耗電模式後再試。';console.warn('無法保持 App 螢幕亮起',error)}
   }
   finally{appWakeLockRequest=null;renderAppWakeLockStatus()}
 }
 document.addEventListener('visibilitychange',()=>{void syncAppWakeLock()});
-document.addEventListener('pointerdown',()=>{void syncAppWakeLock(true)},{passive:true});
-document.addEventListener('touchend',()=>{void syncAppWakeLock(true)},{passive:true});
+function resumeWakeLockFromGesture(event){if(event.target instanceof Element&&event.target.closest('#wakeLockBtn'))return;void syncAppWakeLock(true)}
+document.addEventListener('pointerdown',resumeWakeLockFromGesture,{passive:true});
+document.addEventListener('touchend',resumeWakeLockFromGesture,{passive:true});
 document.addEventListener('keydown',()=>{void syncAppWakeLock(true)});
 window.addEventListener('focus',()=>scheduleAppWakeLockRetry(100));
 window.addEventListener('pageshow',()=>scheduleAppWakeLockRetry(100));
 window.addEventListener('pagehide',()=>{void releaseAppWakeLock()});
 $('wakeLockBtn').onclick=async()=>{
-  appWakeLockWanted=!appWakeLockWanted;
+  const intent=wakeLockButtonIntent({wanted:appWakeLockWanted,active:appWakeLockActive()});
+  if(intent==='retry'){
+    appWakeLockLastError='';
+    await syncAppWakeLock(true);
+    renderAppWakeLockStatus();
+    return;
+  }
+  appWakeLockWanted=intent==='enable';
   localStorage.setItem(APP_WAKE_LOCK_KEY,appWakeLockWanted?'1':'0');
   appWakeLockLastError='';
   renderAppWakeLockStatus();
@@ -1765,6 +1778,6 @@ const exitScoreBtn=$('exitScore');if(exitScoreBtn)exitScoreBtn.addEventListener(
 
 window.bcmMarkBooted?.();
 if('serviceWorker'in navigator&&location.protocol.startsWith('http')){
-  const swRevision='20260723-342';
+  const swRevision='20260723-343';
   navigator.serviceWorker.register(`./sw.js?v=${swRevision}`,{updateViaCache:'none'}).then(registration=>registration.update()).catch(()=>{});
 }
