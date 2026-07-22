@@ -6,7 +6,7 @@ import { calculatePerPersonFee } from './next-event.js';
 import { shouldShowNotificationPrompt } from './notifications.js';
 import { normalizeMatchReplayTitle, normalizeYouTubePlaylistUrl } from './youtube.js';
 import { DEFAULT_SCORE_REMOTE_BINDINGS, VIRTUAL_REMOTE_CLICK_CODE, advanceRemotePressState, assignRemoteBinding, isEditableRemoteTarget, normalizeRemoteBindings, remoteActionForCode, remoteEventCode, shouldHandleRemoteInput } from './score-remote.js';
-import { createLiveScoreData, decodeLiveMatch, liveMatchKey } from './live-score.js';
+import { createLiveScoreData, decodeLiveMatch, liveMatchKey, shouldAnnounceSyncedLiveScore } from './live-score.js';
 
 const firebaseConfig={apiKey:'AIzaSyBrakbTPK7UqEChPBI6pM8-i03IcLq0IvM',authDomain:'badminton-7a1c3.firebaseapp.com',projectId:'badminton-7a1c3',storageBucket:'badminton-7a1c3.firebasestorage.app',messagingSenderId:'883534015507',appId:'1:883534015507:web:a7f6fb318151b6d07563e6',measurementId:'G-C97B98H7YW'};
 const fbApp=initializeApp(firebaseConfig);
@@ -320,12 +320,26 @@ let preferredVoice=null,preferredEnglishVoice=null,speechRunId=0;
 function refreshPreferredVoice(){if(!('speechSynthesis'in window))return;const voices=window.speechSynthesis.getVoices(),englishVoices=voices.filter(v=>/^en/i.test(v.lang));preferredVoice=voices.find(v=>/zh[-_]TW/i.test(v.lang))||voices.find(v=>/^zh/i.test(v.lang))||null;preferredEnglishVoice=englishVoices.find(v=>/en[-_]US/i.test(v.lang)&&/Samantha|Ava|Nicky|Alex|Aaron|Joelle/i.test(v.name))||englishVoices.find(v=>/en[-_]US/i.test(v.lang)&&v.localService)||englishVoices.find(v=>/en[-_]US/i.test(v.lang))||englishVoices[0]||null}
 if('speechSynthesis'in window){refreshPreferredVoice();window.speechSynthesis.onvoiceschanged=refreshPreferredVoice}
 let audioContext=null;
-function wakeAudioOutput(){try{audioContext=audioContext||new (window.AudioContext||window.webkitAudioContext)();if(audioContext.state==='suspended')audioContext.resume();const o=audioContext.createOscillator(),g=audioContext.createGain();g.gain.setValueAtTime(0.0001,audioContext.currentTime);o.connect(g);g.connect(audioContext.destination);o.start();o.stop(audioContext.currentTime+.03)}catch(e){console.warn('音訊輸出初始化失敗',e)}}
+function pulseAudioOutput(){if(!audioContext||audioContext.state!=='running')return;const o=audioContext.createOscillator(),g=audioContext.createGain();g.gain.setValueAtTime(.0001,audioContext.currentTime);o.connect(g);g.connect(audioContext.destination);o.start();o.stop(audioContext.currentTime+.03)}
+function wakeAudioOutput(){
+  try{
+    const AudioContextClass=window.AudioContext||window.webkitAudioContext;if(!AudioContextClass)return;
+    if(!audioContext||audioContext.state==='closed')audioContext=new AudioContextClass();
+    if(audioContext.state==='interrupted'&&typeof audioContext.suspend==='function')audioContext.suspend().catch(()=>{}).then(()=>audioContext.resume()).then(pulseAudioOutput).catch(()=>{});
+    else if(audioContext.state==='suspended')audioContext.resume().then(pulseAudioOutput).catch(()=>{});
+    else pulseAudioOutput();
+  }catch(e){console.warn('音訊輸出初始化失敗',e)}
+}
+function armScoreAudio(){if(!voiceEnabled)return;wakeAudioOutput();if('speechSynthesis'in window&&window.speechSynthesis.paused)window.speechSynthesis.resume()}
+document.addEventListener('pointerdown',armScoreAudio,{passive:true});
+document.addEventListener('keydown',armScoreAudio,{passive:true});
+document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible'&&voiceEnabled)wakeAudioOutput()});
 function speakerTest(){wakeAudioOutput();if(!('speechSynthesis'in window))return alert('此瀏覽器不支援語音播報。');const wasEnabled=voiceEnabled;voiceEnabled=true;speak('喇叭測試，比分播報音量測試，GAME！',()=>{voiceEnabled=wasEnabled;updateVoiceButton()});}
 function speak(text,onend){
   if(!('speechSynthesis'in window)||!text||!voiceEnabled)return;
   wakeAudioOutput();
   const runId=++speechRunId,synth=window.speechSynthesis;
+  if(synth.paused)synth.resume();
   synth.cancel();
   const parts=String(text).replace(/，?\s*(Match Point|GAME)\s*[！!]?/gi,'|||$1|||').split('|||').map(x=>x.trim()).filter(Boolean);
   let index=0;
@@ -969,7 +983,7 @@ async function connectRoom(id){
 function applyRole(){all('.host-only').forEach(el=>el.classList.toggle('hidden',!isHost));if(!isHost){$('resultModal').classList.add('hidden');$('scoreView').classList.add('hidden');$('nextEventEditModal')?.classList.add('hidden')}$('adminLoginBtn').classList.toggle('hidden',isHost);$('scoreRole').textContent=isHost?'管理員':'觀看模式';$('scoreA').classList.toggle('clickable',isHost);$('scoreB').classList.toggle('clickable',isHost);all('input,select,textarea').forEach(el=>{if(['editName','editRacket','editRacketTension','editRacketString','editBackupRacket','editBackupTension','editBackupString','editNote','editPhoto','joinCode','playerSearch','playerSort'].includes(el.id)||el.classList.contains('viewer-enabled'))return;if(!isHost)el.disabled=true;else el.disabled=false});if($('editVoiceName'))$('editVoiceName').disabled=!isHost}
 function cleanState(d){return decodeState(d)}
 function matchScoreSignature(source=state){const match=source?.match||{};return `${!!match.active}|${(match.rallies||[]).join('')}|${match.winner??''}`}
-function announceSyncedScore(before,announce=true){const changed=before!==matchScoreSignature();if(announce&&scoreSnapshotReady&&changed&&isHost&&!requestedAndroidRemote&&state.match.active&&voiceEnabled)setTimeout(announceScore,80);scoreSnapshotReady=true}
+function announceSyncedScore(before,announce=true){const changed=before!==matchScoreSignature(),scoreVisible=!$('scoreView')?.classList.contains('hidden');if(shouldAnnounceSyncedLiveScore({announce,snapshotReady:scoreSnapshotReady,changed,scoreVisible,androidRemote:requestedAndroidRemote,matchActive:state.match.active,voiceEnabled}))setTimeout(announceScore,120);scoreSnapshotReady=true}
 function applyState(data){const before=matchScoreSignature(),next=cleanState(data),legacyMatchChanged=!!data.liveScoreEnabled&&!!data.liveScoreMatchKey&&data.liveScoreMatchKey!==liveMatchKey(data.match);if(liveScoreReady&&latestLiveMatch&&!legacyMatchChanged)next.match=structuredClone(latestLiveMatch);else if(legacyMatchChanged)latestLiveMatch=structuredClone(next.match);applying=true;state=next;renderAll();applying=false;announceSyncedScore(before);if(legacyMatchChanged&&isHost&&liveScoreAvailable)saveLiveScoreSoon()}
 function applyLiveScoreState(data,{announce=true}={}){const before=matchScoreSignature(),beforeWinner=state.match?.winner,match=decodeLiveMatch(data,state.match),shouldFinish=beforeWinner===null&&match.winner!==null&&isHost&&!requestedAndroidRemote;liveScoreReady=true;latestLiveMatch=structuredClone(match);applying=true;state.match=match;renderScore();renderDashboard();renderAndroidRemote();applying=false;announceSyncedScore(before,announce);if(shouldFinish)finishMatch()}
 function payload(){return {...encodeState(state),liveScoreEnabled:true,liveScoreMatchKey:liveMatchKey(state.match),updatedAt:serverTimestamp()}}
@@ -1750,6 +1764,6 @@ const exitScoreBtn=$('exitScore');if(exitScoreBtn)exitScoreBtn.addEventListener(
 
 window.bcmMarkBooted?.();
 if('serviceWorker'in navigator&&location.protocol.startsWith('http')){
-  const swRevision='20260722-338';
+  const swRevision='20260722-339';
   navigator.serviceWorker.register(`./sw.js?v=${swRevision}`,{updateViaCache:'none'}).then(registration=>registration.update()).catch(()=>{});
 }
