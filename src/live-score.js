@@ -44,3 +44,7 @@ export function createLiveScoreData(match){
 export function liveMatchKey(source={}){
   return JSON.stringify(encodeLiveMatch(source?.match||source));
 }
+
+export function shouldAnnounceSyncedLiveScore({announce=true,snapshotReady=false,changed=false,scoreVisible=false,androidRemote=false,matchActive=false,voiceEnabled=false}={}){
+  return Boolean(announce&&snapshotReady&&changed&&scoreVisible&&!androidRemote&&matchActive&&voiceEnabled);
+}

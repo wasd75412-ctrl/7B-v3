@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {createLiveScoreData,decodeLiveMatch,encodeLiveMatch,liveMatchKey,LIVE_SCORE_SCHEMA_VERSION} from '../src/live-score.js';
+import {createLiveScoreData,decodeLiveMatch,encodeLiveMatch,liveMatchKey,shouldAnnounceSyncedLiveScore,LIVE_SCORE_SCHEMA_VERSION} from '../src/live-score.js';
 
 test('encodes Firestore-safe live score without nested arrays',()=>{
   const data=createLiveScoreData({
@@ -43,4 +43,20 @@ test('normalizes malformed live score values',()=>{
 test('creates the same compatibility key for encoded and decoded matches',()=>{
   const decoded={active:true,players:[['a','b'],['c','d']],scores:[3,2],rallies:[0,1,0,0,1],serving:1,positions:[[1,0],[0,1]],winner:null,matchId:'m1',startedAt:'now'};
   assert.equal(liveMatchKey(decoded),liveMatchKey(encodeLiveMatch(decoded)));
+});
+
+test('announces a remote score update on the visible iPad scoreboard',()=>{
+  assert.equal(shouldAnnounceSyncedLiveScore({announce:true,snapshotReady:true,changed:true,scoreVisible:true,androidRemote:false,matchActive:true,voiceEnabled:true}),true);
+});
+
+test('does not announce initial, hidden, disabled, or Android remote snapshots',()=>{
+  const ready={announce:true,snapshotReady:true,changed:true,scoreVisible:true,androidRemote:false,matchActive:true,voiceEnabled:true};
+  for(const blocked of [
+    {...ready,snapshotReady:false},
+    {...ready,changed:false},
+    {...ready,scoreVisible:false},
+    {...ready,androidRemote:true},
+    {...ready,matchActive:false},
+    {...ready,voiceEnabled:false}
+  ])assert.equal(shouldAnnounceSyncedLiveScore(blocked),false);
 });
