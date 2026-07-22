@@ -3,6 +3,6 @@ export function wakeLockButtonIntent({wanted=false,active=false}={}){
   return wanted?'disable':'enable';
 }
 
-export function shouldStartPersistentVideoWakeLock({wanted=false,userActivated=false,appleTouchDevice=false,videoActive=false}={}){
-  return wanted&&userActivated&&appleTouchDevice&&!videoActive;
+export function shouldStartPersistentVideoWakeLock({wanted=false,userActivated=false,videoActive=false}={}){
+  return wanted&&userActivated&&!videoActive;
 }
