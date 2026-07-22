@@ -8,7 +8,7 @@ import { normalizeMatchReplayTitle, normalizeYouTubePlaylistUrl } from './youtub
 import { DEFAULT_SCORE_REMOTE_BINDINGS, VIRTUAL_REMOTE_CLICK_CODE, advanceRemotePressState, assignRemoteBinding, isEditableRemoteTarget, normalizeRemoteBindings, remoteActionForCode, remoteEventCode, shouldHandleRemoteInput } from './score-remote.js';
 import { createLiveScoreData, decodeLiveMatch, liveMatchKey, shouldAnnounceSyncedLiveScore } from './live-score.js';
 import { canAutoSyncPlayerIdentity } from './device-sync.js';
-import { wakeLockButtonIntent } from './wake-lock.js';
+import { shouldStartPersistentVideoWakeLock, wakeLockButtonIntent } from './wake-lock.js';
 
 const firebaseConfig={apiKey:'AIzaSyBrakbTPK7UqEChPBI6pM8-i03IcLq0IvM',authDomain:'badminton-7a1c3.firebaseapp.com',projectId:'badminton-7a1c3',storageBucket:'badminton-7a1c3.firebasestorage.app',messagingSenderId:'883534015507',appId:'1:883534015507:web:a7f6fb318151b6d07563e6',measurementId:'G-C97B98H7YW'};
 const fbApp=initializeApp(firebaseConfig);
@@ -1097,12 +1097,15 @@ function gamePoint(){const m=state.match;if(m.winner!==null)return false;for(let
 function currentResultKey(){const m=state.match;if(m.winner===null)return'';return m.matchId||[m.winner,(m.scores||[]).join('-'),...(m.players||[]).flat()].join('|')}
 function setServingPlayer(team,playerIndex){const m=state.match;if(!isHost||!m.active||m.winner!==null)return;m.serving=team;const serverSide=m.scores[team]%2===0?1:0;const positions=m.positions[team]||[0,1];const currentSide=positions.indexOf(playerIndex);if(currentSide!==serverSide&&currentSide>=0){const other=positions[serverSide];positions[serverSide]=playerIndex;positions[currentSide]=other;m.positions[team]=positions}renderScore();saveLiveScoreSoon()}
 const hasNativeWakeLock=()=>!!navigator.wakeLock?.request;
+const appleTouchDevice=/iPad|iPhone|iPod/i.test(navigator.userAgent)||(navigator.platform==='MacIntel'&&navigator.maxTouchPoints>1);
 function createVideoWakeLock(){
   const video=document.createElement('video');
   video.setAttribute('title','螢幕恆亮備援');
   video.setAttribute('playsinline','');
-  video.setAttribute('muted','');
-  video.muted=true;
+  video.setAttribute('loop','');
+  video.setAttribute('preload','auto');
+  video.loop=true;
+  video.preload='auto';
   for(const type of ['webm','mp4']){const source=document.createElement('source');source.src=noSleepMedia[type];source.type=`video/${type}`;video.appendChild(source)}
   video.addEventListener('loadedmetadata',()=>{if(video.duration<=1)video.loop=true});
   video.addEventListener('timeupdate',()=>{if(video.duration>1&&video.currentTime>.5)video.currentTime=Math.random()*.4});
@@ -1158,9 +1161,14 @@ async function releaseAppWakeLock(){
 async function syncAppWakeLock(userActivated=false){
   if(!appWakeLockWanted){await releaseAppWakeLock();return}
   if(document.hidden){await releaseAppWakeLock();return}
-  if(appWakeLockActive()){renderAppWakeLockStatus();return}
+  const startPersistentVideo=shouldStartPersistentVideoWakeLock({wanted:appWakeLockWanted,userActivated,appleTouchDevice,videoActive:fallbackNoSleep.isEnabled});
+  if(appWakeLockActive()){
+    if(startPersistentVideo)await enableFallbackWakeLock();
+    renderAppWakeLockStatus();
+    return;
+  }
   if(appWakeLockRequest){
-    if(userActivated&&!fallbackNoSleep.isEnabled)void enableFallbackWakeLock().then(()=>{if(appWakeLock&&!appWakeLock.released&&fallbackNoSleep.isEnabled)fallbackNoSleep.disable();renderAppWakeLockStatus()});
+    if(userActivated&&!fallbackNoSleep.isEnabled)void enableFallbackWakeLock().then(()=>{if(appWakeLock&&!appWakeLock.released&&fallbackNoSleep.isEnabled&&!appleTouchDevice)fallbackNoSleep.disable();renderAppWakeLockStatus()});
     renderAppWakeLockStatus();
     try{await appWakeLockRequest}catch{}
     if(fallbackWakeLockRequest)await fallbackWakeLockRequest;
@@ -1180,8 +1188,9 @@ async function syncAppWakeLock(userActivated=false){
     if(document.hidden||!appWakeLockWanted){await lock.release();return}
     appWakeLock=lock;
     appWakeLockLastError='';
+    appWakeLockNeedsGesture=false;
     if(fallbackAttempt)await fallbackAttempt;
-    if(fallbackNoSleep.isEnabled)fallbackNoSleep.disable();
+    if(fallbackNoSleep.isEnabled&&!appleTouchDevice)fallbackNoSleep.disable();
     lock.addEventListener('release',()=>{
       if(appWakeLock===lock)appWakeLock=null;
       renderAppWakeLockStatus();
@@ -1778,6 +1787,6 @@ const exitScoreBtn=$('exitScore');if(exitScoreBtn)exitScoreBtn.addEventListener(
 
 window.bcmMarkBooted?.();
 if('serviceWorker'in navigator&&location.protocol.startsWith('http')){
-  const swRevision='20260723-344';
+  const swRevision='20260723-345';
   navigator.serviceWorker.register(`./sw.js?v=${swRevision}`,{updateViaCache:'none'}).then(registration=>registration.update()).catch(()=>{});
 }
