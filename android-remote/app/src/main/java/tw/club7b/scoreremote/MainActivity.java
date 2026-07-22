@@ -50,6 +50,7 @@ public final class MainActivity extends Activity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
+        recordingModeEnabled = RemoteSessionStore.isRecordingEnabled(this);
 
         webView = new WebView(this);
         webView.setBackgroundColor(Color.rgb(6, 25, 38));
@@ -68,7 +69,7 @@ public final class MainActivity extends Activity {
         settings.setDisplayZoomControls(false);
         settings.setMediaPlaybackRequiresUserGesture(false);
         settings.setMixedContentMode(WebSettings.MIXED_CONTENT_NEVER_ALLOW);
-        settings.setUserAgentString(settings.getUserAgentString() + " 7BAndroidRemote/1.2.0");
+        settings.setUserAgentString(settings.getUserAgentString() + " 7BAndroidRemote/1.3.0");
         CookieManager.getInstance().setAcceptCookie(true);
         CookieManager.getInstance().setAcceptThirdPartyCookies(view, true);
         view.setRendererPriorityPolicy(WebView.RENDERER_PRIORITY_IMPORTANT, true);
@@ -108,7 +109,9 @@ public final class MainActivity extends Activity {
     @Override
     protected void onStop() {
         activityStarted = false;
-        if (!recordingModeEnabled) RemoteKeyRelay.clearListener(remoteKeyListener);
+        // A stopped WebView can be suspended while the camera is in front. Release it so the
+        // accessibility service can write the score directly instead of talking to a stale page.
+        RemoteKeyRelay.clearListener(remoteKeyListener);
         super.onStop();
     }
 
@@ -254,8 +257,9 @@ public final class MainActivity extends Activity {
 
     private void setRecordingModeEnabled(boolean enabled) {
         recordingModeEnabled = enabled;
-        if (enabled) RemoteKeyRelay.setListener(remoteKeyListener);
-        else if (!activityStarted) RemoteKeyRelay.clearListener(remoteKeyListener);
+        RemoteSessionStore.setRecordingEnabled(this, enabled);
+        if (activityStarted) RemoteKeyRelay.setListener(remoteKeyListener);
+        else RemoteKeyRelay.clearListener(remoteKeyListener);
         notifyRecordingModeChanged();
     }
 
@@ -296,6 +300,26 @@ public final class MainActivity extends Activity {
         @JavascriptInterface
         public void setRecordingModeEnabled(boolean enabled) {
             MainActivity.this.setRecordingModeEnabled(enabled);
+        }
+
+        @JavascriptInterface
+        public void updateRemoteSession(
+                String roomId,
+                boolean hostAuthorized,
+                boolean matchActive,
+                int target,
+                int cap,
+                boolean deuce
+        ) {
+            RemoteSessionStore.updateSession(
+                    MainActivity.this,
+                    roomId,
+                    hostAuthorized,
+                    matchActive,
+                    target,
+                    cap,
+                    deuce
+            );
         }
 
         @JavascriptInterface

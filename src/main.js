@@ -127,6 +127,7 @@ function renderAndroidRemote(){
   if(!requestedAndroidRemote||!roomId){view.classList.add('hidden');return}
   $('landing').classList.add('hidden');$('app').classList.add('hidden');$('scoreView').classList.add('hidden');view.classList.remove('hidden');
   const match=state.match,ready=isHost&&match.active&&match.winner===null;
+  try{window.BcmAndroid?.updateRemoteSession?.(roomId,isHost,ready,Math.max(1,Number(state.rules?.target)||11),Math.max(1,Number(state.rules?.cap)||15),!!state.rules?.deuce)}catch{}
   const hasKeyAccessBridge=hasAndroidRemoteKeyAccessBridge(),keyAccessEnabled=isAndroidRemoteKeyAccessEnabled();
   const hasRecordingBridge=hasAndroidRecordingModeBridge(),recordingModeEnabled=isAndroidRecordingModeEnabled();
   $('androidRemoteRoom').textContent=roomId;
@@ -970,7 +971,7 @@ function cleanState(d){return decodeState(d)}
 function matchScoreSignature(source=state){const match=source?.match||{};return `${!!match.active}|${(match.rallies||[]).join('')}|${match.winner??''}`}
 function announceSyncedScore(before,announce=true){const changed=before!==matchScoreSignature();if(announce&&scoreSnapshotReady&&changed&&isHost&&!requestedAndroidRemote&&state.match.active&&voiceEnabled)setTimeout(announceScore,80);scoreSnapshotReady=true}
 function applyState(data){const before=matchScoreSignature(),next=cleanState(data),legacyMatchChanged=!!data.liveScoreEnabled&&!!data.liveScoreMatchKey&&data.liveScoreMatchKey!==liveMatchKey(data.match);if(liveScoreReady&&latestLiveMatch&&!legacyMatchChanged)next.match=structuredClone(latestLiveMatch);else if(legacyMatchChanged)latestLiveMatch=structuredClone(next.match);applying=true;state=next;renderAll();applying=false;announceSyncedScore(before);if(legacyMatchChanged&&isHost&&liveScoreAvailable)saveLiveScoreSoon()}
-function applyLiveScoreState(data,{announce=true}={}){const before=matchScoreSignature(),match=decodeLiveMatch(data,state.match);liveScoreReady=true;latestLiveMatch=structuredClone(match);applying=true;state.match=match;renderScore();renderDashboard();renderAndroidRemote();applying=false;announceSyncedScore(before,announce)}
+function applyLiveScoreState(data,{announce=true}={}){const before=matchScoreSignature(),beforeWinner=state.match?.winner,match=decodeLiveMatch(data,state.match),shouldFinish=beforeWinner===null&&match.winner!==null&&isHost&&!requestedAndroidRemote;liveScoreReady=true;latestLiveMatch=structuredClone(match);applying=true;state.match=match;renderScore();renderDashboard();renderAndroidRemote();applying=false;announceSyncedScore(before,announce);if(shouldFinish)finishMatch()}
 function payload(){return {...encodeState(state),liveScoreEnabled:true,liveScoreMatchKey:liveMatchKey(state.match),updatedAt:serverTimestamp()}}
 function liveScorePayload(){return {...createLiveScoreData(state.match),updatedAt:serverTimestamp()}}
 function rememberLatestLiveMatch(){latestLiveMatch=structuredClone(state.match)}
@@ -1749,6 +1750,6 @@ const exitScoreBtn=$('exitScore');if(exitScoreBtn)exitScoreBtn.addEventListener(
 
 window.bcmMarkBooted?.();
 if('serviceWorker'in navigator&&location.protocol.startsWith('http')){
-  const swRevision='20260722-337';
+  const swRevision='20260722-338';
   navigator.serviceWorker.register(`./sw.js?v=${swRevision}`,{updateViaCache:'none'}).then(registration=>registration.update()).catch(()=>{});
 }
