@@ -2,7 +2,7 @@ import { initializeApp } from 'firebase/app';
 import { initializeFirestore, persistentLocalCache, persistentMultipleTabManager, doc, getDoc, onSnapshot, setDoc, serverTimestamp, runTransaction, collection, getDocs, deleteDoc, query, orderBy, limit } from 'firebase/firestore';
 import noSleepMedia from 'nosleep.js/src/media.js';
 import appPackage from '../package.json';
-import { calculatePerPersonFee } from './next-event.js';
+import { calculatePerPersonFee, shouldShowNextEventAnnouncement } from './next-event.js';
 import { shouldShowNotificationPrompt } from './notifications.js';
 import { normalizeMatchReplayTitle, normalizeYouTubePlaylistUrl } from './youtube.js';
 import { DEFAULT_SCORE_REMOTE_BINDINGS, VIRTUAL_REMOTE_CLICK_CODE, advanceRemotePressState, assignRemoteBinding, isEditableRemoteTarget, normalizeRemoteBindings, remoteActionForCode, remoteEventCode, shouldHandleRemoteInput } from './score-remote.js';
@@ -395,8 +395,9 @@ function updateVenueMapPreviews(){updateMapPreview('pollNote','pollLocationMap')
 function renderNextEventAnnouncement(){
   const box=$('nextEventAnnouncement'),e=state.nextEvent;
   if(!box)return;
-  box.classList.toggle('hidden',!e?.date);
-  if(!e?.date){box.innerHTML='';return}
+  const visible=shouldShowNextEventAnnouncement(e?.date,localDateKey());
+  box.classList.toggle('hidden',!visible);
+  if(!visible){box.innerHTML='';return}
   const participantCount=wholeAmount(e.participantCount),perPersonFee=wholeAmount(e.perPersonFee),participantText=participantCount?`預計參與 ${formatMoney(participantCount)} 人`:'預計參與人數待確認',payment=perPersonFee?`<div class="next-event-payment">每人需繳 ${formatMoney(perPersonFee)} 元</div>`:'';
   const editButton=isHost?'<button id="editNextEventAnnouncement" class="btn next-event-edit-btn" type="button">✏️ 編輯公告</button>':'';
   box.innerHTML=`<div class="next-event-card-head"><h3>📣 下一次打球</h3>${editButton}</div><div class="next-event-main">${esc(formatEventDate(e.date,e.time,e.endTime))}</div><div class="next-event-place"><span>📍 ${esc(e.location||'場地待公告')}</span>${e.location?googleMapsLink(e.location,'開啟地圖'):''}</div>${e.note?`<div class="next-event-note"><strong>🏸 場地備註：</strong>${esc(e.note)}</div>`:''}<div class="next-event-facts"><div class="next-event-participants">👥 ${participantText}</div>${payment}</div>`;
