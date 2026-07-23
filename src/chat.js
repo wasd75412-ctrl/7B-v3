@@ -2,6 +2,12 @@ export const CHAT_MESSAGE_MAX_LENGTH=500;
 export const CHAT_MENTION_MAX_COUNT=8;
 const escapeRegExp=value=>String(value).replace(/[.*+?^${}()|[\]\\]/g,'\\$&');
 
+export function claimedChatPlayerId(players=[],clientHash=''){
+  const hash=String(clientHash||'').trim();
+  if(!hash)return'';
+  return players.find(player=>player?.id&&String(player.ownerHash||'')===hash)?.id||'';
+}
+
 export function cleanChatText(value,maxLength=CHAT_MESSAGE_MAX_LENGTH){
   return String(value??'')
     .replace(/\r\n?/g,'\n')

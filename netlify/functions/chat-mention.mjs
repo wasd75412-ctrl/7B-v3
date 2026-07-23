@@ -1,4 +1,4 @@
-import { randomUUID } from 'node:crypto';
+import { createHash, randomUUID } from 'node:crypto';
 import { getStore } from '@netlify/blobs';
 import webpush from 'web-push';
 import { chatMessagePreview, cleanChatText, normalizeChatMentionIds } from '../../src/chat.js';
@@ -8,6 +8,36 @@ const CHAT_STORE='7b-room-chat';
 const CHAT_TTL_SECONDS=2*24*60*60;
 const CHAT_HISTORY_LIMIT=100;
 const CHAT_STORAGE_LIMIT=300;
+const FIREBASE_PROJECT_ID=process.env.FIREBASE_PROJECT_ID?.trim()||'badminton-7a1c3';
+const FIREBASE_WEB_API_KEY=process.env.FIREBASE_WEB_API_KEY?.trim()||'AIzaSyBrakbTPK7UqEChPBI6pM8-i03IcLq0IvM';
+
+function decodeFirestoreValue(value={}){
+  if('stringValue'in value)return String(value.stringValue||'');
+  if('arrayValue'in value)return (value.arrayValue?.values||[]).map(decodeFirestoreValue);
+  if('mapValue'in value){
+    return Object.fromEntries(Object.entries(value.mapValue?.fields||{}).map(([key,entry])=>[key,decodeFirestoreValue(entry)]));
+  }
+  return null;
+}
+
+export function claimedChatSenderFromDocument(document,{senderId='',senderHash=''}={}){
+  const roster=decodeFirestoreValue(document?.fields?.roster);
+  if(!Array.isArray(roster)||!senderId||!senderHash)return null;
+  const sender=roster.find(player=>player?.id===senderId&&player?.ownerHash===senderHash);
+  if(!sender?.name)return null;
+  return{senderId:cleanText(sender.id,128),senderName:cleanText(sender.name,40),senderHash};
+}
+
+async function verifyClaimedChatSender(roomId,senderId,senderToken){
+  const token=cleanText(senderToken,512);
+  if(!token)return null;
+  const senderHash=createHash('sha256').update(token).digest('hex');
+  const endpoint=`https://firestore.googleapis.com/v1/projects/${encodeURIComponent(FIREBASE_PROJECT_ID)}/databases/(default)/documents/badmintonRooms/${encodeURIComponent(roomId)}?key=${encodeURIComponent(FIREBASE_WEB_API_KEY)}`;
+  const response=await fetch(endpoint,{headers:{accept:'application/json'}});
+  if(response.status===404)return null;
+  if(!response.ok)throw new Error(`Firestore claim verification failed (${response.status})`);
+  return claimedChatSenderFromDocument(await response.json(),{senderId:cleanText(senderId,128),senderHash});
+}
 
 export function normalizeStoredChatMessage(source={}){
   const createdAt=String(source.createdAt||''),created=Date.parse(createdAt);
@@ -93,17 +123,24 @@ export default async request=>{
   let body;
   try{body=await request.json()}catch{return jsonResponse({error:'聊天室訊息格式不正確。'},400)}
   const postRoomId=String(body.roomId||'').toUpperCase(),messageId=randomUUID(),createdAt=new Date().toISOString();
+  if(!validRoomId(postRoomId))return jsonResponse({error:'球局代碼格式不正確。'},400);
+  let claimedSender;
+  try{
+    claimedSender=await verifyClaimedChatSender(postRoomId,body.senderId,body.senderToken);
+  }catch(error){
+    console.error(`Chat identity verification ${postRoomId} failed`,error);
+    return jsonResponse({error:'目前無法確認認領身分，請稍後再試。'},502);
+  }
+  if(!claimedSender)return jsonResponse({error:'此裝置尚未認領這位球員，無法使用該身分發言。'},403);
   const message=normalizeStoredChatMessage({
     id:messageId,
     text:body.text,
-    senderId:body.senderId,
-    senderName:body.senderName,
-    senderHash:body.senderHash,
+    ...claimedSender,
     mentions:body.mentions,
     createdAt,
     clientCreatedAt:body.clientCreatedAt
   });
-  if(!validRoomId(postRoomId)||!message.text||!message.senderId||!message.senderName||!message.senderHash)return jsonResponse({error:'聊天室訊息資料不完整。'},400);
+  if(!message.text||!message.senderId||!message.senderName||!message.senderHash)return jsonResponse({error:'聊天室訊息資料不完整。'},400);
 
   try{
     const key=`${postRoomId}/${String(Date.now()).padStart(13,'0')}-${messageId}`;

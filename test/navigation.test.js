@@ -17,3 +17,9 @@ test('keeps chat in primary navigation and removes backup from it',()=>{
 test('opens backup center from the more menu',()=>{
   assert.match(html,/id="backupCenterBtn"[^>]*>☁️ 備份中心<\/button>/);
 });
+
+test('chat identity is claimed and cannot be selected from a player list',()=>{
+  assert.match(html,/id="chatIdentity"/);
+  assert.match(html,/id="chatClaimHelp"/);
+  assert.doesNotMatch(html,/id="chatPlayer"/);
+});
