@@ -49,7 +49,7 @@ let state=initialState(), roomId='', roomRef=null, liveScoreRef=null, chatCollec
 let deviceProfileUnsubscribe=null,deviceProfileApplying=false,deviceProfileSaveTimer=null,identitySyncing=false,roomConnectInProgress=false;
 let roomSnapshotFromCache=false,snapshotHasPendingWrites=false,pendingRoomWrites=0,roomWriteScheduled=false;
 let liveScoreSnapshotFromCache=false,liveScoreHasPendingWrites=false,pendingLiveScoreWrites=0,liveScoreWriteScheduled=false,liveScoreConnecting=false,liveScoreAvailable=true,liveScoreReady=false,liveScoreInitialSnapshot=true,liveScoreMigrationStarted=false,latestLiveMatch=null,lastRoomSnapshotData=null;
-let chatMessages=[],chatMentionIds=new Set(),chatFirstRender=true,chatLastSentAt=0;
+let chatMessages=[],chatMentionIds=new Set(),chatFirstRender=true,chatLastSentAt=0,chatRequestRunning=false;
 const requestParams=new URLSearchParams(location.search),requestedPage=requestParams.get('page'),requestedAndroidRemote=requestParams.get('androidRemote')==='1';
 if(requestedAndroidRemote){
   document.documentElement.classList.add('android-remote-mode');
@@ -623,6 +623,8 @@ async function setPushNotificationEnabled(){
 function chatSeenKey(id=roomId){return `bcmChatSeenV1:${id||'none'}`}
 function chatMessageTimeMs(message){
   if(typeof message?.createdAt?.toMillis==='function')return message.createdAt.toMillis();
+  const created=Date.parse(message?.createdAt||'');
+  if(Number.isFinite(created))return created;
   const client=Number(message?.clientCreatedAt||0);
   return Number.isFinite(client)?client:0;
 }
@@ -725,16 +727,23 @@ function renderChat(){
 function startChatSync(){
   chatUnsubscribe?.();chatUnsubscribe=null;chatMessages=[];chatFirstRender=true;
   if(!roomId)return;
-  chatCollectionRef=collection(db,'badmintonRooms',roomId,'chatMessages');
-  const chatQuery=query(chatCollectionRef,orderBy('createdAt','desc'),limit(100));
-  chatUnsubscribe=onSnapshot(chatQuery,{includeMetadataChanges:true},snapshot=>{
-    chatMessages=snapshot.docs.map(item=>({id:item.id,...item.data()})).reverse();
-    renderChat();
-  },error=>{
-    $('chatConnection').textContent=navigator.onLine?'同步中斷':'離線中';
-    $('chatConnection').classList.add('offline');
-    setChatStatus(`聊天室暫時無法同步：${formatError(error)}`,'error');
-  });
+  chatCollectionRef=roomId;
+  const load=async()=>{
+    if(chatRequestRunning||!roomId||chatCollectionRef!==roomId||!navigator.onLine)return;
+    chatRequestRunning=true;
+    try{
+      const result=await pushApi(`chat-mention?roomId=${encodeURIComponent(roomId)}`);
+      chatMessages=Array.isArray(result.messages)?result.messages:[];
+      renderChat();
+    }catch(error){
+      $('chatConnection').textContent=navigator.onLine?'同步中斷':'離線中';
+      $('chatConnection').classList.add('offline');
+      setChatStatus(`聊天室暫時無法同步：${error.message}`,'error');
+    }finally{chatRequestRunning=false}
+  };
+  void load();
+  const timer=setInterval(load,2800);
+  chatUnsubscribe=()=>clearInterval(timer);
 }
 async function sendChatMessage(){
   const button=$('sendChat'),composer=$('chatComposer'),senderId=selectedChatPlayerId(),sender=player(senderId),text=cleanChatText(composer.value,CHAT_MESSAGE_MAX_LENGTH);
@@ -743,19 +752,16 @@ async function sendChatMessage(){
   if(!text)return;
   if(Date.now()-chatLastSentAt<900)return;
   const validIds=state.roster.map(p=>p.id),mentions=normalizeChatMentionIds([...chatMentionIds],{validIds,senderId});
-  const messageId=randomToken(),messageRef=doc(chatCollectionRef,messageId);
   chatLastSentAt=Date.now();button.disabled=true;setChatStatus('正在傳送…','pending');
   try{
-    await setDoc(messageRef,{text,senderId,senderName:sender.name,senderHash:selfHash,mentions,createdAt:serverTimestamp(),clientCreatedAt:Date.now()});
+    const result=await pushApi('chat-mention',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({roomId,text,senderId,senderName:sender.name,senderHash:selfHash,mentions,clientCreatedAt:Date.now()})});
+    if(result.message&&!chatMessages.some(message=>message.id===result.message.id))chatMessages=[...chatMessages,result.message].slice(-100);
     composer.value='';chatMentionIds.clear();renderChatMentionList();
-    if(mentions.length){
-      try{
-        const result=await pushApi('chat-mention',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({roomId,messageId})});
-        setChatStatus(result.sent?`訊息已傳送，已通知 ${result.sent} 台裝置`:'訊息已傳送；被標記者尚未開啟手機通知','success');
-      }catch(error){setChatStatus(`訊息已傳送，但標記通知暫時失敗：${error.message}`,'warning')}
-    }else setChatStatus('訊息已傳送','success');
+    renderChat();
+    if(mentions.length)setChatStatus(result.sent?`訊息已傳送，已通知 ${result.sent} 台裝置`:'訊息已傳送；被標記者尚未開啟手機通知','success');
+    else setChatStatus('訊息已傳送','success');
   }catch(error){
-    setChatStatus(`訊息傳送失敗：${formatError(error)}`,'error');
+    setChatStatus(`訊息傳送失敗：${error.message}`,'error');
   }finally{updateChatSendButton()}
 }
 function pollCounts(){const counts={};for(const o of state.schedulePoll.options||[])counts[o.id]=0;for(const value of Object.values(state.schedulePoll.votes||{}))for(const id of pollSelectionList(value))if(id in counts)counts[id]++;return counts}
@@ -1033,7 +1039,7 @@ async function connectRoom(id){
   unsubscribe?.();unsubscribe=null;
   liveScoreUnsubscribe?.();liveScoreUnsubscribe=null;
   chatUnsubscribe?.();chatUnsubscribe=null;
-  chatCollectionRef=null;chatMessages=[];chatMentionIds.clear();chatFirstRender=true;
+  chatCollectionRef=null;chatMessages=[];chatMentionIds.clear();chatFirstRender=true;chatRequestRunning=false;
   clearTimeout(saveTimer);saveTimer=null;
   clearTimeout(liveScoreSaveTimer);liveScoreSaveTimer=null;
   scoreSnapshotReady=false;
@@ -1955,6 +1961,6 @@ const exitScoreBtn=$('exitScore');if(exitScoreBtn)exitScoreBtn.addEventListener(
 
 window.bcmMarkBooted?.();
 if('serviceWorker'in navigator&&location.protocol.startsWith('http')){
-  const swRevision='20260723-351';
+  const swRevision='20260723-352';
   navigator.serviceWorker.register(`./sw.js?v=${swRevision}`,{updateViaCache:'none'}).then(registration=>registration.update()).catch(()=>{});
 }
