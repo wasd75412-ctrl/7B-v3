@@ -441,7 +441,7 @@ function renderAdminAnnouncement(){
 function renderPollDeadlineAnnouncement(){const box=$('pollDeadlineAnnouncement'),poll=state.schedulePoll||{},hasOptions=(poll.options||[]).length>0,created=!!poll.createdAt,closed=isPollClosed(poll),deadline=poll.deadlineAt||'';if(!box)return;const visible=(hasOptions||created)&&!closed;box.classList.toggle('hidden',!visible);if(!visible){box.innerHTML='';return}const detail=!hasOptions?'候選日期準備中':deadline?`截止時間：${esc(formatPollDeadline(deadline))}`:'截止時間尚未設定';box.className='poll-deadline-card';box.innerHTML=`<div><strong>🗳️ ${hasOptions?'下次球局投票中':'新投票已建立'}</strong><p>${detail}</p></div><button id="dashboardPollBtn" class="btn primary" type="button">前往投票</button>`;$('dashboardPollBtn').onclick=()=>page(6)}
 function calloutText(sourceIds){const ids=sourceIds||state.nextCall?.players||[];if(ids.length!==4||new Set(ids).size!==4)return'';return `下一場是左方 ${vname(ids[0])}和${vname(ids[1])}，對戰右方 ${vname(ids[2])}和${vname(ids[3])}。`}
 function renderDashboard() {
-    if (!$('dashScore')) return;
+    if (!$('clubMetrics')) return;
 
     renderAdminAnnouncement();
     renderNextEventAnnouncement();
@@ -456,76 +456,57 @@ function renderDashboard() {
 
     const m = state.match,
         teams = m.players || [[], []],
-        played = state.history.filter(h => historyDate(h) === localDateKey()).length,
-        hasCurrentMatch = !!m.startedAt && teams.flat().filter(Boolean).length === 4;
+        hasCurrentMatch = !!m.startedAt && teams.flat().filter(Boolean).length === 4,
+        month = localMonthKey(),
+        monthGames = state.history.filter(h => historyDate(h).startsWith(month)),
+        monthPlayers = new Set(monthGames.flatMap(h => (h.teams || []).flat()).filter(Boolean));
     if($('endSessionBtn'))$('endSessionBtn').disabled=!hasCurrentMatch&&!state.nextCall&&!state.attendance.length;
 
-    $('dashScore').classList.toggle('empty',!hasCurrentMatch);
-    $('dashScore').innerHTML = hasCurrentMatch ? `
-        <div class="dash-team">
-            <div>A隊</div>
-            <div class="dash-num">${m.scores?.[0] || 0}</div>
-            <div class="dash-players">${(teams[0] || []).map(pname).join('／') || '尚未安排'}</div>
-        </div>
-
-        <div class="dash-vs">VS</div>
-
-        <div class="dash-team">
-            <div>B隊</div>
-            <div class="dash-num">${m.scores?.[1] || 0}</div>
-            <div class="dash-players">${(teams[1] || []).map(pname).join('／') || '尚未安排'}</div>
-        </div>
-    ` : '<div>🏸 目前沒有進行中的比賽</div>';
-
-    const active = state.attendance.length,
-        waiting = state.attendance.filter(id => !state.court.includes(id)).length;
-
-    $('dashMetrics').innerHTML = `
-        <div class="metric"><strong>${played}</strong><span class="sub">今日場次</span></div>
-        <div class="metric"><strong>${active}</strong><span class="sub">今日出席</span></div>
-        <div class="metric"><strong>${waiting}</strong><span class="sub">候場人數</span></div>
-        <div class="metric"><strong>${state.rules.target}</strong><span class="sub">勝利分</span></div>
+    $('clubMetrics').innerHTML = `
+        <div class="club-metric"><span class="club-metric-icon">🏸</span><span><strong>${monthGames.length}</strong><small>本月比賽</small></span></div>
+        <div class="club-metric"><span class="club-metric-icon">🎯</span><span><strong>${state.history.length}</strong><small>累積比賽</small></span></div>
+        <div class="club-metric"><span class="club-metric-icon">🙌</span><span><strong>${monthPlayers.size}</strong><small>本月出賽球友</small></span></div>
+        <div class="club-metric"><span class="club-metric-icon">👥</span><span><strong>${state.roster.length}</strong><small>球友人數</small></span></div>
     `;
 
-    const eligibleWait = state.attendance.filter(id => !state.court.includes(id)),
-        waitIds = uniqueIds(state.waitingQueue).filter(id => eligibleWait.includes(id));
+    const recent = state.history.slice(-3).reverse();
+    $('homeRecentMatches').innerHTML = recent.map(h => {
+        const scoreA = h.scores?.[0] ?? 0, scoreB = h.scores?.[1] ?? 0;
+        const teamA = esc((h.teams?.[0] || []).map(pname).join('／') || 'A 隊');
+        const teamB = esc((h.teams?.[1] || []).map(pname).join('／') || 'B 隊');
+        const dateKey = historyDate(h), date = dateKey ? new Date(`${dateKey}T12:00:00`) : null;
+        const dateLabel = date && !isNaN(date) ? date.toLocaleDateString('zh-TW',{month:'numeric',day:'numeric',weekday:'short'}) : (h.time || '');
+        return `<article class="home-match-row">
+          <div class="home-match-date">${esc(dateLabel)}</div>
+          <div class="home-match-result">
+            <span class="home-match-team ${h.winner===0?'winner':''}">${teamA}</span>
+            <strong class="home-match-score">${scoreA}<em>：</em>${scoreB}</strong>
+            <span class="home-match-team ${h.winner===1?'winner':''}">${teamB}</span>
+          </div>
+        </article>`;
+    }).join('') || '<div class="club-empty">完成第一場比賽後，最新結果會出現在這裡。</div>';
 
-    for (const id of eligibleWait) {
-        if (!waitIds.includes(id)) waitIds.push(id);
-    }
+    const leaders = state.roster.map(p => ({p,s:scopedStats(p.id,'month',month)}))
+        .filter(x => x.s.games)
+        .sort((a,b) => b.s.wins-a.s.wins || b.s.rate-a.s.rate || b.s.games-a.s.games || a.p.name.localeCompare(b.p.name,'zh-Hant'))
+        .slice(0,3);
+    const medals = ['🥇','🥈','🥉'];
+    $('homeMonthlyLeaders').innerHTML = leaders.map((x,index) => `
+      <div class="home-leader-row">
+        <span class="home-leader-rank">${medals[index]}</span>
+        <span class="home-leader-player">${avatar(x.p.id,'tiny')}<span><strong>${esc(x.p.name)}</strong><small>${x.s.wins} 勝 ${x.s.losses} 敗</small></span></span>
+        <strong class="home-leader-rate">${x.s.rate}%</strong>
+      </div>
+    `).join('') || '<div class="club-empty">本月完成比賽後，球友亮點會出現在這裡。</div>';
 
-    $('dashWaiting').innerHTML =
-        waitIds.map((id, i) => `
-            <div class="dash-row">
-                <span>${avatar(id, 'tiny')} ${esc(pname(id))}</span>
-                <strong>${esc(queueLabel(i, waitIds.length))}</strong>
-            </div>
-        `).join('') ||
-        '<p class="sub">目前沒有候場球員。</p>';
-
-    const nc = state.nextCall?.players || [],
-        nextCallDate = state.nextCall?.createdAt ? localDateKey(new Date(state.nextCall.createdAt)) : '',
-        nextCallToday = nc.length === 4 && nextCallDate === localDateKey();
-
-    $('nextCall').classList.toggle('hidden', !nextCallToday);
-
-    if (nextCallToday) {
-        $('nextCall').innerHTML = `
-            <h3>🔔 下一場叫號</h3>
-            <div><strong>A隊：</strong>${esc(pname(nc[0]))}、${esc(pname(nc[1]))}</div>
-            <div><strong>B隊：</strong>${esc(pname(nc[2]))}、${esc(pname(nc[3]))}</div>
-        `;
-    }
-
-    const { hot } = todayLeaders();
-    const showHot=!!hot&&(hasCurrentMatch||nextCallToday);
-    $('hotCold').classList.toggle('hidden',!showHot);
-    $('hotCold').innerHTML = showHot ? `
-        <div class="leader-card hot">
-            <strong>🔥 手感火熱</strong>
-            <div>${avatar(hot.p.id, 'tiny')} ${esc(hot.p.name)} · ${hot.s.streak} 連勝</div>
-        </div>
-    ` : '';
+    const replayUrl = normalizeYouTubePlaylistUrl(state.matchReplayPlaylistUrl),
+        replayTitle = normalizeMatchReplayTitle(state.matchReplayPlaylistTitle),
+        replayCard = $('homeReplayCard');
+    replayCard.classList.toggle('hidden',!replayUrl);
+    replayCard.href = replayUrl || '#';
+    $('homeReplayTitle').textContent = replayTitle || '比賽影片回放';
+    $('homeHistoryBtn').onclick = () => page(5);
+    $('homeStatsBtn').onclick = () => page(4);
 }
 function renderStats(){
   const month=$('monthPick').value||localMonthKey(),sortKey=$('statsSort')?.value||'month-record',order=$('statsOrder')?.value||'desc';

@@ -50,9 +50,26 @@
 
 
   <section id="page0" class="card page">
-    <div class="toolbar" style="justify-content:space-between"><div><h2 style="margin:0">今日球局總覽</h2><p class="sub" id="dashboardDate"></p></div><div class="toolbar"><button id="announceBtn" class="btn host-only">🔊 播報下一場</button><button id="endSessionBtn" class="btn danger-outline host-only">結束今日球局</button></div></div>
-    <div id="adminAnnouncement" class="admin-announcement hidden"></div><div id="nextEventAnnouncement" class="next-event-card hidden"></div><div id="pollDeadlineAnnouncement" class="poll-deadline-card hidden"></div><div class="dashboard-grid"><div><div id="dashScore" class="dash-score"></div><div id="nextCall" class="callout hidden"></div></div><div><div id="dashMetrics" class="metric-grid"></div><h3>候場</h3><div id="dashWaiting" class="dash-list"></div></div></div>
-    <div id="hotCold" class="leader-grid" style="margin-top:14px"></div>
+    <div class="toolbar" style="justify-content:space-between"><div><h2 style="margin:0">7B 羽球社首頁</h2><p class="sub" id="dashboardDate"></p></div><div class="toolbar"><button id="announceBtn" class="btn host-only">🔊 播報下一場</button><button id="endSessionBtn" class="btn danger-outline host-only">結束今日球局</button></div></div>
+    <div id="adminAnnouncement" class="admin-announcement hidden"></div>
+    <div id="nextEventAnnouncement" class="next-event-card hidden"></div>
+    <div id="pollDeadlineAnnouncement" class="poll-deadline-card hidden"></div>
+    <div id="clubMetrics" class="club-metric-grid"></div>
+    <div class="club-home-grid">
+      <section class="club-home-card club-recent-card">
+        <div class="club-section-head"><div><span class="club-kicker">RECENT MATCHES</span><h3>最近比賽</h3></div><button id="homeHistoryBtn" class="btn" type="button">查看全部紀錄</button></div>
+        <div id="homeRecentMatches" class="home-recent-list"></div>
+      </section>
+      <section class="club-home-card club-ranking-card">
+        <div class="club-section-head"><div><span class="club-kicker">MONTHLY LEADERS</span><h3>本月球友亮點</h3></div><button id="homeStatsBtn" class="btn" type="button">完整戰績</button></div>
+        <div id="homeMonthlyLeaders" class="home-leader-list"></div>
+      </section>
+    </div>
+    <a id="homeReplayCard" class="home-replay-card hidden" href="#" target="_blank" rel="noopener noreferrer">
+      <span class="home-replay-icon" aria-hidden="true">▶</span>
+      <span class="home-replay-copy"><span class="club-kicker">MATCH REPLAY</span><strong id="homeReplayTitle">比賽影片回放</strong><small>前往 YouTube 播放清單觀看球局影片</small></span>
+      <span class="home-replay-action">立即觀看</span>
+    </a>
   </section>
 
   <section id="page1" class="card page hidden">
