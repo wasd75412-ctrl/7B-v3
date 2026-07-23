@@ -39,14 +39,14 @@
       <div class="room-quick-actions"><button id="favoriteRoomBtn" class="btn">☆ 加入常用</button><button id="roomMoreBtn" class="btn room-more-btn" type="button" aria-expanded="false" aria-controls="roomMoreMenu">⋯ 更多</button></div>
       <div id="roomMoreMenu" class="room-more-menu hidden" role="menu">
         <button id="scoreRemoteBtn" class="btn host-only" type="button" role="menuitem" aria-pressed="false">🎮 比分遙控器</button>
-        <button id="newRoomMenuBtn" class="btn" role="menuitem">＋ 建立新球局</button><button id="deviceSyncBtn" class="btn" role="menuitem">👤 裝置同步</button><button id="copyDeviceSyncBtn" class="btn hidden" role="menuitem">🔗 複製同步碼</button><button id="renameRoomBtn" class="btn" role="menuitem">命名球局</button><button id="shareBtn" class="btn" role="menuitem">分享觀看網址</button><button id="qrBtn" class="btn" role="menuitem">QR Code</button><button id="adminLoginBtn" class="btn" role="menuitem">管理員登入</button><button id="adminNoticeManagerBtn" class="btn host-only" role="menuitem">📣 事務公告</button><button id="pushNotificationBtn" class="btn" type="button" role="menuitem" aria-pressed="false">🔔 啟用投票通知</button><button id="pushTestBtn" class="btn" type="button" role="menuitem">📳 傳送測試通知</button><label class="app-theme-control" for="appThemeSelect"><span>🎨 整體背景</span><select id="appThemeSelect" class="viewer-enabled" aria-label="選擇整體背景"><option value="default">雲霧藍</option><option value="court">羽球場綠</option><option value="ocean">海洋藍</option><option value="sunset">夕陽橘</option><option value="lavender">薰衣草紫</option><option value="rose">櫻花粉</option><option value="midnight">深夜藍</option><option value="dawn">晨曦金</option><option value="mint">薄荷青</option><option value="peach">蜜桃粉</option><option value="lagoon">湖水綠</option><option value="starlight">星夜紫</option><option value="sand">暖沙杏</option></select></label><button id="randomAppThemeToggle" class="btn" type="button" role="menuitem" aria-pressed="false">🎲 開啟隨機背景</button><button id="wakeLockBtn" class="btn" type="button" role="menuitem" aria-pressed="false">☀️ 檢查恆亮狀態…</button><div id="wakeLockFeedback" class="wake-lock-feedback pending" role="status" aria-live="polite">正在確認螢幕恆亮狀態…</div><button id="refreshAppMenu" class="btn" type="button" role="menuitem" data-refresh-app>↻ 重新整理</button><button id="leaveBtn" class="btn danger-outline room-leave-btn" role="menuitem">離開房間</button>
+        <button id="newRoomMenuBtn" class="btn" role="menuitem">＋ 建立新球局</button><button id="deviceSyncBtn" class="btn" role="menuitem">👤 裝置同步</button><button id="copyDeviceSyncBtn" class="btn hidden" role="menuitem">🔗 複製同步碼</button><button id="renameRoomBtn" class="btn" role="menuitem">命名球局</button><button id="shareBtn" class="btn" role="menuitem">分享觀看網址</button><button id="qrBtn" class="btn" role="menuitem">QR Code</button><button id="adminLoginBtn" class="btn" role="menuitem">管理員登入</button><button id="adminNoticeManagerBtn" class="btn host-only" role="menuitem">📣 事務公告</button><button id="pushNotificationBtn" class="btn" type="button" role="menuitem" aria-pressed="false">🔔 啟用手機通知</button><button id="pushTestBtn" class="btn" type="button" role="menuitem">📳 傳送測試通知</button><label class="app-theme-control" for="appThemeSelect"><span>🎨 整體背景</span><select id="appThemeSelect" class="viewer-enabled" aria-label="選擇整體背景"><option value="default">雲霧藍</option><option value="court">羽球場綠</option><option value="ocean">海洋藍</option><option value="sunset">夕陽橘</option><option value="lavender">薰衣草紫</option><option value="rose">櫻花粉</option><option value="midnight">深夜藍</option><option value="dawn">晨曦金</option><option value="mint">薄荷青</option><option value="peach">蜜桃粉</option><option value="lagoon">湖水綠</option><option value="starlight">星夜紫</option><option value="sand">暖沙杏</option></select></label><button id="randomAppThemeToggle" class="btn" type="button" role="menuitem" aria-pressed="false">🎲 開啟隨機背景</button><button id="wakeLockBtn" class="btn" type="button" role="menuitem" aria-pressed="false">☀️ 檢查恆亮狀態…</button><div id="wakeLockFeedback" class="wake-lock-feedback pending" role="status" aria-live="polite">正在確認螢幕恆亮狀態…</div><button id="refreshAppMenu" class="btn" type="button" role="menuitem" data-refresh-app>↻ 重新整理</button><button id="leaveBtn" class="btn danger-outline room-leave-btn" role="menuitem">離開房間</button>
       </div>
     </div>
   </header>
   <div id="viewerNote" class="viewer-note hidden">你目前是觀看模式；可認領並修改自己的球員資料，其餘比賽操作由管理員控制。</div><div id="selfNote" class="self-note hidden"></div>
   <div id="pollReminder" class="hidden"><button id="openPollReminder" class="hidden" type="button" aria-hidden="true" tabindex="-1"></button></div>
   <div id="cloudError" class="error-box hidden"></div>
-  <nav class="tabs"><button class="tab active" data-page="0">總覽</button><button class="tab" data-page="1">球員</button><button class="tab" data-page="2">出席</button><button class="tab" data-page="3">場上</button><button class="tab" data-page="4">戰績</button><button class="tab" data-page="5">紀錄</button><button class="tab" data-page="6">下次球局<span id="pollTabDot" class="poll-dot hidden" aria-label="有新的下次球局投票"></span></button><button class="tab" data-page="7">備份</button></nav>
+  <nav class="tabs"><button class="tab active" data-page="0">總覽</button><button class="tab" data-page="1">球員</button><button class="tab" data-page="2">出席</button><button class="tab" data-page="3">場上</button><button class="tab" data-page="4">戰績</button><button class="tab" data-page="5">紀錄</button><button class="tab" data-page="6">下次球局<span id="pollTabDot" class="poll-dot hidden" aria-label="有新的下次球局投票"></span></button><button class="tab" data-page="8">聊天<span id="chatTabBadge" class="chat-tab-badge hidden" aria-label="未讀聊天室訊息"></span></button><button class="tab" data-page="7">備份</button></nav>
 
 
   <section id="page0" class="card page">
@@ -171,6 +171,24 @@
     <div class="backup-note">Genesis Backup 第一次建立後永久保留。還原任何備份前，系統會先建立 Emergency Backup，避免選錯版本。</div>
     <div id="backupList" class="backup-list"><div class="backup-loading">進入房間後載入備份紀錄。</div></div>
   </section>
+
+  <section id="page8" class="card page chat-page hidden">
+    <div class="history-head"><div><h2 style="margin:0">💬 球員聊天室</h2><p class="sub" style="margin:5px 0 0">聊天或標記球友；被標記的人會收到手機通知。</p></div><span id="chatConnection" class="chat-connection">連線中</span></div>
+    <div class="chat-identity-row">
+      <label class="field"><span>發言身分</span><select id="chatPlayer" class="input viewer-enabled"></select></label>
+      <button id="chatMentionToggle" class="btn" type="button" aria-expanded="false" aria-controls="chatMentionPanel">@ 標記球友</button>
+    </div>
+    <div id="chatMentionPanel" class="chat-mention-panel hidden">
+      <strong>選擇要標記的球友</strong>
+      <div id="chatMentionList" class="chat-mention-list"></div>
+      <small>最多可同時標記 8 位；對方需先開啟手機通知。</small>
+    </div>
+    <div id="chatMessages" class="chat-messages" aria-live="polite"><div class="chat-empty">聊天室連線中…</div></div>
+    <div class="chat-composer">
+      <textarea id="chatComposer" class="input viewer-enabled" rows="3" maxlength="500" placeholder="輸入訊息；也可以按「@ 標記球友」"></textarea>
+      <div class="chat-composer-foot"><span id="chatStatus" class="chat-status" role="status" aria-live="polite">選擇發言身分後即可聊天</span><button id="sendChat" class="btn primary" type="button">傳送</button></div>
+    </div>
+  </section>
 </div>
 
 <section id="scoreView" class="score-view hidden">
@@ -279,7 +297,7 @@
 <div id="pushPromptModal" class="modal hidden"><div class="modal-card push-prompt-card">
   <div class="push-prompt-icon" aria-hidden="true">🔔</div>
   <h2>要開啟球局通知嗎？</h2>
-  <p id="pushPromptText">開啟後會收到投票截止提醒與下一次打球公告。</p>
+  <p id="pushPromptText">開啟後會收到投票截止提醒、球局公告及聊天室標記通知。</p>
   <div class="push-prompt-actions"><button id="enablePushPrompt" class="btn primary" type="button">開啟通知</button><button id="dismissPushPrompt" class="btn" type="button">暫時不要</button></div>
 </div></div>
 
