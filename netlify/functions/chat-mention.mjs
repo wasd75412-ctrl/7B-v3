@@ -1,7 +1,7 @@
 import { createHash, randomUUID } from 'node:crypto';
 import { getStore } from '@netlify/blobs';
 import webpush from 'web-push';
-import { chatMessagePreview, cleanChatText, normalizeChatMentionIds } from '../../src/chat.js';
+import { chatMessagePreview, cleanChatText, hasChatAllMention, normalizeChatMentionIds } from '../../src/chat.js';
 import { PUSH_STORE, cleanText, jsonResponse, validRoomId, validSubscription } from './lib/push-shared.mjs';
 
 const CHAT_STORE='7b-room-chat';
@@ -40,17 +40,24 @@ async function verifyClaimedChatSender(roomId,senderId,senderToken){
 }
 
 export function normalizeStoredChatMessage(source={}){
-  const createdAt=String(source.createdAt||''),created=Date.parse(createdAt);
+  const createdAt=String(source.createdAt||''),created=Date.parse(createdAt),text=cleanChatText(source.text);
   return{
     id:cleanText(source.id,128),
-    text:cleanChatText(source.text),
+    text,
     senderId:cleanText(source.senderId,128),
     senderName:cleanText(source.senderName,40),
     senderHash:cleanText(source.senderHash,128),
     mentions:normalizeChatMentionIds(source.mentions),
+    mentionAll:hasChatAllMention(text),
     createdAt:Number.isFinite(created)?new Date(created).toISOString():'',
     clientCreatedAt:Number(source.clientCreatedAt)||0
   };
+}
+
+export function shouldNotifyChatSubscription(record,message,{roomId='',messageId=''}={}){
+  const alreadySent=Array.isArray(record?.chatMentionMessageIds)&&record.chatMentionMessageIds.includes(messageId);
+  const targeted=!!message?.mentionAll||(message?.mentions||[]).includes(record?.playerId);
+  return record?.roomId===roomId&&targeted&&record?.clientHash!==message?.senderHash&&!alreadySent;
 }
 
 async function listRoomMessages(store,roomId){
@@ -64,7 +71,7 @@ async function listRoomMessages(store,roomId){
 }
 
 async function sendMentionNotifications(message,roomId,messageId){
-  if(!message.mentions.length)return{checked:0,sent:0,removed:0,failed:0};
+  if(!message.mentionAll&&!message.mentions.length)return{checked:0,sent:0,removed:0,failed:0};
   const publicKey=process.env.VAPID_PUBLIC_KEY?.trim(),privateKey=process.env.VAPID_PRIVATE_KEY?.trim();
   const siteUrl=(process.env.URL||process.env.DEPLOY_PRIME_URL||'').replace(/\/$/,'');
   if(!publicKey||!privateKey||!siteUrl)return{checked:0,sent:0,removed:0,failed:0,unavailable:true};
@@ -73,12 +80,11 @@ async function sendMentionNotifications(message,roomId,messageId){
   const store=getStore({name:PUSH_STORE,consistency:'strong'}),listing=await store.list(),targets=[];
   for(const blob of listing.blobs){
     const record=await store.get(blob.key,{type:'json'}).catch(()=>null);
-    const alreadySent=Array.isArray(record?.chatMentionMessageIds)&&record.chatMentionMessageIds.includes(messageId);
-    if(record?.roomId===roomId&&message.mentions.includes(record.playerId)&&record.clientHash!==message.senderHash&&!alreadySent&&validSubscription(record.subscription))targets.push({key:blob.key,record});
+    if(shouldNotifyChatSubscription(record,message,{roomId,messageId})&&validSubscription(record.subscription))targets.push({key:blob.key,record});
   }
 
   const payload=JSON.stringify({
-    title:`💬 ${message.senderName} 標記了你`,
+    title:message.mentionAll?`📣 ${message.senderName} 通知所有人`:`💬 ${message.senderName} 標記了你`,
     body:chatMessagePreview(message.text),
     url:`${siteUrl}/?room=${encodeURIComponent(roomId)}&page=chat`,
     icon:`${siteUrl}/icons/icon-192.png`,
@@ -137,6 +143,7 @@ export default async request=>{
     text:body.text,
     ...claimedSender,
     mentions:body.mentions,
+    mentionAll:body.mentionAll,
     createdAt,
     clientCreatedAt:body.clientCreatedAt
   });
