@@ -3169,3 +3169,100 @@ body>.modal .modal-card :is(.profile-panel,.profile-section,.stat-box,.health-bo
   }
   #app .tabs{background:linear-gradient(135deg,rgba(var(--sport-tint-rgb),.09),rgba(2,18,31,.76))}
 }
+
+/* BCM 2.4.16 — scoreboard team palettes follow the selected court */
+.score-view{
+  --score-a:#ffd85b;
+  --score-b:#62e8ff;
+  --score-a-rgb:255,216,91;
+  --score-b-rgb:98,232,255
+}
+.score-view[data-score-theme="green"]{
+  --score-a:#ffd85b;--score-b:#62e8ff;
+  --score-a-rgb:255,216,91;--score-b-rgb:98,232,255
+}
+.score-view[data-score-theme="blue"]{
+  --score-a:#55f0d0;--score-b:#ffb25f;
+  --score-a-rgb:85,240,208;--score-b-rgb:255,178,95
+}
+.score-view[data-score-theme="black"]{
+  --score-a:#b9f56a;--score-b:#ff82d1;
+  --score-a-rgb:185,245,106;--score-b-rgb:255,130,209
+}
+.score-view[data-score-theme="purple"]{
+  --score-a:#72f2e4;--score-b:#ffd166;
+  --score-a-rgb:114,242,228;--score-b-rgb:255,209,102
+}
+.score-view[data-score-theme="red"]{
+  --score-a:#75f0cf;--score-b:#ffe36f;
+  --score-a-rgb:117,240,207;--score-b-rgb:255,227,111
+}
+.score-view[data-score-theme="brown"]{
+  --score-a:#64e9dd;--score-b:#ff9f8b;
+  --score-a-rgb:100,233,221;--score-b-rgb:255,159,139
+}
+.score-view[data-score-theme="teal"]{
+  --score-a:#ffd166;--score-b:#d4a5ff;
+  --score-a-rgb:255,209,102;--score-b-rgb:212,165,255
+}
+.score-view[data-score-theme="indigo"]{
+  --score-a:#67ebff;--score-b:#ff91c8;
+  --score-a-rgb:103,235,255;--score-b-rgb:255,145,200
+}
+.score-view[data-score-theme="rose"]{
+  --score-a:#70f1c7;--score-b:#ffe074;
+  --score-a-rgb:112,241,199;--score-b-rgb:255,224,116
+}
+.score-view[data-score-theme="amber"]{
+  --score-a:#85c7ff;--score-b:#74f0c4;
+  --score-a-rgb:133,199,255;--score-b-rgb:116,240,196
+}
+.score-view[data-score-theme="aurora"]{
+  --score-a:#69ffd0;--score-b:#d99cff;
+  --score-a-rgb:105,255,208;--score-b-rgb:217,156,255
+}
+.score-view[data-score-theme="galaxy"]{
+  --score-a:#73e8ff;--score-b:#ff79d1;
+  --score-a-rgb:115,232,255;--score-b-rgb:255,121,209
+}
+.score-view[data-score-theme="sunset"]{
+  --score-a:#ffe071;--score-b:#70f0dc;
+  --score-a-rgb:255,224,113;--score-b-rgb:112,240,220
+}
+.score-view[data-score-theme="waves"]{
+  --score-a:#c4f36a;--score-b:#ffae78;
+  --score-a-rgb:196,243,106;--score-b-rgb:255,174,120
+}
+.score-side.a{
+  background:linear-gradient(90deg,rgba(var(--score-a-rgb),.24),rgba(var(--score-a-rgb),.045) 72%,transparent)!important
+}
+.score-side.b{
+  background:linear-gradient(270deg,rgba(var(--score-b-rgb),.24),rgba(var(--score-b-rgb),.045) 72%,transparent)!important
+}
+.score-side.a .score-title{color:var(--score-a)}
+.score-side.b .score-title{color:var(--score-b)}
+.score-side.a .court-position{
+  color:#101820;
+  background:var(--score-a);
+  box-shadow:0 4px 14px rgba(var(--score-a-rgb),.28)
+}
+.score-side.b .court-position{
+  color:#101820;
+  background:var(--score-b);
+  box-shadow:0 4px 14px rgba(var(--score-b-rgb),.28)
+}
+.score-center #scoreA,
+.score-center .score-number:first-child{
+  color:var(--score-a);
+  text-shadow:0 0 34px rgba(var(--score-a-rgb),.30),0 7px 22px rgba(0,0,0,.34)
+}
+.score-center #scoreB,
+.score-center .score-number:last-child{
+  color:var(--score-b);
+  text-shadow:0 0 34px rgba(var(--score-b-rgb),.30),0 7px 22px rgba(0,0,0,.34)
+}
+.court-name.server .court-position{
+  color:var(--serve-yellow)!important;
+  background:#15191e!important;
+  box-shadow:0 3px 10px rgba(0,0,0,.22)!important
+}
