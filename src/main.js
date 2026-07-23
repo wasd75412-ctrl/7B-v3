@@ -1805,6 +1805,7 @@ $('clearMatchReplay').onclick=clearMatchReplayPlaylist;
 $('matchReplayUrl').addEventListener('keydown',event=>{if(event.key==='Enter'){event.preventDefault();saveMatchReplayPlaylist()}});
 $('matchReplayTitle').addEventListener('keydown',event=>{if(event.key==='Enter'){event.preventDefault();saveMatchReplayPlaylist()}});
 $('newRoomMenuBtn').onclick=()=>{if(confirm('建立另一個全新球局房間？\n目前房間不會被刪除。'))createRoom()};
+$('backupCenterBtn').onclick=()=>page(7);
 $('deviceSyncBtn').onclick=()=>setupDeviceSync().catch(error=>alert(formatError(error)));
 $('landingDeviceSyncBtn').onclick=()=>setupDeviceSync().catch(error=>showRoomCreationError(formatError(error)));
 $('copyDeviceSyncBtn').onclick=copyDeviceSyncCode;
@@ -1961,6 +1962,6 @@ const exitScoreBtn=$('exitScore');if(exitScoreBtn)exitScoreBtn.addEventListener(
 
 window.bcmMarkBooted?.();
 if('serviceWorker'in navigator&&location.protocol.startsWith('http')){
-  const swRevision='20260723-352';
+  const swRevision='20260723-353';
   navigator.serviceWorker.register(`./sw.js?v=${swRevision}`,{updateViaCache:'none'}).then(registration=>registration.update()).catch(()=>{});
 }
