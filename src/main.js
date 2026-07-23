@@ -11,6 +11,7 @@ import { canAutoSyncPlayerIdentity } from './device-sync.js';
 import { shouldRequestNativeWakeLock, shouldStartPersistentVideoWakeLock, wakeLockButtonIntent, wakeLockControlIsActive } from './wake-lock.js';
 import { arrangeTeamsWithTeammateLimit, lineupExceedsTeammateLimit } from './team-rotation.js';
 import { CHAT_MESSAGE_MAX_LENGTH, chatMentionSearch, claimedChatPlayerId, cleanChatText, mentionIdsFromText, normalizeChatMentionIds, removeChatMention } from './chat.js';
+import { adminRoleButtonState, resolveAdminSessionToken } from './admin-role.js';
 
 const firebaseConfig={apiKey:'AIzaSyBrakbTPK7UqEChPBI6pM8-i03IcLq0IvM',authDomain:'badminton-7a1c3.firebaseapp.com',projectId:'badminton-7a1c3',storageBucket:'badminton-7a1c3.firebasestorage.app',messagingSenderId:'883534015507',appId:'1:883534015507:web:a7f6fb318151b6d07563e6',measurementId:'G-C97B98H7YW'};
 const fbApp=initializeApp(firebaseConfig);
@@ -1002,6 +1003,7 @@ window.addEventListener('offline',()=>{updateSyncBadge();renderChat()});
 window.addEventListener('online',()=>{if(roomRef){setSync('重新連線中','pending');setError('')}renderChat()});
 function formatError(e){const code=e?.code||'unknown';if(!navigator.onLine&&(code==='unavailable'||code==='not-found'))return '目前沒有網路，而且這台裝置尚未快取此球局。請先連線進入一次，之後即可離線使用。';if(code==='permission-denied')return 'Firestore 權限被拒絕（permission-denied）。請到 Firebase → Firestore → 規則，發布 ZIP 內 FIRESTORE_RULES.txt 的內容。';if(code==='invalid-argument'&&String(e?.message||'').includes('Nested arrays'))return '資料格式錯誤：Firestore 不支援巢狀陣列。請部署 BCM 2.2.18 Two-Digit Score Fix 最新版。';return `Firebase 連線失敗：${code}\n${e?.message||e}`}
 function hostKey(id){return `bcmHost_${id}`}
+function adminLogoutKey(id){return `bcmAdminLoggedOut_${id}`}
 function currentUrl(id=roomId){const u=new URL(location.href);u.search='';u.hash='';if(requestedAndroidRemote)u.searchParams.set('androidRemote','1');u.searchParams.set('room',id);return u.toString()}
 function hostUrl(id=roomId,token=hostToken){const u=new URL(currentUrl(id));u.hash=`host=${encodeURIComponent(token)}`;return u.toString()}
 function parseHostHash(){const m=location.hash.match(/(?:^#|&)host=([^&]+)/);return m?decodeURIComponent(m[1]):''}
@@ -1052,7 +1054,7 @@ function roomRecord(id){return roomLibrary().find(r=>r.id===id)||null}
 function roomDisplayName(r){return r?.name?.trim()||`7B 球局 ${r?.id||''}`}
 function rememberRoom(id,host=false){const now=Date.now(),rows=roomLibrary();const old=rows.find(r=>r.id===id)||{};const next={id,name:old.name||'',favorite:!!old.favorite,lastUsed:now,lastRole:host?'host':'viewer',hostToken:host?(hostToken||old.hostToken||''):(old.hostToken||''),modifiedAt:now};saveRoomLibrary([next,...rows.filter(r=>r.id!==id)].sort((a,b)=>Number(b.favorite)-Number(a.favorite)||b.lastUsed-a.lastUsed));localStorage.setItem('bcmLastRoomV1',id);renderRoomLibrary();return next}
 function updateRoomRecord(id,patch){const rows=roomLibrary(),idx=rows.findIndex(r=>r.id===id),now=Date.now();if(idx<0)rows.unshift({id,name:'',favorite:false,lastUsed:now,lastRole:'viewer',hostToken:'',...patch,modifiedAt:now});else rows[idx]={...rows[idx],...patch,modifiedAt:now};saveRoomLibrary(rows.sort((a,b)=>Number(b.favorite)-Number(a.favorite)||b.lastUsed-a.lastUsed));renderRoomLibrary();if(id===roomId)updateCurrentRoomControls()}
-function forgetRoom(id){const r=roomRecord(id);if(!confirm(`確定從這台裝置移除「${roomDisplayName(r)}」？\n不會刪除 Firebase 裡的球局資料。`))return;saveRoomLibrary(roomLibrary().filter(x=>x.id!==id));if(localStorage.getItem('bcmLastRoomV1')===id)localStorage.removeItem('bcmLastRoomV1');localStorage.removeItem(hostKey(id));renderRoomLibrary()}
+function forgetRoom(id){const r=roomRecord(id);if(!confirm(`確定從這台裝置移除「${roomDisplayName(r)}」？\n不會刪除 Firebase 裡的球局資料。`))return;saveRoomLibrary(roomLibrary().filter(x=>x.id!==id));if(localStorage.getItem('bcmLastRoomV1')===id)localStorage.removeItem('bcmLastRoomV1');localStorage.removeItem(hostKey(id));localStorage.removeItem(adminLogoutKey(id));renderRoomLibrary()}
 async function openSavedRoom(id){if(roomConnectInProgress)return;const room=roomRecord(id);if(room?.hostToken)localStorage.setItem(hostKey(id),room.hostToken);setLandingError('');history.replaceState(null,'',currentUrl(id));await connectRoom(id)}
 function roomTime(ts){if(!ts)return'';const d=new Date(ts),today=new Date();const day=Math.floor((new Date(today.getFullYear(),today.getMonth(),today.getDate())-new Date(d.getFullYear(),d.getMonth(),d.getDate()))/86400000);if(day===0)return'今天使用';if(day===1)return'昨天使用';if(day<7)return`${day} 天前使用`;return d.toLocaleDateString('zh-TW',{month:'numeric',day:'numeric'})}
 function savedRoomCard(r){return `<div class="saved-room ${r.favorite?'favorite':''}"><div class="saved-room-main"><div class="saved-room-name">${r.favorite?'⭐ ':''}${esc(roomDisplayName(r))}</div><div class="saved-room-meta">房號 ${esc(r.id)} · ${r.lastRole==='host'?'管理員':'觀看者'} · ${esc(roomTime(r.lastUsed))}</div></div><div class="saved-room-actions"><button class="btn primary" data-open-room="${r.id}">直接進入</button><button class="btn" data-toggle-room="${r.id}">${r.favorite?'取消常用':'加入常用'}</button><button class="btn danger-outline" data-forget-room="${r.id}">忘記</button></div></div>`}
@@ -1087,8 +1089,13 @@ async function connectRoom(id){
     const data=snap.data();
     lastRoomSnapshotData=data;
     adminPinHash=data.adminPinHash||'';
-    hostToken=parseHostHash()||localStorage.getItem(hostKey(id))||'';
-    isHost=!!hostToken&&hostToken===data.hostToken;
+    hostToken=resolveAdminSessionToken({
+      loggedOut:localStorage.getItem(adminLogoutKey(id))==='1',
+      urlToken:parseHostHash(),
+      savedToken:localStorage.getItem(hostKey(id))||'',
+      roomToken:data.hostToken||''
+    });
+    isHost=!!hostToken;
     if(isHost)localStorage.setItem(hostKey(id),hostToken);
     rememberRoom(id,isHost);
     if(requestedAndroidRemote)localStorage.setItem(ROOM_AUTO_KEY,'1');
@@ -1149,7 +1156,25 @@ async function connectRoom(id){
     roomConnectInProgress=false;
   }
 }
-function applyRole(){all('.host-only').forEach(el=>el.classList.toggle('hidden',!isHost));if(!isHost){$('resultModal').classList.add('hidden');$('scoreView').classList.add('hidden');$('nextEventEditModal')?.classList.add('hidden')}$('adminLoginBtn').classList.toggle('hidden',isHost);$('scoreRole').textContent=isHost?'管理員':'觀看模式';$('scoreA').classList.toggle('clickable',isHost);$('scoreB').classList.toggle('clickable',isHost);all('input,select,textarea').forEach(el=>{if(['editName','editRacket','editRacketTension','editRacketString','editBackupRacket','editBackupTension','editBackupString','editNote','editPhoto','joinCode','playerSearch','playerSort'].includes(el.id)||el.classList.contains('viewer-enabled'))return;if(!isHost)el.disabled=true;else el.disabled=false});if($('editVoiceName'))$('editVoiceName').disabled=!isHost}
+function applyRole(){
+  all('.host-only').forEach(el=>el.classList.toggle('hidden',!isHost));
+  if(!isHost){
+    $('resultModal').classList.add('hidden');
+    $('scoreView').classList.add('hidden');
+    $('nextEventEditModal')?.classList.add('hidden');
+  }
+  const adminButton=$('adminLoginBtn'),buttonState=adminRoleButtonState(isHost);
+  adminButton.className=buttonState.className;
+  adminButton.textContent=buttonState.label;
+  $('scoreRole').textContent=isHost?'管理員':'觀看模式';
+  $('scoreA').classList.toggle('clickable',isHost);
+  $('scoreB').classList.toggle('clickable',isHost);
+  all('input,select,textarea').forEach(el=>{
+    if(['editName','editRacket','editRacketTension','editRacketString','editBackupRacket','editBackupTension','editBackupString','editNote','editPhoto','joinCode','playerSearch','playerSort'].includes(el.id)||el.classList.contains('viewer-enabled'))return;
+    el.disabled=!isHost;
+  });
+  if($('editVoiceName'))$('editVoiceName').disabled=!isHost;
+}
 function cleanState(d){return decodeState(d)}
 function matchScoreSignature(source=state){const match=source?.match||{};return `${!!match.active}|${(match.rallies||[]).join('')}|${match.winner??''}`}
 function announceSyncedScore(before,announce=true){const changed=before!==matchScoreSignature(),scoreVisible=!$('scoreView')?.classList.contains('hidden');if(shouldAnnounceSyncedLiveScore({announce,snapshotReady:scoreSnapshotReady,changed,scoreVisible,androidRemote:requestedAndroidRemote,matchActive:state.match.active,voiceEnabled}))setTimeout(announceScore,120);scoreSnapshotReady=true}
@@ -1860,7 +1885,25 @@ $('editNextEventLocation').addEventListener('input',()=>updateMapPreview('editNe
 $('enablePushPrompt').onclick=enablePushFromPrompt;
 $('dismissPushPrompt').onclick=()=>closePushPrompt();
 const originalAdminLoginHandler=$('adminLoginBtn').onclick;
-$('adminLoginBtn').onclick=async()=>{await originalAdminLoginHandler();if(isHost)updateRoomRecord(roomId,{lastRole:'host',hostToken,lastUsed:Date.now()})};
+$('adminLoginBtn').onclick=async()=>{
+  if(isHost){
+    if(!confirm('確定登出管理員並切換為一般使用者模式？'))return;
+    localStorage.setItem(adminLogoutKey(roomId),'1');
+    hostToken='';
+    isHost=false;
+    $('roleBadge').textContent='觀看者';
+    $('roleBadge').className='pill';
+    $('viewerNote').classList.remove('hidden');
+    renderAll();
+    alert('已登出管理員。此裝置目前為一般使用者模式，可隨時使用 PIN 再登入。');
+    return;
+  }
+  await originalAdminLoginHandler();
+  if(isHost){
+    localStorage.removeItem(adminLogoutKey(roomId));
+    updateRoomRecord(roomId,{lastRole:'host',hostToken,lastUsed:Date.now()});
+  }
+};
 $('confirmPollOption').addEventListener('change',updateConfirmOptionDetails);
 $('confirmRentalTotal').addEventListener('input',updateConfirmFeePreview);
 $('pollNote').addEventListener('input',()=>updateMapPreview('pollNote','pollLocationMap'));
@@ -1996,6 +2039,6 @@ const exitScoreBtn=$('exitScore');if(exitScoreBtn)exitScoreBtn.addEventListener(
 
 window.bcmMarkBooted?.();
 if('serviceWorker'in navigator&&location.protocol.startsWith('http')){
-  const swRevision='20260723-355';
+  const swRevision='20260723-356';
   navigator.serviceWorker.register(`./sw.js?v=${swRevision}`,{updateViaCache:'none'}).then(registration=>registration.update()).catch(()=>{});
 }
