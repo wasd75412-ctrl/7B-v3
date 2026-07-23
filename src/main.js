@@ -10,7 +10,7 @@ import { createLiveScoreData, decodeLiveMatch, liveMatchKey, shouldAnnounceSynce
 import { canAutoSyncPlayerIdentity } from './device-sync.js';
 import { shouldRequestNativeWakeLock, shouldStartPersistentVideoWakeLock, wakeLockButtonIntent, wakeLockControlIsActive } from './wake-lock.js';
 import { arrangeTeamsWithTeammateLimit, lineupExceedsTeammateLimit } from './team-rotation.js';
-import { CHAT_MESSAGE_MAX_LENGTH, cleanChatText, normalizeChatMentionIds } from './chat.js';
+import { CHAT_MESSAGE_MAX_LENGTH, chatMentionSearch, cleanChatText, mentionIdsFromText, normalizeChatMentionIds, removeChatMention } from './chat.js';
 
 const firebaseConfig={apiKey:'AIzaSyBrakbTPK7UqEChPBI6pM8-i03IcLq0IvM',authDomain:'badminton-7a1c3.firebaseapp.com',projectId:'badminton-7a1c3',storageBucket:'badminton-7a1c3.firebasestorage.app',messagingSenderId:'883534015507',appId:'1:883534015507:web:a7f6fb318151b6d07563e6',measurementId:'G-C97B98H7YW'};
 const fbApp=initializeApp(firebaseConfig);
@@ -663,6 +663,39 @@ function chatMessageHtml(message){
   }
   return html;
 }
+function syncChatMentionIdsFromComposer(){
+  const senderId=selectedChatPlayerId(),composer=$('chatComposer');
+  chatMentionIds=new Set(mentionIdsFromText(composer?.value||'',state.roster,{senderId}));
+}
+function closeChatAutocomplete(){
+  const panel=$('chatAutocomplete');if(!panel)return;
+  panel.classList.add('hidden');panel.innerHTML='';
+}
+function insertChatMention(id,range=null){
+  const composer=$('chatComposer'),senderId=selectedChatPlayerId(),target=player(id);
+  if(!composer||!target||id===senderId)return;
+  syncChatMentionIdsFromComposer();
+  if(!chatMentionIds.has(id)&&chatMentionIds.size>=8)return alert('一次最多標記 8 位球友。');
+  const token=range||chatMentionSearch(composer.value,composer.selectionStart??composer.value.length);
+  const start=token?.start??composer.selectionStart??composer.value.length,end=token?.end??composer.selectionEnd??start;
+  const prefix=!token&&start&&!/\s$/.test(composer.value.slice(0,start))?' ':'';
+  composer.setRangeText(`${prefix}@${target.name} `,start,end,'end');
+  composer.focus();syncChatMentionIdsFromComposer();closeChatAutocomplete();renderChatMentionList();updateChatSendButton();
+}
+function renderChatAutocomplete(){
+  const panel=$('chatAutocomplete'),composer=$('chatComposer');if(!panel||!composer)return;
+  const token=chatMentionSearch(composer.value,composer.selectionStart??composer.value.length);
+  if(!token)return closeChatAutocomplete();
+  const senderId=selectedChatPlayerId(),queryText=token.query.toLocaleLowerCase('zh-TW');
+  const candidates=state.roster
+    .filter(p=>p.id!==senderId&&p.name.toLocaleLowerCase('zh-TW').includes(queryText))
+    .sort((a,b)=>Number(b.name.toLocaleLowerCase('zh-TW').startsWith(queryText))-Number(a.name.toLocaleLowerCase('zh-TW').startsWith(queryText))||a.name.localeCompare(b.name,'zh-TW'))
+    .slice(0,8);
+  if(!candidates.length){panel.innerHTML='<span class="chat-autocomplete-empty">找不到符合的球員</span>';panel.classList.remove('hidden');return}
+  panel.innerHTML=candidates.map(p=>`<button type="button" class="chat-autocomplete-option" data-chat-autocomplete="${p.id}" role="option">${avatar(p.id,'tiny')}<span><strong>${esc(p.name)}</strong><small>點一下完成標記</small></span></button>`).join('');
+  panel.classList.remove('hidden');
+  all('[data-chat-autocomplete]').forEach(button=>button.onclick=()=>insertChatMention(button.dataset.chatAutocomplete,token));
+}
 function renderChatMentionList(){
   const list=$('chatMentionList');if(!list)return;
   const senderId=selectedChatPlayerId(),validIds=state.roster.map(p=>p.id);
@@ -670,18 +703,11 @@ function renderChatMentionList(){
   list.innerHTML=state.roster.filter(p=>p.id!==senderId).map(p=>`<button type="button" class="chat-mention-chip ${chatMentionIds.has(p.id)?'selected':''}" data-chat-mention="${p.id}" aria-pressed="${chatMentionIds.has(p.id)}">${avatar(p.id,'tiny')}<span>${esc(p.name)}</span></button>`).join('')||'<span class="sub">目前沒有其他球友可以標記。</span>';
   all('[data-chat-mention]').forEach(button=>button.onclick=()=>{
     const id=button.dataset.chatMention;
-    if(chatMentionIds.has(id))chatMentionIds.delete(id);
-    else{
-      if(chatMentionIds.size>=8)return alert('一次最多標記 8 位球友。');
-      chatMentionIds.add(id);
-      const composer=$('chatComposer'),tag=`@${pname(id)} `;
-      if(!composer.value.includes(`@${pname(id)}`)){
-        const start=composer.selectionStart??composer.value.length,end=composer.selectionEnd??start;
-        composer.setRangeText(`${start&&!/\s$/.test(composer.value.slice(0,start))?' ':''}${tag}`,start,end,'end');
-        composer.focus();
-      }
-    }
-    renderChatMentionList();updateChatSendButton();
+    if(chatMentionIds.has(id)){
+      const composer=$('chatComposer');
+      composer.value=removeChatMention(composer.value,pname(id));
+      syncChatMentionIdsFromComposer();renderChatMentionList();renderChatAutocomplete();updateChatSendButton();
+    }else insertChatMention(id);
   });
 }
 function updateChatSendButton(){
@@ -751,12 +777,12 @@ async function sendChatMessage(){
   if(!sender)return alert('請先選擇發言身分。');
   if(!text)return;
   if(Date.now()-chatLastSentAt<900)return;
-  const validIds=state.roster.map(p=>p.id),mentions=normalizeChatMentionIds([...chatMentionIds],{validIds,senderId});
+  const validIds=state.roster.map(p=>p.id),mentions=normalizeChatMentionIds(mentionIdsFromText(text,state.roster,{senderId}),{validIds,senderId});
   chatLastSentAt=Date.now();button.disabled=true;setChatStatus('正在傳送…','pending');
   try{
     const result=await pushApi('chat-mention',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({roomId,text,senderId,senderName:sender.name,senderHash:selfHash,mentions,clientCreatedAt:Date.now()})});
     if(result.message&&!chatMessages.some(message=>message.id===result.message.id))chatMessages=[...chatMessages,result.message].slice(-100);
-    composer.value='';chatMentionIds.clear();renderChatMentionList();
+    composer.value='';chatMentionIds.clear();closeChatAutocomplete();renderChatMentionList();
     renderChat();
     if(mentions.length)setChatStatus(result.sent?`訊息已傳送，已通知 ${result.sent} 台裝置`:'訊息已傳送；被標記者尚未開啟手機通知','success');
     else setChatStatus('訊息已傳送','success');
@@ -1770,13 +1796,14 @@ $('chatMentionToggle').onclick=()=>{
   if(opening)renderChatMentionList();
 };
 $('chatComposer').addEventListener('input',()=>{
-  if(/(^|\s)@$/.test($('chatComposer').value)){
-    $('chatMentionPanel').classList.remove('hidden');
-    $('chatMentionToggle').setAttribute('aria-expanded','true');
-  }
-  updateChatSendButton();
+  syncChatMentionIdsFromComposer();renderChatMentionList();renderChatAutocomplete();updateChatSendButton();
 });
 $('chatComposer').addEventListener('keydown',event=>{
+  const autocomplete=$('chatAutocomplete'),suggestion=autocomplete.querySelector('[data-chat-autocomplete]');
+  if(!autocomplete.classList.contains('hidden')&&suggestion&&!event.ctrlKey&&!event.metaKey&&(event.key==='Enter'||event.key==='Tab')){
+    event.preventDefault();suggestion.click();return;
+  }
+  if(event.key==='Escape'&&!autocomplete.classList.contains('hidden')){event.preventDefault();closeChatAutocomplete();return}
   if(event.key==='Enter'&&(event.ctrlKey||event.metaKey)){event.preventDefault();sendChatMessage()}
 });
 $('addPlayer').onclick=addPlayerRecord;
@@ -1962,6 +1989,6 @@ const exitScoreBtn=$('exitScore');if(exitScoreBtn)exitScoreBtn.addEventListener(
 
 window.bcmMarkBooted?.();
 if('serviceWorker'in navigator&&location.protocol.startsWith('http')){
-  const swRevision='20260723-353';
+  const swRevision='20260723-354';
   navigator.serviceWorker.register(`./sw.js?v=${swRevision}`,{updateViaCache:'none'}).then(registration=>registration.update()).catch(()=>{});
 }
