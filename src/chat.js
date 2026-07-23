@@ -1,5 +1,6 @@
 export const CHAT_MESSAGE_MAX_LENGTH=500;
 export const CHAT_MENTION_MAX_COUNT=8;
+export const CHAT_MENTION_ALL_ID='__all__';
 const escapeRegExp=value=>String(value).replace(/[.*+?^${}()|[\]\\]/g,'\\$&');
 
 export function claimedChatPlayerId(players=[],clientHash=''){
@@ -34,11 +35,19 @@ export function chatMentionSearch(value,caret){
   return{query:match[1],start:before.lastIndexOf('@'),end};
 }
 
+export function hasChatAllMention(value){
+  return /@All(?=$|[\s\p{P}\p{S}])/iu.test(String(value??''));
+}
+
+export function removeChatAllMention(value){
+  return String(value??'').replace(/@All(?=$|[\s\p{P}\p{S}])\s*/giu,'').replace(/[ \t]{2,}/g,' ');
+}
+
 export function mentionIdsFromText(value,players=[],{senderId='',maxCount=CHAT_MENTION_MAX_COUNT}={}){
   const text=String(value??''),matches=[];
   for(const [order,player] of (Array.isArray(players)?players:[]).entries()){
     const id=String(player?.id||''),name=String(player?.name||'').trim();
-    if(!id||!name||id===String(senderId||''))continue;
+    if(!id||!name||name.toLocaleLowerCase('en-US')==='all'||id===String(senderId||''))continue;
     const match=new RegExp(`@${escapeRegExp(name)}(?=$|[\\s\\p{P}\\p{S}])`,'u').exec(text);
     if(match)matches.push({id,index:match.index,order});
   }

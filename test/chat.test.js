@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { claimedChatSenderFromDocument, normalizeStoredChatMessage } from '../netlify/functions/chat-mention.mjs';
-import { claimedChatPlayerId, CHAT_MESSAGE_MAX_LENGTH, chatMentionSearch, chatMessagePreview, cleanChatText, mentionIdsFromText, normalizeChatMentionIds, removeChatMention } from '../src/chat.js';
+import { claimedChatSenderFromDocument, normalizeStoredChatMessage, shouldNotifyChatSubscription } from '../netlify/functions/chat-mention.mjs';
+import { claimedChatPlayerId, CHAT_MESSAGE_MAX_LENGTH, chatMentionSearch, chatMessagePreview, cleanChatText, hasChatAllMention, mentionIdsFromText, normalizeChatMentionIds, removeChatAllMention, removeChatMention } from '../src/chat.js';
 
 test('cleans and limits chat messages',()=>{
   assert.equal(cleanChatText('  大家好\r\n明天見  '),'大家好\n明天見');
@@ -42,6 +42,13 @@ test('recognizes manually typed exact player tags without partial-name collision
   assert.deepEqual(mentionIdsFromText('@于萱 你好',players,{senderId:'yuan'}),[]);
 });
 
+test('recognizes and removes an all-player mention without matching similar words',()=>{
+  assert.equal(hasChatAllMention('@All 明天記得投票'),true);
+  assert.equal(hasChatAllMention('請找 @all，謝謝'),true);
+  assert.equal(hasChatAllMention('@Ally 明天見'),false);
+  assert.equal(removeChatAllMention('提醒 @All 明天見'),'提醒 明天見');
+});
+
 test('removes a selected player tag from the composer',()=>{
   assert.equal(removeChatMention('明天請 @Yoyo 記得帶球','Yoyo'),'明天請 記得帶球');
 });
@@ -63,9 +70,33 @@ test('normalizes authoritative stored chat messages',()=>{
     senderName:'建昱',
     senderHash:'device-1',
     mentions:['p2','p3'],
+    mentionAll:false,
     createdAt:'2026-07-23T08:00:00.000Z',
     clientCreatedAt:123
   });
+});
+
+test('normalizes @All from message text and targets every other subscribed device',()=>{
+  const message=normalizeStoredChatMessage({
+    id:'message-all',
+    text:'@All 請記得投票',
+    senderId:'p1',
+    senderName:'建昱',
+    senderHash:'device-1',
+    mentions:[],
+    createdAt:'2026-07-23T08:00:00.000Z'
+  });
+  assert.equal(message.mentionAll,true);
+  assert.equal(shouldNotifyChatSubscription(
+    {roomId:'RTYBSJ',clientHash:'device-2',playerId:''},
+    message,
+    {roomId:'RTYBSJ',messageId:'message-all'}
+  ),true);
+  assert.equal(shouldNotifyChatSubscription(
+    {roomId:'RTYBSJ',clientHash:'device-1',playerId:'p1'},
+    message,
+    {roomId:'RTYBSJ',messageId:'message-all'}
+  ),false);
 });
 
 test('server accepts only the player claimed by the supplied device identity',()=>{

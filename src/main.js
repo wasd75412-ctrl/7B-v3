@@ -10,7 +10,7 @@ import { createLiveScoreData, decodeLiveMatch, liveMatchKey, shouldAnnounceSynce
 import { canAutoSyncPlayerIdentity } from './device-sync.js';
 import { shouldRequestNativeWakeLock, shouldStartPersistentVideoWakeLock, wakeLockButtonIntent, wakeLockControlIsActive } from './wake-lock.js';
 import { arrangeTeamsWithTeammateLimit, lineupExceedsTeammateLimit } from './team-rotation.js';
-import { CHAT_MESSAGE_MAX_LENGTH, chatMentionSearch, claimedChatPlayerId, cleanChatText, mentionIdsFromText, normalizeChatMentionIds, removeChatMention } from './chat.js';
+import { CHAT_MENTION_ALL_ID, CHAT_MESSAGE_MAX_LENGTH, chatMentionSearch, claimedChatPlayerId, cleanChatText, hasChatAllMention, mentionIdsFromText, normalizeChatMentionIds, removeChatAllMention, removeChatMention } from './chat.js';
 import { adminRoleButtonState, resolveAdminSessionToken } from './admin-role.js';
 
 const firebaseConfig={apiKey:'AIzaSyBrakbTPK7UqEChPBI6pM8-i03IcLq0IvM',authDomain:'badminton-7a1c3.firebaseapp.com',projectId:'badminton-7a1c3',storageBucket:'badminton-7a1c3.firebasestorage.app',messagingSenderId:'883534015507',appId:'1:883534015507:web:a7f6fb318151b6d07563e6',measurementId:'G-C97B98H7YW'};
@@ -653,6 +653,7 @@ function setChatStatus(message='',kind=''){
 }
 function chatMessageHtml(message){
   let html=esc(cleanChatText(message.text)).replace(/\n/g,'<br>');
+  if(message.mentionAll)html=html.replace(/@All(?=$|[\s\p{P}\p{S}])/giu,'<span class="chat-mention chat-mention-all">@All</span>');
   for(const id of message.mentions||[]){
     const tag=esc(`@${pname(id)}`);
     html=html.split(tag).join(`<span class="chat-mention">${tag}</span>`);
@@ -668,14 +669,14 @@ function closeChatAutocomplete(){
   panel.classList.add('hidden');panel.innerHTML='';
 }
 function insertChatMention(id,range=null){
-  const composer=$('chatComposer'),senderId=selectedChatPlayerId(),target=player(id);
-  if(!composer||!senderId||!target||id===senderId)return;
+  const composer=$('chatComposer'),senderId=selectedChatPlayerId(),isAll=id===CHAT_MENTION_ALL_ID,target=isAll?null:player(id);
+  if(!composer||!senderId||(!isAll&&!target)||id===senderId)return;
   syncChatMentionIdsFromComposer();
-  if(!chatMentionIds.has(id)&&chatMentionIds.size>=8)return alert('一次最多標記 8 位球友。');
+  if(!isAll&&!chatMentionIds.has(id)&&chatMentionIds.size>=8)return alert('一次最多標記 8 位球友；若要通知全部球友，請使用 @All。');
   const token=range||chatMentionSearch(composer.value,composer.selectionStart??composer.value.length);
   const start=token?.start??composer.selectionStart??composer.value.length,end=token?.end??composer.selectionEnd??start;
   const prefix=!token&&start&&!/\s$/.test(composer.value.slice(0,start))?' ':'';
-  composer.setRangeText(`${prefix}@${target.name} `,start,end,'end');
+  composer.setRangeText(`${prefix}@${isAll?'All':target.name} `,start,end,'end');
   composer.focus();syncChatMentionIdsFromComposer();closeChatAutocomplete();renderChatMentionList();updateChatSendButton();
 }
 function renderChatAutocomplete(){
@@ -684,25 +685,31 @@ function renderChatAutocomplete(){
   const token=chatMentionSearch(composer.value,composer.selectionStart??composer.value.length);
   if(!token)return closeChatAutocomplete();
   const senderId=selectedChatPlayerId(),queryText=token.query.toLocaleLowerCase('zh-TW');
+  const showAll='all'.includes(queryText)||'所有人'.includes(queryText);
   const candidates=state.roster
     .filter(p=>p.id!==senderId&&p.name.toLocaleLowerCase('zh-TW').includes(queryText))
     .sort((a,b)=>Number(b.name.toLocaleLowerCase('zh-TW').startsWith(queryText))-Number(a.name.toLocaleLowerCase('zh-TW').startsWith(queryText))||a.name.localeCompare(b.name,'zh-TW'))
     .slice(0,8);
-  if(!candidates.length){panel.innerHTML='<span class="chat-autocomplete-empty">找不到符合的球員</span>';panel.classList.remove('hidden');return}
-  panel.innerHTML=candidates.map(p=>`<button type="button" class="chat-autocomplete-option" data-chat-autocomplete="${p.id}" role="option">${avatar(p.id,'tiny')}<span><strong>${esc(p.name)}</strong><small>點一下完成標記</small></span></button>`).join('');
+  if(!showAll&&!candidates.length){panel.innerHTML='<span class="chat-autocomplete-empty">找不到符合的球員</span>';panel.classList.remove('hidden');return}
+  const allOption=showAll?`<button type="button" class="chat-autocomplete-option chat-autocomplete-all" data-chat-autocomplete="${CHAT_MENTION_ALL_ID}" role="option"><span class="avatar tiny chat-all-avatar">@</span><span><strong>@All</strong><small>通知所有已開啟通知的球友</small></span></button>`:'';
+  panel.innerHTML=allOption+candidates.map(p=>`<button type="button" class="chat-autocomplete-option" data-chat-autocomplete="${p.id}" role="option">${avatar(p.id,'tiny')}<span><strong>${esc(p.name)}</strong><small>點一下完成標記</small></span></button>`).join('');
   panel.classList.remove('hidden');
   all('[data-chat-autocomplete]').forEach(button=>button.onclick=()=>insertChatMention(button.dataset.chatAutocomplete,token));
 }
 function renderChatMentionList(){
   const list=$('chatMentionList');if(!list)return;
-  const senderId=selectedChatPlayerId(),validIds=state.roster.map(p=>p.id);
+  const senderId=selectedChatPlayerId(),validIds=state.roster.map(p=>p.id),composer=$('chatComposer');
   if(!senderId){chatMentionIds.clear();list.innerHTML='<span class="sub">請先到「球員」認領自己的資料，才能標記與發言。</span>';return}
   chatMentionIds=new Set(normalizeChatMentionIds([...chatMentionIds],{validIds,senderId}));
-  list.innerHTML=state.roster.filter(p=>p.id!==senderId).map(p=>`<button type="button" class="chat-mention-chip ${chatMentionIds.has(p.id)?'selected':''}" data-chat-mention="${p.id}" aria-pressed="${chatMentionIds.has(p.id)}">${avatar(p.id,'tiny')}<span>${esc(p.name)}</span></button>`).join('')||'<span class="sub">目前沒有其他球友可以標記。</span>';
+  const mentionAll=hasChatAllMention(composer?.value||''),allChip=`<button type="button" class="chat-mention-chip chat-mention-all-chip ${mentionAll?'selected':''}" data-chat-mention="${CHAT_MENTION_ALL_ID}" aria-pressed="${mentionAll}"><span class="avatar tiny chat-all-avatar">@</span><span>所有人</span></button>`;
+  list.innerHTML=allChip+state.roster.filter(p=>p.id!==senderId).map(p=>`<button type="button" class="chat-mention-chip ${chatMentionIds.has(p.id)?'selected':''}" data-chat-mention="${p.id}" aria-pressed="${chatMentionIds.has(p.id)}">${avatar(p.id,'tiny')}<span>${esc(p.name)}</span></button>`).join('');
   all('[data-chat-mention]').forEach(button=>button.onclick=()=>{
     const id=button.dataset.chatMention;
+    if(id===CHAT_MENTION_ALL_ID&&hasChatAllMention(composer.value)){
+      composer.value=removeChatAllMention(composer.value);
+      syncChatMentionIdsFromComposer();renderChatMentionList();renderChatAutocomplete();updateChatSendButton();return;
+    }
     if(chatMentionIds.has(id)){
-      const composer=$('chatComposer');
       composer.value=removeChatMention(composer.value,pname(id));
       syncChatMentionIdsFromComposer();renderChatMentionList();renderChatAutocomplete();updateChatSendButton();
     }else insertChatMention(id);
@@ -722,7 +729,7 @@ function renderChat(){
   claimButton?.classList.toggle('hidden',!!claimedPlayer);
   if(composer){
     composer.disabled=!claimedPlayer;
-    composer.placeholder=claimedPlayer?'輸入訊息，輸入 @ 可直接標記球友':'請先認領自己的球員資料';
+    composer.placeholder=claimedPlayer?'輸入 @ 標記球友，或輸入 @All 通知所有人':'請先認領自己的球員資料';
   }
   if(mentionButton)mentionButton.disabled=!claimedPlayer;
   if(!claimedPlayer){
@@ -735,7 +742,7 @@ function renderChat(){
 
   const wasNearBottom=list.scrollHeight-list.scrollTop-list.clientHeight<90;
   list.innerHTML=chatMessages.map(message=>{
-    const mine=message.senderHash===selfHash,mentioned=message.mentions?.includes(selectedChatPlayerId());
+    const mine=message.senderHash===selfHash,mentioned=message.mentionAll||message.mentions?.includes(selectedChatPlayerId());
     const sender=player(message.senderId),senderAvatar=sender?avatar(sender.id,'tiny'):`<span class="avatar tiny">${esc(initials(message.senderName))}</span>`;
     const ms=chatMessageTimeMs(message),date=ms?new Date(ms):null;
     const time=date&&!isNaN(date)?date.toLocaleString('zh-TW',localDateKey(date)===localDateKey()?{hour:'2-digit',minute:'2-digit'}:{month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit'}):'傳送中';
@@ -781,14 +788,14 @@ async function sendChatMessage(){
   if(!sender)return alert('此裝置尚未認領球員。請先到「球員」點選自己的球員卡，再按「這是我／認領資料」。');
   if(!text)return;
   if(Date.now()-chatLastSentAt<900)return;
-  const validIds=state.roster.map(p=>p.id),mentions=normalizeChatMentionIds(mentionIdsFromText(text,state.roster,{senderId}),{validIds,senderId});
+  const validIds=state.roster.map(p=>p.id),mentions=normalizeChatMentionIds(mentionIdsFromText(text,state.roster,{senderId}),{validIds,senderId}),mentionAll=hasChatAllMention(text);
   chatLastSentAt=Date.now();button.disabled=true;setChatStatus('正在傳送…','pending');
   try{
-    const result=await pushApi('chat-mention',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({roomId,text,senderId,senderToken:selfToken,mentions,clientCreatedAt:Date.now()})});
+    const result=await pushApi('chat-mention',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({roomId,text,senderId,senderToken:selfToken,mentions,mentionAll,clientCreatedAt:Date.now()})});
     if(result.message&&!chatMessages.some(message=>message.id===result.message.id))chatMessages=[...chatMessages,result.message].slice(-100);
     composer.value='';chatMentionIds.clear();closeChatAutocomplete();renderChatMentionList();
     renderChat();
-    if(mentions.length)setChatStatus(result.sent?`訊息已傳送，已通知 ${result.sent} 台裝置`:'訊息已傳送；被標記者尚未開啟手機通知','success');
+    if(mentionAll||mentions.length)setChatStatus(result.sent?`訊息已傳送，已通知 ${result.sent} 台裝置`:'訊息已傳送；目前沒有可接收通知的其他裝置','success');
     else setChatStatus('訊息已傳送','success');
   }catch(error){
     setChatStatus(`訊息傳送失敗：${error.message}`,'error');
@@ -2039,6 +2046,6 @@ const exitScoreBtn=$('exitScore');if(exitScoreBtn)exitScoreBtn.addEventListener(
 
 window.bcmMarkBooted?.();
 if('serviceWorker'in navigator&&location.protocol.startsWith('http')){
-  const swRevision='20260723-357';
+  const swRevision='20260723-358';
   navigator.serviceWorker.register(`./sw.js?v=${swRevision}`,{updateViaCache:'none'}).then(registration=>registration.update()).catch(()=>{});
 }

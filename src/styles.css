@@ -3391,6 +3391,21 @@ body>.modal .modal-card :is(.profile-panel,.profile-section,.stat-box,.health-bo
   background:rgba(var(--sport-tint-rgb),.20);
   box-shadow:0 0 18px rgba(var(--sport-tint-rgb),.12)
 }
+.chat-all-avatar{
+  border-color:rgba(255,211,107,.55)!important;
+  background:rgba(255,211,107,.16)!important;
+  color:#ffd36b!important
+}
+.chat-mention-all-chip,
+.chat-autocomplete-all{
+  border-color:rgba(255,211,107,.31)
+}
+.chat-mention-all-chip.selected{
+  border-color:#ffd36b;
+  background:rgba(255,211,107,.18);
+  box-shadow:0 0 20px rgba(255,211,107,.12)
+}
+.chat-mention-all{color:#ffe08a}
 .chat-messages{
   min-height:380px;
   max-height:min(56vh,620px);
