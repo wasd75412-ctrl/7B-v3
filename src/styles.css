@@ -3451,6 +3451,57 @@ body>.modal .modal-card :is(.profile-panel,.profile-section,.stat-box,.health-bo
   max-height:180px;
   resize:vertical
 }
+.chat-autocomplete{
+  display:grid;
+  grid-template-columns:repeat(2,minmax(0,1fr));
+  gap:7px;
+  margin-top:8px;
+  padding:9px;
+  border:1px solid rgba(var(--sport-tint-rgb),.28);
+  border-radius:15px;
+  background:rgba(2,18,31,.96);
+  box-shadow:0 14px 34px rgba(0,7,16,.34)
+}
+.chat-autocomplete-option{
+  display:flex;
+  align-items:center;
+  gap:8px;
+  min-width:0;
+  padding:7px 9px;
+  border:1px solid rgba(var(--sport-tint-rgb),.18);
+  border-radius:12px;
+  background:rgba(var(--sport-tint-rgb),.075);
+  color:var(--sport-ink);
+  text-align:left;
+  cursor:pointer
+}
+.chat-autocomplete-option:hover,
+.chat-autocomplete-option:focus-visible{
+  border-color:rgba(var(--sport-tint-rgb),.60);
+  background:rgba(var(--sport-tint-rgb),.17);
+  outline:none
+}
+.chat-autocomplete-option>span{min-width:0}
+.chat-autocomplete-option strong{
+  display:block;
+  overflow:hidden;
+  text-overflow:ellipsis;
+  white-space:nowrap
+}
+.chat-autocomplete-option small{
+  display:block;
+  margin-top:2px;
+  color:var(--sport-muted);
+  font-size:.68rem;
+  font-weight:750
+}
+.chat-autocomplete-empty{
+  grid-column:1/-1;
+  padding:9px;
+  color:var(--sport-muted);
+  text-align:center;
+  font-weight:800
+}
 .chat-composer-foot{
   display:flex;
   align-items:center;
@@ -3475,6 +3526,7 @@ body>.modal .modal-card :is(.profile-panel,.profile-section,.stat-box,.health-bo
   .chat-messages{min-height:52vh;max-height:58vh;padding:13px}
   .chat-message{width:92%}
   .chat-composer{padding:9px}
+  .chat-autocomplete{grid-template-columns:1fr}
   .chat-composer-foot{align-items:flex-end}
   .chat-composer-foot .btn{min-width:82px}
 }
