@@ -3319,17 +3319,49 @@ body>.modal .modal-card :is(.profile-panel,.profile-section,.stat-box,.health-bo
 }
 .chat-identity-row{
   display:grid;
-  grid-template-columns:minmax(210px,1fr) auto;
+  grid-template-columns:minmax(210px,1fr) auto auto;
   align-items:end;
   gap:10px;
   margin:18px 0 10px
 }
-.chat-identity-row .field>span{
+.chat-identity-card{
+  display:flex;
+  align-items:center;
+  gap:10px;
+  min-height:52px;
+  padding:7px 12px 7px 8px;
+  border:1px solid rgba(93,224,173,.34);
+  border-radius:15px;
+  background:rgba(93,224,173,.09)
+}
+.chat-identity-card>span:nth-child(2){min-width:0}
+.chat-identity-card small{
   display:block;
-  margin:0 0 6px;
   color:var(--sport-muted);
-  font-size:.8rem;
+  font-size:.72rem;
   font-weight:900
+}
+.chat-identity-card strong{
+  display:block;
+  overflow:hidden;
+  color:var(--sport-ink);
+  font-size:1rem;
+  text-overflow:ellipsis;
+  white-space:nowrap
+}
+.chat-identity-card b{
+  margin-left:auto;
+  color:#76ebbd;
+  font-size:.76rem;
+  white-space:nowrap
+}
+.chat-identity-card.unclaimed{
+  border-color:rgba(255,182,112,.35);
+  background:rgba(255,182,112,.09)
+}
+.chat-composer textarea:disabled{
+  cursor:not-allowed;
+  opacity:.58
 }
 .chat-mention-panel{
   margin:0 0 12px;

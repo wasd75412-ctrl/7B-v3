@@ -10,7 +10,7 @@ import { createLiveScoreData, decodeLiveMatch, liveMatchKey, shouldAnnounceSynce
 import { canAutoSyncPlayerIdentity } from './device-sync.js';
 import { shouldRequestNativeWakeLock, shouldStartPersistentVideoWakeLock, wakeLockButtonIntent, wakeLockControlIsActive } from './wake-lock.js';
 import { arrangeTeamsWithTeammateLimit, lineupExceedsTeammateLimit } from './team-rotation.js';
-import { CHAT_MESSAGE_MAX_LENGTH, chatMentionSearch, cleanChatText, mentionIdsFromText, normalizeChatMentionIds, removeChatMention } from './chat.js';
+import { CHAT_MESSAGE_MAX_LENGTH, chatMentionSearch, claimedChatPlayerId, cleanChatText, mentionIdsFromText, normalizeChatMentionIds, removeChatMention } from './chat.js';
 
 const firebaseConfig={apiKey:'AIzaSyBrakbTPK7UqEChPBI6pM8-i03IcLq0IvM',authDomain:'badminton-7a1c3.firebaseapp.com',projectId:'badminton-7a1c3',storageBucket:'badminton-7a1c3.firebasestorage.app',messagingSenderId:'883534015507',appId:'1:883534015507:web:a7f6fb318151b6d07563e6',measurementId:'G-C97B98H7YW'};
 const fbApp=initializeApp(firebaseConfig);
@@ -539,13 +539,12 @@ function pollSeenKey(){return `bcmPollSeenV1:${roomId||'local'}`}
 function isPollUnseen(){const sig=pollSignature(),poll=state.schedulePoll||{};return (!!poll.createdAt||!!(poll.options||[]).length)&&localStorage.getItem(pollSeenKey())!==sig}
 function markPollSeen(){const sig=pollSignature();if(sig)localStorage.setItem(pollSeenKey(),sig);renderPollNotice()}
 function renderPollNotice(){const poll=state.schedulePoll||{},unseen=isPollUnseen()&&!isPollClosed(poll),dot=$('pollTabDot');if(dot)dot.classList.toggle('hidden',!unseen)}
-function ownedPlayerId(){return state.roster.find(p=>p.ownerHash&&p.ownerHash===selfHash)?.id||''}
+function ownedPlayerId(){return claimedChatPlayerId(state.roster,selfHash)}
 const PUSH_ENABLED_PREFIX='bcmPushEnabledV1:',PUSH_PROMPT_PREFIX='bcmPushPromptV1:',PUSH_PROMPT_VERSION='20260723-chat-2';
 let pushPromptShownRoom='';
 function pushEnabledKey(id=roomId){return `${PUSH_ENABLED_PREFIX}${id||'none'}`}
 function pushPromptKey(id=roomId){return `${PUSH_PROMPT_PREFIX}${id||'none'}`}
-function chatIdentityKey(id=roomId){return `bcmChatPlayerV1:${id||'none'}`}
-function preferredNotificationPlayerId(){const stored=localStorage.getItem(chatIdentityKey())||'';return ownedPlayerId()||(state.roster.some(p=>p.id===stored)?stored:'')||$('chatPlayer')?.value||$('pollVoter')?.value||''}
+function preferredNotificationPlayerId(){return ownedPlayerId()}
 function supportsPush(){return 'serviceWorker'in navigator&&'PushManager'in window&&'Notification'in window}
 function isIosLike(){return /iPad|iPhone|iPod/i.test(navigator.userAgent)||(navigator.platform==='MacIntel'&&navigator.maxTouchPoints>1)}
 function isStandaloneApp(){return window.matchMedia?.('(display-mode: standalone)').matches||navigator.standalone===true}
@@ -629,11 +628,7 @@ function chatMessageTimeMs(message){
   return Number.isFinite(client)?client:0;
 }
 function selectedChatPlayerId(){
-  const owned=ownedPlayerId(),stored=localStorage.getItem(chatIdentityKey())||'',selected=$('chatPlayer')?.value||'';
-  if(owned)return owned;
-  if(state.roster.some(p=>p.id===selected))return selected;
-  if(state.roster.some(p=>p.id===stored))return stored;
-  return'';
+  return ownedPlayerId();
 }
 function chatPageVisible(){return !!$('page8')&&!$('page8').classList.contains('hidden')}
 function markChatSeen(){
@@ -673,7 +668,7 @@ function closeChatAutocomplete(){
 }
 function insertChatMention(id,range=null){
   const composer=$('chatComposer'),senderId=selectedChatPlayerId(),target=player(id);
-  if(!composer||!target||id===senderId)return;
+  if(!composer||!senderId||!target||id===senderId)return;
   syncChatMentionIdsFromComposer();
   if(!chatMentionIds.has(id)&&chatMentionIds.size>=8)return alert('一次最多標記 8 位球友。');
   const token=range||chatMentionSearch(composer.value,composer.selectionStart??composer.value.length);
@@ -684,6 +679,7 @@ function insertChatMention(id,range=null){
 }
 function renderChatAutocomplete(){
   const panel=$('chatAutocomplete'),composer=$('chatComposer');if(!panel||!composer)return;
+  if(!selectedChatPlayerId())return closeChatAutocomplete();
   const token=chatMentionSearch(composer.value,composer.selectionStart??composer.value.length);
   if(!token)return closeChatAutocomplete();
   const senderId=selectedChatPlayerId(),queryText=token.query.toLocaleLowerCase('zh-TW');
@@ -699,6 +695,7 @@ function renderChatAutocomplete(){
 function renderChatMentionList(){
   const list=$('chatMentionList');if(!list)return;
   const senderId=selectedChatPlayerId(),validIds=state.roster.map(p=>p.id);
+  if(!senderId){chatMentionIds.clear();list.innerHTML='<span class="sub">請先到「球員」認領自己的資料，才能標記與發言。</span>';return}
   chatMentionIds=new Set(normalizeChatMentionIds([...chatMentionIds],{validIds,senderId}));
   list.innerHTML=state.roster.filter(p=>p.id!==senderId).map(p=>`<button type="button" class="chat-mention-chip ${chatMentionIds.has(p.id)?'selected':''}" data-chat-mention="${p.id}" aria-pressed="${chatMentionIds.has(p.id)}">${avatar(p.id,'tiny')}<span>${esc(p.name)}</span></button>`).join('')||'<span class="sub">目前沒有其他球友可以標記。</span>';
   all('[data-chat-mention]').forEach(button=>button.onclick=()=>{
@@ -715,18 +712,24 @@ function updateChatSendButton(){
   button.disabled=!selectedChatPlayerId()||!cleanChatText($('chatComposer')?.value);
 }
 function renderChat(){
-  const list=$('chatMessages'),identity=$('chatPlayer');if(!list||!identity)return;
-  const owned=ownedPlayerId(),stored=localStorage.getItem(chatIdentityKey())||'',current=identity.value;
-  identity.innerHTML='<option value="">請選擇球員</option>'+state.roster.map(p=>`<option value="${p.id}">${esc(p.name)}</option>`).join('');
-  const chosen=owned||[current,stored,state.schedulePoll?.voterPlayers?.[selfHash]].find(id=>state.roster.some(p=>p.id===id))||'';
-  identity.value=chosen;
-  if(chosen)localStorage.setItem(chatIdentityKey(),chosen);
-  identity.onchange=()=>{
-    if(identity.value)localStorage.setItem(chatIdentityKey(),identity.value);else localStorage.removeItem(chatIdentityKey());
-    chatMentionIds.delete(identity.value);
-    renderChatMentionList();updateChatSendButton();
-    reconcilePushSubscription().catch(error=>console.warn('Chat notification identity refresh failed',error));
-  };
+  const list=$('chatMessages'),identity=$('chatIdentity'),claimButton=$('chatClaimHelp'),composer=$('chatComposer'),mentionButton=$('chatMentionToggle');if(!list||!identity)return;
+  const chosen=ownedPlayerId(),claimedPlayer=player(chosen);
+  identity.innerHTML=claimedPlayer
+    ?`${avatar(claimedPlayer.id,'tiny')}<span><small>本裝置認領身分</small><strong>${esc(claimedPlayer.name)}</strong></span><b>已確認</b>`
+    :'<span class="avatar tiny">?</span><span><small>尚未認領球員</small><strong>認領後才能發言</strong></span>';
+  identity.classList.toggle('unclaimed',!claimedPlayer);
+  claimButton?.classList.toggle('hidden',!!claimedPlayer);
+  if(composer){
+    composer.disabled=!claimedPlayer;
+    composer.placeholder=claimedPlayer?'輸入訊息，輸入 @ 可直接標記球友':'請先認領自己的球員資料';
+  }
+  if(mentionButton)mentionButton.disabled=!claimedPlayer;
+  if(!claimedPlayer){
+    chatMentionIds.clear();
+    closeChatAutocomplete();
+    $('chatMentionPanel')?.classList.add('hidden');
+    mentionButton?.setAttribute('aria-expanded','false');
+  }
   renderChatMentionList();
 
   const wasNearBottom=list.scrollHeight-list.scrollTop-list.clientHeight<90;
@@ -742,7 +745,7 @@ function renderChat(){
   }).join('')||'<div class="chat-empty"><strong>聊天室還沒有訊息</strong><span>傳送第一句話，或標記球友一起討論。</span></div>';
   $('chatConnection').textContent=!navigator.onLine?'離線中':chatCollectionRef?'即時同步':'尚未連線';
   $('chatConnection').classList.toggle('offline',!navigator.onLine);
-  setChatStatus(chosen?`${pname(chosen)}，可以開始聊天`:'請先選擇發言身分');
+  setChatStatus(chosen?`將以「${pname(chosen)}」身分發言`:'此裝置尚未認領球員，請先到球員頁認領',chosen?'':'warning');
   updateChatSendButton();renderChatBadge();
   if(chatPageVisible()){
     markChatSeen();
@@ -774,13 +777,13 @@ function startChatSync(){
 async function sendChatMessage(){
   const button=$('sendChat'),composer=$('chatComposer'),senderId=selectedChatPlayerId(),sender=player(senderId),text=cleanChatText(composer.value,CHAT_MESSAGE_MAX_LENGTH);
   if(!chatCollectionRef||!roomId)return alert('聊天室尚未連線，請稍後再試。');
-  if(!sender)return alert('請先選擇發言身分。');
+  if(!sender)return alert('此裝置尚未認領球員。請先到「球員」點選自己的球員卡，再按「這是我／認領資料」。');
   if(!text)return;
   if(Date.now()-chatLastSentAt<900)return;
   const validIds=state.roster.map(p=>p.id),mentions=normalizeChatMentionIds(mentionIdsFromText(text,state.roster,{senderId}),{validIds,senderId});
   chatLastSentAt=Date.now();button.disabled=true;setChatStatus('正在傳送…','pending');
   try{
-    const result=await pushApi('chat-mention',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({roomId,text,senderId,senderName:sender.name,senderHash:selfHash,mentions,clientCreatedAt:Date.now()})});
+    const result=await pushApi('chat-mention',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({roomId,text,senderId,senderToken:selfToken,mentions,clientCreatedAt:Date.now()})});
     if(result.message&&!chatMessages.some(message=>message.id===result.message.id))chatMessages=[...chatMessages,result.message].slice(-100);
     composer.value='';chatMentionIds.clear();closeChatAutocomplete();renderChatMentionList();
     renderChat();
@@ -1789,6 +1792,10 @@ async function endTodaySession(){
 $('clearHistory').onclick=clearAllHistory;$('addPollOption').onclick=addPollOption;$('submitVote').onclick=submitPollVote;$('confirmNextEvent').onclick=confirmNextEvent;$('clearNextEvent').onclick=clearNextEvent;$('announceBtn').onclick=()=>{const text=calloutText();if(!text)return alert('目前尚未安排下一場。');speak(text)};$('monthPick').value=localMonthKey();$('monthPick').onchange=renderStats;$('thisMonthBtn').onclick=()=>{$('monthPick').value=localMonthKey();renderStats()};$('createRoom').onclick=createRoom;$('joinRoom').onclick=()=>enterRoom($('joinCode').value);$('favoriteRoomBtn').onclick=()=>{const r=roomRecord(roomId)||rememberRoom(roomId,isHost);updateRoomRecord(roomId,{favorite:!r.favorite})};$('renameRoomBtn').onclick=()=>{const r=roomRecord(roomId)||rememberRoom(roomId,isHost),name=prompt('替這台裝置上的球局取一個名稱：',r.name||'7B 羽球團');if(name===null)return;updateRoomRecord(roomId,{name:name.trim().slice(0,30)})};$('autoReturnRoom').checked=localStorage.getItem(ROOM_AUTO_KEY)==='1';$('autoReturnRoom').onchange=()=>localStorage.setItem(ROOM_AUTO_KEY,$('autoReturnRoom').checked?'1':'0');$('adminLoginBtn').onclick=async()=>{const pin=prompt('輸入管理員 PIN：');if(pin===null)return;const h=await sha256(pin.trim());if(!adminPinHash||h!==adminPinHash)return alert('PIN 不正確。');hostToken=(await getDoc(roomRef)).data().hostToken;localStorage.setItem(hostKey(roomId),hostToken);isHost=true;$('roleBadge').textContent='管理員';$('roleBadge').className='pill host';$('viewerNote').classList.add('hidden');applyRole();renderAll();alert('已切換為管理員模式。')};$('qrBtn').onclick=()=>{const url=currentUrl();$('qrImage').src='https://api.qrserver.com/v1/create-qr-code/?size=300x300&data='+encodeURIComponent(url);$('qrRoomCode').textContent='房間代碼：'+roomId;$('qrModal').classList.remove('hidden')};$('closeQr').onclick=()=>$('qrModal').classList.add('hidden');$('claimPlayer').onclick=async()=>{const p=player(editId);if(!p)return;if(p.ownerHash&&p.ownerHash!==selfHash&&!confirm(`「${p.name}」目前綁定在另一台裝置。確定這是你的資料，並改綁到目前裝置嗎？`))return;const updated={...p,ownerHash:selfHash};await saveSelfPlayer(updated);$('selfNote').textContent=`你已認領「${p.name}」，現在可在這台裝置修改姓名、球拍與備註。`;$('selfNote').classList.remove('hidden');state.roster=state.roster.map(x=>x.id===p.id?updated:x);updateProfilePermissions();renderRoster()};$('joinCode').onkeydown=e=>{if(e.key==='Enter')enterRoom(e.target.value)};$('leaveBtn').onclick=()=>{if(unsubscribe)unsubscribe();sessionStorage.setItem(ROOM_SKIP_AUTO_ONCE,'1');history.replaceState(null,'',location.pathname);location.reload()};$('shareBtn').onclick=async()=>{const url=currentUrl();try{await navigator.clipboard.writeText(url);alert(`觀看網址已複製。\n房間代碼：${roomId}`)}catch{prompt('複製觀看網址：',url)}};$('openPollReminder').onclick=()=>page(6);all('.tab').forEach(b=>b.onclick=()=>page(+b.dataset.page));$('addPlayer').onclick=()=>{const n=$('newName').value.trim();if(!n)return;if(state.roster.some(p=>p.name===n))return alert('已有相同姓名');state.roster.push({id:randomToken(),name:n,voiceName:defaultVoiceName(n),avatar:'',racket:'',racketTension:'',racketString:'',backupRacket:'',backupTension:'',backupString:'',note:'',favorite:false,ownerHash:''});$('newName').value='';renderAll();saveSoon()};$('allAttend').onclick=()=>{state.attendance=state.roster.map(p=>p.id);reconcileWaitingQueue();renderAll();saveSoon()};$('clearAttend').onclick=()=>{state.attendance=[];state.court=[];state.waitingQueue=[];state.queueDraftChosen=[];state.priority=null;renderAll();saveSoon()};$('goCourt').onclick=()=>{if(state.attendance.length<4)return alert('至少需要四位出席球員');if(state.court.length<4)state.court=state.attendance.slice(0,4);reconcileWaitingQueue(state.court);renderAll();page(3);saveSoon()};$('randomCourt').onclick=()=>{state.court=shuffle(state.attendance).slice(0,4);reconcileWaitingQueue(state.court);renderAll();saveSoon()};$('target').onchange=()=>{state.rules.target=Math.max(1,+$('target').value||11);saveSoon()};$('cap').onchange=()=>{state.rules.cap=Math.max(state.rules.target,+$('cap').value||15);saveSoon()};$('deuce').onchange=()=>{state.rules.deuce=$('deuce').value==='1';saveSoon()};$('startMatch').onclick=startMatch;function addPointAndSpeak(team){if(!isHost||state.match.winner!==null)return;state.match.rallies.push(team);replay();if(voiceEnabled)setTimeout(announceScore,80)}const scoreSideA=$('namesA').closest('.score-side'),scoreSideB=$('namesB').closest('.score-side');scoreSideA.classList.add('clickable');scoreSideB.classList.add('clickable');scoreSideA.onclick=()=>addPointAndSpeak(0);scoreSideB.onclick=()=>addPointAndSpeak(1);$('scoreA').onclick=e=>{e.stopPropagation();addPointAndSpeak(0)};$('scoreB').onclick=e=>{e.stopPropagation();addPointAndSpeak(1)};$('undo').onclick=()=>{if(state.match.rallies.length){state.match.rallies.pop();replay()}};$('minusA').onclick=()=>{const i=state.match.rallies.lastIndexOf(0);if(i>=0){state.match.rallies.splice(i,1);replay()}};$('minusB').onclick=()=>{const i=state.match.rallies.lastIndexOf(1);if(i>=0){state.match.rallies.splice(i,1);replay()}};$('exitScore').onclick=()=>{state.match.active=false;renderScore();saveSoon()};$('shuffleNext').onclick=()=>{const vals=shuffle([0,1,2,3].map(i=>$('n'+i).value));vals.forEach((v,i)=>{$('n'+i).value=v});updatePriority()};$('startNext').onclick=startNext;$('closeResult').onclick=()=>{dismissedResultKey=currentResultKey();$('resultModal').classList.add('hidden')};$('voiceToggle').onclick=()=>{voiceEnabled=!voiceEnabled;localStorage.setItem('bdV76Voice',voiceEnabled?'1':'0');if(!voiceEnabled&&'speechSynthesis'in window)window.speechSynthesis.cancel();updateVoiceButton()};$('speakerTest').onclick=speakerTest;$('audioHelp').onclick=()=>$('audioHelpModal').classList.remove('hidden');$('closeAudioHelp').onclick=()=>$('audioHelpModal').classList.add('hidden');$('editName').addEventListener('input',()=>profileDirty.name=true);$('editVoiceName').addEventListener('input',()=>profileDirty.voiceName=true);$('testVoiceName').onclick=()=>{if(!isHost)return;const p=player(editId);const name=$('editVoiceName').value.trim()||p?.name||'球員';speak(`請${name}準備上場。`)};$('editRacket').addEventListener('input',()=>profileDirty.racket=true);$('editRacketTension').addEventListener('input',()=>profileDirty.racketTension=true);$('editRacketString').addEventListener('input',()=>profileDirty.racketString=true);$('editBackupRacket').addEventListener('input',()=>profileDirty.backupRacket=true);$('editBackupTension').addEventListener('input',()=>profileDirty.backupTension=true);$('editBackupString').addEventListener('input',()=>profileDirty.backupString=true);$('editNote').addEventListener('input',()=>profileDirty.note=true);$('editPhoto').onchange=async e=>{const file=e.target.files?.[0];if(!file)return;try{pendingAvatar=await compressPhoto(file);refreshProfilePreview()}catch(err){alert(err.message||'照片處理失敗')}e.target.value=''};$('removePhoto').onclick=()=>{pendingAvatar='';refreshProfilePreview()};$('saveEdit').onclick=saveEdit;$('deletePlayer').onclick=()=>{if(!confirm('刪除這位球員？'))return;state.roster=state.roster.filter(p=>p.id!==editId);state.attendance=state.attendance.filter(x=>x!==editId);state.court=state.court.filter(x=>x!==editId);state.waitingQueue=state.waitingQueue.filter(x=>x!==editId);state.queueDraftChosen=state.queueDraftChosen.filter(x=>x!==editId);$('editModal').classList.add('hidden');renderAll();saveSoon()};$('closeEdit').onclick=()=>$('editModal').classList.add('hidden');$('playerSearch').addEventListener('input',renderRoster);$('playerSort').addEventListener('change',renderRoster);document.addEventListener('dblclick',e=>e.preventDefault(),{passive:false});
 $('leaveBtn').addEventListener('click',()=>{liveScoreUnsubscribe?.();chatUnsubscribe?.()},{capture:true});
 $('sendChat').onclick=sendChatMessage;
+$('chatClaimHelp').onclick=()=>{
+  page(1);
+  alert('請點選自己的球員卡，再按「這是我／認領資料」。認領完成後，聊天室會固定使用該身分。');
+};
 $('chatMentionToggle').onclick=()=>{
   const panel=$('chatMentionPanel'),opening=panel.classList.contains('hidden');
   panel.classList.toggle('hidden',!opening);
@@ -1989,6 +1996,6 @@ const exitScoreBtn=$('exitScore');if(exitScoreBtn)exitScoreBtn.addEventListener(
 
 window.bcmMarkBooted?.();
 if('serviceWorker'in navigator&&location.protocol.startsWith('http')){
-  const swRevision='20260723-354';
+  const swRevision='20260723-355';
   navigator.serviceWorker.register(`./sw.js?v=${swRevision}`,{updateViaCache:'none'}).then(registration=>registration.update()).catch(()=>{});
 }
