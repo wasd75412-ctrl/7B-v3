@@ -22,8 +22,8 @@ export default async request=>{
   webpush.setVapidDetails(process.env.VAPID_SUBJECT||siteUrl,publicKey,privateKey);
   const payload=JSON.stringify({
     title:'7B 羽球社測試通知',
-    body:'通知設定成功！投票截止前一天會用同樣方式提醒你。',
-    url:`${siteUrl}/?room=${encodeURIComponent(roomId)}&page=poll`,
+    body:'通知設定成功！投票、球局公告與聊天室標記都會用這個方式提醒你。',
+    url:`${siteUrl}/?room=${encodeURIComponent(roomId)}`,
     icon:`${siteUrl}/icons/icon-192.png`,
     badge:`${siteUrl}/icons/icon-192.png`,
     tag:`7b-push-test-${Date.now()}`

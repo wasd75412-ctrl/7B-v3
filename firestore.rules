@@ -16,6 +16,10 @@ service cloud.firestore {
       match /liveScore/{scoreId} {
         allow read, write: if true;
       }
+
+      match /chatMessages/{messageId} {
+        allow read, write: if true;
+      }
     }
   }
 }
