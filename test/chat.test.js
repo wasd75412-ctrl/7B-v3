@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { chatMessageFromDocument, isFreshChatMessage } from '../netlify/functions/chat-mention.mjs';
+import { normalizeStoredChatMessage } from '../netlify/functions/chat-mention.mjs';
 import { CHAT_MESSAGE_MAX_LENGTH, chatMessagePreview, cleanChatText, normalizeChatMentionIds } from '../src/chat.js';
 
 test('cleans and limits chat messages',()=>{
@@ -20,26 +20,24 @@ test('creates a concise notification preview',()=>{
   assert.match(chatMessagePreview('訊息'.repeat(80)),/…$/);
 });
 
-test('reads authoritative chat mention data from Firestore',()=>{
-  assert.deepEqual(chatMessageFromDocument({fields:{
-    text:{stringValue:'@Yoyo 明天見'},
-    senderId:{stringValue:'p1'},
-    senderName:{stringValue:'建昱'},
-    senderHash:{stringValue:'device-1'},
-    mentions:{arrayValue:{values:[{stringValue:'p2'},{stringValue:'p2'},{stringValue:'p3'}]}},
-    createdAt:{timestampValue:'2026-07-23T08:00:00.000Z'}
-  }}),{
+test('normalizes authoritative stored chat messages',()=>{
+  assert.deepEqual(normalizeStoredChatMessage({
+    id:'message-1',
+    text:'@Yoyo 明天見',
+    senderId:'p1',
+    senderName:'建昱',
+    senderHash:'device-1',
+    mentions:['p2','p2','p3'],
+    createdAt:'2026-07-23T08:00:00.000Z',
+    clientCreatedAt:123
+  }),{
+    id:'message-1',
     text:'@Yoyo 明天見',
     senderId:'p1',
     senderName:'建昱',
     senderHash:'device-1',
     mentions:['p2','p3'],
-    createdAt:'2026-07-23T08:00:00.000Z'
+    createdAt:'2026-07-23T08:00:00.000Z',
+    clientCreatedAt:123
   });
-});
-
-test('only sends mention notifications for fresh chat messages',()=>{
-  const now=Date.parse('2026-07-23T08:10:00.000Z');
-  assert.equal(isFreshChatMessage({createdAt:'2026-07-23T08:00:00.000Z'},now),true);
-  assert.equal(isFreshChatMessage({createdAt:'2026-07-23T07:50:00.000Z'},now),false);
 });
