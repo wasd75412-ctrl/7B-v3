@@ -1,6 +1,10 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { shouldRequestNativeWakeLock, shouldStartPersistentVideoWakeLock, wakeLockButtonIntent, wakeLockControlIsActive } from '../src/wake-lock.js';
+import { readFileSync } from 'node:fs';
+import { shouldRequestNativeWakeLock, wakeLockButtonIntent, wakeLockControlIsActive } from '../src/wake-lock.js';
+
+const mainSource=readFileSync(new URL('../src/main.js',import.meta.url),'utf8');
+const packageSource=readFileSync(new URL('../package.json',import.meta.url),'utf8');
 
 test('retries a remembered wake lock instead of turning it off',()=>{
   assert.equal(wakeLockButtonIntent({wanted:true,active:false}),'retry');
@@ -11,20 +15,21 @@ test('toggles an active or intentionally disabled wake lock',()=>{
   assert.equal(wakeLockButtonIntent({wanted:false,active:false}),'enable');
 });
 
-test('starts the persistent video fallback on the first interaction on every device',()=>{
-  assert.equal(shouldStartPersistentVideoWakeLock({wanted:true,userActivated:true,videoActive:false}),true);
-  assert.equal(shouldStartPersistentVideoWakeLock({wanted:true,userActivated:false,videoActive:false}),false);
-  assert.equal(shouldStartPersistentVideoWakeLock({wanted:false,userActivated:true,videoActive:false}),false);
-  assert.equal(shouldStartPersistentVideoWakeLock({wanted:true,userActivated:true,videoActive:true}),false);
+test('allows an unsupported device to turn off a remembered wake lock preference',()=>{
+  assert.equal(wakeLockButtonIntent({wanted:true,active:false,supported:false}),'disable');
 });
 
-test('does not treat the video fallback as confirmed when native wake lock is supported',()=>{
-  assert.equal(wakeLockControlIsActive({nativeSupported:true,nativeActive:false,fallbackActive:true}),false);
-  assert.equal(wakeLockControlIsActive({nativeSupported:true,nativeActive:true,fallbackActive:true}),true);
-  assert.equal(wakeLockControlIsActive({nativeSupported:false,nativeActive:false,fallbackActive:true}),true);
+test('only treats a real native wake lock as active',()=>{
+  assert.equal(wakeLockControlIsActive({nativeActive:false}),false);
+  assert.equal(wakeLockControlIsActive({nativeActive:true}),true);
 });
 
-test('keeps requesting native wake lock even while the video fallback is playing',()=>{
+test('does not create or bundle a video-based wake lock fallback',()=>{
+  assert.doesNotMatch(mainSource,/createElement\(['"]video['"]\)|nosleep|fallbackNoSleep/i);
+  assert.doesNotMatch(packageSource,/nosleep/i);
+});
+
+test('keeps requesting the native wake lock when it is missing',()=>{
   assert.equal(shouldRequestNativeWakeLock({wanted:true,nativeSupported:true,nativeActive:false,requestPending:false}),true);
   assert.equal(shouldRequestNativeWakeLock({wanted:true,nativeSupported:true,nativeActive:true,requestPending:false}),false);
   assert.equal(shouldRequestNativeWakeLock({wanted:true,nativeSupported:true,nativeActive:false,requestPending:true}),false);

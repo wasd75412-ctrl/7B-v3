@@ -1,6 +1,5 @@
 import { initializeApp } from 'firebase/app';
 import { initializeFirestore, persistentLocalCache, persistentMultipleTabManager, doc, getDoc, onSnapshot, setDoc, serverTimestamp, runTransaction, collection, getDocs, deleteDoc, query, orderBy, limit } from 'firebase/firestore';
-import noSleepMedia from 'nosleep.js/src/media.js';
 import appPackage from '../package.json';
 import { calculatePerPersonFee, shouldShowNextEventAnnouncement } from './next-event.js';
 import { shouldShowNotificationPrompt } from './notifications.js';
@@ -8,7 +7,7 @@ import { normalizeMatchReplayTitle, normalizeYouTubePlaylistUrl } from './youtub
 import { DEFAULT_SCORE_REMOTE_BINDINGS, VIRTUAL_REMOTE_CLICK_CODE, advanceRemotePressState, assignRemoteBinding, isEditableRemoteTarget, normalizeRemoteBindings, remoteActionForCode, remoteEventCode, shouldHandleRemoteInput } from './score-remote.js';
 import { createLiveScoreData, decodeLiveMatch, liveMatchKey, shouldAnnounceSyncedLiveScore } from './live-score.js';
 import { canAutoSyncPlayerIdentity } from './device-sync.js';
-import { shouldRequestNativeWakeLock, shouldStartPersistentVideoWakeLock, wakeLockButtonIntent, wakeLockControlIsActive } from './wake-lock.js';
+import { shouldRequestNativeWakeLock, wakeLockButtonIntent, wakeLockControlIsActive } from './wake-lock.js';
 import { arrangeTeamsWithTeammateLimit, lineupExceedsTeammateLimit } from './team-rotation.js';
 import { CHAT_MENTION_ALL_ID, CHAT_MESSAGE_MAX_LENGTH, addPlayerOwnerHash, chatMentionSearch, claimedChatPlayerId, cleanChatText, hasChatAllMention, mentionIdsFromText, normalizeChatMentionIds, playerOwnerHashes, removeChatAllMention, removeChatMention } from './chat.js';
 import { adminRoleButtonState, resolveAdminSessionToken } from './admin-role.js';
@@ -1365,37 +1364,12 @@ function gamePoint(){const m=state.match;if(m.winner!==null)return false;for(let
 function currentResultKey(){const m=state.match;if(m.winner===null)return'';return m.matchId||[m.winner,(m.scores||[]).join('-'),...(m.players||[]).flat()].join('|')}
 function setServingPlayer(team,playerIndex){const m=state.match;if(!isHost||!m.active||m.winner!==null)return;m.serving=team;const serverSide=m.scores[team]%2===0?1:0;const positions=m.positions[team]||[0,1];const currentSide=positions.indexOf(playerIndex);if(currentSide!==serverSide&&currentSide>=0){const other=positions[serverSide];positions[serverSide]=playerIndex;positions[currentSide]=other;m.positions[team]=positions}renderScore();saveLiveScoreSoon()}
 const hasNativeWakeLock=()=>!!navigator.wakeLock?.request;
-function createVideoWakeLock(){
-  const video=document.createElement('video');
-  video.setAttribute('title','螢幕恆亮備援');
-  video.setAttribute('aria-hidden','true');
-  video.setAttribute('playsinline','');
-  video.setAttribute('webkit-playsinline','');
-  video.setAttribute('loop','');
-  video.setAttribute('preload','auto');
-  video.loop=true;
-  video.preload='auto';
-  video.style.cssText='position:fixed;width:1px;height:1px;left:0;bottom:0;opacity:.01;pointer-events:none;z-index:-1';
-  for(const type of ['webm','mp4']){const source=document.createElement('source');source.src=noSleepMedia[type];source.type=`video/${type}`;video.appendChild(source)}
-  video.addEventListener('loadedmetadata',()=>{if(video.duration<=1)video.loop=true});
-  video.addEventListener('timeupdate',()=>{if(video.duration>1&&video.currentTime>.5)video.currentTime=Math.random()*.4});
-  let enabled=false;
-  video.addEventListener('playing',()=>{enabled=true});
-  video.addEventListener('pause',()=>{enabled=false});
-  document.body.appendChild(video);
-  return{
-    get isEnabled(){return enabled&&!video.paused},
-    async enable(){await video.play();enabled=true},
-    disable(){video.pause();enabled=false}
-  };
-}
-const fallbackNoSleep=createVideoWakeLock();
 const APP_WAKE_LOCK_KEY='bcmWakeLockEnabledV1';
 let appWakeLockWanted=localStorage.getItem(APP_WAKE_LOCK_KEY)!=='0';
-let appWakeLock=null,appWakeLockRequest=null,fallbackWakeLockRequest=null,appWakeLockRetryTimer=null,appWakeLockLastError='';
+let appWakeLock=null,appWakeLockRequest=null,appWakeLockRetryTimer=null,appWakeLockLastError='';
 let appWakeLockNeedsGesture=false;
 function nativeWakeLockActive(){return !!appWakeLock&&!appWakeLock.released}
-function appWakeLockProtected(){return wakeLockControlIsActive({nativeSupported:hasNativeWakeLock(),nativeActive:nativeWakeLockActive(),fallbackActive:fallbackNoSleep.isEnabled})}
+function appWakeLockProtected(){return wakeLockControlIsActive({nativeActive:nativeWakeLockActive()})}
 function describeWakeLockError(error){
   if(error?.name==='NotAllowedError')return'iPad 拒絕螢幕恆亮。請關閉低耗電模式，再點一次重試。';
   if(error?.name==='NotSupportedError')return'目前的 iPadOS 或開啟方式不支援真正恆亮，請更新 iPadOS 後重試。';
@@ -1404,24 +1378,16 @@ function describeWakeLockError(error){
 function renderAppWakeLockStatus(){
   const button=$('wakeLockBtn'),feedback=$('wakeLockFeedback');
   if(!button)return;
-  const nativeSupported=hasNativeWakeLock(),nativeActive=nativeWakeLockActive(),fallbackActive=fallbackNoSleep.isEnabled;
-  const active=appWakeLockWanted&&appWakeLockProtected(),pending=appWakeLockWanted&&(!!appWakeLockRequest||!!fallbackWakeLockRequest);
+  const nativeSupported=hasNativeWakeLock(),nativeActive=nativeWakeLockActive();
+  const active=appWakeLockWanted&&appWakeLockProtected(),pending=appWakeLockWanted&&!!appWakeLockRequest;
   button.setAttribute('aria-pressed',active?'true':'false');
   button.setAttribute('aria-busy',pending?'true':'false');
-  button.textContent=!appWakeLockWanted?'🌙 恆亮已關閉（點擊開啟）':nativeActive?'☀️ 恆亮已開啟（點擊關閉）':pending?'☀️ 正在啟用恆亮…':nativeSupported?'⚠️ 恆亮未成功（點擊重試）':fallbackActive?'☀️ 恆亮備援已開啟（點擊關閉）':appWakeLockNeedsGesture?'☀️ 恆亮待啟用（點一下畫面）':'☀️ 點擊開啟螢幕恆亮';
+  button.textContent=!appWakeLockWanted?'🌙 恆亮已關閉（點擊開啟）':!nativeSupported?'🚫 此裝置不支援原生恆亮（點擊關閉）':nativeActive?'☀️ 恆亮已開啟（點擊關閉）':pending?'☀️ 正在啟用恆亮…':appWakeLockNeedsGesture?'☀️ 恆亮待啟用（點一下畫面）':'⚠️ 恆亮未成功（點擊重試）';
   button.title=!appWakeLockWanted?'點擊開啟螢幕恆亮':active?'點擊關閉螢幕恆亮':'點擊重新啟用螢幕恆亮';
   if(feedback){
-    feedback.className=`wake-lock-feedback ${nativeActive?'success':appWakeLockWanted&&appWakeLockLastError?'error':pending||fallbackActive?'pending':''}`;
-    feedback.textContent=!appWakeLockWanted?'已關閉；iPad 將依系統設定熄屏。':nativeActive?'✅ iPad 已確認螢幕恆亮，畫面不會自動變暗。':nativeSupported&&fallbackActive?`⚠️ 目前只有影片備援，尚未取得真正恆亮。${appWakeLockLastError||'請再點一次重試。'}`:active?'⚠️ 此 iPadOS 僅能使用影片備援，仍可能依系統設定熄屏。':appWakeLockLastError?`⚠️ 尚未啟用：${appWakeLockLastError}`:appWakeLockNeedsGesture?'請在畫面任一處點一下，即會自動恢復恆亮。':pending?'正在向 iPad 取得螢幕恆亮權限…':'尚未啟用；請點上方按鈕。';
+    feedback.className=`wake-lock-feedback ${nativeActive?'success':appWakeLockWanted&&(!nativeSupported||appWakeLockLastError)?'error':pending?'pending':''}`;
+    feedback.textContent=!appWakeLockWanted?'已關閉；iPad 將依系統設定熄屏。':!nativeSupported?'此裝置或目前的開啟方式不支援原生螢幕恆亮，請改用系統的「自動鎖定」設定。':nativeActive?'✅ iPad 已確認螢幕恆亮，畫面不會自動變暗。':appWakeLockLastError?`⚠️ 尚未啟用：${appWakeLockLastError}`:appWakeLockNeedsGesture?'請在畫面任一處點一下，系統會再次要求原生恆亮。':pending?'正在向 iPad 取得螢幕恆亮權限…':'尚未啟用；請點上方按鈕。';
   }
-}
-function enableFallbackWakeLock(){
-  if(!appWakeLockWanted)return Promise.resolve(false);
-  if(fallbackNoSleep.isEnabled)return Promise.resolve(true);
-  if(fallbackWakeLockRequest)return fallbackWakeLockRequest;
-  fallbackWakeLockRequest=fallbackNoSleep.enable().then(()=>{if(!appWakeLockWanted){fallbackNoSleep.disable();return false}appWakeLockLastError='';appWakeLockNeedsGesture=false;return true}).catch(()=>{appWakeLockNeedsGesture=true;appWakeLockLastError='iPad 未允許防熄屏，請關閉低耗電模式後再點一次。';return false}).finally(()=>{fallbackWakeLockRequest=null;renderAppWakeLockStatus()});
-  renderAppWakeLockStatus();
-  return fallbackWakeLockRequest;
 }
 function scheduleAppWakeLockRetry(delay=1200){
   clearTimeout(appWakeLockRetryTimer);
@@ -1434,51 +1400,43 @@ async function releaseAppWakeLock(){
   const lock=appWakeLock;
   appWakeLock=null;
   if(lock&&!lock.released){try{await lock.release()}catch{}}
-  if(fallbackNoSleep.isEnabled){try{fallbackNoSleep.disable()}catch{}}
-  if(appWakeLockWanted&&!hasNativeWakeLock())appWakeLockNeedsGesture=true;
   renderAppWakeLockStatus();
 }
 async function syncAppWakeLock(userActivated=false){
   if(!appWakeLockWanted){await releaseAppWakeLock();return}
   if(document.hidden){await releaseAppWakeLock();return}
-  const startPersistentVideo=shouldStartPersistentVideoWakeLock({wanted:appWakeLockWanted,userActivated,videoActive:fallbackNoSleep.isEnabled});
   if(nativeWakeLockActive()){
-    if(startPersistentVideo)void enableFallbackWakeLock();
     renderAppWakeLockStatus();
     return
   }
   if(appWakeLockRequest){
-    if(startPersistentVideo)void enableFallbackWakeLock();
     renderAppWakeLockStatus();
     try{await appWakeLockRequest}catch{}
-    if(fallbackWakeLockRequest)await fallbackWakeLockRequest;
     return;
   }
   if(!hasNativeWakeLock()){
-    if(!userActivated&&appWakeLockNeedsGesture){renderAppWakeLockStatus();return}
+    appWakeLockNeedsGesture=false;
     appWakeLockLastError='';
-    await enableFallbackWakeLock();
+    renderAppWakeLockStatus();
     return;
   }
+  if(appWakeLockNeedsGesture&&!userActivated){renderAppWakeLockStatus();return}
   appWakeLockRequest=navigator.wakeLock.request('screen');
-  const fallbackAttempt=startPersistentVideo?enableFallbackWakeLock():Promise.resolve(fallbackNoSleep.isEnabled);
   renderAppWakeLockStatus();
   try{
     const lock=await appWakeLockRequest;
     if(document.hidden||!appWakeLockWanted){await lock.release();return}
     appWakeLock=lock;
     appWakeLockLastError='';
-    const fallbackEnabled=await fallbackAttempt;
-    appWakeLockNeedsGesture=!fallbackEnabled;
+    appWakeLockNeedsGesture=false;
     lock.addEventListener('release',()=>{
       if(appWakeLock===lock)appWakeLock=null;
       renderAppWakeLockStatus();
       scheduleAppWakeLockRetry();
     },{once:true});
   }catch(error){
-    const fallbackEnabled=fallbackAttempt?await fallbackAttempt:false;
     appWakeLockLastError=describeWakeLockError(error);
-    appWakeLockNeedsGesture=!fallbackEnabled;
+    appWakeLockNeedsGesture=true;
     console.warn('無法保持 App 螢幕亮起',error)
   }
   finally{appWakeLockRequest=null;renderAppWakeLockStatus()}
@@ -1493,7 +1451,7 @@ window.addEventListener('focus',()=>scheduleAppWakeLockRetry(100));
 window.addEventListener('pageshow',()=>scheduleAppWakeLockRetry(100));
 window.addEventListener('pagehide',()=>{void releaseAppWakeLock()});
 $('wakeLockBtn').onclick=async()=>{
-  const intent=wakeLockButtonIntent({wanted:appWakeLockWanted,active:appWakeLockProtected()});
+  const intent=wakeLockButtonIntent({wanted:appWakeLockWanted,active:appWakeLockProtected(),supported:hasNativeWakeLock()});
   if(intent==='retry'){
     appWakeLockLastError='';
     await syncAppWakeLock(true);
@@ -1509,8 +1467,7 @@ $('wakeLockBtn').onclick=async()=>{
 };
 setInterval(()=>{
   const shouldRetryNative=shouldRequestNativeWakeLock({wanted:appWakeLockWanted,hidden:document.hidden,nativeSupported:hasNativeWakeLock(),nativeActive:nativeWakeLockActive(),requestPending:!!appWakeLockRequest});
-  const shouldRetryFallback=appWakeLockWanted&&!document.hidden&&!hasNativeWakeLock()&&!fallbackNoSleep.isEnabled;
-  if(shouldRetryNative||shouldRetryFallback)void syncAppWakeLock();
+  if(shouldRetryNative)void syncAppWakeLock();
 },15000);
 void syncAppWakeLock();
 function renderScore(){
@@ -2191,6 +2148,6 @@ const exitScoreBtn=$('exitScore');if(exitScoreBtn)exitScoreBtn.addEventListener(
 
 window.bcmMarkBooted?.();
 if('serviceWorker'in navigator&&location.protocol.startsWith('http')){
-  const swRevision='20260724-359';
+  const swRevision='20260725-360';
   navigator.serviceWorker.register(`./sw.js?v=${swRevision}`,{updateViaCache:'none'}).then(registration=>registration.update()).catch(()=>{});
 }
