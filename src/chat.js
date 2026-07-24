@@ -3,10 +3,27 @@ export const CHAT_MENTION_MAX_COUNT=8;
 export const CHAT_MENTION_ALL_ID='__all__';
 const escapeRegExp=value=>String(value).replace(/[.*+?^${}()|[\]\\]/g,'\\$&');
 
+export function playerOwnerHashes(player={}){
+  const stored=Array.isArray(player?.ownerHashes)
+    ?player.ownerHashes
+    :String(player?.ownerHashes||'').split('|');
+  return [...new Set([
+    player?.ownerHash,
+    ...stored
+  ].map(value=>String(value||'').trim()).filter(Boolean))];
+}
+
+export function addPlayerOwnerHash(player={},clientHash='',maxCount=8){
+  const hash=String(clientHash||'').trim();
+  if(!hash)return{...player};
+  const hashes=[...playerOwnerHashes(player).filter(value=>value!==hash),hash].slice(-Math.max(1,maxCount));
+  return{...player,ownerHash:player.ownerHash||hash,ownerHashes:hashes};
+}
+
 export function claimedChatPlayerId(players=[],clientHash=''){
   const hash=String(clientHash||'').trim();
   if(!hash)return'';
-  return players.find(player=>player?.id&&String(player.ownerHash||'')===hash)?.id||'';
+  return players.find(player=>player?.id&&playerOwnerHashes(player).includes(hash))?.id||'';
 }
 
 export function cleanChatText(value,maxLength=CHAT_MESSAGE_MAX_LENGTH){

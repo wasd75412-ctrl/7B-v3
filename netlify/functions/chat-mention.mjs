@@ -1,7 +1,7 @@
 import { createHash, randomUUID } from 'node:crypto';
 import { getStore } from '@netlify/blobs';
 import webpush from 'web-push';
-import { chatMessagePreview, cleanChatText, hasChatAllMention, normalizeChatMentionIds } from '../../src/chat.js';
+import { chatMessagePreview, cleanChatText, hasChatAllMention, normalizeChatMentionIds, playerOwnerHashes } from '../../src/chat.js';
 import { PUSH_STORE, cleanText, jsonResponse, validRoomId, validSubscription } from './lib/push-shared.mjs';
 
 const CHAT_STORE='7b-room-chat';
@@ -23,7 +23,7 @@ function decodeFirestoreValue(value={}){
 export function claimedChatSenderFromDocument(document,{senderId='',senderHash=''}={}){
   const roster=decodeFirestoreValue(document?.fields?.roster);
   if(!Array.isArray(roster)||!senderId||!senderHash)return null;
-  const sender=roster.find(player=>player?.id===senderId&&player?.ownerHash===senderHash);
+  const sender=roster.find(player=>player?.id===senderId&&playerOwnerHashes(player).includes(senderHash));
   if(!sender?.name)return null;
   return{senderId:cleanText(sender.id,128),senderName:cleanText(sender.name,40),senderHash};
 }

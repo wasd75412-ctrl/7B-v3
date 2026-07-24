@@ -3565,6 +3565,151 @@ body>.modal .modal-card :is(.profile-panel,.profile-section,.stat-box,.health-bo
 .chat-status.warning{color:#ffc274}
 .chat-status.error{color:#ff91a5}
 .chat-status.pending{color:rgb(var(--sport-tint-rgb))}
+
+/* BCM 2.4.25 — viewer attendance and shuttle tube management */
+#app #attendance .person.attendance-mine{
+  cursor:pointer;
+  box-shadow:0 0 0 2px rgba(var(--sport-tint-rgb),.18),0 13px 28px rgba(0,20,34,.22)
+}
+#app #attendance .person.attendance-locked{
+  cursor:default;
+  opacity:.56;
+  filter:saturate(.68)
+}
+#app #attendance .person.attendance-locked:hover{transform:none}
+.attendance-self-state{
+  display:block;
+  margin-top:5px;
+  color:rgb(var(--sport-tint-rgb));
+  font-size:.76rem;
+  font-weight:900
+}
+#app #attendance .person.selected .attendance-self-state{color:#9af1cd}
+.shuttle-tube-manager{width:min(880px,100%)}
+.shuttle-tube-head,.shuttle-current-head{
+  display:flex;
+  align-items:flex-start;
+  justify-content:space-between;
+  gap:16px
+}
+.shuttle-tube-head h2,.shuttle-current-head h3{margin:3px 0 5px}
+.shuttle-tube-create{
+  display:grid;
+  grid-template-columns:minmax(0,1.5fr) minmax(140px,.65fr) auto;
+  gap:12px;
+  align-items:end;
+  margin:18px 0;
+  padding:15px;
+  border:1px solid rgba(var(--sport-tint-rgb),.22);
+  border-radius:18px;
+  background:rgba(var(--sport-tint-rgb),.06)
+}
+.shuttle-tube-list{display:grid;gap:14px}
+.shuttle-tube-empty{
+  display:grid;
+  gap:6px;
+  place-items:center;
+  min-height:180px;
+  padding:22px;
+  border:1px dashed rgba(var(--sport-tint-rgb),.34);
+  border-radius:20px;
+  color:var(--sport-muted);
+  text-align:center
+}
+.shuttle-tube-empty strong{color:var(--sport-ink);font-size:1.12rem}
+.shuttle-tube-current{
+  padding:17px;
+  border:1px solid rgba(var(--sport-tint-rgb),.30);
+  border-radius:22px;
+  background:radial-gradient(circle at 94% 0,rgba(var(--sport-tint-rgb),.18),transparent 38%),linear-gradient(145deg,rgba(var(--sport-tint-rgb),.08),rgba(2,20,34,.78))
+}
+.shuttle-current-label{
+  display:inline-flex;
+  padding:5px 9px;
+  border-radius:999px;
+  background:rgba(var(--sport-tint-rgb),.18);
+  color:rgb(var(--sport-tint-rgb));
+  font-size:.72rem;
+  font-weight:1000
+}
+.shuttle-current-head p{margin:0;color:var(--sport-muted);font-weight:850}
+.shuttle-metrics{
+  display:grid;
+  grid-template-columns:repeat(3,1fr);
+  gap:9px;
+  margin:15px 0
+}
+.shuttle-metrics span{
+  padding:11px;
+  border:1px solid rgba(var(--sport-tint-rgb),.16);
+  border-radius:15px;
+  background:rgba(1,14,24,.42);
+  color:var(--sport-muted);
+  font-size:.78rem;
+  font-weight:850;
+  text-align:center
+}
+.shuttle-metrics strong{display:block;color:var(--sport-ink);font-size:1.4rem}
+.shuttle-legend{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px}
+.shuttle-legend span{padding:5px 8px;border-radius:999px;font-size:.7rem;font-weight:900}
+.shuttle-legend .paid-waiting{background:rgba(250,185,62,.17);color:#ffd67d}
+.shuttle-legend .paid-played{background:rgba(58,210,143,.16);color:#83efbd}
+.shuttle-legend .unpaid{background:rgba(150,170,185,.12);color:#aebdca}
+.shuttle-player-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px}
+.shuttle-player{
+  display:grid;
+  grid-template-columns:auto 1fr auto;
+  align-items:center;
+  gap:10px;
+  padding:11px;
+  border:1px solid rgba(151,174,191,.18);
+  border-radius:16px;
+  background:rgba(4,25,40,.64);
+  color:var(--sport-ink);
+  text-align:left;
+  cursor:pointer
+}
+.shuttle-player>span{min-width:0}
+.shuttle-player strong,.shuttle-player small{display:block}
+.shuttle-player small{margin-top:3px;color:var(--sport-muted);font-size:.72rem;font-weight:800}
+.shuttle-player>b{font-size:1.15rem}
+.shuttle-player.paid-waiting{
+  border-color:rgba(250,185,62,.58);
+  background:linear-gradient(135deg,rgba(119,76,6,.50),rgba(63,44,13,.58));
+  box-shadow:0 0 18px rgba(250,185,62,.08)
+}
+.shuttle-player.paid-waiting small,.shuttle-player.paid-waiting>b{color:#ffd67d}
+.shuttle-player.paid-played{
+  border-color:rgba(58,210,143,.64);
+  background:linear-gradient(135deg,rgba(12,91,64,.62),rgba(4,53,43,.72));
+  box-shadow:0 0 18px rgba(58,210,143,.10)
+}
+.shuttle-player.paid-played small,.shuttle-player.paid-played>b{color:#83efbd}
+.shuttle-history-section{display:grid;gap:8px;margin-top:4px}
+.shuttle-history-section h3{margin:5px 0}
+.shuttle-tube-history{
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  gap:12px;
+  padding:12px 14px;
+  border:1px solid rgba(var(--sport-tint-rgb),.16);
+  border-radius:15px;
+  background:rgba(3,24,40,.56);
+  color:var(--sport-muted);
+  font-size:.8rem;
+  font-weight:850
+}
+.shuttle-tube-history strong{display:block;color:var(--sport-ink);font-size:.95rem}
+.shuttle-tube-history div span{display:block;margin-top:3px}
+@media(max-width:700px){
+  .shuttle-tube-head,.shuttle-current-head{align-items:stretch;flex-direction:column}
+  .shuttle-tube-create{grid-template-columns:1fr}
+  .shuttle-tube-create .btn,.shuttle-current-head .btn{width:100%}
+  .shuttle-metrics{grid-template-columns:1fr}
+  .shuttle-player-grid{grid-template-columns:1fr}
+  .shuttle-tube-history{align-items:flex-start;flex-direction:column}
+}
 .chat-composer-foot .btn{min-width:96px}
 @media(max-width:680px){
   .chat-page{padding:15px}
