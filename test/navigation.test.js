@@ -14,8 +14,19 @@ test('keeps chat in primary navigation and removes backup from it',()=>{
   assert.doesNotMatch(nav,/data-page="7"/);
 });
 
+test('places chat second and marks court as hidden for viewers',()=>{
+  const pages=[...nav.matchAll(/data-page="(\d+)"/g)].map(match=>match[1]);
+  assert.deepEqual(pages.slice(0,2),['0','8']);
+  assert.match(nav,/class="tab viewer-hidden-tab" data-page="3">場上/);
+});
+
 test('opens backup center from the more menu',()=>{
   assert.match(html,/id="backupCenterBtn"[^>]*>☁️ 備份中心<\/button>/);
+});
+
+test('opens admin shuttle tube management from the more menu',()=>{
+  assert.match(html,/id="shuttleTubeManagerBtn"[^>]*host-only[^>]*>🏸 球桶管理<\/button>/);
+  assert.match(html,/id="shuttleTubeModal"/);
 });
 
 test('chat identity is claimed and cannot be selected from a player list',()=>{

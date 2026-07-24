@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { claimedChatSenderFromDocument, normalizeStoredChatMessage, shouldNotifyChatSubscription } from '../netlify/functions/chat-mention.mjs';
-import { claimedChatPlayerId, CHAT_MESSAGE_MAX_LENGTH, chatMentionSearch, chatMessagePreview, cleanChatText, hasChatAllMention, mentionIdsFromText, normalizeChatMentionIds, removeChatAllMention, removeChatMention } from '../src/chat.js';
+import { addPlayerOwnerHash, claimedChatPlayerId, CHAT_MESSAGE_MAX_LENGTH, chatMentionSearch, chatMessagePreview, cleanChatText, hasChatAllMention, mentionIdsFromText, normalizeChatMentionIds, playerOwnerHashes, removeChatAllMention, removeChatMention } from '../src/chat.js';
 
 test('cleans and limits chat messages',()=>{
   assert.equal(cleanChatText('  大家好\r\n明天見  '),'大家好\n明天見');
@@ -23,6 +23,13 @@ test('only uses the player claimed by this device for chat',()=>{
   assert.equal(claimedChatPlayerId(players,'device-1'),'claimed');
   assert.equal(claimedChatPlayerId(players,'device-3'),'');
   assert.equal(claimedChatPlayerId(players,''),'');
+});
+
+test('keeps multiple claimed devices for the same player',()=>{
+  const player=addPlayerOwnerHash({id:'p1',name:'建昱',ownerHash:'device-1'},'device-2');
+  assert.deepEqual(playerOwnerHashes(player),['device-1','device-2']);
+  assert.equal(claimedChatPlayerId([player],'device-1'),'p1');
+  assert.equal(claimedChatPlayerId([player],'device-2'),'p1');
 });
 
 test('creates a concise notification preview',()=>{
@@ -110,4 +117,11 @@ test('server accepts only the player claimed by the supplied device identity',()
     senderHash:'device-1'
   });
   assert.equal(claimedChatSenderFromDocument(document,{senderId:'p2',senderHash:'device-1'}),null);
+});
+
+test('server accepts a secondary claimed device without removing the original device',()=>{
+  const document={fields:{roster:{arrayValue:{values:[
+    {mapValue:{fields:{id:{stringValue:'p1'},name:{stringValue:'建昱'},ownerHash:{stringValue:'device-1'},ownerHashes:{stringValue:'device-1|device-2'}}}}
+  ]}}}};
+  assert.equal(claimedChatSenderFromDocument(document,{senderId:'p1',senderHash:'device-2'})?.senderName,'建昱');
 });
