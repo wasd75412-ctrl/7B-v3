@@ -1060,21 +1060,20 @@ async function saveNextEventEdits(){
   if(!participantCount)return alert('請填寫預計參與總人數。');
   const summary=`${formatEventDate(date,time,endTime)}\n${location}${note?`\n場地備註：${note}`:''}\n預計 ${participantCount} 人｜每人 ${formatMoney(perPersonFee)} 元`;
   if(!confirm(`確定更新下一次打球公告？\n\n${summary}`))return;
-  const button=$('saveNextEventEdits'),previous={...state.nextEvent},publishedAt=new Date().toISOString();
+  const button=$('saveNextEventEdits'),previous={...state.nextEvent};
   button.disabled=true;button.textContent='正在儲存…';
-  state.nextEvent={...previous,date,time,endTime,location,note,rentalTotal,participantCount,perPersonFee,publishedAt};
+  state.nextEvent={...previous,date,time,endTime,location,note,rentalTotal,participantCount,perPersonFee,publishedAt:previous.publishedAt||new Date().toISOString()};
   renderDashboard();renderPoll();
   try{
     await saveNow();
     closeNextEventEditor();
-    const pushMessage=await nextEventPushMessage(publishedAt);
-    alert(`下一次打球公告已更新。\n預計參與 ${participantCount} 人，每人需繳 ${formatMoney(perPersonFee)} 元。${pushMessage}`);
+    alert(`下一次打球公告已更新，不會再次發送通知。\n預計參與 ${participantCount} 人，每人需繳 ${formatMoney(perPersonFee)} 元。`);
   }catch(error){
     state.nextEvent=previous;
     renderDashboard();renderPoll();
     alert(`公告更新失敗：${formatError(error)}`);
   }finally{
-    button.disabled=false;button.textContent='儲存並通知球友';
+    button.disabled=false;button.textContent='儲存公告';
   }
 }
 async function confirmNextEvent(){
@@ -2335,6 +2334,6 @@ const exitScoreBtn=$('exitScore');if(exitScoreBtn)exitScoreBtn.addEventListener(
 
 window.bcmMarkBooted?.();
 if('serviceWorker'in navigator&&location.protocol.startsWith('http')){
-  const swRevision='20260726-364';
+  const swRevision='20260726-365';
   navigator.serviceWorker.register(`./sw.js?v=${swRevision}`,{updateViaCache:'none'}).then(registration=>registration.update()).catch(()=>{});
 }
