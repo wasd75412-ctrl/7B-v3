@@ -55,3 +55,9 @@ test('chat keeps its composer visible above mobile keyboards',()=>{
   assert.match(styles,/html\.chat-keyboard-open \.chat-composer/);
   assert.match(styles,/--chat-keyboard-offset/);
 });
+
+test('chat preserves unchanged media elements between sync polls',()=>{
+  assert.match(mainSource,/const nextMessagesRenderKey=currentChatMessagesRenderKey\(\),messagesChanged=/);
+  assert.match(mainSource,/if\(messagesChanged\)list\.innerHTML=chatMessages\.map/);
+  assert.match(mainSource,/messagesChanged&&wasNearBottom/);
+});
