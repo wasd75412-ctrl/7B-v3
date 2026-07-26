@@ -47,10 +47,11 @@ test('chat identity is claimed and cannot be selected from a player list',()=>{
 });
 
 test('chat supports image, GIF and short-video attachments',()=>{
-  assert.match(html,/id="chatAttach"/);
-  assert.match(html,/id="chatMediaFile"[^>]*accept="[^"]*image\/gif[^"]*video\/mp4/);
+  assert.match(html,/<label id="chatAttach"[^>]*>[\s\S]*id="chatMediaFile"[^>]*accept="[^"]*image\/gif[^"]*video\/mp4/);
   assert.match(html,/id="chatMediaPreview"/);
   assert.match(mainSource,/uploadChatMedia/);
+  assert.doesNotMatch(mainSource,/\$\('chatAttach'\)\.onclick=.*chatMediaFile.*click/);
+  assert.match(styles,/\.chat-media-file\{[\s\S]*position:absolute/);
 });
 
 test('chat renders optimistic messages before the network request completes',()=>{

@@ -693,9 +693,17 @@ function clearChatPendingMedia({revoke=true}={}){
   chatPendingMedia=null;
   renderChatMediaPreview();
 }
+function setChatAttachDisabled(disabled){
+  const attach=$('chatAttach'),file=$('chatMediaFile');
+  if(attach){
+    attach.classList.toggle('is-disabled',disabled);
+    attach.setAttribute('aria-disabled',disabled?'true':'false');
+  }
+  if(file)file.disabled=disabled;
+}
 function renderChatMediaPreview(){
   const preview=$('chatMediaPreview'),attach=$('chatAttach');if(!preview)return;
-  if(attach)attach.disabled=!selectedChatPlayerId()||chatSendRunning;
+  if(attach)setChatAttachDisabled(!selectedChatPlayerId()||chatSendRunning);
   if(!chatPendingMedia){preview.classList.add('hidden');preview.innerHTML='';return}
   const media=chatPendingMedia,visual=media.kind==='video'
     ?`<video src="${esc(media.previewUrl)}" muted playsinline preload="metadata"></video>`
@@ -879,7 +887,7 @@ function renderChat(){
     composer.disabled=!claimedPlayer;
     composer.placeholder=claimedPlayer?'輸入 @ 標記球友，或輸入 @All 通知所有人':'請先認領自己的球員資料';
   }
-  if($('chatAttach'))$('chatAttach').disabled=!claimedPlayer||chatSendRunning;
+  setChatAttachDisabled(!claimedPlayer||chatSendRunning);
   if(mentionButton)mentionButton.disabled=!claimedPlayer;
   if(!claimedPlayer){
     chatMentionIds.clear();
@@ -2102,7 +2110,6 @@ $('chatMentionToggle').onclick=()=>{
   $('chatMentionToggle').setAttribute('aria-expanded',opening?'true':'false');
   if(opening)renderChatMentionList();
 };
-$('chatAttach').onclick=()=>$('chatMediaFile').click();
 $('chatMediaFile').addEventListener('change',event=>{
   const file=event.target.files?.[0];event.target.value='';
   if(file)void chooseChatMedia(file);
@@ -2328,6 +2335,6 @@ const exitScoreBtn=$('exitScore');if(exitScoreBtn)exitScoreBtn.addEventListener(
 
 window.bcmMarkBooted?.();
 if('serviceWorker'in navigator&&location.protocol.startsWith('http')){
-  const swRevision='20260726-363';
+  const swRevision='20260726-364';
   navigator.serviceWorker.register(`./sw.js?v=${swRevision}`,{updateViaCache:'none'}).then(registration=>registration.update()).catch(()=>{});
 }
