@@ -312,7 +312,7 @@
 </div></div>
 
 <div id="nextEventEditModal" class="modal hidden"><div class="modal-card next-event-editor">
-  <div class="next-event-editor-head"><div><h2>編輯下一次打球公告</h2><p class="sub">臨時增減人數後，每人費用會依場租重新計算。</p></div><button id="closeNextEventEditor" class="btn" type="button">關閉</button></div>
+  <div class="next-event-editor-head"><div><h2>編輯下一次打球公告</h2><p class="sub">臨時增減人數後，每人費用會依場租重新計算；儲存修改不會再次發送通知。</p></div><button id="closeNextEventEditor" class="btn" type="button">關閉</button></div>
   <div class="next-event-edit-grid">
     <label class="field"><span>打球日期</span><input id="editNextEventDate" class="input" type="date"></label>
     <label class="field"><span>開始時間</span><input id="editNextEventTime" class="input" type="time"></label>
@@ -324,7 +324,7 @@
     <label class="field next-event-edit-note"><span>場地／場號備註（選填）</span><input id="editNextEventNote" class="input" maxlength="120" placeholder="例如：3、4 號場；請提前 10 分鐘到"></label>
   </div>
   <div id="editNextEventFeeHint" class="confirm-fee-hint"></div>
-  <div class="next-event-editor-actions"><button id="saveNextEventEdits" class="btn primary" type="button">儲存並通知球友</button><button id="cancelNextEventEdits" class="btn" type="button">取消</button></div>
+  <div class="next-event-editor-actions"><button id="saveNextEventEdits" class="btn primary" type="button">儲存公告</button><button id="cancelNextEventEdits" class="btn" type="button">取消</button></div>
 </div></div>
 
 <div id="pushPromptModal" class="modal hidden"><div class="modal-card push-prompt-card">

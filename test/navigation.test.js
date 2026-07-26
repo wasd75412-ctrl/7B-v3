@@ -71,3 +71,10 @@ test('chat preserves unchanged media elements between sync polls',()=>{
   assert.match(mainSource,/if\(messagesChanged\)list\.innerHTML=chatMessages\.map/);
   assert.match(mainSource,/messagesChanged&&wasNearBottom/);
 });
+
+test('editing the next event updates the announcement without another push',()=>{
+  const editFlow=mainSource.slice(mainSource.indexOf('async function saveNextEventEdits()'),mainSource.indexOf('async function confirmNextEvent()'));
+  assert.match(html,/id="saveNextEventEdits"[^>]*>儲存公告<\/button>/);
+  assert.match(editFlow,/publishedAt:previous\.publishedAt\|\|new Date\(\)\.toISOString\(\)/);
+  assert.doesNotMatch(editFlow,/nextEventPushMessage/);
+});
