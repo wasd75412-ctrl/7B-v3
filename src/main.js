@@ -52,7 +52,7 @@ let state=initialState(), roomId='', roomRef=null, liveScoreRef=null, chatCollec
 let deviceProfileUnsubscribe=null,deviceProfileApplying=false,deviceProfileSaveTimer=null,identitySyncing=false,roomConnectInProgress=false;
 let roomSnapshotFromCache=false,snapshotHasPendingWrites=false,pendingRoomWrites=0,roomWriteScheduled=false;
 let liveScoreSnapshotFromCache=false,liveScoreHasPendingWrites=false,pendingLiveScoreWrites=0,liveScoreWriteScheduled=false,liveScoreConnecting=false,liveScoreAvailable=true,liveScoreReady=false,liveScoreInitialSnapshot=true,liveScoreMigrationStarted=false,latestLiveMatch=null,lastRoomSnapshotData=null;
-let chatMessages=[],chatMentionIds=new Set(),chatFirstRender=true,chatLastSentAt=0,chatRequestRunning=false,chatSendRunning=false,chatPendingMedia=null;
+let chatMessages=[],chatMentionIds=new Set(),chatFirstRender=true,chatMessagesRenderKey='',chatLastSentAt=0,chatRequestRunning=false,chatSendRunning=false,chatPendingMedia=null;
 const requestParams=new URLSearchParams(location.search),requestedPage=requestParams.get('page'),requestedAndroidRemote=requestParams.get('androidRemote')==='1';
 if(requestedAndroidRemote){
   document.documentElement.classList.add('android-remote-mode');
@@ -854,6 +854,19 @@ function updateChatSendButton(){
   button.disabled=!selectedChatPlayerId()||chatSendRunning||(!cleanChatText($('chatComposer')?.value)&&!chatPendingMedia);
   renderChatMediaPreview();
 }
+function currentChatMessagesRenderKey(){
+  const claimedId=selectedChatPlayerId();
+  return JSON.stringify([claimedId,...chatMessages.map(message=>{
+    const sender=player(message.senderId),senderAvatar=String(sender?.avatar||''),senderAvatarKey=senderAvatar?`${senderAvatar.length}:${senderAvatar.slice(-24)}`:'';
+    return[
+      message.id,message.clientNonce,message.text,message.createdAt,message.clientCreatedAt,
+      message.senderId,message.senderName,message.senderHash,message.mentions,message.mentionAll,
+      message.pending,message.failed,message.media?.id,message.media?.localUrl,message.media?.kind,
+      message.media?.contentType,message.media?.fileName,message.media?.size,
+      sender?.name,senderAvatarKey
+    ];
+  })]);
+}
 function renderChat(){
   const list=$('chatMessages'),identity=$('chatIdentity'),claimButton=$('chatClaimHelp'),composer=$('chatComposer'),mentionButton=$('chatMentionToggle');if(!list||!identity)return;
   const chosen=ownedPlayerId(),claimedPlayer=player(chosen);
@@ -877,7 +890,8 @@ function renderChat(){
   renderChatMentionList();
 
   const wasNearBottom=list.scrollHeight-list.scrollTop-list.clientHeight<90;
-  list.innerHTML=chatMessages.map(message=>{
+  const nextMessagesRenderKey=currentChatMessagesRenderKey(),messagesChanged=nextMessagesRenderKey!==chatMessagesRenderKey;
+  if(messagesChanged)list.innerHTML=chatMessages.map(message=>{
     const mine=message.senderHash===selfHash,mentioned=message.mentionAll||message.mentions?.includes(selectedChatPlayerId());
     const sender=player(message.senderId),senderAvatar=sender?avatar(sender.id,'tiny'):`<span class="avatar tiny">${esc(initials(message.senderName))}</span>`;
     const ms=chatMessageTimeMs(message),date=ms?new Date(ms):null;
@@ -888,18 +902,19 @@ function renderChat(){
       <div class="chat-message-main"><div class="chat-message-meta"><strong>${esc(message.senderName||'球友')}</strong><time>${esc(time)}</time></div><div class="chat-bubble ${mediaHtml?'has-media':''}">${mediaHtml}${textHtml?`<div class="chat-message-text">${textHtml}</div>`:''}${message.failed?'<small class="chat-delivery-error">未送出，請重新選取內容再傳送</small>':''}</div></div>
     </article>`;
   }).join('')||'<div class="chat-empty"><strong>聊天室還沒有訊息</strong><span>傳送第一句話，或標記球友一起討論。</span></div>';
+  chatMessagesRenderKey=nextMessagesRenderKey;
   $('chatConnection').textContent=!navigator.onLine?'離線中':chatCollectionRef?'即時同步':'尚未連線';
   $('chatConnection').classList.toggle('offline',!navigator.onLine);
   if(!chatSendRunning)setChatStatus(chosen?`將以「${pname(chosen)}」身分發言`:'此裝置尚未認領球員，請先到球員頁認領',chosen?'':'warning');
   updateChatSendButton();renderChatBadge();
   if(chatPageVisible()){
     markChatSeen();
-    if(wasNearBottom||chatFirstRender)requestAnimationFrame(()=>{list.scrollTop=list.scrollHeight});
+    if((messagesChanged&&wasNearBottom)||chatFirstRender)requestAnimationFrame(()=>{list.scrollTop=list.scrollHeight});
   }
   chatFirstRender=false;
 }
 function startChatSync(){
-  chatUnsubscribe?.();chatUnsubscribe=null;chatMessages=[];chatFirstRender=true;
+  chatUnsubscribe?.();chatUnsubscribe=null;chatMessages=[];chatFirstRender=true;chatMessagesRenderKey='';
   if(!roomId)return;
   chatCollectionRef=roomId;
   const load=async()=>{
@@ -1241,7 +1256,7 @@ async function connectRoom(id){
   liveScoreUnsubscribe?.();liveScoreUnsubscribe=null;
   chatUnsubscribe?.();chatUnsubscribe=null;
   clearChatPendingMedia();
-  chatCollectionRef=null;chatMessages=[];chatMentionIds.clear();chatFirstRender=true;chatRequestRunning=false;chatSendRunning=false;
+  chatCollectionRef=null;chatMessages=[];chatMentionIds.clear();chatFirstRender=true;chatMessagesRenderKey='';chatRequestRunning=false;chatSendRunning=false;
   clearTimeout(saveTimer);saveTimer=null;
   clearTimeout(liveScoreSaveTimer);liveScoreSaveTimer=null;
   scoreSnapshotReady=false;
@@ -2313,6 +2328,6 @@ const exitScoreBtn=$('exitScore');if(exitScoreBtn)exitScoreBtn.addEventListener(
 
 window.bcmMarkBooted?.();
 if('serviceWorker'in navigator&&location.protocol.startsWith('http')){
-  const swRevision='20260726-361';
+  const swRevision='20260726-362';
   navigator.serviceWorker.register(`./sw.js?v=${swRevision}`,{updateViaCache:'none'}).then(registration=>registration.update()).catch(()=>{});
 }
