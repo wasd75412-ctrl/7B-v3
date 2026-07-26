@@ -31,6 +31,15 @@ test('opens admin shuttle tube management from the more menu',()=>{
   assert.match(html,/id="shuttleTubeModal"/);
 });
 
+test('puts refresh first and keeps low-frequency actions collapsed',()=>{
+  const moreIndex=html.indexOf('id="roomMoreMenu"'),refreshIndex=html.indexOf('id="refreshAppMenu"',moreIndex),advancedIndex=html.indexOf('id="roomMoreAdvanced"',moreIndex);
+  const primary=html.match(/<div class="room-more-primary">([\s\S]*?)<\/div>\s*<\/div>/)?.[1]||'';
+  assert.ok(moreIndex>=0&&refreshIndex>moreIndex&&advancedIndex>refreshIndex);
+  assert.match(primary,/id="refreshAppMenu"[^>]*>↻ 重新整理 App<\/button>/);
+  assert.ok((primary.match(/<button/g)||[]).length<=7);
+  assert.match(html,/id="roomMoreAdvanced"[^>]*class="room-more-advanced"/);
+});
+
 test('chat identity is claimed and cannot be selected from a player list',()=>{
   assert.match(html,/id="chatIdentity"/);
   assert.match(html,/id="chatClaimHelp"/);

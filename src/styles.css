@@ -3863,3 +3863,49 @@ html.chat-keyboard-open .chat-autocomplete{
   #app #page3 .court-rules .field label{font-size:.68rem;text-align:center}
   #app #page3 .court-rules .field :is(input,select){min-height:42px;padding:7px 4px;text-align:center}
 }
+
+/* BCM 2.4.29 — simplified more menu with refresh first */
+#app .room-more-menu{
+  display:grid;
+  grid-template-columns:1fr!important;
+  gap:9px
+}
+#app .room-more-primary,
+#app .room-more-advanced-grid{
+  display:grid;
+  grid-template-columns:repeat(4,minmax(0,1fr));
+  gap:7px
+}
+#app .room-more-primary .room-refresh-action{
+  grid-column:span 2;
+  border-color:rgba(var(--sport-tint-rgb),.70)!important;
+  background:linear-gradient(135deg,rgba(var(--sport-tint-rgb),.35),rgba(15,102,146,.72))!important;
+  color:#fff!important;
+  font-size:.92rem!important;
+  box-shadow:0 8px 22px rgba(var(--sport-tint-rgb),.15)
+}
+#app .room-more-primary .wake-lock-feedback{grid-column:1/-1}
+#app .room-more-advanced{
+  overflow:hidden;
+  border:1px solid rgba(var(--sport-tint-rgb),.20);
+  border-radius:15px;
+  background:rgba(2,18,31,.42)
+}
+#app .room-more-advanced>summary{
+  padding:11px 13px;
+  color:var(--sport-ink);
+  font-size:.86rem;
+  font-weight:950;
+  cursor:pointer;
+  list-style-position:inside
+}
+#app .room-more-advanced[open]>summary{
+  border-bottom:1px solid rgba(var(--sport-tint-rgb),.16);
+  background:rgba(var(--sport-tint-rgb),.075)
+}
+#app .room-more-advanced-grid{padding:8px}
+@media(max-width:700px){
+  #app .room-more-primary,
+  #app .room-more-advanced-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+  #app .room-more-primary .room-refresh-action{grid-column:1/-1;min-height:50px}
+}

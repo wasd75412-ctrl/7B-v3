@@ -2263,7 +2263,7 @@ if(appThemeSelect)appThemeSelect.onchange=()=>applyAppTheme(appThemeSelect.value
 if(randomAppThemeToggle)randomAppThemeToggle.onclick=()=>{randomAppThemeEnabled=!randomAppThemeEnabled;localStorage.setItem(APP_RANDOM_THEME_KEY,randomAppThemeEnabled?'1':'0');if(randomAppThemeEnabled)applyAppTheme(randomAppTheme());updateRandomAppThemeButton()};
 document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='hidden'){appThemeWasHidden=true;return}if(appThemeWasHidden){appThemeWasHidden=false;if(randomAppThemeEnabled)applyAppTheme(randomAppTheme())}});
 const roomMoreBtn=$('roomMoreBtn'),roomMoreMenu=$('roomMoreMenu');
-function setRoomMoreOpen(open){roomMoreMenu.classList.toggle('hidden',!open);roomMoreBtn.setAttribute('aria-expanded',open?'true':'false');roomMoreBtn.textContent=open?'收起':'⋯ 更多'}
+function setRoomMoreOpen(open){roomMoreMenu.classList.toggle('hidden',!open);roomMoreBtn.setAttribute('aria-expanded',open?'true':'false');roomMoreBtn.textContent=open?'收起':'⋯ 更多';if(!open&&$('roomMoreAdvanced'))$('roomMoreAdvanced').open=false}
 roomMoreBtn.onclick=e=>{e.stopPropagation();setRoomMoreOpen(roomMoreMenu.classList.contains('hidden'))};
 roomMoreMenu.addEventListener('click',e=>{const button=e.target.closest('button');if(button&&button.id!=='wakeLockBtn')setRoomMoreOpen(false)});
 document.addEventListener('click',e=>{if(!roomMoreMenu.classList.contains('hidden')&&!e.target.closest('.roombar'))setRoomMoreOpen(false)});
@@ -2328,6 +2328,6 @@ const exitScoreBtn=$('exitScore');if(exitScoreBtn)exitScoreBtn.addEventListener(
 
 window.bcmMarkBooted?.();
 if('serviceWorker'in navigator&&location.protocol.startsWith('http')){
-  const swRevision='20260726-362';
+  const swRevision='20260726-363';
   navigator.serviceWorker.register(`./sw.js?v=${swRevision}`,{updateViaCache:'none'}).then(registration=>registration.update()).catch(()=>{});
 }
