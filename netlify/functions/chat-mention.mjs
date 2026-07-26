@@ -1,10 +1,11 @@
 import { createHash, randomUUID } from 'node:crypto';
 import { getStore } from '@netlify/blobs';
 import webpush from 'web-push';
-import { chatMessagePreview, cleanChatText, hasChatAllMention, normalizeChatMentionIds, playerOwnerHashes } from '../../src/chat.js';
+import { chatMediaLabel, chatMessagePreview, cleanChatText, hasChatAllMention, normalizeChatMedia, normalizeChatMentionIds, playerOwnerHashes } from '../../src/chat.js';
 import { PUSH_STORE, cleanText, jsonResponse, validRoomId, validSubscription } from './lib/push-shared.mjs';
 
 const CHAT_STORE='7b-room-chat';
+export const CHAT_MEDIA_STORE='7b-room-chat-media';
 const CHAT_TTL_SECONDS=2*24*60*60;
 const CHAT_HISTORY_LIMIT=100;
 const CHAT_STORAGE_LIMIT=300;
@@ -28,7 +29,7 @@ export function claimedChatSenderFromDocument(document,{senderId='',senderHash='
   return{senderId:cleanText(sender.id,128),senderName:cleanText(sender.name,40),senderHash};
 }
 
-async function verifyClaimedChatSender(roomId,senderId,senderToken){
+export async function verifyClaimedChatSender(roomId,senderId,senderToken){
   const token=cleanText(senderToken,512);
   if(!token)return null;
   const senderHash=createHash('sha256').update(token).digest('hex');
@@ -40,10 +41,13 @@ async function verifyClaimedChatSender(roomId,senderId,senderToken){
 }
 
 export function normalizeStoredChatMessage(source={}){
+  source=source&&typeof source==='object'?source:{};
   const createdAt=String(source.createdAt||''),created=Date.parse(createdAt),text=cleanChatText(source.text);
   return{
     id:cleanText(source.id,128),
+    clientNonce:cleanText(source.clientNonce,128),
     text,
+    media:normalizeChatMedia(source.media),
     senderId:cleanText(source.senderId,128),
     senderName:cleanText(source.senderName,40),
     senderHash:cleanText(source.senderHash,128),
@@ -64,7 +68,7 @@ async function listRoomMessages(store,roomId){
   const listing=await store.list({prefix:`${roomId}/`}),messages=[];
   for(const blob of listing.blobs){
     const message=normalizeStoredChatMessage(await store.get(blob.key,{type:'json'}).catch(()=>null));
-    if(message.id&&message.text&&message.senderId&&message.senderName&&message.createdAt)messages.push(message);
+    if(message.id&&(message.text||message.media)&&message.senderId&&message.senderName&&message.createdAt)messages.push(message);
   }
   messages.sort((a,b)=>Date.parse(a.createdAt)-Date.parse(b.createdAt)||a.id.localeCompare(b.id));
   return{messages:messages.slice(-CHAT_HISTORY_LIMIT),blobs:listing.blobs};
@@ -85,7 +89,7 @@ async function sendMentionNotifications(message,roomId,messageId){
 
   const payload=JSON.stringify({
     title:message.mentionAll?`📣 ${message.senderName} 通知所有人`:`💬 ${message.senderName} 標記了你`,
-    body:chatMessagePreview(message.text),
+    body:chatMessagePreview(message.text)||`${message.senderName} 傳送了${chatMediaLabel(message.media)}`,
     url:`${siteUrl}/?room=${encodeURIComponent(roomId)}&page=chat`,
     icon:`${siteUrl}/icons/icon-192.png`,
     badge:`${siteUrl}/icons/icon-192.png`,
@@ -111,6 +115,7 @@ export default async request=>{
   if(request.headers.get('sec-fetch-site')==='cross-site')return jsonResponse({error:'不允許跨網站使用聊天室。'},403);
   const url=new URL(request.url),roomId=String(request.method==='GET'?url.searchParams.get('roomId')||'':'').toUpperCase();
   const chatStore=getStore({name:CHAT_STORE,consistency:'strong'});
+  const mediaStore=getStore({name:CHAT_MEDIA_STORE,consistency:'strong'});
 
   if(request.method==='GET'){
     if(!validRoomId(roomId))return jsonResponse({error:'球局代碼格式不正確。'},400);
@@ -138,16 +143,31 @@ export default async request=>{
     return jsonResponse({error:'目前無法確認認領身分，請稍後再試。'},502);
   }
   if(!claimedSender)return jsonResponse({error:'此裝置尚未認領這位球員，無法使用該身分發言。'},403);
+  let verifiedMedia=null;
+  if(body.media){
+    const requestedMedia=normalizeChatMedia(body.media);
+    if(!requestedMedia)return jsonResponse({error:'聊天室媒體資料不正確。'},400);
+    try{
+      const stored=await mediaStore.getMetadata(`${postRoomId}/${requestedMedia.id}`);
+      verifiedMedia=normalizeChatMedia({...stored?.metadata,id:requestedMedia.id});
+      if(!verifiedMedia||stored?.metadata?.senderHash!==claimedSender.senderHash)return jsonResponse({error:'無法使用這個聊天室媒體。'},403);
+    }catch(error){
+      console.error(`Chat media verification ${postRoomId}/${requestedMedia.id} failed`,error);
+      return jsonResponse({error:'目前無法確認聊天室媒體，請稍後再試。'},502);
+    }
+  }
   const message=normalizeStoredChatMessage({
     id:messageId,
+    clientNonce:body.clientNonce,
     text:body.text,
+    media:verifiedMedia,
     ...claimedSender,
     mentions:body.mentions,
     mentionAll:body.mentionAll,
     createdAt,
     clientCreatedAt:body.clientCreatedAt
   });
-  if(!message.text||!message.senderId||!message.senderName||!message.senderHash)return jsonResponse({error:'聊天室訊息資料不完整。'},400);
+  if((!message.text&&!message.media)||!message.senderId||!message.senderName||!message.senderHash)return jsonResponse({error:'聊天室訊息資料不完整。'},400);
 
   try{
     const key=`${postRoomId}/${String(Date.now()).padStart(13,'0')}-${messageId}`;
@@ -156,7 +176,11 @@ export default async request=>{
     const listing=await chatStore.list({prefix:`${postRoomId}/`});
     if(listing.blobs.length>CHAT_STORAGE_LIMIT){
       const old=listing.blobs.sort((a,b)=>a.key.localeCompare(b.key)).slice(0,listing.blobs.length-CHAT_STORAGE_LIMIT);
-      await Promise.all(old.map(blob=>chatStore.delete(blob.key)));
+      await Promise.all(old.map(async blob=>{
+        const stale=normalizeStoredChatMessage(await chatStore.get(blob.key,{type:'json'}).catch(()=>null));
+        await chatStore.delete(blob.key);
+        if(stale.media?.id)await mediaStore.delete(`${postRoomId}/${stale.media.id}`).catch(()=>{});
+      }));
     }
     return jsonResponse({ok:true,message,...notification});
   }catch(error){

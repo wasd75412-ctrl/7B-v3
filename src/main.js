@@ -9,7 +9,7 @@ import { createLiveScoreData, decodeLiveMatch, liveMatchKey, shouldAnnounceSynce
 import { canAutoSyncPlayerIdentity } from './device-sync.js';
 import { shouldRequestNativeWakeLock, wakeLockButtonIntent, wakeLockControlIsActive } from './wake-lock.js';
 import { arrangeTeamsWithTeammateLimit, lineupExceedsTeammateLimit } from './team-rotation.js';
-import { CHAT_MENTION_ALL_ID, CHAT_MESSAGE_MAX_LENGTH, addPlayerOwnerHash, chatMentionSearch, claimedChatPlayerId, cleanChatText, hasChatAllMention, mentionIdsFromText, normalizeChatMentionIds, playerOwnerHashes, removeChatAllMention, removeChatMention } from './chat.js';
+import { CHAT_MEDIA_MAX_BYTES, CHAT_MEDIA_TYPES, CHAT_MENTION_ALL_ID, CHAT_MESSAGE_MAX_LENGTH, addPlayerOwnerHash, chatMediaLabel, chatMentionSearch, claimedChatPlayerId, cleanChatText, hasChatAllMention, mentionIdsFromText, normalizeChatMedia, normalizeChatMentionIds, playerOwnerHashes, removeChatAllMention, removeChatMention } from './chat.js';
 import { adminRoleButtonState, resolveAdminSessionToken } from './admin-role.js';
 import { updateAttendanceState } from './attendance.js';
 import { pollWasFinalized } from './poll.js';
@@ -52,7 +52,7 @@ let state=initialState(), roomId='', roomRef=null, liveScoreRef=null, chatCollec
 let deviceProfileUnsubscribe=null,deviceProfileApplying=false,deviceProfileSaveTimer=null,identitySyncing=false,roomConnectInProgress=false;
 let roomSnapshotFromCache=false,snapshotHasPendingWrites=false,pendingRoomWrites=0,roomWriteScheduled=false;
 let liveScoreSnapshotFromCache=false,liveScoreHasPendingWrites=false,pendingLiveScoreWrites=0,liveScoreWriteScheduled=false,liveScoreConnecting=false,liveScoreAvailable=true,liveScoreReady=false,liveScoreInitialSnapshot=true,liveScoreMigrationStarted=false,latestLiveMatch=null,lastRoomSnapshotData=null;
-let chatMessages=[],chatMentionIds=new Set(),chatFirstRender=true,chatLastSentAt=0,chatRequestRunning=false;
+let chatMessages=[],chatMentionIds=new Set(),chatFirstRender=true,chatLastSentAt=0,chatRequestRunning=false,chatSendRunning=false,chatPendingMedia=null;
 const requestParams=new URLSearchParams(location.search),requestedPage=requestParams.get('page'),requestedAndroidRemote=requestParams.get('androidRemote')==='1';
 if(requestedAndroidRemote){
   document.documentElement.classList.add('android-remote-mode');
@@ -664,6 +664,136 @@ function chatMessageHtml(message){
   }
   return html;
 }
+function chatMediaUrl(media){
+  if(!media?.id||!roomId)return'';
+  return `/.netlify/functions/chat-media?roomId=${encodeURIComponent(roomId)}&id=${encodeURIComponent(media.id)}`;
+}
+function chatMessageMediaHtml(message){
+  const media=message?.media;
+  if(!media)return'';
+  const src=media.localUrl||chatMediaUrl(media);
+  if(!src)return'';
+  const label=chatMediaLabel(media)||(media.kind==='video'?'短影片':'圖片');
+  if(media.kind==='video'){
+    return `<video class="chat-media chat-video" src="${esc(src)}" controls playsinline preload="metadata" aria-label="${esc(label)}"></video>`;
+  }
+  return `<a class="chat-media-link" href="${esc(src)}" target="_blank" rel="noopener" aria-label="開啟${esc(label)}"><img class="chat-media chat-image" src="${esc(src)}" alt="${esc(media.fileName||label)}" loading="lazy"></a>`;
+}
+function mergeServerChatMessages(serverMessages=[]){
+  const server=Array.isArray(serverMessages)?serverMessages:[],confirmedNonces=new Set(server.map(message=>message.clientNonce).filter(Boolean));
+  const local=chatMessages.filter(message=>(message.pending||message.failed)&&(!message.clientNonce||!confirmedNonces.has(message.clientNonce)));
+  return [...server,...local].sort((a,b)=>chatMessageTimeMs(a)-chatMessageTimeMs(b)||String(a.id||'').localeCompare(String(b.id||''))).slice(-100);
+}
+function chatFileSize(bytes){
+  const size=Number(bytes)||0;
+  return size>=1024*1024?`${(size/1024/1024).toFixed(1)} MB`:`${Math.max(1,Math.round(size/1024))} KB`;
+}
+function clearChatPendingMedia({revoke=true}={}){
+  if(revoke&&chatPendingMedia?.previewUrl)URL.revokeObjectURL(chatPendingMedia.previewUrl);
+  chatPendingMedia=null;
+  renderChatMediaPreview();
+}
+function renderChatMediaPreview(){
+  const preview=$('chatMediaPreview'),attach=$('chatAttach');if(!preview)return;
+  if(attach)attach.disabled=!selectedChatPlayerId()||chatSendRunning;
+  if(!chatPendingMedia){preview.classList.add('hidden');preview.innerHTML='';return}
+  const media=chatPendingMedia,visual=media.kind==='video'
+    ?`<video src="${esc(media.previewUrl)}" muted playsinline preload="metadata"></video>`
+    :`<img src="${esc(media.previewUrl)}" alt="">`;
+  preview.innerHTML=`${visual}<span><strong>${esc(media.fileName)}</strong><small>${esc(chatMediaLabel(media))} · ${chatFileSize(media.file.size)}</small></span><button id="removeChatMedia" type="button" aria-label="移除附件">✕</button>`;
+  preview.classList.remove('hidden');
+  $('removeChatMedia').onclick=()=>clearChatPendingMedia();
+}
+function canvasBlob(canvas,type,quality){
+  return new Promise(resolve=>canvas.toBlob(resolve,type,quality));
+}
+async function compressChatImage(file){
+  const url=URL.createObjectURL(file),image=new Image();
+  try{
+    await new Promise((resolve,reject)=>{image.onload=resolve;image.onerror=()=>reject(new Error('圖片讀取失敗'));image.src=url});
+    const maxSide=1920,scale=Math.min(1,maxSide/Math.max(image.naturalWidth||image.width,image.naturalHeight||image.height));
+    const canvas=document.createElement('canvas');
+    canvas.width=Math.max(1,Math.round((image.naturalWidth||image.width)*scale));
+    canvas.height=Math.max(1,Math.round((image.naturalHeight||image.height)*scale));
+    const context=canvas.getContext('2d');if(!context)throw new Error('這台裝置無法處理圖片');
+    context.imageSmoothingEnabled=true;context.imageSmoothingQuality='high';
+    context.drawImage(image,0,0,canvas.width,canvas.height);
+    let result=null;
+    for(const quality of [.86,.76,.66,.56]){
+      result=await canvasBlob(canvas,'image/jpeg',quality);
+      if(result&&result.size<=CHAT_MEDIA_MAX_BYTES)break;
+    }
+    if(!result)throw new Error('圖片壓縮失敗');
+    return result;
+  }finally{URL.revokeObjectURL(url)}
+}
+async function prepareChatMedia(file){
+  if(!file)return null;
+  const contentType=String(file.type||'').toLowerCase();
+  if(!CHAT_MEDIA_TYPES.includes(contentType))throw new Error('只支援 JPG、PNG、WebP、GIF、MP4、WebM 或 MOV');
+  let prepared=file;
+  if(file.size>CHAT_MEDIA_MAX_BYTES&&contentType.startsWith('image/')&&contentType!=='image/gif')prepared=await compressChatImage(file);
+  if(prepared.size>CHAT_MEDIA_MAX_BYTES)throw new Error('檔案不可超過 5 MB；短影片請先裁短或降低畫質');
+  const preparedType=String(prepared.type||contentType).toLowerCase();
+  if(!CHAT_MEDIA_TYPES.includes(preparedType))throw new Error('這個媒體格式目前無法上傳');
+  return{file:prepared,fileName:file.name||'聊天室媒體',contentType:preparedType,kind:preparedType.startsWith('image/')?'image':'video',previewUrl:URL.createObjectURL(prepared)};
+}
+async function uploadChatMedia(media,senderId){
+  const response=await fetch('/.netlify/functions/chat-media',{
+    method:'POST',
+    headers:{
+      'content-type':media.contentType,
+      'x-chat-room':roomId,
+      'x-chat-sender':senderId,
+      'x-chat-token':selfToken,
+      'x-chat-file-name':encodeURIComponent(media.fileName)
+    },
+    body:media.file
+  });
+  let data={};try{data=await response.json()}catch{}
+  if(!response.ok)throw new Error(data.error||'媒體上傳失敗');
+  return normalizeChatMedia(data.media);
+}
+async function chooseChatMedia(file){
+  try{
+    const prepared=await prepareChatMedia(file);
+    clearChatPendingMedia();
+    chatPendingMedia=prepared;
+    renderChatMediaPreview();updateChatSendButton();
+    setChatStatus(`${chatMediaLabel(prepared)}已加入，按傳送即可分享`,'success');
+  }catch(error){
+    clearChatPendingMedia();
+    alert(error.message||'無法加入這個媒體檔案');
+  }
+}
+function resizeChatComposer(){
+  const composer=$('chatComposer');if(!composer)return;
+  composer.style.height='auto';
+  composer.style.height=`${Math.min(132,Math.max(54,composer.scrollHeight))}px`;
+}
+let chatViewportBaseline=Math.max(window.innerHeight,document.documentElement.clientHeight);
+function syncChatKeyboardViewport(){
+  const root=document.documentElement,composer=$('chatComposer'),visualViewport=window.visualViewport;
+  if(!composer||!visualViewport||!chatPageVisible()){
+    root.classList.remove('chat-keyboard-open');
+    root.style.setProperty('--chat-keyboard-offset','0px');
+    return;
+  }
+  const focused=document.activeElement===composer;
+  if(!focused)chatViewportBaseline=Math.max(chatViewportBaseline,window.innerHeight,document.documentElement.clientHeight);
+  const visualBottom=visualViewport.offsetTop+visualViewport.height;
+  const obscured=Math.max(0,chatViewportBaseline-visualBottom);
+  const keyboardOpen=focused&&(obscured>80||visualViewport.height<chatViewportBaseline-80);
+  const layoutShrunk=window.innerHeight<chatViewportBaseline-80;
+  const bottomOffset=keyboardOpen?(layoutShrunk?Math.max(0,window.innerHeight-visualBottom):obscured):0;
+  root.classList.toggle('chat-keyboard-open',keyboardOpen);
+  root.style.setProperty('--chat-keyboard-offset',`${Math.round(bottomOffset)}px`);
+  root.style.setProperty('--chat-composer-height',`${Math.ceil(composer.getBoundingClientRect().height+20)}px`);
+  if(keyboardOpen)requestAnimationFrame(()=>{
+    const list=$('chatMessages');if(list)list.scrollTop=list.scrollHeight;
+    composer.scrollIntoView({block:'nearest',inline:'nearest'});
+  });
+}
 function syncChatMentionIdsFromComposer(){
   const senderId=selectedChatPlayerId(),composer=$('chatComposer');
   chatMentionIds=new Set(mentionIdsFromText(composer?.value||'',state.roster,{senderId}));
@@ -721,7 +851,8 @@ function renderChatMentionList(){
 }
 function updateChatSendButton(){
   const button=$('sendChat');if(!button)return;
-  button.disabled=!selectedChatPlayerId()||!cleanChatText($('chatComposer')?.value);
+  button.disabled=!selectedChatPlayerId()||chatSendRunning||(!cleanChatText($('chatComposer')?.value)&&!chatPendingMedia);
+  renderChatMediaPreview();
 }
 function renderChat(){
   const list=$('chatMessages'),identity=$('chatIdentity'),claimButton=$('chatClaimHelp'),composer=$('chatComposer'),mentionButton=$('chatMentionToggle');if(!list||!identity)return;
@@ -735,6 +866,7 @@ function renderChat(){
     composer.disabled=!claimedPlayer;
     composer.placeholder=claimedPlayer?'輸入 @ 標記球友，或輸入 @All 通知所有人':'請先認領自己的球員資料';
   }
+  if($('chatAttach'))$('chatAttach').disabled=!claimedPlayer||chatSendRunning;
   if(mentionButton)mentionButton.disabled=!claimedPlayer;
   if(!claimedPlayer){
     chatMentionIds.clear();
@@ -749,15 +881,16 @@ function renderChat(){
     const mine=message.senderHash===selfHash,mentioned=message.mentionAll||message.mentions?.includes(selectedChatPlayerId());
     const sender=player(message.senderId),senderAvatar=sender?avatar(sender.id,'tiny'):`<span class="avatar tiny">${esc(initials(message.senderName))}</span>`;
     const ms=chatMessageTimeMs(message),date=ms?new Date(ms):null;
-    const time=date&&!isNaN(date)?date.toLocaleString('zh-TW',localDateKey(date)===localDateKey()?{hour:'2-digit',minute:'2-digit'}:{month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit'}):'傳送中';
-    return `<article class="chat-message ${mine?'mine':''} ${mentioned?'mentions-me':''}">
+    const time=message.failed?'傳送失敗':message.pending?'傳送中…':date&&!isNaN(date)?date.toLocaleString('zh-TW',localDateKey(date)===localDateKey()?{hour:'2-digit',minute:'2-digit'}:{month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit'}):'剛剛';
+    const mediaHtml=chatMessageMediaHtml(message),textHtml=chatMessageHtml(message);
+    return `<article class="chat-message ${mine?'mine':''} ${mentioned?'mentions-me':''} ${message.pending?'pending':''} ${message.failed?'failed':''}">
       <div class="chat-message-avatar">${senderAvatar}</div>
-      <div class="chat-message-main"><div class="chat-message-meta"><strong>${esc(message.senderName||'球友')}</strong><time>${esc(time)}</time></div><div class="chat-bubble">${chatMessageHtml(message)}</div></div>
+      <div class="chat-message-main"><div class="chat-message-meta"><strong>${esc(message.senderName||'球友')}</strong><time>${esc(time)}</time></div><div class="chat-bubble ${mediaHtml?'has-media':''}">${mediaHtml}${textHtml?`<div class="chat-message-text">${textHtml}</div>`:''}${message.failed?'<small class="chat-delivery-error">未送出，請重新選取內容再傳送</small>':''}</div></div>
     </article>`;
   }).join('')||'<div class="chat-empty"><strong>聊天室還沒有訊息</strong><span>傳送第一句話，或標記球友一起討論。</span></div>';
   $('chatConnection').textContent=!navigator.onLine?'離線中':chatCollectionRef?'即時同步':'尚未連線';
   $('chatConnection').classList.toggle('offline',!navigator.onLine);
-  setChatStatus(chosen?`將以「${pname(chosen)}」身分發言`:'此裝置尚未認領球員，請先到球員頁認領',chosen?'':'warning');
+  if(!chatSendRunning)setChatStatus(chosen?`將以「${pname(chosen)}」身分發言`:'此裝置尚未認領球員，請先到球員頁認領',chosen?'':'warning');
   updateChatSendButton();renderChatBadge();
   if(chatPageVisible()){
     markChatSeen();
@@ -774,7 +907,7 @@ function startChatSync(){
     chatRequestRunning=true;
     try{
       const result=await pushApi(`chat-mention?roomId=${encodeURIComponent(roomId)}`);
-      chatMessages=Array.isArray(result.messages)?result.messages:[];
+      chatMessages=mergeServerChatMessages(result.messages);
       renderChat();
     }catch(error){
       $('chatConnection').textContent=navigator.onLine?'同步中斷':'離線中';
@@ -790,20 +923,29 @@ async function sendChatMessage(){
   const button=$('sendChat'),composer=$('chatComposer'),senderId=selectedChatPlayerId(),sender=player(senderId),text=cleanChatText(composer.value,CHAT_MESSAGE_MAX_LENGTH);
   if(!chatCollectionRef||!roomId)return alert('聊天室尚未連線，請稍後再試。');
   if(!sender)return alert('此裝置尚未認領球員。請先到「球員」點選自己的球員卡，再按「這是我／認領資料」。');
-  if(!text)return;
-  if(Date.now()-chatLastSentAt<900)return;
+  if((!text&&!chatPendingMedia)||chatSendRunning)return;
+  if(Date.now()-chatLastSentAt<700)return;
   const validIds=state.roster.map(p=>p.id),mentions=normalizeChatMentionIds(mentionIdsFromText(text,state.roster,{senderId}),{validIds,senderId}),mentionAll=hasChatAllMention(text);
-  chatLastSentAt=Date.now();button.disabled=true;setChatStatus('正在傳送…','pending');
+  const queuedMedia=chatPendingMedia,clientCreatedAt=Date.now(),clientNonce=globalThis.crypto?.randomUUID?.()||randomToken();
+  const optimisticMedia=queuedMedia?{kind:queuedMedia.kind,contentType:queuedMedia.contentType,fileName:queuedMedia.fileName,size:queuedMedia.file.size,localUrl:queuedMedia.previewUrl}:null;
+  const optimisticMessage={id:`local-${clientNonce}`,clientNonce,text,media:optimisticMedia,senderId,senderName:sender.name,senderHash:selfHash,mentions,mentionAll,createdAt:'',clientCreatedAt,pending:true};
+  chatLastSentAt=clientCreatedAt;chatSendRunning=true;button.disabled=true;setChatStatus(queuedMedia?'正在上傳並傳送…':'正在傳送…','pending');
+  chatMessages=[...chatMessages,optimisticMessage].slice(-100);
+  composer.value='';chatMentionIds.clear();closeChatAutocomplete();
+  chatPendingMedia=null;renderChatMentionList();renderChatMediaPreview();resizeChatComposer();renderChat();
   try{
-    const result=await pushApi('chat-mention',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({roomId,text,senderId,senderToken:selfToken,mentions,mentionAll,clientCreatedAt:Date.now()})});
-    if(result.message&&!chatMessages.some(message=>message.id===result.message.id))chatMessages=[...chatMessages,result.message].slice(-100);
-    composer.value='';chatMentionIds.clear();closeChatAutocomplete();renderChatMentionList();
+    const media=queuedMedia?await uploadChatMedia(queuedMedia,senderId):null;
+    const result=await pushApi('chat-mention',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({roomId,text,media,senderId,senderToken:selfToken,mentions,mentionAll,clientCreatedAt,clientNonce})});
+    chatMessages=chatMessages.map(message=>message.clientNonce===clientNonce?result.message:message);
     renderChat();
+    if(queuedMedia?.previewUrl)URL.revokeObjectURL(queuedMedia.previewUrl);
     if(mentionAll||mentions.length)setChatStatus(result.sent?`訊息已傳送，已通知 ${result.sent} 台裝置`:'訊息已傳送；目前沒有可接收通知的其他裝置','success');
     else setChatStatus('訊息已傳送','success');
   }catch(error){
+    chatMessages=chatMessages.map(message=>message.clientNonce===clientNonce?{...message,pending:false,failed:true}:message);
+    renderChat();
     setChatStatus(`訊息傳送失敗：${error.message}`,'error');
-  }finally{updateChatSendButton()}
+  }finally{chatSendRunning=false;updateChatSendButton();syncChatKeyboardViewport()}
 }
 function pollCounts(){const counts={};for(const o of state.schedulePoll.options||[])counts[o.id]=0;for(const value of Object.values(state.schedulePoll.votes||{}))for(const id of pollSelectionList(value))if(id in counts)counts[id]++;return counts}
 function pollParticipantCount(optionId){
@@ -1098,7 +1240,8 @@ async function connectRoom(id){
   unsubscribe?.();unsubscribe=null;
   liveScoreUnsubscribe?.();liveScoreUnsubscribe=null;
   chatUnsubscribe?.();chatUnsubscribe=null;
-  chatCollectionRef=null;chatMessages=[];chatMentionIds.clear();chatFirstRender=true;chatRequestRunning=false;
+  clearChatPendingMedia();
+  chatCollectionRef=null;chatMessages=[];chatMentionIds.clear();chatFirstRender=true;chatRequestRunning=false;chatSendRunning=false;
   clearTimeout(saveTimer);saveTimer=null;
   clearTimeout(liveScoreSaveTimer);liveScoreSaveTimer=null;
   scoreSnapshotReady=false;
@@ -1294,7 +1437,20 @@ async function saveNow(){
     pendingRoomWrites=Math.max(0,pendingRoomWrites-1);updateSyncBadge();
   }
 }
-function page(n){if(n===3&&!isHost)n=0;all('.page').forEach(x=>x.classList.add('hidden'));$('page'+n).classList.remove('hidden');all('.tab').forEach(x=>x.classList.toggle('active',+x.dataset.page===n));if(n===0)renderDashboard();if(n===4)renderStats();if(n===5)renderHistory();if(n===6){markPollSeen();renderPoll()}if(n===7)loadBackups();if(n===8){renderChat();markChatSeen();requestAnimationFrame(()=>{const list=$('chatMessages');if(list)list.scrollTop=list.scrollHeight})}}
+function page(n){
+  if(n===3&&!isHost)n=0;
+  all('.page').forEach(x=>x.classList.add('hidden'));$('page'+n).classList.remove('hidden');
+  all('.tab').forEach(x=>x.classList.toggle('active',+x.dataset.page===n));
+  if(n===0)renderDashboard();
+  if(n===4)renderStats();
+  if(n===5)renderHistory();
+  if(n===6){markPollSeen();renderPoll()}
+  if(n===7)loadBackups();
+  if(n===8){
+    renderChat();markChatSeen();
+    requestAnimationFrame(()=>{const list=$('chatMessages');if(list)list.scrollTop=list.scrollHeight;syncChatKeyboardViewport()});
+  }else syncChatKeyboardViewport();
+}
 function renderRoster(){const box=$('roster'),q=($('playerSearch')?.value||'').trim().toLowerCase(),sort=$('playerSort')?.value||'favorite';let rows=state.roster.filter(p=>[p.name,p.racket,p.backupRacket,p.note].some(v=>String(v||'').toLowerCase().includes(q)));rows.sort((a,b)=>sort==='name'?a.name.localeCompare(b.name):sort==='games'?playerStats(b.id).games-playerStats(a.id).games:(Number(b.favorite)-Number(a.favorite)||a.name.localeCompare(b.name)));box.innerHTML=rows.map(p=>{const st=playerStats(p.id),status=playerStatus(p.id),main=[p.racket,p.racketTension,p.racketString].filter(Boolean).join(' · '),backup=[p.backupRacket,p.backupTension,p.backupString].filter(Boolean).join(' · '),expanded=expandedPlayerNotes.has(p.id);return `<button class="person card2 ${p.favorite?'favorite':''} ${status.kind||''}" data-edit="${p.id}"><span class="favorite-star" data-fav="${p.id}" title="收藏">${p.favorite?'⭐':'☆'}</span>${avatar(p.id)}<span class="person-info"><span class="name">${esc(p.name)}</span><span class="person-meta"><span class="mini-tag stats" title="歷史累計">${st.wins}勝／${st.games}場</span><span class="status-mini">${esc(status.label)}</span></span><span class="racket-lines">${main?`<span class="racket-line" title="主拍 ${esc(main)}">🏸 主拍 ${esc(main)}</span>`:''}${backup?`<span class="racket-line" title="備拍 ${esc(backup)}">🏸 備拍 ${esc(backup)}</span>`:''}${!main&&!backup?`<span class="racket-line">🏸 尚未登錄球拍</span>`:''}</span>${p.note?`<span class="person-note ${expanded?'expanded':''}" data-note-toggle="${p.id}" role="button" aria-expanded="${expanded}"><span class="person-note-text">📝 ${esc(p.note)}</span><span class="person-note-toggle">${expanded?'▲ 收合':'▼ 展開'}</span></span>`:''}</span></button>`}).join('')||'<p class="sub">找不到符合條件的球員。</p>';all('[data-edit]').forEach(b=>b.onclick=e=>{if(e.target.closest('[data-fav],[data-note-toggle]'))return;openEdit(b.dataset.edit)});all('[data-fav]').forEach(b=>b.onclick=async e=>{e.stopPropagation();const p=player(b.dataset.fav);if(!p)return;const before=!!p.favorite;p.favorite=!before;renderRoster();try{if(isHost)saveSoon();else await saveSelfPlayer({id:p.id,favorite:p.favorite})}catch(err){p.favorite=before;renderRoster();alert('收藏更新失敗：'+formatError(err))}});all('[data-note-toggle]').forEach(n=>n.onclick=e=>{e.preventDefault();e.stopPropagation();const id=n.dataset.noteToggle;if(expandedPlayerNotes.has(id))expandedPlayerNotes.delete(id);else expandedPlayerNotes.add(id);renderRoster()})}
 function uniqueIds(ids){return [...new Set((ids||[]).filter(Boolean))]}
 function currentCourtIds(){const live=state.match?.active?state.match.players?.flat?.()||[]:state.court||[];return uniqueIds(live)}
@@ -1931,9 +2087,16 @@ $('chatMentionToggle').onclick=()=>{
   $('chatMentionToggle').setAttribute('aria-expanded',opening?'true':'false');
   if(opening)renderChatMentionList();
 };
-$('chatComposer').addEventListener('input',()=>{
-  syncChatMentionIdsFromComposer();renderChatMentionList();renderChatAutocomplete();updateChatSendButton();
+$('chatAttach').onclick=()=>$('chatMediaFile').click();
+$('chatMediaFile').addEventListener('change',event=>{
+  const file=event.target.files?.[0];event.target.value='';
+  if(file)void chooseChatMedia(file);
 });
+$('chatComposer').addEventListener('input',()=>{
+  resizeChatComposer();syncChatMentionIdsFromComposer();renderChatMentionList();renderChatAutocomplete();updateChatSendButton();syncChatKeyboardViewport();
+});
+$('chatComposer').addEventListener('focus',()=>setTimeout(syncChatKeyboardViewport,80));
+$('chatComposer').addEventListener('blur',()=>setTimeout(syncChatKeyboardViewport,180));
 $('chatComposer').addEventListener('keydown',event=>{
   const autocomplete=$('chatAutocomplete'),suggestion=autocomplete.querySelector('[data-chat-autocomplete]');
   if(!autocomplete.classList.contains('hidden')&&suggestion&&!event.ctrlKey&&!event.metaKey&&(event.key==='Enter'||event.key==='Tab')){
@@ -1942,6 +2105,8 @@ $('chatComposer').addEventListener('keydown',event=>{
   if(event.key==='Escape'&&!autocomplete.classList.contains('hidden')){event.preventDefault();closeChatAutocomplete();return}
   if(event.key==='Enter'&&(event.ctrlKey||event.metaKey)){event.preventDefault();sendChatMessage()}
 });
+window.visualViewport?.addEventListener('resize',syncChatKeyboardViewport);
+window.visualViewport?.addEventListener('scroll',syncChatKeyboardViewport);
 $('addPlayer').onclick=addPlayerRecord;
 $('closeEdit').onclick=closePlayerModal;
 $('closeEditTop').onclick=closePlayerModal;
@@ -2148,6 +2313,6 @@ const exitScoreBtn=$('exitScore');if(exitScoreBtn)exitScoreBtn.addEventListener(
 
 window.bcmMarkBooted?.();
 if('serviceWorker'in navigator&&location.protocol.startsWith('http')){
-  const swRevision='20260725-360';
+  const swRevision='20260726-361';
   navigator.serviceWorker.register(`./sw.js?v=${swRevision}`,{updateViaCache:'none'}).then(registration=>registration.update()).catch(()=>{});
 }
