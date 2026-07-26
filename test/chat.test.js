@@ -1,7 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { claimedChatSenderFromDocument, normalizeStoredChatMessage, shouldNotifyChatSubscription } from '../netlify/functions/chat-mention.mjs';
-import { addPlayerOwnerHash, claimedChatPlayerId, CHAT_MESSAGE_MAX_LENGTH, chatMentionSearch, chatMessagePreview, cleanChatText, hasChatAllMention, mentionIdsFromText, normalizeChatMentionIds, playerOwnerHashes, removeChatAllMention, removeChatMention } from '../src/chat.js';
+import { validChatMediaType } from '../netlify/functions/chat-media.mjs';
+import { addPlayerOwnerHash, chatMediaLabel, claimedChatPlayerId, CHAT_MEDIA_MAX_BYTES, CHAT_MESSAGE_MAX_LENGTH, chatMentionSearch, chatMessagePreview, cleanChatText, hasChatAllMention, mentionIdsFromText, normalizeChatMedia, normalizeChatMentionIds, playerOwnerHashes, removeChatAllMention, removeChatMention } from '../src/chat.js';
 
 test('cleans and limits chat messages',()=>{
   assert.equal(cleanChatText('  大家好\r\n明天見  '),'大家好\n明天見');
@@ -72,7 +73,9 @@ test('normalizes authoritative stored chat messages',()=>{
     clientCreatedAt:123
   }),{
     id:'message-1',
+    clientNonce:'',
     text:'@Yoyo 明天見',
+    media:null,
     senderId:'p1',
     senderName:'建昱',
     senderHash:'device-1',
@@ -81,6 +84,44 @@ test('normalizes authoritative stored chat messages',()=>{
     createdAt:'2026-07-23T08:00:00.000Z',
     clientCreatedAt:123
   });
+});
+
+test('accepts safe chat image, GIF and short-video metadata',()=>{
+  assert.deepEqual(normalizeChatMedia({
+    id:'7c7917d4-9df6-4f1b-a6cf-711fb3f021e5',
+    contentType:'image/gif',
+    fileName:'加油.gif',
+    size:2048
+  }),{
+    id:'7c7917d4-9df6-4f1b-a6cf-711fb3f021e5',
+    kind:'image',
+    contentType:'image/gif',
+    fileName:'加油.gif',
+    size:2048
+  });
+  assert.equal(chatMediaLabel({id:'video-12345678',contentType:'video/mp4',fileName:'rally.mp4',size:CHAT_MEDIA_MAX_BYTES}),'短影片');
+  assert.equal(chatMediaLabel({kind:'image',contentType:'image/gif'}),'GIF');
+  assert.equal(normalizeChatMedia({id:'unsafe',contentType:'image/svg+xml'}),null);
+  assert.equal(normalizeChatMedia({id:'oversize-12345678',contentType:'video/mp4',size:CHAT_MEDIA_MAX_BYTES+1}),null);
+  assert.equal(validChatMediaType('video/mp4; codecs=h264'),true);
+  assert.equal(validChatMediaType('text/html'),false);
+});
+
+test('allows a media-only authoritative chat message',()=>{
+  const message=normalizeStoredChatMessage({
+    id:'message-media',
+    clientNonce:'client-media',
+    text:'',
+    media:{id:'media-12345678',contentType:'image/jpeg',fileName:'球場.jpg',size:4096},
+    senderId:'p1',
+    senderName:'建昱',
+    senderHash:'device-1',
+    createdAt:'2026-07-26T08:00:00.000Z'
+  });
+  assert.equal(message.text,'');
+  assert.equal(message.media?.kind,'image');
+  assert.equal(message.clientNonce,'client-media');
+  assert.equal(normalizeStoredChatMessage(null).media,null);
 });
 
 test('normalizes @All from message text and targets every other subscribed device',()=>{

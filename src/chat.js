@@ -1,6 +1,8 @@
 export const CHAT_MESSAGE_MAX_LENGTH=500;
 export const CHAT_MENTION_MAX_COUNT=8;
 export const CHAT_MENTION_ALL_ID='__all__';
+export const CHAT_MEDIA_MAX_BYTES=5*1024*1024;
+export const CHAT_MEDIA_TYPES=['image/jpeg','image/png','image/webp','image/gif','video/mp4','video/webm','video/quicktime'];
 const escapeRegExp=value=>String(value).replace(/[.*+?^${}()|[\]\\]/g,'\\$&');
 
 export function playerOwnerHashes(player={}){
@@ -80,4 +82,22 @@ export function removeChatMention(value,name){
 export function chatMessagePreview(value,maxLength=90){
   const text=cleanChatText(value,CHAT_MESSAGE_MAX_LENGTH).replace(/\s+/g,' ');
   return text.length<=maxLength?text:`${text.slice(0,Math.max(1,maxLength-1)).trimEnd()}…`;
+}
+
+export function normalizeChatMedia(source={}){
+  if(!source||typeof source!=='object')return null;
+  const id=String(source.id||'').trim(),contentType=String(source.contentType||'').toLowerCase();
+  if(!/^[a-zA-Z0-9-]{8,128}$/.test(id)||!CHAT_MEDIA_TYPES.includes(contentType))return null;
+  const kind=contentType.startsWith('image/')?'image':'video';
+  const size=Math.max(0,Number(source.size)||0);
+  if(size>CHAT_MEDIA_MAX_BYTES)return null;
+  const fileName=String(source.fileName||'').replace(/[\u0000-\u001f\u007f]/g,' ').trim().slice(0,120);
+  return{id,kind,contentType,fileName,size};
+}
+
+export function chatMediaLabel(media){
+  const normalized=normalizeChatMedia(media),contentType=normalized?.contentType||String(media?.contentType||'').toLowerCase();
+  if(!CHAT_MEDIA_TYPES.includes(contentType))return'';
+  if(contentType==='image/gif')return'GIF';
+  return contentType.startsWith('video/')?'短影片':'圖片';
 }

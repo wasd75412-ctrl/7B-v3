@@ -3467,6 +3467,34 @@ body>.modal .modal-card :is(.profile-panel,.profile-section,.stat-box,.health-bo
   border-color:rgba(255,202,86,.65);
   box-shadow:0 0 0 1px rgba(255,202,86,.12),0 9px 24px rgba(0,7,16,.23)
 }
+.chat-message.pending{opacity:.78}
+.chat-message.failed .chat-bubble{
+  border-color:rgba(255,105,130,.60);
+  box-shadow:0 0 0 1px rgba(255,105,130,.12),0 9px 24px rgba(0,7,16,.22)
+}
+.chat-bubble.has-media{
+  overflow:hidden;
+  padding:6px
+}
+.chat-media-link{display:block;color:inherit}
+.chat-media{
+  display:block;
+  width:100%;
+  max-width:520px;
+  max-height:420px;
+  border-radius:13px;
+  background:#03111d;
+  object-fit:contain
+}
+.chat-image{min-height:90px}
+.chat-message-text{white-space:normal}
+.chat-bubble.has-media .chat-message-text{padding:9px 8px 5px}
+.chat-delivery-error{
+  display:block;
+  padding:7px 8px 3px;
+  color:#ff9bad;
+  font-weight:900
+}
 .chat-mention{
   color:#ffd36b;
   font-weight:1000
@@ -3493,10 +3521,63 @@ body>.modal .modal-card :is(.profile-panel,.profile-section,.stat-box,.health-bo
   -webkit-backdrop-filter:blur(20px);
   backdrop-filter:blur(20px)
 }
+.chat-input-row{
+  display:grid;
+  grid-template-columns:auto minmax(0,1fr);
+  align-items:end;
+  gap:9px
+}
+.chat-attach-btn{
+  width:50px;
+  min-width:50px;
+  height:54px;
+  padding:0;
+  border-radius:16px;
+  font-size:1.35rem
+}
 .chat-composer textarea{
-  min-height:76px;
-  max-height:180px;
-  resize:vertical
+  min-height:54px;
+  max-height:132px;
+  resize:none
+}
+.chat-media-preview{
+  display:grid;
+  grid-template-columns:64px minmax(0,1fr) auto;
+  align-items:center;
+  gap:10px;
+  margin-bottom:9px;
+  padding:7px;
+  border:1px solid rgba(var(--sport-tint-rgb),.28);
+  border-radius:15px;
+  background:rgba(var(--sport-tint-rgb),.10)
+}
+.chat-media-preview img,
+.chat-media-preview video{
+  width:64px;
+  height:52px;
+  border-radius:10px;
+  background:#061522;
+  object-fit:cover
+}
+.chat-media-preview span{min-width:0}
+.chat-media-preview strong,
+.chat-media-preview small{
+  display:block;
+  overflow:hidden;
+  text-overflow:ellipsis;
+  white-space:nowrap
+}
+.chat-media-preview strong{color:var(--sport-ink)}
+.chat-media-preview small{margin-top:3px;color:var(--sport-muted);font-weight:800}
+.chat-media-preview button{
+  width:38px;
+  height:38px;
+  border:1px solid rgba(255,130,151,.35);
+  border-radius:50%;
+  background:rgba(255,91,119,.12);
+  color:#ff9bad;
+  font-weight:1000;
+  cursor:pointer
 }
 .chat-autocomplete{
   display:grid;
@@ -3565,6 +3646,28 @@ body>.modal .modal-card :is(.profile-panel,.profile-section,.stat-box,.health-bo
 .chat-status.warning{color:#ffc274}
 .chat-status.error{color:#ff91a5}
 .chat-status.pending{color:rgb(var(--sport-tint-rgb))}
+
+html.chat-keyboard-open .chat-page{
+  padding-bottom:var(--chat-composer-height,180px)!important
+}
+html.chat-keyboard-open .chat-composer{
+  position:fixed;
+  right:max(8px,env(safe-area-inset-right));
+  bottom:calc(var(--chat-keyboard-offset,0px) + 7px);
+  left:max(8px,env(safe-area-inset-left));
+  z-index:1002;
+  margin:0 auto;
+  max-width:calc(100vw - 16px);
+  box-shadow:0 -12px 38px rgba(0,7,16,.38)
+}
+html.chat-keyboard-open .chat-autocomplete{
+  position:absolute;
+  right:8px;
+  bottom:calc(100% - 5px);
+  left:8px;
+  max-height:min(36vh,280px);
+  overflow:auto
+}
 
 /* BCM 2.4.25 — viewer attendance and shuttle tube management */
 #app #attendance .person.attendance-mine{
@@ -3718,6 +3821,8 @@ body>.modal .modal-card :is(.profile-panel,.profile-section,.stat-box,.health-bo
   .chat-messages{min-height:52vh;max-height:58vh;padding:13px}
   .chat-message{width:92%}
   .chat-composer{padding:9px}
+  .chat-attach-btn{width:46px;min-width:46px}
+  .chat-media{max-height:48vh}
   .chat-autocomplete{grid-template-columns:1fr}
   .chat-composer-foot{align-items:flex-end}
   .chat-composer-foot .btn{min-width:82px}
