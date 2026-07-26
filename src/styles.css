@@ -3528,13 +3528,36 @@ body>.modal .modal-card :is(.profile-panel,.profile-section,.stat-box,.health-bo
   gap:9px
 }
 .chat-attach-btn{
+  position:relative;
+  display:grid;
+  place-items:center;
+  overflow:hidden;
   width:50px;
   min-width:50px;
   height:54px;
   padding:0;
   border-radius:16px;
-  font-size:1.35rem
+  font-size:1.35rem;
+  cursor:pointer;
+  user-select:none
 }
+.chat-media-file{
+  position:absolute;
+  inset:0;
+  width:100%;
+  height:100%;
+  opacity:0;
+  cursor:pointer
+}
+.chat-attach-btn:focus-within{
+  outline:3px solid rgba(var(--sport-accent-rgb),.35);
+  outline-offset:2px
+}
+.chat-attach-btn.is-disabled{
+  opacity:.5;
+  cursor:not-allowed
+}
+.chat-attach-btn.is-disabled .chat-media-file{cursor:not-allowed}
 .chat-composer textarea{
   min-height:54px;
   max-height:132px;
