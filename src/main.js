@@ -10,7 +10,7 @@ import { canAutoSyncPlayerIdentity } from './device-sync.js';
 import { shouldRequestNativeWakeLock, wakeLockButtonIntent, wakeLockControlIsActive } from './wake-lock.js';
 import { arrangeTeamsWithTeammateLimit, lineupExceedsTeammateLimit } from './team-rotation.js';
 import { CHAT_MEDIA_MAX_BYTES, CHAT_MEDIA_TYPES, CHAT_MENTION_ALL_ID, CHAT_MESSAGE_MAX_LENGTH, addPlayerOwnerHash, chatMediaLabel, chatMentionSearch, claimedChatPlayerId, cleanChatText, hasChatAllMention, mentionIdsFromText, normalizeChatMedia, normalizeChatMentionIds, playerOwnerHashes, removeChatAllMention, removeChatMention } from './chat.js';
-import { adminRoleButtonState, resolveAdminSessionToken } from './admin-role.js';
+import { adminRoleButtonState, claimedAdminPlayerId, resolveAdminSessionToken } from './admin-role.js';
 import { updateAttendanceState } from './attendance.js';
 import { pollWasFinalized } from './poll.js';
 import { activateShuttleTube, createShuttleTube, normalizeShuttleTubes, setShuttlePayment, setShuttleRemaining, shuttlePaymentStatus } from './shuttle-tube.js';
@@ -46,7 +46,7 @@ function normalizeAdminNotices(source){
   }).filter(notice=>{if(seen.has(notice.id))return false;seen.add(notice.id);return true}).sort((a,b)=>(Date.parse(b.publishedAt)||0)-(Date.parse(a.publishedAt)||0)).slice(0,20);
 }
 function setAdminNotices(rows){state.adminNotices=normalizeAdminNotices({adminNotices:rows});state.adminNotice=state.adminNotices[0]||null}
-const initialState=()=>({version:9.6,roster:[],attendance:[],court:[],waitingQueue:[],queueDraftChosen:[],priority:null,match:{active:false,players:[[],[]],scores:[0,0],rallies:[],serving:0,positions:[[0,1],[0,1]],winner:null,startedAt:''},rules:{target:11,cap:15,deuce:true},history:[],matchReplayPlaylistTitle:'',matchReplayPlaylistUrl:'',nextCall:null,schedulePoll:{status:'open',createdAt:'',deadlineAt:'',options:[],votes:{},voterPlayers:{}},nextEvent:null,adminNotice:null,adminNotices:[],shuttleTubes:[],updatedAt:null});
+const initialState=()=>({version:9.6,roster:[],adminPlayerIds:[],attendance:[],court:[],waitingQueue:[],queueDraftChosen:[],priority:null,match:{active:false,players:[[],[]],scores:[0,0],rallies:[],serving:0,positions:[[0,1],[0,1]],winner:null,startedAt:''},rules:{target:11,cap:15,deuce:true},history:[],matchReplayPlaylistTitle:'',matchReplayPlaylistUrl:'',nextCall:null,schedulePoll:{status:'open',createdAt:'',deadlineAt:'',options:[],votes:{},voterPlayers:{}},nextEvent:null,adminNotice:null,adminNotices:[],shuttleTubes:[],updatedAt:null});
 const DEVICE_SYNC_CODE_KEY='bcmDeviceSyncCodeV1',DEVICE_SYNC_TOKEN_KEY='bcmDeviceSyncTokenV1',DEVICE_SYNC_NAME_KEY='bcmDeviceSyncNameV1',DEVICE_SYNC_PLAYER_KEY='bcmDeviceSyncPlayerV1';
 let state=initialState(), roomId='', roomRef=null, liveScoreRef=null, chatCollectionRef=null, isHost=false, hostToken='', adminPinHash='', unsubscribe=null, liveScoreUnsubscribe=null, chatUnsubscribe=null, applying=false, saveTimer=null, liveScoreSaveTimer=null, editId=null;const expandedPlayerNotes=new Set();let profileOriginal=null,profileDirty={name:false,voiceName:false,racket:false,racketTension:false,racketString:false,backupRacket:false,backupTension:false,backupString:false,note:false};let voiceEnabled=localStorage.getItem('bdV76Voice')!=='0';let dismissedResultKey='';const selfToken=localStorage.getItem(DEVICE_SYNC_TOKEN_KEY)||localStorage.getItem('bdV73SelfToken')||randomToken();localStorage.setItem('bdV73SelfToken',selfToken);let selfHash='';
 let deviceProfileUnsubscribe=null,deviceProfileApplying=false,deviceProfileSaveTimer=null,identitySyncing=false,roomConnectInProgress=false;
@@ -211,6 +211,7 @@ function encodeState(src){
   return {
     version:9.6,
     roster:Array.isArray(src.roster)?src.roster.map(playerRecord=>({...withoutLegacyGender(playerRecord),ownerHashes:playerOwnerHashes(playerRecord).join('|')})):[],
+    adminPlayerIds:[...new Set((Array.isArray(src.adminPlayerIds)?src.adminPlayerIds:[]).map(id=>String(id||'').trim()).filter(Boolean))].slice(0,20),
     attendance:Array.isArray(src.attendance)?src.attendance:[],
     court:Array.isArray(src.court)?src.court:[],
     waitingQueue:Array.isArray(src.waitingQueue)?src.waitingQueue:[],
@@ -291,6 +292,7 @@ function decodeState(d){
       positions:Array.isArray(m.positions)?m.positions:[Array.isArray(m.posA)?m.posA:[0,1],Array.isArray(m.posB)?m.posB:[0,1]]
     },
     roster:Array.isArray(d.roster)?d.roster.map(p=>({...withoutLegacyGender(p),ownerHashes:playerOwnerHashes(p),voiceName:p.voiceName||defaultVoiceName(p.name),backupRacket:p.backupRacket||'',racketTension:p.racketTension||'',racketString:p.racketString||'',backupTension:p.backupTension||'',backupString:p.backupString||'',favorite:!!p.favorite})):[],
+    adminPlayerIds:[...new Set((Array.isArray(d.adminPlayerIds)?d.adminPlayerIds:[]).map(id=>String(id||'').trim()).filter(Boolean))].slice(0,20),
     attendance:Array.isArray(d.attendance)?d.attendance:[],
     court:Array.isArray(d.court)?d.court:[],
     waitingQueue:Array.isArray(d.waitingQueue)?d.waitingQueue:[],
@@ -1182,6 +1184,13 @@ function adminLogoutKey(id){return `bcmAdminLoggedOut_${id}`}
 function currentUrl(id=roomId){const u=new URL(location.href);u.search='';u.hash='';if(requestedAndroidRemote)u.searchParams.set('androidRemote','1');u.searchParams.set('room',id);return u.toString()}
 function hostUrl(id=roomId,token=hostToken){const u=new URL(currentUrl(id));u.hash=`host=${encodeURIComponent(token)}`;return u.toString()}
 function parseHostHash(){const m=location.hash.match(/(?:^#|&)host=([^&]+)/);return m?decodeURIComponent(m[1]):''}
+function adoptClaimedPlayerAdmin(data,id=roomId){
+  if(isHost||localStorage.getItem(adminLogoutKey(id))==='1'||!claimedAdminPlayerId(data,selfHash)||!data?.hostToken)return false;
+  hostToken=String(data.hostToken);
+  isHost=true;
+  localStorage.setItem(hostKey(id),hostToken);
+  return true;
+}
 
 
 const ROOM_LIBRARY_KEY='bcmRoomLibraryV1',ROOM_AUTO_KEY='bcmAutoReturnRoomV1',ROOM_SKIP_AUTO_ONCE='bcmSkipAutoReturnOnceV1';
@@ -1286,7 +1295,8 @@ async function connectRoom(id){
       loggedOut:localStorage.getItem(adminLogoutKey(id))==='1',
       urlToken:parseHostHash(),
       savedToken:localStorage.getItem(hostKey(id))||'',
-      roomToken:data.hostToken||''
+      roomToken:data.hostToken||'',
+      claimedPlayerAdmin:!!claimedAdminPlayerId(data,selfHash)
     });
     isHost=!!hostToken;
     if(isHost)localStorage.setItem(hostKey(id),hostToken);
@@ -1314,7 +1324,17 @@ async function connectRoom(id){
       lastRoomSnapshotData=s.data();
       roomSnapshotFromCache=!!s.metadata.fromCache;
       snapshotHasPendingWrites=!!s.metadata.hasPendingWrites;
+      const promoted=adoptClaimedPlayerAdmin(lastRoomSnapshotData,id);
       applyState(lastRoomSnapshotData);
+      if(promoted){
+        rememberRoom(id,true);
+        $('roleBadge').textContent='管理員';
+        $('roleBadge').className='pill host';
+        $('viewerNote').classList.add('hidden');
+        applyRole();
+        renderAndroidRemote();
+        if(navigator.onLine)setTimeout(ensureGenesisAndDaily,900);
+      }
       if(!roomSnapshotFromCache&&!snapshotHasPendingWrites)ensureSyncedPlayerIdentity().catch(error=>console.warn('Player identity sync failed',error));
       updateSyncBadge();
       if(!roomSnapshotFromCache&&!snapshotHasPendingWrites)setError('');
@@ -2429,6 +2449,6 @@ const exitScoreBtn=$('exitScore');if(exitScoreBtn)exitScoreBtn.addEventListener(
 
 window.bcmMarkBooted?.();
 if('serviceWorker'in navigator&&location.protocol.startsWith('http')){
-  const swRevision='20260727-369';
+  const swRevision='20260727-370';
   navigator.serviceWorker.register(`./sw.js?v=${swRevision}`,{updateViaCache:'none'}).then(registration=>registration.update()).catch(()=>{});
 }
