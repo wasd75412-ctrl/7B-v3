@@ -3776,6 +3776,7 @@ html.chat-keyboard-open .chat-autocomplete{
   color:var(--sport-muted)
 }
 .shuttle-status-note strong{color:var(--sport-ink)}
+.shuttle-tracking-disabled{margin-top:14px}
 .shuttle-stock{
   display:flex;
   align-items:center;

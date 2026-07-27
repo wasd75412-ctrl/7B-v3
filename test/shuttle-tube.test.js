@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import {
   activateShuttleTube,
   createShuttleTube,
+  enforceLegacyActiveShuttleTube,
   normalizeShuttleTubes,
   restoreShuttleTube,
   setShuttlePaymentStatus,
@@ -103,4 +104,12 @@ test('soft deletes and restores an old tube without affecting the active tube',(
   const restored=restoreShuttleTube(deleted,'old');
   assert.equal(restored.find(tube=>tube.id==='active').status,'active');
   assert.equal(restored.find(tube=>tube.id==='old').status,'finished');
+});
+
+test('keeps a legacy tube active until the admin intentionally starts the new tube',()=>{
+  const legacy=createShuttleTube({id:'legacy',name:'舊桶',status:'finished'});
+  const newTube=createShuttleTube({id:'new',name:'新桶',status:'active'});
+  const locked=enforceLegacyActiveShuttleTube([newTube,legacy],'legacy');
+  assert.equal(locked.find(tube=>tube.id==='legacy').status,'active');
+  assert.equal(locked.find(tube=>tube.id==='new').status,'pending');
 });
