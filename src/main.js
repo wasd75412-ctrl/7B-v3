@@ -1408,7 +1408,45 @@ async function persistFullState(){
     console.warn('獨立即時比分寫入失敗，完整房間資料已保留',liveResult.reason);
   }
 }
-function saveSoon(){
+function completedMatchSyncPayload(){
+  const encoded=encodeState(state);
+  return{
+    history:encoded.history,
+    match:encoded.match,
+    waitingQueue:encoded.waitingQueue,
+    queueDraftChosen:encoded.queueDraftChosen,
+    priority:encoded.priority,
+    nextCall:encoded.nextCall,
+    liveScoreEnabled:true,
+    liveScoreMatchKey:liveMatchKey(state.match),
+    updatedAt:serverTimestamp()
+  }
+}
+async function saveCompletedMatchStatsNow(){
+  if(!isHost||applying||!roomRef)return false;
+  clearTimeout(saveTimer);saveTimer=null;roomWriteScheduled=false;
+  clearTimeout(liveScoreSaveTimer);liveScoreSaveTimer=null;liveScoreWriteScheduled=false;
+  rememberLatestLiveMatch();liveScoreReady=true;
+  pendingRoomWrites++;updateSyncBadge();
+  try{
+    const roomWrite=setDoc(roomRef,completedMatchSyncPayload(),{merge:true});
+    const liveWrite=liveScoreRef&&liveScoreAvailable?setDoc(liveScoreRef,liveScorePayload(),{merge:true}):Promise.resolve();
+    const [roomResult,liveResult]=await Promise.allSettled([roomWrite,liveWrite]);
+    if(roomResult.status==='rejected')throw roomResult.reason;
+    if(liveResult.status==='rejected'){
+      liveScoreAvailable=false;liveScoreReady=false;latestLiveMatch=null;
+      console.warn('賽後即時比分同步失敗，完整房間資料仍會接續同步',liveResult.reason);
+    }
+    return true;
+  }catch(error){
+    setSync('戰績同步失敗','error');
+    setError(formatError(error));
+    throw error;
+  }finally{
+    pendingRoomWrites=Math.max(0,pendingRoomWrites-1);updateSyncBadge();
+  }
+}
+function saveSoon(delay=120){
   if(!isHost||applying||!roomRef)return;
   clearTimeout(saveTimer);
   clearTimeout(liveScoreSaveTimer);liveScoreSaveTimer=null;liveScoreWriteScheduled=false;
@@ -1426,7 +1464,7 @@ function saveSoon(){
       setSync('同步失敗','error');
       setError(formatError(e));
     });
-  },120);
+  },delay);
 }
 function saveLiveScoreSoon(){
   if(!isHost||applying||!roomRef)return;
@@ -1792,8 +1830,12 @@ function finishMatch(){
   $('winnerTitle').textContent=`${m.winner===0?'A隊':'B隊'}獲勝`;
   $('finalScore').textContent=`${m.scores[0]}：${m.scores[1]}`;
   if(isHost)$('resultModal').classList.remove('hidden');else $('resultModal').classList.add('hidden');
-  renderAll();saveSoon();
-  if(newlyRecorded&&isHost)setTimeout(()=>createCloudBackup('auto',{id:`auto_${m.matchId}`,silent:true,system:true}).then(loadBackups).catch(e=>console.warn('賽後備份失敗',e)),1200)
+  renderAll();
+  if(newlyRecorded&&isHost){
+    void saveCompletedMatchStatsNow().catch(error=>console.warn('賽後戰績優先同步失敗，已排入完整資料重試',error));
+    saveSoon(420);
+    setTimeout(()=>createCloudBackup('auto',{id:`auto_${m.matchId}`,silent:true,system:true}).then(loadBackups).catch(e=>console.warn('賽後備份失敗',e)),1200)
+  }else saveSoon()
 }
 function updatePriority(){
   const vals=[0,1,2,3].map(i=>$('n'+i).value).filter(Boolean),projected=projectedQueueForLineup(vals);
@@ -2334,6 +2376,6 @@ const exitScoreBtn=$('exitScore');if(exitScoreBtn)exitScoreBtn.addEventListener(
 
 window.bcmMarkBooted?.();
 if('serviceWorker'in navigator&&location.protocol.startsWith('http')){
-  const swRevision='20260727-367';
+  const swRevision='20260727-368';
   navigator.serviceWorker.register(`./sw.js?v=${swRevision}`,{updateViaCache:'none'}).then(registration=>registration.update()).catch(()=>{});
 }
