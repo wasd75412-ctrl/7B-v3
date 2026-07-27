@@ -3721,7 +3721,7 @@ html.chat-keyboard-open .chat-autocomplete{
 .shuttle-tube-head h2,.shuttle-current-head h3{margin:3px 0 5px}
 .shuttle-tube-create{
   display:grid;
-  grid-template-columns:minmax(0,1.5fr) minmax(140px,.65fr) auto;
+  grid-template-columns:minmax(0,1.35fr) minmax(130px,.55fr) minmax(110px,.45fr) auto;
   gap:12px;
   align-items:end;
   margin:18px 0;
@@ -3749,6 +3749,10 @@ html.chat-keyboard-open .chat-autocomplete{
   border-radius:22px;
   background:radial-gradient(circle at 94% 0,rgba(var(--sport-tint-rgb),.18),transparent 38%),linear-gradient(145deg,rgba(var(--sport-tint-rgb),.08),rgba(2,20,34,.78))
 }
+.shuttle-tube-pending{
+  border-color:rgba(250,185,62,.38);
+  background:radial-gradient(circle at 94% 0,rgba(250,185,62,.16),transparent 38%),linear-gradient(145deg,rgba(119,76,6,.13),rgba(2,20,34,.80))
+}
 .shuttle-current-label{
   display:inline-flex;
   padding:5px 9px;
@@ -3758,7 +3762,47 @@ html.chat-keyboard-open .chat-autocomplete{
   font-size:.72rem;
   font-weight:1000
 }
+.shuttle-current-label.pending{background:rgba(250,185,62,.17);color:#ffd67d}
+.shuttle-current-label.active{background:rgba(58,210,143,.16);color:#83efbd}
 .shuttle-current-head p{margin:0;color:var(--sport-muted);font-weight:850}
+.shuttle-head-actions,.shuttle-stock-actions{display:flex;gap:8px;flex-wrap:wrap}
+.shuttle-status-note{
+  display:grid;
+  gap:5px;
+  padding:14px 16px;
+  border:1px dashed rgba(var(--sport-tint-rgb),.30);
+  border-radius:17px;
+  background:rgba(3,24,40,.46);
+  color:var(--sport-muted)
+}
+.shuttle-status-note strong{color:var(--sport-ink)}
+.shuttle-stock{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:14px;
+  margin:15px 0;
+  padding:14px 16px;
+  border:1px solid rgba(58,210,143,.28);
+  border-radius:18px;
+  background:linear-gradient(135deg,rgba(12,91,64,.34),rgba(4,35,43,.62))
+}
+.shuttle-stock>div:first-child{display:grid;gap:2px}
+.shuttle-stock span{color:var(--sport-muted);font-size:.78rem;font-weight:900}
+.shuttle-stock strong{color:#83efbd;font-size:2rem;line-height:1}
+.shuttle-stock strong small{font-size:.82rem}
+.shuttle-stock.empty{border-color:rgba(255,105,120,.38);background:rgba(94,20,35,.35)}
+.shuttle-stock.empty strong{color:#ff9ca8}
+.shuttle-pending-note{
+  margin:14px 0;
+  padding:10px 12px;
+  border-radius:14px;
+  background:rgba(250,185,62,.10);
+  color:#ffd67d;
+  font-size:.78rem;
+  font-weight:900
+}
+.shuttle-payment-panel h4{margin:15px 0 0;color:var(--sport-ink);font-size:.92rem}
 .shuttle-metrics{
   display:grid;
   grid-template-columns:repeat(3,1fr);
@@ -3832,6 +3876,9 @@ html.chat-keyboard-open .chat-autocomplete{
   .shuttle-tube-head,.shuttle-current-head{align-items:stretch;flex-direction:column}
   .shuttle-tube-create{grid-template-columns:1fr}
   .shuttle-tube-create .btn,.shuttle-current-head .btn{width:100%}
+  .shuttle-head-actions{display:grid;grid-template-columns:1fr}
+  .shuttle-stock{align-items:stretch;flex-direction:column}
+  .shuttle-stock-actions{display:grid;grid-template-columns:repeat(3,1fr)}
   .shuttle-metrics{grid-template-columns:1fr}
   .shuttle-player-grid{grid-template-columns:1fr}
   .shuttle-tube-history{align-items:flex-start;flex-direction:column}

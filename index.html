@@ -335,11 +335,12 @@
 </div></div>
 
 <div id="shuttleTubeModal" class="modal hidden"><div class="modal-card shuttle-tube-manager">
-  <div class="shuttle-tube-head"><div><span class="club-kicker">SHUTTLE FUND</span><h2>🏸 球桶管理</h2><p class="sub">建立新球桶、記錄價格，並追蹤已繳費球友是否曾在繳費後上場。</p></div><button id="closeShuttleTubeManager" class="btn" type="button">關閉</button></div>
+  <div class="shuttle-tube-head"><div><span class="club-kicker">SHUTTLE FUND</span><h2>🏸 球桶管理</h2><p class="sub">新球桶會先保留為待使用；按下開始使用後，才追蹤球友是否上場。</p></div><button id="closeShuttleTubeManager" class="btn" type="button">關閉</button></div>
   <div class="shuttle-tube-create">
     <label class="field"><span>購買用球</span><input id="shuttleTubeName" class="input" maxlength="60" placeholder="例如：YONEX AS-30"></label>
     <label class="field"><span>價格（元）</span><input id="shuttleTubePrice" class="input" type="number" min="1" step="1" inputmode="numeric" placeholder="例如：950"></label>
-    <button id="createShuttleTube" class="btn primary" type="button">建立新球桶</button>
+    <label class="field"><span>每桶球數</span><input id="shuttleTubeCount" class="input" type="number" min="1" max="100" step="1" inputmode="numeric" value="12"></label>
+    <button id="createShuttleTube" class="btn primary" type="button">建立待用球桶</button>
   </div>
   <div id="shuttleTubeList" class="shuttle-tube-list"></div>
 </div></div>
