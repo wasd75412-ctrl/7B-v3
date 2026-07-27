@@ -3828,7 +3828,7 @@ html.chat-keyboard-open .chat-autocomplete{
 .shuttle-player-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px}
 .shuttle-player{
   display:grid;
-  grid-template-columns:auto 1fr auto;
+  grid-template-columns:auto minmax(0,1fr) minmax(150px,auto);
   align-items:center;
   gap:10px;
   padding:11px;
@@ -3837,26 +3837,44 @@ html.chat-keyboard-open .chat-autocomplete{
   background:rgba(4,25,40,.64);
   color:var(--sport-ink);
   text-align:left;
-  cursor:pointer
+  cursor:default
 }
 .shuttle-player>span{min-width:0}
 .shuttle-player strong,.shuttle-player small{display:block}
 .shuttle-player small{margin-top:3px;color:var(--sport-muted);font-size:.72rem;font-weight:800}
-.shuttle-player>b{font-size:1.15rem}
+.shuttle-player-status{
+  width:100%;
+  min-width:0;
+  padding:8px 28px 8px 9px;
+  border:1px solid rgba(var(--sport-tint-rgb),.22);
+  border-radius:11px;
+  background:rgba(1,16,28,.62);
+  color:var(--sport-ink);
+  font-size:.76rem;
+  font-weight:900
+}
 .shuttle-player.paid-waiting{
   border-color:rgba(250,185,62,.58);
   background:linear-gradient(135deg,rgba(119,76,6,.50),rgba(63,44,13,.58));
   box-shadow:0 0 18px rgba(250,185,62,.08)
 }
-.shuttle-player.paid-waiting small,.shuttle-player.paid-waiting>b{color:#ffd67d}
+.shuttle-player.paid-waiting small{color:#ffd67d}
 .shuttle-player.paid-played{
   border-color:rgba(58,210,143,.64);
   background:linear-gradient(135deg,rgba(12,91,64,.62),rgba(4,53,43,.72));
   box-shadow:0 0 18px rgba(58,210,143,.10)
 }
-.shuttle-player.paid-played small,.shuttle-player.paid-played>b{color:#83efbd}
+.shuttle-player.paid-played small{color:#83efbd}
 .shuttle-history-section{display:grid;gap:8px;margin-top:4px}
 .shuttle-history-section h3{margin:5px 0}
+.shuttle-history-wrap{
+  overflow:hidden;
+  border:1px solid rgba(var(--sport-tint-rgb),.16);
+  border-radius:17px;
+  background:rgba(3,24,40,.44)
+}
+.shuttle-history-wrap .shuttle-tube-history{border:0;border-radius:0;background:transparent}
+.shuttle-history-wrap .shuttle-payment-panel{padding:0 14px 14px}
 .shuttle-tube-history{
   display:flex;
   justify-content:space-between;
@@ -3872,6 +3890,19 @@ html.chat-keyboard-open .chat-autocomplete{
 }
 .shuttle-tube-history strong{display:block;color:var(--sport-ink);font-size:.95rem}
 .shuttle-tube-history div span{display:block;margin-top:3px}
+.shuttle-history-actions{display:flex;gap:7px;flex-wrap:wrap;margin-left:auto}
+.shuttle-history-actions .btn{padding:8px 10px;font-size:.75rem}
+.shuttle-deleted-section{
+  margin-top:12px;
+  padding:12px;
+  border:1px dashed rgba(255,105,120,.28);
+  border-radius:17px;
+  background:rgba(45,16,28,.24)
+}
+.shuttle-deleted-section summary{cursor:pointer;color:var(--sport-muted);font-weight:900}
+.shuttle-deleted-section[open] summary{margin-bottom:10px}
+.shuttle-deleted-section .shuttle-tube-history+.shuttle-tube-history{margin-top:8px}
+.shuttle-tube-deleted{opacity:.82}
 @media(max-width:700px){
   .shuttle-tube-head,.shuttle-current-head{align-items:stretch;flex-direction:column}
   .shuttle-tube-create{grid-template-columns:1fr}
@@ -3881,7 +3912,11 @@ html.chat-keyboard-open .chat-autocomplete{
   .shuttle-stock-actions{display:grid;grid-template-columns:repeat(3,1fr)}
   .shuttle-metrics{grid-template-columns:1fr}
   .shuttle-player-grid{grid-template-columns:1fr}
+  .shuttle-player{grid-template-columns:auto minmax(0,1fr)}
+  .shuttle-player-status{grid-column:1/-1}
   .shuttle-tube-history{align-items:flex-start;flex-direction:column}
+  .shuttle-history-actions{display:grid;grid-template-columns:1fr 1fr 1fr;width:100%;margin-left:0}
+  .shuttle-history-actions .btn{width:100%}
 }
 .chat-composer-foot .btn{min-width:96px}
 @media(max-width:680px){

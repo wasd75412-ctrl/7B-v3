@@ -4,9 +4,13 @@ import {
   activateShuttleTube,
   createShuttleTube,
   normalizeShuttleTubes,
+  restoreShuttleTube,
+  setShuttlePaymentStatus,
   setShuttlePayment,
   setShuttleRemaining,
-  shuttlePaymentStatus
+  softDeleteShuttleTube,
+  shuttlePaymentStatus,
+  updateShuttleTube
 } from '../src/shuttle-tube.js';
 
 test('tracks paid players separately from unpaid players',()=>{
@@ -71,4 +75,32 @@ test('migrates the newest legacy tube as active and clamps remaining shuttles',(
   assert.equal(migrated[1].status,'finished');
   assert.equal(setShuttleRemaining(migrated[0],99).remainingShuttles,12);
   assert.equal(setShuttleRemaining(migrated[0],-1).remainingShuttles,0);
+});
+
+test('lets an admin explicitly edit paid and played status',()=>{
+  const tube=createShuttleTube({id:'tube',name:'AS-30',status:'active'});
+  const paid=setShuttlePaymentStatus(tube,'p1','paid-waiting',{paidAt:'2026-07-28T01:00:00.000Z',historyCount:0});
+  assert.equal(shuttlePaymentStatus(paid,[{endedAt:'2026-07-28T02:00:00.000Z',teams:[['p1'],[]]}],'p1'),'paid-waiting');
+  const played=setShuttlePaymentStatus(paid,'p1','paid-played');
+  assert.equal(shuttlePaymentStatus(played,[],'p1'),'paid-played');
+  assert.equal(shuttlePaymentStatus(setShuttlePaymentStatus(played,'p1','unpaid'),[],'p1'),'unpaid');
+});
+
+test('edits tube details while keeping remaining count valid',()=>{
+  const tube=createShuttleTube({id:'tube',name:'AS-30',price:950,totalShuttles:12,status:'active'});
+  const edited=updateShuttleTube(tube,{name:'Volar-10',price:880,totalShuttles:6,remainingShuttles:9});
+  assert.equal(edited.name,'Volar-10');
+  assert.equal(edited.price,880);
+  assert.equal(edited.totalShuttles,6);
+  assert.equal(edited.remainingShuttles,6);
+});
+
+test('soft deletes and restores an old tube without affecting the active tube',()=>{
+  const active=createShuttleTube({id:'active',name:'目前桶',status:'active'});
+  const old=createShuttleTube({id:'old',name:'舊桶',status:'finished'});
+  const deleted=softDeleteShuttleTube([active,old],'old','2026-07-28T01:00:00.000Z');
+  assert.equal(deleted.find(tube=>tube.id==='old').status,'deleted');
+  const restored=restoreShuttleTube(deleted,'old');
+  assert.equal(restored.find(tube=>tube.id==='active').status,'active');
+  assert.equal(restored.find(tube=>tube.id==='old').status,'finished');
 });
