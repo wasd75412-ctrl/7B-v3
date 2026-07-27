@@ -46,6 +46,16 @@ export function normalizeShuttleTubes(value,maxCount=20){
   });
 }
 
+export function enforceLegacyActiveShuttleTube(tubes=[],tubeId=''){
+  const normalized=normalizeShuttleTubes(tubes),id=String(tubeId||'').trim();
+  if(!id||!normalized.some(tube=>tube.id===id))return normalized;
+  return normalizeShuttleTubes(normalized.map(tube=>{
+    if(tube.id===id)return{...tube,status:'active',finishedAt:''};
+    if(tube.status!=='active')return tube;
+    return{...tube,status:'pending',activatedAt:'',activationHistoryCount:0,finishedAt:''};
+  }));
+}
+
 export function createShuttleTube({id='',name='',price=0,createdAt='',totalShuttles=12,status='pending'}={}){
   return normalizeShuttleTubes([{id,name,price,createdAt,totalShuttles,remainingShuttles:totalShuttles,status}])[0];
 }

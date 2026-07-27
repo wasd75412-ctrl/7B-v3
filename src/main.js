@@ -13,7 +13,7 @@ import { CHAT_MEDIA_MAX_BYTES, CHAT_MEDIA_TYPES, CHAT_MENTION_ALL_ID, CHAT_MESSA
 import { adminRoleButtonState, claimedAdminPlayerId, resolveAdminSessionToken } from './admin-role.js';
 import { updateAttendanceState } from './attendance.js';
 import { pollWasFinalized } from './poll.js';
-import { activateShuttleTube, createShuttleTube, normalizeShuttleTubes, restoreShuttleTube, setShuttlePaymentStatus, setShuttleRemaining, shuttlePaymentStatus, softDeleteShuttleTube, updateShuttleTube } from './shuttle-tube.js';
+import { activateShuttleTube, createShuttleTube, enforceLegacyActiveShuttleTube, normalizeShuttleTubes, restoreShuttleTube, setShuttlePaymentStatus, setShuttleRemaining, shuttlePaymentStatus, softDeleteShuttleTube, updateShuttleTube } from './shuttle-tube.js';
 
 const firebaseConfig={apiKey:'AIzaSyBrakbTPK7UqEChPBI6pM8-i03IcLq0IvM',authDomain:'badminton-7a1c3.firebaseapp.com',projectId:'badminton-7a1c3',storageBucket:'badminton-7a1c3.firebasestorage.app',messagingSenderId:'883534015507',appId:'1:883534015507:web:a7f6fb318151b6d07563e6',measurementId:'G-C97B98H7YW'};
 const fbApp=initializeApp(firebaseConfig);
@@ -46,7 +46,7 @@ function normalizeAdminNotices(source){
   }).filter(notice=>{if(seen.has(notice.id))return false;seen.add(notice.id);return true}).sort((a,b)=>(Date.parse(b.publishedAt)||0)-(Date.parse(a.publishedAt)||0)).slice(0,20);
 }
 function setAdminNotices(rows){state.adminNotices=normalizeAdminNotices({adminNotices:rows});state.adminNotice=state.adminNotices[0]||null}
-const initialState=()=>({version:9.6,roster:[],adminPlayerIds:[],attendance:[],court:[],waitingQueue:[],queueDraftChosen:[],priority:null,match:{active:false,players:[[],[]],scores:[0,0],rallies:[],serving:0,positions:[[0,1],[0,1]],winner:null,startedAt:''},rules:{target:11,cap:15,deuce:true},history:[],matchReplayPlaylistTitle:'',matchReplayPlaylistUrl:'',nextCall:null,schedulePoll:{status:'open',createdAt:'',deadlineAt:'',options:[],votes:{},voterPlayers:{}},nextEvent:null,adminNotice:null,adminNotices:[],shuttleTubes:[],updatedAt:null});
+const initialState=()=>({version:9.6,roster:[],adminPlayerIds:[],attendance:[],court:[],waitingQueue:[],queueDraftChosen:[],priority:null,match:{active:false,players:[[],[]],scores:[0,0],rallies:[],serving:0,positions:[[0,1],[0,1]],winner:null,startedAt:''},rules:{target:11,cap:15,deuce:true},history:[],matchReplayPlaylistTitle:'',matchReplayPlaylistUrl:'',nextCall:null,schedulePoll:{status:'open',createdAt:'',deadlineAt:'',options:[],votes:{},voterPlayers:{}},nextEvent:null,adminNotice:null,adminNotices:[],shuttleTubes:[],shuttleLegacyActiveTubeId:'',shuttleNoTrackingTubeIds:[],updatedAt:null});
 const DEVICE_SYNC_CODE_KEY='bcmDeviceSyncCodeV1',DEVICE_SYNC_TOKEN_KEY='bcmDeviceSyncTokenV1',DEVICE_SYNC_NAME_KEY='bcmDeviceSyncNameV1',DEVICE_SYNC_PLAYER_KEY='bcmDeviceSyncPlayerV1';
 let state=initialState(), roomId='', roomRef=null, liveScoreRef=null, chatCollectionRef=null, isHost=false, hostToken='', adminPinHash='', unsubscribe=null, liveScoreUnsubscribe=null, chatUnsubscribe=null, applying=false, saveTimer=null, liveScoreSaveTimer=null, editId=null;const expandedPlayerNotes=new Set();let profileOriginal=null,profileDirty={name:false,voiceName:false,racket:false,racketTension:false,racketString:false,backupRacket:false,backupTension:false,backupString:false,note:false};let voiceEnabled=localStorage.getItem('bdV76Voice')!=='0';let dismissedResultKey='';const selfToken=localStorage.getItem(DEVICE_SYNC_TOKEN_KEY)||localStorage.getItem('bdV73SelfToken')||randomToken();localStorage.setItem('bdV73SelfToken',selfToken);let selfHash='',scoreViewRequested=false,expandedShuttleTubeId='';
 let deviceProfileUnsubscribe=null,deviceProfileApplying=false,deviceProfileSaveTimer=null,identitySyncing=false,roomConnectInProgress=false;
@@ -208,6 +208,8 @@ function withoutLegacyGender(playerRecord={}){const {gender:_removedGender,...re
 function encodeState(src){
   const m=src.match||{};
   const notices=normalizeAdminNotices(src);
+  const legacyActiveTubeId=String(src.shuttleLegacyActiveTubeId||'').trim().slice(0,128);
+  const noTrackingTubeIds=[...new Set((Array.isArray(src.shuttleNoTrackingTubeIds)?src.shuttleNoTrackingTubeIds:[]).map(id=>String(id||'').trim()).filter(Boolean))].slice(0,20);
   return {
     version:9.6,
     roster:Array.isArray(src.roster)?src.roster.map(playerRecord=>({...withoutLegacyGender(playerRecord),ownerHashes:playerOwnerHashes(playerRecord).join('|')})):[],
@@ -248,7 +250,9 @@ function encodeState(src){
     nextEvent:src.nextEvent?{optionId:src.nextEvent.optionId||'',date:src.nextEvent.date||'',time:src.nextEvent.time||'',endTime:src.nextEvent.endTime||'',location:src.nextEvent.location||'',note:src.nextEvent.note||'',rentalTotal:wholeAmount(src.nextEvent.rentalTotal),participantCount:wholeAmount(src.nextEvent.participantCount),perPersonFee:wholeAmount(src.nextEvent.perPersonFee),publishedAt:src.nextEvent.publishedAt||''}:null,
     adminNotice:notices[0]||null,
     adminNotices:notices,
-    shuttleTubes:normalizeShuttleTubes(src.shuttleTubes),
+    shuttleTubes:enforceLegacyActiveShuttleTube(src.shuttleTubes,legacyActiveTubeId),
+    shuttleLegacyActiveTubeId:legacyActiveTubeId,
+    shuttleNoTrackingTubeIds:noTrackingTubeIds,
     history:(Array.isArray(src.history)?src.history:[]).map(h=>({
       matchId:h.matchId||randomToken(),
       time:h.time||'',
@@ -270,6 +274,8 @@ const DEFAULT_VOICE_NAMES={'緁':'潔','Yoyo':'優又','建昱':'見育','郁荏
 function defaultVoiceName(name){return DEFAULT_VOICE_NAMES[String(name||'')]||''}
 function decodeState(d){
   const base=initialState(), m=d.match||{};
+  const legacyActiveTubeId=String(d.shuttleLegacyActiveTubeId||'').trim().slice(0,128);
+  const noTrackingTubeIds=[...new Set((Array.isArray(d.shuttleNoTrackingTubeIds)?d.shuttleNoTrackingTubeIds:[]).map(id=>String(id||'').trim()).filter(Boolean))].slice(0,20);
   const history=Array.isArray(d.history)?d.history.map(h=>{
     if(Array.isArray(h.teams)) return h;
     return {
@@ -314,7 +320,9 @@ function decodeState(d){
     nextEvent:d.nextEvent&&typeof d.nextEvent==='object'?{...d.nextEvent,rentalTotal:wholeAmount(d.nextEvent.rentalTotal),participantCount:wholeAmount(d.nextEvent.participantCount),perPersonFee:wholeAmount(d.nextEvent.perPersonFee)}:null,
     adminNotice:normalizeAdminNotices(d)[0]||null,
     adminNotices:normalizeAdminNotices(d),
-    shuttleTubes:normalizeShuttleTubes(d.shuttleTubes),
+    shuttleTubes:enforceLegacyActiveShuttleTube(d.shuttleTubes,legacyActiveTubeId),
+    shuttleLegacyActiveTubeId:legacyActiveTubeId,
+    shuttleNoTrackingTubeIds:noTrackingTubeIds,
     history
   }
 }
@@ -1998,6 +2006,9 @@ function renderShuttleTubeManager(){
   const pending=tubes.find(tube=>tube.status==='pending');
   const finished=tubes.filter(tube=>tube.status==='finished');
   const deleted=tubes.filter(tube=>tube.status==='deleted');
+  const noTrackingIds=new Set(state.shuttleNoTrackingTubeIds||[]);
+  const trackingDisabled=tube=>noTrackingIds.has(tube?.id);
+  const trackingDisabledNote='<div class="shuttle-status-note shuttle-tracking-disabled"><strong>舊球桶僅記錄剩餘球數</strong><span>這一桶不顯示繳費或已打球名單；之後啟用的新球桶仍會正常追蹤。</span></div>';
   if(!tubes.length){
     list.innerHTML='<div class="shuttle-tube-empty"><strong>尚未建立球桶</strong><span>輸入用球名稱與價格後，即可開始記錄繳費狀態。</span></div>';
     return;
@@ -2023,17 +2034,17 @@ function renderShuttleTubeManager(){
       <div><span>目前剩餘</span><strong>${active.remainingShuttles}<small> / ${active.totalShuttles} 顆</small></strong></div>
       <div class="shuttle-stock-actions"><button class="btn primary" type="button" data-shuttle-delta="-1" data-shuttle-tube="${esc(active.id)}" ${active.remainingShuttles===0?'disabled':''}>使用 1 顆</button><button class="btn" type="button" data-shuttle-delta="1" data-shuttle-tube="${esc(active.id)}" ${active.remainingShuttles>=active.totalShuttles?'disabled':''}>加回 1 顆</button><button class="btn" type="button" data-set-shuttle-remaining="${esc(active.id)}">直接設定</button></div>
     </div>
-    ${paymentPanel(active)}
+    ${trackingDisabled(active)?trackingDisabledNote:paymentPanel(active)}
   </article>`:'<div class="shuttle-status-note"><strong>目前沒有正在使用的球桶</strong><span>建立待用球桶後，按「開始使用新球桶」即可啟用。</span></div>';
   const pendingMarkup=pending?`<article class="shuttle-tube-current shuttle-tube-pending">
     <div class="shuttle-current-head"><div><span class="shuttle-current-label pending">待開始使用</span><h3>${esc(pending.name)}</h3><p>${esc(shuttleTubeTime(pending.createdAt))} · ${formatMoney(pending.price)} 元 · 每桶 ${pending.totalShuttles} 顆</p></div><div class="shuttle-head-actions"><button class="btn primary" type="button" id="activatePendingShuttleTube">開始使用新球桶</button><button class="btn" type="button" data-edit-shuttle-tube="${esc(pending.id)}">編輯球桶</button><button class="btn danger-outline" type="button" data-delete-shuttle-tube="${esc(pending.id)}">刪除此桶</button></div></div>
     <p class="shuttle-pending-note">尚未啟用：今天與先前的比賽都不會列為使用過此桶。可先在下方記錄繳費。</p>
-    ${paymentPanel(pending)}
+    ${trackingDisabled(pending)?trackingDisabledNote:paymentPanel(pending)}
   </article>`:'';
   const previous=finished.map(tube=>{
     const paidCount=Object.keys(tube.paid||{}).length,playedCount=Object.keys(tube.paid||{}).filter(id=>shuttlePaymentStatus(tube,state.history,id)==='paid-played').length;
-    const expanded=expandedShuttleTubeId===tube.id;
-    return `<article class="shuttle-history-wrap"><div class="shuttle-tube-history"><div><strong>${esc(tube.name)}</strong><span>${esc(shuttleTubeTime(tube.activatedAt||tube.createdAt))} · ${formatMoney(tube.price)} 元</span></div><span>剩餘 ${tube.remainingShuttles} 顆 · 已繳 ${paidCount} 人 · 已打球 ${playedCount} 人</span><div class="shuttle-history-actions"><button class="btn" type="button" data-toggle-shuttle-details="${esc(tube.id)}">${expanded?'收合球員狀態':'球員狀態'}</button><button class="btn" type="button" data-edit-shuttle-tube="${esc(tube.id)}">編輯球桶</button><button class="btn danger-outline" type="button" data-delete-shuttle-tube="${esc(tube.id)}">刪除</button></div></div>${expanded?paymentPanel(tube):''}</article>`;
+    const disabled=trackingDisabled(tube),expanded=!disabled&&expandedShuttleTubeId===tube.id;
+    return `<article class="shuttle-history-wrap"><div class="shuttle-tube-history"><div><strong>${esc(tube.name)}</strong><span>${esc(shuttleTubeTime(tube.activatedAt||tube.createdAt))} · ${formatMoney(tube.price)} 元</span></div><span>${disabled?`剩餘 ${tube.remainingShuttles} 顆 · 舊桶僅記錄球數`:`剩餘 ${tube.remainingShuttles} 顆 · 已繳 ${paidCount} 人 · 已打球 ${playedCount} 人`}</span><div class="shuttle-history-actions">${disabled?'':`<button class="btn" type="button" data-toggle-shuttle-details="${esc(tube.id)}">${expanded?'收合球員狀態':'球員狀態'}</button>`}<button class="btn" type="button" data-edit-shuttle-tube="${esc(tube.id)}">編輯球桶</button><button class="btn danger-outline" type="button" data-delete-shuttle-tube="${esc(tube.id)}">刪除</button></div></div>${expanded?paymentPanel(tube):''}</article>`;
   }).join('');
   const deletedMarkup=deleted.map(tube=>`<article class="shuttle-tube-history shuttle-tube-deleted"><div><strong>${esc(tube.name)}</strong><span>${esc(shuttleTubeTime(tube.activatedAt||tube.createdAt))} · ${formatMoney(tube.price)} 元</span></div><span>刪除日期：${esc(shuttleTubeTime(tube.deletedAt))}</span><button class="btn" type="button" data-restore-shuttle-tube="${esc(tube.id)}">恢復球桶</button></article>`).join('');
   list.innerHTML=`${activeMarkup}${pendingMarkup}${previous?`<section class="shuttle-history-section"><h3>過往球桶</h3>${previous}</section>`:''}${deletedMarkup?`<details class="shuttle-deleted-section"><summary>已刪除球桶（${deleted.length}）</summary>${deletedMarkup}</details>`:''}`;
@@ -2041,7 +2052,7 @@ function renderShuttleTubeManager(){
     if(!isHost)return;
     const playerId=select.dataset.shuttleStatus,tubeId=select.dataset.shuttleTube;
     const target=tubes.find(tube=>tube.id===tubeId);
-    if(!target)return;
+    if(!target||trackingDisabled(target))return;
     state.shuttleTubes=normalizeShuttleTubes(tubes.map(tube=>tube.id===tubeId?setShuttlePaymentStatus(tube,playerId,select.value,{paidAt:new Date().toISOString(),historyCount:state.history.length}):tube));
     renderShuttleTubeManager();saveSoon();
   });
@@ -2093,6 +2104,7 @@ function renderShuttleTubeManager(){
       ?`確定開始使用「${pending.name}」？目前的「${active.name}」會移到過往球桶，啟用前的比賽不會算入新桶。`
       :`確定開始使用「${pending.name}」？啟用前的比賽不會算入新桶。`;
     if(!confirm(message))return;
+    state.shuttleLegacyActiveTubeId='';
     state.shuttleTubes=activateShuttleTube(tubes,pending.id,{activatedAt:new Date().toISOString(),historyCount:state.history.length});
     renderShuttleTubeManager();saveSoon();
   });
@@ -2100,6 +2112,7 @@ function renderShuttleTubeManager(){
     if(!isHost)return;
     const tube=tubes.find(row=>row.id===button.dataset.deleteShuttleTube);
     if(!tube||!confirm(`確定刪除球桶「${tube.name}」？\n刪除後仍可從「已刪除球桶」恢復，繳費紀錄不會消失。`))return;
+    if(state.shuttleLegacyActiveTubeId===tube.id)state.shuttleLegacyActiveTubeId='';
     state.shuttleTubes=softDeleteShuttleTube(tubes,tube.id,new Date().toISOString());
     if(expandedShuttleTubeId===tube.id)expandedShuttleTubeId='';
     renderShuttleTubeManager();saveSoon();
@@ -2491,6 +2504,6 @@ const exitScoreBtn=$('exitScore');if(exitScoreBtn)exitScoreBtn.addEventListener(
 
 window.bcmMarkBooted?.();
 if('serviceWorker'in navigator&&location.protocol.startsWith('http')){
-  const swRevision='20260728-371';
+  const swRevision='20260728-372';
   navigator.serviceWorker.register(`./sw.js?v=${swRevision}`,{updateViaCache:'none'}).then(registration=>registration.update()).catch(()=>{});
 }
