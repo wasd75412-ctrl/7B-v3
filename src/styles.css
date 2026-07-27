@@ -3990,3 +3990,39 @@ html.chat-keyboard-open .chat-autocomplete{
     white-space:normal
   }
 }
+
+/* BCM 2.4.33 — contain iOS native date controls inside poll cards */
+@media(max-width:620px){
+  #app #page6 :is(.poll-form,.poll-deadline-controls),
+  #app #page6 :is(.poll-form,.poll-deadline-controls) .field{
+    width:100%;
+    min-width:0;
+    max-width:100%
+  }
+  #app #page6 input:is([type="date"],[type="time"],[type="datetime-local"]){
+    display:block;
+    box-sizing:border-box;
+    width:100%;
+    min-width:0;
+    max-width:100%;
+    inline-size:100%;
+    min-inline-size:0;
+    max-inline-size:100%;
+    -webkit-appearance:none;
+    appearance:none
+  }
+  #app #page6 input:is([type="date"],[type="time"],[type="datetime-local"])::-webkit-date-and-time-value{
+    min-width:0;
+    margin:0;
+    text-align:center
+  }
+}
+@supports(-webkit-touch-callout:none){
+  @media(max-width:620px){
+    #app #page6 input:is([type="date"],[type="time"],[type="datetime-local"]){
+      width:-webkit-fill-available;
+      max-width:-webkit-fill-available
+    }
+    #app #page6 :is(.poll-form,.poll-deadline-controls) .field{overflow:hidden}
+  }
+}
