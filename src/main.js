@@ -5,7 +5,7 @@ import { calculatePerPersonFee, shouldShowNextEventAnnouncement } from './next-e
 import { shouldShowNotificationPrompt } from './notifications.js';
 import { normalizeMatchReplayTitle, normalizeYouTubePlaylistUrl } from './youtube.js';
 import { DEFAULT_SCORE_REMOTE_BINDINGS, VIRTUAL_REMOTE_CLICK_CODE, advanceRemotePressState, assignRemoteBinding, isEditableRemoteTarget, normalizeRemoteBindings, remoteActionForCode, remoteEventCode, shouldHandleRemoteInput } from './score-remote.js';
-import { createLiveScoreData, decodeLiveMatch, liveMatchKey, shouldAnnounceSyncedLiveScore } from './live-score.js';
+import { createLiveScoreData, decodeLiveMatch, generalRoomStateWithoutMatch, liveMatchKey, shouldAnnounceSyncedLiveScore, shouldShowScoreView } from './live-score.js';
 import { canAutoSyncPlayerIdentity } from './device-sync.js';
 import { shouldRequestNativeWakeLock, wakeLockButtonIntent, wakeLockControlIsActive } from './wake-lock.js';
 import { arrangeTeamsWithTeammateLimit, lineupExceedsTeammateLimit } from './team-rotation.js';
@@ -13,7 +13,7 @@ import { CHAT_MEDIA_MAX_BYTES, CHAT_MEDIA_TYPES, CHAT_MENTION_ALL_ID, CHAT_MESSA
 import { adminRoleButtonState, claimedAdminPlayerId, resolveAdminSessionToken } from './admin-role.js';
 import { updateAttendanceState } from './attendance.js';
 import { pollWasFinalized } from './poll.js';
-import { activateShuttleTube, createShuttleTube, normalizeShuttleTubes, setShuttlePayment, setShuttleRemaining, shuttlePaymentStatus } from './shuttle-tube.js';
+import { activateShuttleTube, createShuttleTube, normalizeShuttleTubes, restoreShuttleTube, setShuttlePaymentStatus, setShuttleRemaining, shuttlePaymentStatus, softDeleteShuttleTube, updateShuttleTube } from './shuttle-tube.js';
 
 const firebaseConfig={apiKey:'AIzaSyBrakbTPK7UqEChPBI6pM8-i03IcLq0IvM',authDomain:'badminton-7a1c3.firebaseapp.com',projectId:'badminton-7a1c3',storageBucket:'badminton-7a1c3.firebasestorage.app',messagingSenderId:'883534015507',appId:'1:883534015507:web:a7f6fb318151b6d07563e6',measurementId:'G-C97B98H7YW'};
 const fbApp=initializeApp(firebaseConfig);
@@ -48,7 +48,7 @@ function normalizeAdminNotices(source){
 function setAdminNotices(rows){state.adminNotices=normalizeAdminNotices({adminNotices:rows});state.adminNotice=state.adminNotices[0]||null}
 const initialState=()=>({version:9.6,roster:[],adminPlayerIds:[],attendance:[],court:[],waitingQueue:[],queueDraftChosen:[],priority:null,match:{active:false,players:[[],[]],scores:[0,0],rallies:[],serving:0,positions:[[0,1],[0,1]],winner:null,startedAt:''},rules:{target:11,cap:15,deuce:true},history:[],matchReplayPlaylistTitle:'',matchReplayPlaylistUrl:'',nextCall:null,schedulePoll:{status:'open',createdAt:'',deadlineAt:'',options:[],votes:{},voterPlayers:{}},nextEvent:null,adminNotice:null,adminNotices:[],shuttleTubes:[],updatedAt:null});
 const DEVICE_SYNC_CODE_KEY='bcmDeviceSyncCodeV1',DEVICE_SYNC_TOKEN_KEY='bcmDeviceSyncTokenV1',DEVICE_SYNC_NAME_KEY='bcmDeviceSyncNameV1',DEVICE_SYNC_PLAYER_KEY='bcmDeviceSyncPlayerV1';
-let state=initialState(), roomId='', roomRef=null, liveScoreRef=null, chatCollectionRef=null, isHost=false, hostToken='', adminPinHash='', unsubscribe=null, liveScoreUnsubscribe=null, chatUnsubscribe=null, applying=false, saveTimer=null, liveScoreSaveTimer=null, editId=null;const expandedPlayerNotes=new Set();let profileOriginal=null,profileDirty={name:false,voiceName:false,racket:false,racketTension:false,racketString:false,backupRacket:false,backupTension:false,backupString:false,note:false};let voiceEnabled=localStorage.getItem('bdV76Voice')!=='0';let dismissedResultKey='';const selfToken=localStorage.getItem(DEVICE_SYNC_TOKEN_KEY)||localStorage.getItem('bdV73SelfToken')||randomToken();localStorage.setItem('bdV73SelfToken',selfToken);let selfHash='';
+let state=initialState(), roomId='', roomRef=null, liveScoreRef=null, chatCollectionRef=null, isHost=false, hostToken='', adminPinHash='', unsubscribe=null, liveScoreUnsubscribe=null, chatUnsubscribe=null, applying=false, saveTimer=null, liveScoreSaveTimer=null, editId=null;const expandedPlayerNotes=new Set();let profileOriginal=null,profileDirty={name:false,voiceName:false,racket:false,racketTension:false,racketString:false,backupRacket:false,backupTension:false,backupString:false,note:false};let voiceEnabled=localStorage.getItem('bdV76Voice')!=='0';let dismissedResultKey='';const selfToken=localStorage.getItem(DEVICE_SYNC_TOKEN_KEY)||localStorage.getItem('bdV73SelfToken')||randomToken();localStorage.setItem('bdV73SelfToken',selfToken);let selfHash='',scoreViewRequested=false,expandedShuttleTubeId='';
 let deviceProfileUnsubscribe=null,deviceProfileApplying=false,deviceProfileSaveTimer=null,identitySyncing=false,roomConnectInProgress=false;
 let roomSnapshotFromCache=false,snapshotHasPendingWrites=false,pendingRoomWrites=0,roomWriteScheduled=false;
 let liveScoreSnapshotFromCache=false,liveScoreHasPendingWrites=false,pendingLiveScoreWrites=0,liveScoreWriteScheduled=false,liveScoreConnecting=false,liveScoreAvailable=true,liveScoreReady=false,liveScoreInitialSnapshot=true,liveScoreMigrationStarted=false,latestLiveMatch=null,lastRoomSnapshotData=null;
@@ -1276,6 +1276,7 @@ async function connectRoom(id){
   clearTimeout(saveTimer);saveTimer=null;
   clearTimeout(liveScoreSaveTimer);liveScoreSaveTimer=null;
   scoreSnapshotReady=false;
+  scoreViewRequested=false;
   roomId=id;
   roomRef=doc(db,'badmintonRooms',id);
   liveScoreRef=doc(db,'badmintonRooms',id,'liveScore','current');
@@ -1397,9 +1398,10 @@ function cleanState(d){return decodeState(d)}
 function matchScoreSignature(source=state){const match=source?.match||{};return `${!!match.active}|${(match.rallies||[]).join('')}|${match.winner??''}`}
 function announceSyncedScore(before,announce=true){const changed=before!==matchScoreSignature(),scoreVisible=!$('scoreView')?.classList.contains('hidden');if(shouldAnnounceSyncedLiveScore({announce,snapshotReady:scoreSnapshotReady,changed,scoreVisible,androidRemote:requestedAndroidRemote,matchActive:state.match.active,voiceEnabled}))setTimeout(announceScore,120);scoreSnapshotReady=true}
 function applyState(data){const before=matchScoreSignature(),next=cleanState(data),legacyMatchChanged=!!data.liveScoreEnabled&&!!data.liveScoreMatchKey&&data.liveScoreMatchKey!==liveMatchKey(data.match);if(liveScoreReady&&latestLiveMatch&&!legacyMatchChanged)next.match=structuredClone(latestLiveMatch);else if(legacyMatchChanged)latestLiveMatch=structuredClone(next.match);applying=true;state=next;renderAll();applying=false;announceSyncedScore(before);if(legacyMatchChanged&&isHost&&liveScoreAvailable)saveLiveScoreSoon()}
-function applyLiveScoreState(data,{announce=true}={}){const before=matchScoreSignature(),beforeWinner=state.match?.winner,match=decodeLiveMatch(data,state.match),shouldFinish=beforeWinner===null&&match.winner!==null&&isHost&&!requestedAndroidRemote;liveScoreReady=true;latestLiveMatch=structuredClone(match);applying=true;state.match=match;renderScore();renderDashboard();renderAndroidRemote();applying=false;announceSyncedScore(before,announce);if(shouldFinish)finishMatch()}
-function payload(){return {...encodeState(state),liveScoreEnabled:true,liveScoreMatchKey:liveMatchKey(state.match),updatedAt:serverTimestamp()}}
+function applyLiveScoreState(data,{announce=true}={}){const before=matchScoreSignature(),beforeWinner=state.match?.winner,match=decodeLiveMatch(data,state.match),shouldFinish=beforeWinner===null&&match.winner!==null&&isHost&&!requestedAndroidRemote&&scoreViewRequested;liveScoreReady=true;latestLiveMatch=structuredClone(match);applying=true;state.match=match;renderScore();renderDashboard();renderAndroidRemote();applying=false;announceSyncedScore(before,announce);if(shouldFinish)finishMatch()}
+function payload(){return {...generalRoomStateWithoutMatch(encodeState(state)),liveScoreEnabled:true,updatedAt:serverTimestamp()}}
 function liveScorePayload(){return {...createLiveScoreData(state.match),updatedAt:serverTimestamp()}}
+function liveScoreFallbackPayload(){const encoded=encodeState(state);return{match:encoded.match,liveScoreEnabled:true,liveScoreMatchKey:liveMatchKey(state.match),updatedAt:serverTimestamp()}}
 function rememberLatestLiveMatch(){latestLiveMatch=structuredClone(state.match)}
 async function initializeLiveScoreDocument(){
   if(!isHost||!roomRef||!liveScoreRef||liveScoreMigrationStarted)return;
@@ -1418,15 +1420,7 @@ async function initializeLiveScoreDocument(){
   }
 }
 async function persistFullState(){
-  rememberLatestLiveMatch();
-  const roomWrite=setDoc(roomRef,payload(),{merge:true});
-  const liveWrite=liveScoreRef&&liveScoreAvailable?setDoc(liveScoreRef,liveScorePayload(),{merge:true}):Promise.resolve();
-  const [roomResult,liveResult]=await Promise.allSettled([roomWrite,liveWrite]);
-  if(roomResult.status==='rejected')throw roomResult.reason;
-  if(liveResult.status==='rejected'){
-    liveScoreAvailable=false;liveScoreReady=false;latestLiveMatch=null;
-    console.warn('獨立即時比分寫入失敗，完整房間資料已保留',liveResult.reason);
-  }
+  await setDoc(roomRef,payload(),{merge:true});
 }
 function completedMatchSyncPayload(){
   const encoded=encodeState(state);
@@ -1469,7 +1463,6 @@ async function saveCompletedMatchStatsNow(){
 function saveSoon(delay=120){
   if(!isHost||applying||!roomRef)return;
   clearTimeout(saveTimer);
-  clearTimeout(liveScoreSaveTimer);liveScoreSaveTimer=null;liveScoreWriteScheduled=false;
   roomWriteScheduled=true;
   updateSyncBadge();
   saveTimer=setTimeout(()=>{
@@ -1488,26 +1481,37 @@ function saveSoon(delay=120){
 }
 function saveLiveScoreSoon(){
   if(!isHost||applying||!roomRef)return;
-  if(!liveScoreRef||!liveScoreAvailable){saveSoon();return}
   clearTimeout(liveScoreSaveTimer);
   rememberLatestLiveMatch();liveScoreReady=true;liveScoreWriteScheduled=true;updateSyncBadge();
   liveScoreSaveTimer=setTimeout(async()=>{
     liveScoreWriteScheduled=false;pendingLiveScoreWrites++;updateSyncBadge();
-    try{
-      await setDoc(liveScoreRef,liveScorePayload(),{merge:true});
-    }catch(error){
-      liveScoreAvailable=false;liveScoreReady=false;latestLiveMatch=null;
-      console.warn('即時比分寫入失敗，改用完整房間同步',error);
-      await setDoc(roomRef,payload(),{merge:true});
-    }finally{
+    try{await persistLiveScoreState()}
+    finally{
       pendingLiveScoreWrites=Math.max(0,pendingLiveScoreWrites-1);updateSyncBadge();
     }
   },35);
 }
+async function persistLiveScoreState(){
+  rememberLatestLiveMatch();liveScoreReady=true;
+  try{
+    if(!liveScoreRef||!liveScoreAvailable)await setDoc(roomRef,liveScoreFallbackPayload(),{merge:true});
+    else await setDoc(liveScoreRef,liveScorePayload(),{merge:true});
+  }catch(error){
+    liveScoreAvailable=false;liveScoreReady=false;latestLiveMatch=null;
+    console.warn('即時比分寫入失敗，改用相容比分同步',error);
+    await setDoc(roomRef,liveScoreFallbackPayload(),{merge:true});
+  }
+}
+async function saveLiveScoreNow(){
+  if(!isHost||applying||!roomRef)return;
+  clearTimeout(liveScoreSaveTimer);liveScoreSaveTimer=null;liveScoreWriteScheduled=false;
+  pendingLiveScoreWrites++;updateSyncBadge();
+  try{await persistLiveScoreState()}
+  finally{pendingLiveScoreWrites=Math.max(0,pendingLiveScoreWrites-1);updateSyncBadge()}
+}
 async function saveNow(){
   if(!isHost||applying||!roomRef)throw new Error('只有管理員可以發布球局。');
   clearTimeout(saveTimer);saveTimer=null;roomWriteScheduled=false;
-  clearTimeout(liveScoreSaveTimer);liveScoreSaveTimer=null;liveScoreWriteScheduled=false;
   pendingRoomWrites++;updateSyncBadge();
   try{
     await persistFullState();
@@ -1755,10 +1759,12 @@ function renderScore(){
   const side=m.scores[m.serving]%2===0?'右':'左';
   const sid=m.players[m.serving]?.[m.positions[m.serving]?.[m.scores[m.serving]%2===0?1:0]??0];
   $('serveText').textContent=m.winner!==null?'比賽結束':`${m.serving===0?'A隊':'B隊'} · ${pname(sid)} · ${side}發球區`;
-  // 觀看者固定留在總覽／一般頁面；只有管理員進入全螢幕比分模式
-  $('scoreView').classList.toggle('hidden',!m.active||!isHost||requestedAndroidRemote);
+  // 比分畫面是否開啟只屬於這台裝置，另一位管理員登入或操作不會影響它。
+  const scoreVisible=shouldShowScoreView({matchActive:m.active,isHost,androidRemote:requestedAndroidRemote,requested:scoreViewRequested});
+  $('scoreView').classList.toggle('hidden',!scoreVisible);
+  $('resumeScore')?.classList.toggle('hidden',!m.active||!isHost||requestedAndroidRemote||scoreVisible);
   const resultKey=currentResultKey();
-  if(!isHost||requestedAndroidRemote){
+  if(!isHost||requestedAndroidRemote||!scoreViewRequested){
     $('resultModal').classList.add('hidden');
   }else if(m.active&&m.winner!==null&&resultKey&&resultKey!==dismissedResultKey){
     $('resultModal').classList.remove('hidden');
@@ -1826,7 +1832,7 @@ function renderHistory(){renderMatchReplay();const list=state.history.map((h,ind
 function deleteHistoryRecord(index){if(!isHost)return;const h=state.history[index];if(!h)return;const title=`${(h.teams?.[0]||[]).map(pname).join('／')} ${h.scores?.[0]??0}：${h.scores?.[1]??0} ${(h.teams?.[1]||[]).map(pname).join('／')}`;if(!confirm(`確定刪除這筆比賽紀錄？\n\n${title}\n${h.time||''}`))return;state.history.splice(index,1);renderAll();saveSoon()}
 function clearAllHistory(){if(!isHost)return;if(!state.history.length)return alert('目前沒有比賽紀錄。');if(!confirm(`即將刪除全部 ${state.history.length} 筆比賽紀錄。\n球員名單與目前比分不會被刪除。`))return;const text=prompt('為避免誤刪，請輸入「清空」：','');if(text!=='清空')return alert('輸入不正確，已取消清空。');state.history=[];renderAll();saveSoon();alert('全部比賽紀錄已清空。')}
 function renderAll(){renderRoster();renderAttendance();renderCourt();renderHistory();renderScore();renderDashboard();renderStats();renderPoll();renderChat();if(!$('shuttleTubeModal')?.classList.contains('hidden'))renderShuttleTubeManager();applyRole();renderAndroidRemote()}
-function startMatch(){dismissedResultKey='';const selected=state.court.filter(Boolean);if(selected.length!==4||new Set(selected).size!==4)return alert('請選擇四位不同球員。');const ids=teammateSafeLineup(selected);state.court=[...ids];reconcileWaitingQueue(ids);state.queueDraftChosen=[];randomizeScoreThemeAtMatchStart();state.match={active:true,players:[[ids[0],ids[1]],[ids[2],ids[3]]],scores:[0,0],rallies:[],serving:0,positions:[[0,1],[0,1]],winner:null,startedAt:new Date().toISOString()};saveSoon();renderScore();renderDashboard()}
+function startMatch(){dismissedResultKey='';const selected=state.court.filter(Boolean);if(selected.length!==4||new Set(selected).size!==4)return alert('請選擇四位不同球員。');const ids=teammateSafeLineup(selected);state.court=[...ids];reconcileWaitingQueue(ids);state.queueDraftChosen=[];randomizeScoreThemeAtMatchStart();state.match={active:true,players:[[ids[0],ids[1]],[ids[2],ids[3]]],scores:[0,0],rallies:[],serving:0,positions:[[0,1],[0,1]],winner:null,startedAt:new Date().toISOString()};scoreViewRequested=true;saveLiveScoreSoon();saveSoon();renderScore();renderDashboard()}
 function finishMatch(){
   const m=state.match;if(!m.active||m.winner===null)return;
   let newlyRecorded=false;
@@ -1875,7 +1881,7 @@ function startNext(){
   state.court=[...vals];state.nextCall=null;
   randomizeScoreThemeAtMatchStart();
   state.match={active:true,players:[[vals[0],vals[1]],[vals[2],vals[3]]],scores:[0,0],rallies:[],serving:0,positions:[[0,1],[0,1]],winner:null,startedAt:new Date().toISOString()};
-  $('resultModal').classList.add('hidden');renderAll();saveSoon();if(isHost&&voiceEnabled&&finalCall)setTimeout(()=>speak(finalCall),180)
+  scoreViewRequested=true;$('resultModal').classList.add('hidden');renderAll();saveLiveScoreSoon();saveSoon();if(isHost&&voiceEnabled&&finalCall)setTimeout(()=>speak(finalCall),180)
 }
 
 function backupsRef(){return collection(db,'badmintonRooms',roomId,'backups')}
@@ -1895,7 +1901,7 @@ async function loadBackups(){const box=$('backupList'),health=$('backupHealth');
 function renderBackupCenter(){const rows=backupRows,genesis=rows.find(x=>x.id==='genesis'),last=rows[0],autoCount=rows.filter(x=>['auto','daily'].includes(x.type)).length,manualCount=rows.filter(x=>x.type==='manual').length;$('backupHealth').innerHTML=`<div class="health-box"><span class="sub">最後備份</span><strong>${last?esc(formatBackupTime(last.createdAt)):'尚未建立'}</strong></div><div class="health-box"><span class="sub">Genesis</span><strong>${genesis?'存在 ✅':'尚未建立'}</strong></div><div class="health-box"><span class="sub">自動／每日</span><strong>${autoCount} 份</strong></div><div class="health-box"><span class="sub">資料完整度</span><strong>${backupCompleteness()}%</strong></div>`;$('backupList').innerHTML=rows.length?rows.map(b=>`<div class="backup-row"><div><div class="backup-title"><span class="backup-type ${esc(b.type)}">${esc(backupTypeName(b.type))}</span>${esc(b.label||b.id)}</div><div class="backup-meta">${esc(formatBackupTime(b.createdAt))} · BCM ${esc(b.appVersion||'—')} · 球員 ${b.counts?.players??0} · 紀錄 ${b.counts?.history??0} · 完整度 ${b.completeness??'—'}%</div></div><div class="backup-row-actions"><button class="btn" data-backup-export="${esc(b.id)}">匯出</button>${isHost?`<button class="btn blue" data-backup-restore="${esc(b.id)}">還原</button>${b.id!=='genesis'?`<button class="btn danger-outline" data-backup-delete="${esc(b.id)}">刪除</button>`:''}`:''}</div></div>`).join(''):'<div class="poll-empty">尚無雲端備份。管理員可建立第一份備份。</div>';all('[data-backup-export]').forEach(b=>b.onclick=()=>exportCloudBackup(b.dataset.backupExport));all('[data-backup-restore]').forEach(b=>b.onclick=()=>restoreCloudBackup(b.dataset.backupRestore));all('[data-backup-delete]').forEach(b=>b.onclick=()=>deleteCloudBackup(b.dataset.backupDelete))}
 async function exportCloudBackup(id){try{const snap=await getDoc(backupDocRef(id));if(!snap.exists())throw new Error('找不到備份');downloadJson(snap.data(),`BCM_Cloud_${roomId}_${id}.json`)}catch(e){alert(formatError(e))}}
 function downloadJson(obj,name){const blob=new Blob([JSON.stringify(obj,null,2)],{type:'application/json'}),a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000)}
-async function restoreCloudBackup(id){if(!isHost)return alert('只有管理員可以還原。');const row=backupRows.find(x=>x.id===id);if(!row)return alert('找不到備份。');if(!confirm(`確定還原「${row.label||id}」？\n\n球員 ${row.counts?.players??0} 人\n紀錄 ${row.counts?.history??0} 場\n時間 ${formatBackupTime(row.createdAt)}\n\n系統會先建立目前資料的保護備份。`))return;const typed=prompt('為避免誤操作，請輸入「還原」：','');if(typed!=='還原')return alert('已取消還原。');try{setSync('建立保護備份');await createCloudBackup('emergency',{silent:true});const snap=await getDoc(backupDocRef(id));if(!snap.exists())throw new Error('備份不存在');const b=snap.data();if(!b.data)throw new Error('備份資料不完整');state=cleanState(b.data);await saveNow();renderAll();setSync('還原完成','online');alert('還原成功，所有裝置會即時同步。');await loadBackups()}catch(e){setSync('還原失敗','error');alert(formatError(e))}}
+async function restoreCloudBackup(id){if(!isHost)return alert('只有管理員可以還原。');const row=backupRows.find(x=>x.id===id);if(!row)return alert('找不到備份。');if(!confirm(`確定還原「${row.label||id}」？\n\n球員 ${row.counts?.players??0} 人\n紀錄 ${row.counts?.history??0} 場\n時間 ${formatBackupTime(row.createdAt)}\n\n系統會先建立目前資料的保護備份。`))return;const typed=prompt('為避免誤操作，請輸入「還原」：','');if(typed!=='還原')return alert('已取消還原。');try{setSync('建立保護備份');await createCloudBackup('emergency',{silent:true});const snap=await getDoc(backupDocRef(id));if(!snap.exists())throw new Error('備份不存在');const b=snap.data();if(!b.data)throw new Error('備份資料不完整');state=cleanState(b.data);await saveNow();await saveLiveScoreNow();renderAll();setSync('還原完成','online');alert('還原成功，所有裝置會即時同步。');await loadBackups()}catch(e){setSync('還原失敗','error');alert(formatError(e))}}
 async function deleteCloudBackup(id){if(id==='genesis')return alert('Genesis Backup 不可刪除。');if(!confirm('確定刪除這份雲端備份？'))return;try{await deleteDoc(backupDocRef(id));await loadBackups()}catch(e){alert(formatError(e))}}
 
 let pendingAvatar=null;function refreshProfilePreview(){const p=player(editId),src=pendingAvatar!==null?pendingAvatar:(p?.avatar||'');$('editAvatarPreview').innerHTML=src?`<img src="${src}" alt="">`:esc(initials(p?.name));$('profileTitle').textContent=p?.name||'球員資料';const st=playerStats(editId),td=scopedStats(editId,'today'),mo=scopedStats(editId,'month'),status=playerStatus(editId),rel=relationshipStats(editId);$('statGames').textContent=st.games;$('statWins').textContent=st.wins;$('statRate').textContent=st.rate+'%';$('ringRate').textContent=st.rate+'%';$('profileWinRing').style.setProperty('--rate',st.rate);$('profileSummary').textContent=p?.racket?`🏸 ${p.racket}`:'🏸 尚未填寫球拍資料';$('profileMainRacket').textContent=[p?.racket,p?.racketTension,p?.racketString].filter(Boolean).join(' · ')||'尚未填寫';$('profileBackupRacket').textContent=[p?.backupRacket,p?.backupTension,p?.backupString].filter(Boolean).join(' · ')||'尚未填寫';$('profileStatus').textContent=status.label;const streak=td.streak?(td.kind==='W'?`🔥 ${td.streak}連勝`:`🧊 ${td.streak}連敗`):'—';$('profileToday').textContent=`${td.wins}勝 ${td.losses}敗`;$('profileMonth').textContent=`${mo.wins}勝 ${mo.losses}敗`;$('profileStreak').textContent=streak;$('profileBadges').innerHTML=careerBadges(editId).map(([icon,label,on])=>`<span class="career-badge ${on?'':'locked'}">${icon} ${label}</span>`).join('');$('profilePartnerRanking').innerHTML=relationRows(rel.partners,'尚無搭檔紀錄');$('profileOpponent').innerHTML=relationRows(rel.opponents,'尚無對戰紀錄');$('profileRecent').innerHTML='<h3>最近比賽</h3>'+((td.list.slice().reverse().slice(0,5).map(x=>`<div class="recent-game">${x.won?'✅ 勝':'❌ 敗'} · ${esc(x.h.scores[0]+'：'+x.h.scores[1])} · ${esc(x.h.time||'')}</div>`).join(''))||'<div class="sub">今日尚無比賽。</div>')}
@@ -1990,7 +1996,9 @@ function renderShuttleTubeManager(){
   const tubes=normalizeShuttleTubes(state.shuttleTubes);
   const active=tubes.find(tube=>tube.status==='active');
   const pending=tubes.find(tube=>tube.status==='pending');
-  if(!active&&!pending){
+  const finished=tubes.filter(tube=>tube.status==='finished');
+  const deleted=tubes.filter(tube=>tube.status==='deleted');
+  if(!tubes.length){
     list.innerHTML='<div class="shuttle-tube-empty"><strong>尚未建立球桶</strong><span>輸入用球名稱與價格後，即可開始記錄繳費狀態。</span></div>';
     return;
   }
@@ -1998,21 +2006,19 @@ function renderShuttleTubeManager(){
     const paidIds=Object.keys(tube.paid||{});
     const playedIds=paidIds.filter(id=>shuttlePaymentStatus(tube,state.history,id)==='paid-played');
     const players=state.roster.map(p=>{
-      const status=shuttlePaymentStatus(tube,state.history,p.id),paid=status!=='unpaid';
-      const label=status==='paid-played'?'已繳費・使用此桶後已打球':status==='paid-waiting'
-        ?tube.status==='pending'?'已繳費・等待新桶啟用':'已繳費・使用此桶後尚未打球'
-        :'尚未繳球費';
-      return `<button type="button" class="shuttle-player ${status}" data-shuttle-player="${esc(p.id)}" data-shuttle-tube="${esc(tube.id)}" aria-pressed="${paid}">${avatar(p.id,'tiny')}<span><strong>${esc(p.name)}</strong><small>${label}</small></span><b>${paid?'✓':'＋'}</b></button>`;
+      const status=shuttlePaymentStatus(tube,state.history,p.id);
+      const label=status==='paid-played'?'已繳費・已打球':status==='paid-waiting'?'已繳費・尚未打球':'尚未繳費';
+      return `<div class="shuttle-player ${status}">${avatar(p.id,'tiny')}<span><strong>${esc(p.name)}</strong><small>${label}</small></span><select class="shuttle-player-status viewer-enabled" data-shuttle-status="${esc(p.id)}" data-shuttle-tube="${esc(tube.id)}" aria-label="${esc(p.name)}的球費與打球狀態"><option value="unpaid" ${status==='unpaid'?'selected':''}>尚未繳費</option><option value="paid-waiting" ${status==='paid-waiting'?'selected':''}>已繳費・尚未打球</option><option value="paid-played" ${status==='paid-played'?'selected':''}>已繳費・已打球</option></select></div>`;
     }).join('')||'<p class="sub">尚無球員可記錄。</p>';
     return `<div class="shuttle-payment-panel">
-      <h4>${tube.status==='pending'?'新桶繳費紀錄':'目前球桶繳費紀錄'}</h4>
-      <div class="shuttle-metrics"><span><strong>${paidIds.length}</strong>已繳費</span><span><strong>${playedIds.length}</strong>${tube.status==='pending'?'待啟用後追蹤':'使用後已打球'}</span><span><strong>${Math.max(0,paidIds.length-playedIds.length)}</strong>${tube.status==='pending'?'已繳、等待啟用':'使用後尚未打球'}</span></div>
+      <h4>${tube.status==='pending'?'新桶繳費紀錄':tube.status==='finished'?'過往球桶球員狀態':'目前球桶繳費紀錄'}</h4>
+      <div class="shuttle-metrics"><span><strong>${paidIds.length}</strong>已繳費</span><span><strong>${playedIds.length}</strong>已繳費、已打球</span><span><strong>${Math.max(0,paidIds.length-playedIds.length)}</strong>已繳費、尚未打球</span></div>
       <div class="shuttle-legend"><span class="paid-waiting">金色：已繳、尚未打球</span><span class="paid-played">綠色：已繳、已打球</span><span class="unpaid">灰色：尚未繳費</span></div>
       <div class="shuttle-player-grid">${players}</div>
     </div>`;
   };
   const activeMarkup=active?`<article class="shuttle-tube-current">
-    <div class="shuttle-current-head"><div><span class="shuttle-current-label active">正在使用</span><h3>${esc(active.name)}</h3><p>${esc(shuttleTubeTime(active.activatedAt||active.createdAt))} · ${formatMoney(active.price)} 元 · 每桶 ${active.totalShuttles} 顆</p></div><button class="btn danger-outline" type="button" data-delete-shuttle-tube="${esc(active.id)}">刪除此桶</button></div>
+    <div class="shuttle-current-head"><div><span class="shuttle-current-label active">正在使用</span><h3>${esc(active.name)}</h3><p>${esc(shuttleTubeTime(active.activatedAt||active.createdAt))} · ${formatMoney(active.price)} 元 · 每桶 ${active.totalShuttles} 顆</p></div><div class="shuttle-head-actions"><button class="btn" type="button" data-edit-shuttle-tube="${esc(active.id)}">編輯球桶</button><button class="btn danger-outline" type="button" data-delete-shuttle-tube="${esc(active.id)}">刪除此桶</button></div></div>
     <div class="shuttle-stock ${active.remainingShuttles===0?'empty':''}">
       <div><span>目前剩餘</span><strong>${active.remainingShuttles}<small> / ${active.totalShuttles} 顆</small></strong></div>
       <div class="shuttle-stock-actions"><button class="btn primary" type="button" data-shuttle-delta="-1" data-shuttle-tube="${esc(active.id)}" ${active.remainingShuttles===0?'disabled':''}>使用 1 顆</button><button class="btn" type="button" data-shuttle-delta="1" data-shuttle-tube="${esc(active.id)}" ${active.remainingShuttles>=active.totalShuttles?'disabled':''}>加回 1 顆</button><button class="btn" type="button" data-set-shuttle-remaining="${esc(active.id)}">直接設定</button></div>
@@ -2020,22 +2026,23 @@ function renderShuttleTubeManager(){
     ${paymentPanel(active)}
   </article>`:'<div class="shuttle-status-note"><strong>目前沒有正在使用的球桶</strong><span>建立待用球桶後，按「開始使用新球桶」即可啟用。</span></div>';
   const pendingMarkup=pending?`<article class="shuttle-tube-current shuttle-tube-pending">
-    <div class="shuttle-current-head"><div><span class="shuttle-current-label pending">待開始使用</span><h3>${esc(pending.name)}</h3><p>${esc(shuttleTubeTime(pending.createdAt))} · ${formatMoney(pending.price)} 元 · 每桶 ${pending.totalShuttles} 顆</p></div><div class="shuttle-head-actions"><button class="btn primary" type="button" id="activatePendingShuttleTube">開始使用新球桶</button><button class="btn danger-outline" type="button" data-delete-shuttle-tube="${esc(pending.id)}">刪除此桶</button></div></div>
+    <div class="shuttle-current-head"><div><span class="shuttle-current-label pending">待開始使用</span><h3>${esc(pending.name)}</h3><p>${esc(shuttleTubeTime(pending.createdAt))} · ${formatMoney(pending.price)} 元 · 每桶 ${pending.totalShuttles} 顆</p></div><div class="shuttle-head-actions"><button class="btn primary" type="button" id="activatePendingShuttleTube">開始使用新球桶</button><button class="btn" type="button" data-edit-shuttle-tube="${esc(pending.id)}">編輯球桶</button><button class="btn danger-outline" type="button" data-delete-shuttle-tube="${esc(pending.id)}">刪除此桶</button></div></div>
     <p class="shuttle-pending-note">尚未啟用：今天與先前的比賽都不會列為使用過此桶。可先在下方記錄繳費。</p>
     ${paymentPanel(pending)}
   </article>`:'';
-  const previous=tubes.filter(tube=>tube.status==='finished').map(tube=>{
+  const previous=finished.map(tube=>{
     const paidCount=Object.keys(tube.paid||{}).length,playedCount=Object.keys(tube.paid||{}).filter(id=>shuttlePaymentStatus(tube,state.history,id)==='paid-played').length;
-    return `<article class="shuttle-tube-history"><div><strong>${esc(tube.name)}</strong><span>${esc(shuttleTubeTime(tube.activatedAt||tube.createdAt))} · ${formatMoney(tube.price)} 元</span></div><span>剩餘 ${tube.remainingShuttles} 顆 · 已繳 ${paidCount} 人 · 已打球 ${playedCount} 人</span></article>`;
+    const expanded=expandedShuttleTubeId===tube.id;
+    return `<article class="shuttle-history-wrap"><div class="shuttle-tube-history"><div><strong>${esc(tube.name)}</strong><span>${esc(shuttleTubeTime(tube.activatedAt||tube.createdAt))} · ${formatMoney(tube.price)} 元</span></div><span>剩餘 ${tube.remainingShuttles} 顆 · 已繳 ${paidCount} 人 · 已打球 ${playedCount} 人</span><div class="shuttle-history-actions"><button class="btn" type="button" data-toggle-shuttle-details="${esc(tube.id)}">${expanded?'收合球員狀態':'球員狀態'}</button><button class="btn" type="button" data-edit-shuttle-tube="${esc(tube.id)}">編輯球桶</button><button class="btn danger-outline" type="button" data-delete-shuttle-tube="${esc(tube.id)}">刪除</button></div></div>${expanded?paymentPanel(tube):''}</article>`;
   }).join('');
-  list.innerHTML=`${activeMarkup}${pendingMarkup}${previous?`<section class="shuttle-history-section"><h3>過往球桶</h3>${previous}</section>`:''}`;
-  all('[data-shuttle-player]').forEach(button=>button.onclick=()=>{
+  const deletedMarkup=deleted.map(tube=>`<article class="shuttle-tube-history shuttle-tube-deleted"><div><strong>${esc(tube.name)}</strong><span>${esc(shuttleTubeTime(tube.activatedAt||tube.createdAt))} · ${formatMoney(tube.price)} 元</span></div><span>刪除日期：${esc(shuttleTubeTime(tube.deletedAt))}</span><button class="btn" type="button" data-restore-shuttle-tube="${esc(tube.id)}">恢復球桶</button></article>`).join('');
+  list.innerHTML=`${activeMarkup}${pendingMarkup}${previous?`<section class="shuttle-history-section"><h3>過往球桶</h3>${previous}</section>`:''}${deletedMarkup?`<details class="shuttle-deleted-section"><summary>已刪除球桶（${deleted.length}）</summary>${deletedMarkup}</details>`:''}`;
+  all('[data-shuttle-status]').forEach(select=>select.onchange=()=>{
     if(!isHost)return;
-    const playerId=button.dataset.shuttlePlayer,tubeId=button.dataset.shuttleTube;
+    const playerId=select.dataset.shuttleStatus,tubeId=select.dataset.shuttleTube;
     const target=tubes.find(tube=>tube.id===tubeId);
     if(!target)return;
-    const paid=!!target.paid?.[playerId];
-    state.shuttleTubes=normalizeShuttleTubes(tubes.map(tube=>tube.id===tubeId?setShuttlePayment(tube,playerId,!paid,{paidAt:new Date().toISOString(),historyCount:state.history.length}):tube));
+    state.shuttleTubes=normalizeShuttleTubes(tubes.map(tube=>tube.id===tubeId?setShuttlePaymentStatus(tube,playerId,select.value,{paidAt:new Date().toISOString(),historyCount:state.history.length}):tube));
     renderShuttleTubeManager();saveSoon();
   });
   all('[data-shuttle-delta]').forEach(button=>button.onclick=()=>{
@@ -2055,6 +2062,31 @@ function renderShuttleTubeManager(){
     state.shuttleTubes=normalizeShuttleTubes(tubes.map(row=>row.id===tubeId?setShuttleRemaining(row,remaining):row));
     renderShuttleTubeManager();saveSoon();
   });
+  all('[data-toggle-shuttle-details]').forEach(button=>button.onclick=()=>{
+    expandedShuttleTubeId=expandedShuttleTubeId===button.dataset.toggleShuttleDetails?'':button.dataset.toggleShuttleDetails;
+    renderShuttleTubeManager();
+  });
+  all('[data-edit-shuttle-tube]').forEach(button=>button.onclick=()=>{
+    if(!isHost)return;
+    const tubeId=button.dataset.editShuttleTube,tube=tubes.find(row=>row.id===tubeId);
+    if(!tube)return;
+    const name=prompt('用球名稱：',tube.name);
+    if(name===null)return;
+    const priceInput=prompt('球桶價格（元）：',String(tube.price));
+    if(priceInput===null)return;
+    const totalInput=prompt('每桶總球數（1～100 顆）：',String(tube.totalShuttles));
+    if(totalInput===null)return;
+    const total=Number(totalInput),price=Number(priceInput);
+    if(!name.trim())return alert('用球名稱不可空白。');
+    if(!Number.isFinite(price)||price<=0)return alert('請輸入正確的球桶價格。');
+    if(!Number.isInteger(total)||total<1||total>100)return alert('每桶總球數請輸入 1～100 的整數。');
+    const remainingInput=prompt(`目前剩餘球數（0～${total} 顆）：`,String(Math.min(tube.remainingShuttles,total)));
+    if(remainingInput===null)return;
+    const remaining=Number(remainingInput);
+    if(!Number.isInteger(remaining)||remaining<0||remaining>total)return alert(`目前剩餘球數請輸入 0～${total} 的整數。`);
+    state.shuttleTubes=normalizeShuttleTubes(tubes.map(row=>row.id===tubeId?updateShuttleTube(row,{name:name.trim(),price:Math.round(price),totalShuttles:total,remainingShuttles:remaining}):row));
+    renderShuttleTubeManager();saveSoon();
+  });
   $('activatePendingShuttleTube')?.addEventListener('click',()=>{
     if(!isHost||!pending)return;
     const message=active
@@ -2067,8 +2099,17 @@ function renderShuttleTubeManager(){
   all('[data-delete-shuttle-tube]').forEach(button=>button.onclick=()=>{
     if(!isHost)return;
     const tube=tubes.find(row=>row.id===button.dataset.deleteShuttleTube);
-    if(!tube||!confirm(`確定刪除球桶「${tube.name}」及其繳費紀錄？`))return;
-    state.shuttleTubes=tubes.filter(row=>row.id!==tube.id);renderShuttleTubeManager();saveSoon();
+    if(!tube||!confirm(`確定刪除球桶「${tube.name}」？\n刪除後仍可從「已刪除球桶」恢復，繳費紀錄不會消失。`))return;
+    state.shuttleTubes=softDeleteShuttleTube(tubes,tube.id,new Date().toISOString());
+    if(expandedShuttleTubeId===tube.id)expandedShuttleTubeId='';
+    renderShuttleTubeManager();saveSoon();
+  });
+  all('[data-restore-shuttle-tube]').forEach(button=>button.onclick=()=>{
+    if(!isHost)return;
+    const tube=tubes.find(row=>row.id===button.dataset.restoreShuttleTube);
+    if(!tube||!confirm(`恢復球桶「${tube.name}」及其繳費紀錄？`))return;
+    state.shuttleTubes=restoreShuttleTube(tubes,tube.id);
+    renderShuttleTubeManager();saveSoon();
   });
 }
 function openShuttleTubeManager(){
@@ -2196,6 +2237,7 @@ async function endTodaySession(){
     $('resultModal').classList.add('hidden');
     renderAll();
     await saveNow();
+    await saveLiveScoreNow();
     setSync('已結束並備份','online');
     await loadBackups().catch(()=>{});
     alert('今日球局已結束並完成同步備份，總覽已顯示目前沒有比賽。');
@@ -2210,7 +2252,7 @@ async function endTodaySession(){
   }
 }
 
-$('clearHistory').onclick=clearAllHistory;$('addPollOption').onclick=addPollOption;$('submitVote').onclick=submitPollVote;$('confirmNextEvent').onclick=confirmNextEvent;$('clearNextEvent').onclick=clearNextEvent;$('announceBtn').onclick=()=>{const text=calloutText();if(!text)return alert('目前尚未安排下一場。');speak(text)};$('monthPick').value=localMonthKey();$('monthPick').onchange=renderStats;$('thisMonthBtn').onclick=()=>{$('monthPick').value=localMonthKey();renderStats()};$('createRoom').onclick=createRoom;$('joinRoom').onclick=()=>enterRoom($('joinCode').value);$('favoriteRoomBtn').onclick=()=>{const r=roomRecord(roomId)||rememberRoom(roomId,isHost);updateRoomRecord(roomId,{favorite:!r.favorite})};$('renameRoomBtn').onclick=()=>{const r=roomRecord(roomId)||rememberRoom(roomId,isHost),name=prompt('替這台裝置上的球局取一個名稱：',r.name||'7B 羽球團');if(name===null)return;updateRoomRecord(roomId,{name:name.trim().slice(0,30)})};$('autoReturnRoom').checked=localStorage.getItem(ROOM_AUTO_KEY)==='1';$('autoReturnRoom').onchange=()=>localStorage.setItem(ROOM_AUTO_KEY,$('autoReturnRoom').checked?'1':'0');$('adminLoginBtn').onclick=async()=>{const pin=prompt('輸入管理員 PIN：');if(pin===null)return;const h=await sha256(pin.trim());if(!adminPinHash||h!==adminPinHash)return alert('PIN 不正確。');hostToken=(await getDoc(roomRef)).data().hostToken;localStorage.setItem(hostKey(roomId),hostToken);isHost=true;$('roleBadge').textContent='管理員';$('roleBadge').className='pill host';$('viewerNote').classList.add('hidden');applyRole();renderAll();alert('已切換為管理員模式。')};$('qrBtn').onclick=()=>{const url=currentUrl();$('qrImage').src='https://api.qrserver.com/v1/create-qr-code/?size=300x300&data='+encodeURIComponent(url);$('qrRoomCode').textContent='房間代碼：'+roomId;$('qrModal').classList.remove('hidden')};$('closeQr').onclick=()=>$('qrModal').classList.add('hidden');$('claimPlayer').onclick=async()=>{const p=player(editId);if(!p)return;if(p.ownerHash&&p.ownerHash!==selfHash&&!confirm(`「${p.name}」目前綁定在另一台裝置。確定這是你的資料，並改綁到目前裝置嗎？`))return;const updated={...p,ownerHash:selfHash};await saveSelfPlayer(updated);$('selfNote').textContent=`你已認領「${p.name}」，現在可在這台裝置修改姓名、球拍與備註。`;$('selfNote').classList.remove('hidden');state.roster=state.roster.map(x=>x.id===p.id?updated:x);updateProfilePermissions();renderRoster()};$('joinCode').onkeydown=e=>{if(e.key==='Enter')enterRoom(e.target.value)};$('leaveBtn').onclick=()=>{if(unsubscribe)unsubscribe();sessionStorage.setItem(ROOM_SKIP_AUTO_ONCE,'1');history.replaceState(null,'',location.pathname);location.reload()};$('shareBtn').onclick=async()=>{const url=currentUrl();try{await navigator.clipboard.writeText(url);alert(`觀看網址已複製。\n房間代碼：${roomId}`)}catch{prompt('複製觀看網址：',url)}};$('openPollReminder').onclick=()=>page(6);all('.tab').forEach(b=>b.onclick=()=>page(+b.dataset.page));$('addPlayer').onclick=()=>{const n=$('newName').value.trim();if(!n)return;if(state.roster.some(p=>p.name===n))return alert('已有相同姓名');state.roster.push({id:randomToken(),name:n,voiceName:defaultVoiceName(n),avatar:'',racket:'',racketTension:'',racketString:'',backupRacket:'',backupTension:'',backupString:'',note:'',favorite:false,ownerHash:''});$('newName').value='';renderAll();saveSoon()};$('allAttend').onclick=()=>{state.attendance=state.roster.map(p=>p.id);reconcileWaitingQueue();renderAll();saveSoon()};$('clearAttend').onclick=()=>{state.attendance=[];state.court=[];state.waitingQueue=[];state.queueDraftChosen=[];state.priority=null;renderAll();saveSoon()};$('goCourt').onclick=()=>{if(state.attendance.length<4)return alert('至少需要四位出席球員');if(state.court.length<4)state.court=state.attendance.slice(0,4);reconcileWaitingQueue(state.court);renderAll();page(3);saveSoon()};$('randomCourt').onclick=()=>{state.court=shuffle(state.attendance).slice(0,4);reconcileWaitingQueue(state.court);renderAll();saveSoon()};$('target').onchange=()=>{state.rules.target=Math.max(1,+$('target').value||11);saveSoon()};$('cap').onchange=()=>{state.rules.cap=Math.max(state.rules.target,+$('cap').value||15);saveSoon()};$('deuce').onchange=()=>{state.rules.deuce=$('deuce').value==='1';saveSoon()};$('startMatch').onclick=startMatch;function addPointAndSpeak(team){if(!isHost||state.match.winner!==null)return;state.match.rallies.push(team);replay();if(voiceEnabled)setTimeout(announceScore,80)}const scoreSideA=$('namesA').closest('.score-side'),scoreSideB=$('namesB').closest('.score-side');scoreSideA.classList.add('clickable');scoreSideB.classList.add('clickable');scoreSideA.onclick=()=>addPointAndSpeak(0);scoreSideB.onclick=()=>addPointAndSpeak(1);$('scoreA').onclick=e=>{e.stopPropagation();addPointAndSpeak(0)};$('scoreB').onclick=e=>{e.stopPropagation();addPointAndSpeak(1)};$('undo').onclick=()=>{if(state.match.rallies.length){state.match.rallies.pop();replay()}};$('minusA').onclick=()=>{const i=state.match.rallies.lastIndexOf(0);if(i>=0){state.match.rallies.splice(i,1);replay()}};$('minusB').onclick=()=>{const i=state.match.rallies.lastIndexOf(1);if(i>=0){state.match.rallies.splice(i,1);replay()}};$('exitScore').onclick=()=>{state.match.active=false;renderScore();saveSoon()};$('shuffleNext').onclick=()=>{const vals=shuffle([0,1,2,3].map(i=>$('n'+i).value));vals.forEach((v,i)=>{$('n'+i).value=v});updatePriority()};$('startNext').onclick=startNext;$('closeResult').onclick=()=>{dismissedResultKey=currentResultKey();$('resultModal').classList.add('hidden')};$('voiceToggle').onclick=()=>{voiceEnabled=!voiceEnabled;localStorage.setItem('bdV76Voice',voiceEnabled?'1':'0');if(!voiceEnabled&&'speechSynthesis'in window)window.speechSynthesis.cancel();updateVoiceButton()};$('speakerTest').onclick=speakerTest;$('audioHelp').onclick=()=>$('audioHelpModal').classList.remove('hidden');$('closeAudioHelp').onclick=()=>$('audioHelpModal').classList.add('hidden');$('editName').addEventListener('input',()=>profileDirty.name=true);$('editVoiceName').addEventListener('input',()=>profileDirty.voiceName=true);$('testVoiceName').onclick=()=>{if(!isHost)return;const p=player(editId);const name=$('editVoiceName').value.trim()||p?.name||'球員';speak(`請${name}準備上場。`)};$('editRacket').addEventListener('input',()=>profileDirty.racket=true);$('editRacketTension').addEventListener('input',()=>profileDirty.racketTension=true);$('editRacketString').addEventListener('input',()=>profileDirty.racketString=true);$('editBackupRacket').addEventListener('input',()=>profileDirty.backupRacket=true);$('editBackupTension').addEventListener('input',()=>profileDirty.backupTension=true);$('editBackupString').addEventListener('input',()=>profileDirty.backupString=true);$('editNote').addEventListener('input',()=>profileDirty.note=true);$('editPhoto').onchange=async e=>{const file=e.target.files?.[0];if(!file)return;try{pendingAvatar=await compressPhoto(file);refreshProfilePreview()}catch(err){alert(err.message||'照片處理失敗')}e.target.value=''};$('removePhoto').onclick=()=>{pendingAvatar='';refreshProfilePreview()};$('saveEdit').onclick=saveEdit;$('deletePlayer').onclick=()=>{if(!confirm('刪除這位球員？'))return;state.roster=state.roster.filter(p=>p.id!==editId);state.attendance=state.attendance.filter(x=>x!==editId);state.court=state.court.filter(x=>x!==editId);state.waitingQueue=state.waitingQueue.filter(x=>x!==editId);state.queueDraftChosen=state.queueDraftChosen.filter(x=>x!==editId);$('editModal').classList.add('hidden');renderAll();saveSoon()};$('closeEdit').onclick=()=>$('editModal').classList.add('hidden');$('playerSearch').addEventListener('input',renderRoster);$('playerSort').addEventListener('change',renderRoster);document.addEventListener('dblclick',e=>e.preventDefault(),{passive:false});
+$('clearHistory').onclick=clearAllHistory;$('addPollOption').onclick=addPollOption;$('submitVote').onclick=submitPollVote;$('confirmNextEvent').onclick=confirmNextEvent;$('clearNextEvent').onclick=clearNextEvent;$('announceBtn').onclick=()=>{const text=calloutText();if(!text)return alert('目前尚未安排下一場。');speak(text)};$('monthPick').value=localMonthKey();$('monthPick').onchange=renderStats;$('thisMonthBtn').onclick=()=>{$('monthPick').value=localMonthKey();renderStats()};$('createRoom').onclick=createRoom;$('joinRoom').onclick=()=>enterRoom($('joinCode').value);$('favoriteRoomBtn').onclick=()=>{const r=roomRecord(roomId)||rememberRoom(roomId,isHost);updateRoomRecord(roomId,{favorite:!r.favorite})};$('renameRoomBtn').onclick=()=>{const r=roomRecord(roomId)||rememberRoom(roomId,isHost),name=prompt('替這台裝置上的球局取一個名稱：',r.name||'7B 羽球團');if(name===null)return;updateRoomRecord(roomId,{name:name.trim().slice(0,30)})};$('autoReturnRoom').checked=localStorage.getItem(ROOM_AUTO_KEY)==='1';$('autoReturnRoom').onchange=()=>localStorage.setItem(ROOM_AUTO_KEY,$('autoReturnRoom').checked?'1':'0');$('adminLoginBtn').onclick=async()=>{const pin=prompt('輸入管理員 PIN：');if(pin===null)return;const h=await sha256(pin.trim());if(!adminPinHash||h!==adminPinHash)return alert('PIN 不正確。');hostToken=(await getDoc(roomRef)).data().hostToken;localStorage.setItem(hostKey(roomId),hostToken);isHost=true;$('roleBadge').textContent='管理員';$('roleBadge').className='pill host';$('viewerNote').classList.add('hidden');applyRole();renderAll();alert('已切換為管理員模式。')};$('qrBtn').onclick=()=>{const url=currentUrl();$('qrImage').src='https://api.qrserver.com/v1/create-qr-code/?size=300x300&data='+encodeURIComponent(url);$('qrRoomCode').textContent='房間代碼：'+roomId;$('qrModal').classList.remove('hidden')};$('closeQr').onclick=()=>$('qrModal').classList.add('hidden');$('claimPlayer').onclick=async()=>{const p=player(editId);if(!p)return;if(p.ownerHash&&p.ownerHash!==selfHash&&!confirm(`「${p.name}」目前綁定在另一台裝置。確定這是你的資料，並改綁到目前裝置嗎？`))return;const updated={...p,ownerHash:selfHash};await saveSelfPlayer(updated);$('selfNote').textContent=`你已認領「${p.name}」，現在可在這台裝置修改姓名、球拍與備註。`;$('selfNote').classList.remove('hidden');state.roster=state.roster.map(x=>x.id===p.id?updated:x);updateProfilePermissions();renderRoster()};$('joinCode').onkeydown=e=>{if(e.key==='Enter')enterRoom(e.target.value)};$('leaveBtn').onclick=()=>{if(unsubscribe)unsubscribe();sessionStorage.setItem(ROOM_SKIP_AUTO_ONCE,'1');history.replaceState(null,'',location.pathname);location.reload()};$('shareBtn').onclick=async()=>{const url=currentUrl();try{await navigator.clipboard.writeText(url);alert(`觀看網址已複製。\n房間代碼：${roomId}`)}catch{prompt('複製觀看網址：',url)}};$('openPollReminder').onclick=()=>page(6);all('.tab').forEach(b=>b.onclick=()=>page(+b.dataset.page));$('addPlayer').onclick=()=>{const n=$('newName').value.trim();if(!n)return;if(state.roster.some(p=>p.name===n))return alert('已有相同姓名');state.roster.push({id:randomToken(),name:n,voiceName:defaultVoiceName(n),avatar:'',racket:'',racketTension:'',racketString:'',backupRacket:'',backupTension:'',backupString:'',note:'',favorite:false,ownerHash:''});$('newName').value='';renderAll();saveSoon()};$('allAttend').onclick=()=>{state.attendance=state.roster.map(p=>p.id);reconcileWaitingQueue();renderAll();saveSoon()};$('clearAttend').onclick=()=>{state.attendance=[];state.court=[];state.waitingQueue=[];state.queueDraftChosen=[];state.priority=null;renderAll();saveSoon()};$('goCourt').onclick=()=>{if(state.attendance.length<4)return alert('至少需要四位出席球員');if(state.court.length<4)state.court=state.attendance.slice(0,4);reconcileWaitingQueue(state.court);renderAll();page(3);saveSoon()};$('randomCourt').onclick=()=>{state.court=shuffle(state.attendance).slice(0,4);reconcileWaitingQueue(state.court);renderAll();saveSoon()};$('target').onchange=()=>{state.rules.target=Math.max(1,+$('target').value||11);saveSoon()};$('cap').onchange=()=>{state.rules.cap=Math.max(state.rules.target,+$('cap').value||15);saveSoon()};$('deuce').onchange=()=>{state.rules.deuce=$('deuce').value==='1';saveSoon()};$('startMatch').onclick=startMatch;$('resumeScore').onclick=()=>{if(!isHost||!state.match.active)return;scoreViewRequested=true;renderScore()};function addPointAndSpeak(team){if(!isHost||state.match.winner!==null)return;state.match.rallies.push(team);replay();if(voiceEnabled)setTimeout(announceScore,80)}const scoreSideA=$('namesA').closest('.score-side'),scoreSideB=$('namesB').closest('.score-side');scoreSideA.classList.add('clickable');scoreSideB.classList.add('clickable');scoreSideA.onclick=()=>addPointAndSpeak(0);scoreSideB.onclick=()=>addPointAndSpeak(1);$('scoreA').onclick=e=>{e.stopPropagation();addPointAndSpeak(0)};$('scoreB').onclick=e=>{e.stopPropagation();addPointAndSpeak(1)};$('undo').onclick=()=>{if(state.match.rallies.length){state.match.rallies.pop();replay()}};$('minusA').onclick=()=>{const i=state.match.rallies.lastIndexOf(0);if(i>=0){state.match.rallies.splice(i,1);replay()}};$('minusB').onclick=()=>{const i=state.match.rallies.lastIndexOf(1);if(i>=0){state.match.rallies.splice(i,1);replay()}};$('exitScore').onclick=()=>{scoreViewRequested=false;renderScore()};$('shuffleNext').onclick=()=>{const vals=shuffle([0,1,2,3].map(i=>$('n'+i).value));vals.forEach((v,i)=>{$('n'+i).value=v});updatePriority()};$('startNext').onclick=startNext;$('closeResult').onclick=()=>{dismissedResultKey=currentResultKey();$('resultModal').classList.add('hidden')};$('voiceToggle').onclick=()=>{voiceEnabled=!voiceEnabled;localStorage.setItem('bdV76Voice',voiceEnabled?'1':'0');if(!voiceEnabled&&'speechSynthesis'in window)window.speechSynthesis.cancel();updateVoiceButton()};$('speakerTest').onclick=speakerTest;$('audioHelp').onclick=()=>$('audioHelpModal').classList.remove('hidden');$('closeAudioHelp').onclick=()=>$('audioHelpModal').classList.add('hidden');$('editName').addEventListener('input',()=>profileDirty.name=true);$('editVoiceName').addEventListener('input',()=>profileDirty.voiceName=true);$('testVoiceName').onclick=()=>{if(!isHost)return;const p=player(editId);const name=$('editVoiceName').value.trim()||p?.name||'球員';speak(`請${name}準備上場。`)};$('editRacket').addEventListener('input',()=>profileDirty.racket=true);$('editRacketTension').addEventListener('input',()=>profileDirty.racketTension=true);$('editRacketString').addEventListener('input',()=>profileDirty.racketString=true);$('editBackupRacket').addEventListener('input',()=>profileDirty.backupRacket=true);$('editBackupTension').addEventListener('input',()=>profileDirty.backupTension=true);$('editBackupString').addEventListener('input',()=>profileDirty.backupString=true);$('editNote').addEventListener('input',()=>profileDirty.note=true);$('editPhoto').onchange=async e=>{const file=e.target.files?.[0];if(!file)return;try{pendingAvatar=await compressPhoto(file);refreshProfilePreview()}catch(err){alert(err.message||'照片處理失敗')}e.target.value=''};$('removePhoto').onclick=()=>{pendingAvatar='';refreshProfilePreview()};$('saveEdit').onclick=saveEdit;$('deletePlayer').onclick=()=>{if(!confirm('刪除這位球員？'))return;state.roster=state.roster.filter(p=>p.id!==editId);state.attendance=state.attendance.filter(x=>x!==editId);state.court=state.court.filter(x=>x!==editId);state.waitingQueue=state.waitingQueue.filter(x=>x!==editId);state.queueDraftChosen=state.queueDraftChosen.filter(x=>x!==editId);$('editModal').classList.add('hidden');renderAll();saveSoon()};$('closeEdit').onclick=()=>$('editModal').classList.add('hidden');$('playerSearch').addEventListener('input',renderRoster);$('playerSort').addEventListener('change',renderRoster);document.addEventListener('dblclick',e=>e.preventDefault(),{passive:false});
 $('leaveBtn').addEventListener('click',()=>{liveScoreUnsubscribe?.();chatUnsubscribe?.()},{capture:true});
 $('sendChat').onclick=sendChatMessage;
 $('claimPlayer').onclick=claimEditedPlayer;
@@ -2392,7 +2434,7 @@ document.addEventListener('keydown',e=>{if(e.key==='Escape')setRoomMoreOpen(fals
 
 const tomorrow=new Date();tomorrow.setDate(tomorrow.getDate()+7);$('pollDate').value=localDateKey(tomorrow);updateVoiceButton();$('backupExportBtn').onclick=exportBackup;$('backupImportBtn').onclick=()=>$('backupImportFile').click();$('backupImportFile').onchange=e=>{if(e.target.files?.[0])importBackup(e.target.files[0]);e.target.value=''};$('createCloudBackup').onclick=()=>createCloudBackup('manual').catch(e=>alert(formatError(e)));$('refreshBackups').onclick=loadBackups;renderRoomLibrary();$('autoReturnRoom').checked=localStorage.getItem(ROOM_AUTO_KEY)==='1';const q=new URLSearchParams(location.search),rid=(q.get('room')||'').toUpperCase().replace(/[^A-Z0-9]/g,'').slice(0,6);const skipAutoOnce=sessionStorage.getItem(ROOM_SKIP_AUTO_ONCE)==='1';if(skipAutoOnce)sessionStorage.removeItem(ROOM_SKIP_AUTO_ONCE);if(rid)connectRoom(rid);else if(!skipAutoOnce&&localStorage.getItem(ROOM_AUTO_KEY)==='1'){const lastId=localStorage.getItem('bcmLastRoomV1'),r=roomRecord(lastId);if(r)setTimeout(()=>openSavedRoom(r.id),180)}
 function exportBackup(){const data={schemaVersion:1,appVersion:BCM_VERSION,createdAt:new Date().toISOString(),roomId,counts:backupCounts(),data:encodeState(state)};downloadJson(data,`BCM_Backup_${roomId||'LOCAL'}_${new Date().toISOString().slice(0,19).replace(/[:T]/g,'-')}.json`)}
-function importBackup(file){const fr=new FileReader();fr.onload=async()=>{try{const b=JSON.parse(fr.result),data=b.data||b;if(!data||!Array.isArray(data.roster)||!Array.isArray(data.history))throw new Error('備份檔缺少球員或歷史資料');if(!roomRef||!isHost)throw new Error('請先以管理員身分進入球局');if(!confirm(`準備還原本機備份：\n球員 ${data.roster.length} 人\n紀錄 ${data.history.length} 場\n\n還原前會先建立 Emergency Backup。`))return;const typed=prompt('請輸入「還原」：','');if(typed!=='還原')return;await createCloudBackup('emergency',{silent:true});state=cleanState(data);await saveNow();renderAll();alert('本機備份還原成功。');await loadBackups()}catch(e){alert('無法還原：'+(e.message||e))}};fr.readAsText(file)}
+function importBackup(file){const fr=new FileReader();fr.onload=async()=>{try{const b=JSON.parse(fr.result),data=b.data||b;if(!data||!Array.isArray(data.roster)||!Array.isArray(data.history))throw new Error('備份檔缺少球員或歷史資料');if(!roomRef||!isHost)throw new Error('請先以管理員身分進入球局');if(!confirm(`準備還原本機備份：\n球員 ${data.roster.length} 人\n紀錄 ${data.history.length} 場\n\n還原前會先建立 Emergency Backup。`))return;const typed=prompt('請輸入「還原」：','');if(typed!=='還原')return;await createCloudBackup('emergency',{silent:true});state=cleanState(data);await saveNow();await saveLiveScoreNow();renderAll();alert('本機備份還原成功。');await loadBackups()}catch(e){alert('無法還原：'+(e.message||e))}};fr.readAsText(file)}
 const refreshAppButtons=all('[data-refresh-app]');
 refreshAppButtons.forEach(button=>button.onclick=()=>{refreshAppButtons.forEach(item=>{item.disabled=true;item.setAttribute('aria-busy','true');item.textContent=item.id==='refreshApp'?'↻':'↻ 重新載入…'});const url=new URL(location.href);url.searchParams.set('_refresh',Date.now().toString());setTimeout(()=>location.replace(url.toString()),50)});
 
@@ -2449,6 +2491,6 @@ const exitScoreBtn=$('exitScore');if(exitScoreBtn)exitScoreBtn.addEventListener(
 
 window.bcmMarkBooted?.();
 if('serviceWorker'in navigator&&location.protocol.startsWith('http')){
-  const swRevision='20260727-370';
+  const swRevision='20260728-371';
   navigator.serviceWorker.register(`./sw.js?v=${swRevision}`,{updateViaCache:'none'}).then(registration=>registration.update()).catch(()=>{});
 }

@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {createLiveScoreData,decodeLiveMatch,encodeLiveMatch,liveMatchKey,shouldAnnounceSyncedLiveScore,LIVE_SCORE_SCHEMA_VERSION} from '../src/live-score.js';
+import {createLiveScoreData,decodeLiveMatch,encodeLiveMatch,generalRoomStateWithoutMatch,liveMatchKey,shouldAnnounceSyncedLiveScore,shouldShowScoreView,LIVE_SCORE_SCHEMA_VERSION} from '../src/live-score.js';
 
 test('encodes Firestore-safe live score without nested arrays',()=>{
   const data=createLiveScoreData({
@@ -59,4 +59,15 @@ test('does not announce initial, hidden, disabled, or Android remote snapshots',
     {...ready,matchActive:false},
     {...ready,voiceEnabled:false}
   ])assert.equal(shouldAnnounceSyncedLiveScore(blocked),false);
+});
+
+test('keeps general admin writes separate from the live match',()=>{
+  assert.deepEqual(generalRoomStateWithoutMatch({roster:['p1'],match:{active:true},adminNotices:[]}),{roster:['p1'],adminNotices:[]});
+});
+
+test('only opens the scoreboard on the admin device that requested it',()=>{
+  const activeAdmin={matchActive:true,isHost:true,androidRemote:false};
+  assert.equal(shouldShowScoreView({...activeAdmin,requested:true}),true);
+  assert.equal(shouldShowScoreView({...activeAdmin,requested:false}),false);
+  assert.equal(shouldShowScoreView({...activeAdmin,requested:true,isHost:false}),false);
 });

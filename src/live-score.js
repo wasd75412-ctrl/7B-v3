@@ -41,6 +41,15 @@ export function createLiveScoreData(match){
   return{schemaVersion:LIVE_SCORE_SCHEMA_VERSION,match:encodeLiveMatch(match)};
 }
 
+export function generalRoomStateWithoutMatch(encodedState={}){
+  const {match:_liveMatch,...generalState}=encodedState&&typeof encodedState==='object'?encodedState:{};
+  return generalState;
+}
+
+export function shouldShowScoreView({matchActive=false,isHost=false,androidRemote=false,requested=false}={}){
+  return Boolean(matchActive&&isHost&&!androidRemote&&requested);
+}
+
 export function liveMatchKey(source={}){
   return JSON.stringify(encodeLiveMatch(source?.match||source));
 }
