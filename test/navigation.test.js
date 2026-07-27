@@ -19,6 +19,14 @@ test('phone layout keeps long tabs and poll controls inside narrow cards',()=>{
   assert.match(styles,/#app \.home-match-team\{[\s\S]*?white-space:normal/);
 });
 
+test('iPhone date and time controls stay inside poll cards',()=>{
+  assert.match(styles,/BCM 2\.4\.33 — contain iOS native date controls inside poll cards/);
+  assert.match(styles,/#app #page6 input:is\(\[type="date"\],\[type="time"\],\[type="datetime-local"\]\)\{[\s\S]*?max-inline-size:100%/);
+  assert.match(styles,/-webkit-appearance:none/);
+  assert.match(styles,/@supports\(-webkit-touch-callout:none\)\{[\s\S]*?width:-webkit-fill-available/);
+  assert.match(styles,/::-webkit-date-and-time-value\{[\s\S]*?text-align:center/);
+});
+
 test('keeps chat in primary navigation and removes backup from it',()=>{
   assert.match(nav,/data-page="8">聊天/);
   assert.doesNotMatch(nav,/data-page="7"/);
