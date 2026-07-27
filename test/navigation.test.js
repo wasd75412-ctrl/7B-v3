@@ -11,6 +11,14 @@ test('keeps exactly eight primary navigation tabs',()=>{
   assert.equal((nav.match(/class="tab/g)||[]).length,8);
 });
 
+test('phone layout keeps long tabs and poll controls inside narrow cards',()=>{
+  assert.match(styles,/BCM 2\.4\.32 — keep dense phone layouts inside their cards/);
+  assert.match(styles,/#app \.tab\[data-page="6"\]\{[\s\S]*?font-size:\.64rem/);
+  assert.match(styles,/#app \.poll-deadline-controls\{[\s\S]*?grid-template-columns:repeat\(2,minmax\(0,1fr\)\)/);
+  assert.match(styles,/#app \.poll-deadline-controls \.btn\{[\s\S]*?white-space:nowrap/);
+  assert.match(styles,/#app \.home-match-team\{[\s\S]*?white-space:normal/);
+});
+
 test('keeps chat in primary navigation and removes backup from it',()=>{
   assert.match(nav,/data-page="8">聊天/);
   assert.doesNotMatch(nav,/data-page="7"/);
