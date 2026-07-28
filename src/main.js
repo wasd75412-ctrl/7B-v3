@@ -14,7 +14,7 @@ import { adminRoleButtonState, claimedAdminPlayerId, resolveAdminSessionToken } 
 import { updateAttendanceState } from './attendance.js';
 import { pollWasFinalized } from './poll.js';
 import { activateShuttleTube, createShuttleTube, enforceLegacyActiveShuttleTube, normalizeShuttleTubes, restoreShuttleTube, setShuttlePaymentStatus, setShuttleRemaining, shuttlePaymentStatus, softDeleteShuttleTube, updateShuttleTube } from './shuttle-tube.js';
-import { highestWinStreak } from './player-achievements.js';
+import { careerAchievementBadges } from './player-achievements.js';
 
 const firebaseConfig={apiKey:'AIzaSyBrakbTPK7UqEChPBI6pM8-i03IcLq0IvM',authDomain:'badminton-7a1c3.firebaseapp.com',projectId:'badminton-7a1c3',storageBucket:'badminton-7a1c3.firebasestorage.app',messagingSenderId:'883534015507',appId:'1:883534015507:web:a7f6fb318151b6d07563e6',measurementId:'G-C97B98H7YW'};
 const fbApp=initializeApp(firebaseConfig);
@@ -335,7 +335,7 @@ function historyDate(h){if(/^\d{4}-\d{2}-\d{2}$/.test(h.dateKey||''))return h.da
 function scopedStats(id,scope='career',month=localMonthKey()){let games=0,wins=0;const list=[];for(const h of state.history){const dk=historyDate(h);if(scope==='today'&&dk!==localDateKey())continue;if(scope==='month'&&!dk.startsWith(month))continue;for(let t=0;t<2;t++){if((h.teams?.[t]||[]).includes(id)){games++;if(h.winner===t)wins++;list.push({h,won:h.winner===t})}}}let streak=0,kind='';for(const x of list.slice().reverse()){const k=x.won?'W':'L';if(!kind)kind=k;if(k!==kind)break;streak++}return{games,wins,losses:games-wins,rate:games?Math.round(wins/games*100):0,streak,kind,list}}
 function relationshipStats(id){const partners=new Map(),opponents=new Map();for(const h of state.history){const teams=h.teams||[];let team=-1;for(let t=0;t<2;t++)if((teams[t]||[]).includes(id)){team=t;break}if(team<0)continue;for(const pid of teams[team]||[]){if(pid===id)continue;const x=partners.get(pid)||{id:pid,games:0,wins:0};x.games++;if(h.winner===team)x.wins++;partners.set(pid,x)}for(const oid of teams[1-team]||[]){const x=opponents.get(oid)||{id:oid,games:0,wins:0};x.games++;if(h.winner===team)x.wins++;opponents.set(oid,x)}}const finish=m=>[...m.values()].map(x=>({...x,rate:x.games?Math.round(x.wins/x.games*100):0}));return{partners:finish(partners).sort((a,b)=>b.rate-a.rate||b.games-a.games||pname(a.id).localeCompare(pname(b.id))),opponents:finish(opponents).sort((a,b)=>b.games-a.games||b.rate-a.rate)}}
 function playerStatus(id){const td=scopedStats(id,'today');if(!td.games)return{label:'🌱 今日尚未出賽',kind:'idle'};if(td.kind==='W'&&td.streak>=3)return{label:`🔥 火燙 · ${td.streak} 連勝`,kind:'hot'};if(td.kind==='L'&&td.streak>=3)return{label:`🧊 調整中 · ${td.streak} 連敗`,kind:'cold'};if(td.wins===td.games)return{label:`✨ 今日全勝 · ${td.wins} 勝`,kind:'hot'};return{label:`🏸 今日 ${td.wins} 勝 ${td.losses} 敗`,kind:'normal'}}
-function careerBadges(id){const c=scopedStats(id,'career'),bestWinStreak=highestWinStreak(c.list);const defs=[['🏸','初登場',c.games>=1],['🥉','10 場',c.games>=10],['🥈','50 場',c.games>=50],['🥇','100 場',c.games>=100],['🏆','10 勝',c.wins>=10],['💯','50 勝',c.wins>=50],['👑','100 勝',c.wins>=100],['🔥','3 連勝',bestWinStreak>=3],['⚡','5 連勝',bestWinStreak>=5],['🌟','10 連勝',bestWinStreak>=10]];return defs}
+function careerBadges(id){const c=scopedStats(id,'career');return careerAchievementBadges({games:c.games,wins:c.wins,results:c.list})}
 function relationRows(list,emptyText){if(!list.length)return `<div class="sub">${emptyText}</div>`;return list.slice(0,3).map((x,i)=>`<div class="duo-row"><span class="duo-rank">${i+1}</span><span>${avatar(x.id,'tiny')} <strong>${esc(pname(x.id))}</strong><div class="duo-meta">共同 ${x.games} 場 · ${x.wins} 勝</div></span><strong>${x.rate}%</strong></div>`).join('')}
 function todayLeaders(){const rows=state.roster.map(p=>({p,s:scopedStats(p.id,'today')})).filter(x=>x.s.games);const hot=rows.filter(x=>x.s.kind==='W').sort((a,b)=>b.s.streak-a.s.streak||b.s.wins-a.s.wins)[0];const cold=rows.filter(x=>x.s.kind==='L').sort((a,b)=>b.s.streak-a.s.streak||b.s.losses-a.s.losses)[0];return{hot,cold}}
 let preferredVoice=null,preferredEnglishVoice=null,speechRunId=0;
@@ -2505,6 +2505,6 @@ const exitScoreBtn=$('exitScore');if(exitScoreBtn)exitScoreBtn.addEventListener(
 
 window.bcmMarkBooted?.();
 if('serviceWorker'in navigator&&location.protocol.startsWith('http')){
-  const swRevision='20260728-373';
+  const swRevision='20260728-374';
   navigator.serviceWorker.register(`./sw.js?v=${swRevision}`,{updateViaCache:'none'}).then(registration=>registration.update()).catch(()=>{});
 }
