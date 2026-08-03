@@ -27,6 +27,16 @@ test('iPhone date and time controls stay inside poll cards',()=>{
   assert.match(styles,/::-webkit-date-and-time-value\{[\s\S]*?text-align:center/);
 });
 
+test('places the vote submit button after all poll choices',()=>{
+  const votingPanel=html.match(/<div id="pollVotingPanel"[\s\S]*?<div id="confirmEventPanel"/)?.[0]||'';
+  const voterIndex=votingPanel.indexOf('id="pollVoter"');
+  const optionsIndex=votingPanel.indexOf('id="pollOptions"');
+  const submitIndex=votingPanel.indexOf('id="submitVote"');
+  assert.ok(voterIndex>=0&&optionsIndex>voterIndex&&submitIndex>optionsIndex);
+  assert.match(styles,/\.poll-submit-row\{[^}]*justify-content:flex-end/);
+  assert.match(styles,/@media\(max-width:700px\)\{\.poll-submit-row \.btn\{width:100%/);
+});
+
 test('keeps chat in primary navigation and removes backup from it',()=>{
   assert.match(nav,/data-page="8">聊天/);
   assert.doesNotMatch(nav,/data-page="7"/);
