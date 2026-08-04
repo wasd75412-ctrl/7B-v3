@@ -57,6 +57,15 @@ test('opens admin shuttle tube management from the more menu',()=>{
   assert.match(html,/id="shuttleTubeModal"/);
 });
 
+test('separates fixed members and guest players while excluding guests from shuttle purchases',()=>{
+  assert.match(html,/id="newPlayerType"[\s\S]*?<option value="member">固定團員<\/option>[\s\S]*?<option value="guest">臨打球友<\/option>/);
+  assert.match(html,/id="membershipAdminSection" class="profile-panel host-only"/);
+  assert.match(html,/id="editMemberType"/);
+  assert.match(mainSource,/splitPlayersByMembership\(rows\)/);
+  assert.match(mainSource,/shuttleEligiblePlayers\(state\.roster\)/);
+  assert.match(styles,/BCM 2\.4\.42 — fixed members and guest-player sections/);
+});
+
 test('puts refresh first and keeps low-frequency actions collapsed',()=>{
   const moreIndex=html.indexOf('id="roomMoreMenu"'),refreshIndex=html.indexOf('id="refreshAppMenu"',moreIndex),advancedIndex=html.indexOf('id="roomMoreAdvanced"',moreIndex);
   const primary=html.match(/<div class="room-more-primary">([\s\S]*?)<\/div>\s*<\/div>/)?.[1]||'';

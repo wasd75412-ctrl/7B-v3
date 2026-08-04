@@ -4109,3 +4109,31 @@ html.chat-keyboard-open .chat-autocomplete{
     #app #page6 :is(.poll-form,.poll-deadline-controls) .field{overflow:hidden}
   }
 }
+
+/* BCM 2.4.42 — fixed members and guest-player sections */
+#app .player-add-row{grid-template-columns:minmax(0,1fr) minmax(145px,.32fr) auto}
+#app .roster-sections{display:grid;gap:18px}
+#app .roster-group{
+  padding:16px;
+  border:1px solid rgba(var(--sport-tint-rgb),.22);
+  border-radius:22px;
+  background:linear-gradient(145deg,rgba(var(--sport-tint-rgb),.08),rgba(3,24,40,.50))
+}
+#app .roster-group.guests{
+  border-color:rgba(250,185,62,.30);
+  background:linear-gradient(145deg,rgba(250,185,62,.09),rgba(3,24,40,.50))
+}
+#app .roster-group-head{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:13px}
+#app .roster-group-head h3{margin:0;color:var(--sport-ink);font-size:1.14rem}
+#app .roster-group-head p{margin:4px 0 0;color:var(--sport-muted);font-size:.8rem;font-weight:850}
+#app .roster-group-head>span{flex:0 0 auto;padding:6px 10px;border-radius:999px;background:rgba(var(--sport-tint-rgb),.13);color:rgb(var(--sport-tint-rgb));font-size:.78rem;font-weight:1000}
+#app .roster-group.guests .roster-group-head>span{background:rgba(250,185,62,.14);color:#ffd67d}
+#app .mini-tag.player-type-guest{background:rgba(250,185,62,.18);color:#ffd67d}
+#app .guest-player-card{border-color:rgba(250,185,62,.30)}
+#app .roster-empty{grid-column:1/-1;margin:0;padding:14px;text-align:center}
+.shuttle-member-note{margin:6px 0 0;color:var(--sport-muted);font-size:.76rem;font-weight:850}
+@media(max-width:680px){
+  #app .player-add-row{grid-template-columns:1fr}
+  #app .roster-group{padding:12px}
+  #app .roster-group-head{align-items:flex-start}
+}

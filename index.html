@@ -98,8 +98,8 @@
 
   <section id="page1" class="card page hidden">
     <h2>球員資料庫</h2>
-    <div class="add-row"><input id="newName" class="input viewer-enabled" placeholder="輸入球員姓名"><button id="addPlayer" class="btn primary">新增球員</button></div><div class="player-tools"><input id="playerSearch" class="input viewer-enabled" placeholder="🔍 搜尋球員、球拍或備註"><select id="playerSort" class="input viewer-enabled" style="max-width:190px"><option value="favorite">收藏優先</option><option value="name">姓名排序</option><option value="games">場次排序</option></select></div>
-    <div id="roster" class="grid roster"></div>
+    <div class="add-row player-add-row"><input id="newName" class="input viewer-enabled" placeholder="輸入球員姓名"><select id="newPlayerType" class="input viewer-enabled" aria-label="球員類型"><option value="member">固定團員</option><option value="guest">臨打球友</option></select><button id="addPlayer" class="btn primary">新增球員</button></div><div class="player-tools"><input id="playerSearch" class="input viewer-enabled" placeholder="🔍 搜尋球員、球拍或備註"><select id="playerSort" class="input viewer-enabled" style="max-width:190px"><option value="favorite">收藏優先</option><option value="name">姓名排序</option><option value="games">場次排序</option></select></div>
+    <div id="roster" class="roster-sections"></div>
   </section>
 
   <section id="page2" class="card page hidden">
@@ -364,6 +364,11 @@
   <div class="profile-edit-divider"></div>
   <h3>編輯球員資料</h3>
   <div class="field"><label>姓名</label><input id="editName" class="input"></div>
+  <div id="membershipAdminSection" class="profile-panel host-only" style="margin-top:14px">
+    <h3>👥 團員類型（僅管理員）</h3>
+    <label class="field"><span>分類</span><select id="editMemberType" class="input"><option value="member">固定團員</option><option value="guest">臨打球友</option></select></label>
+    <p class="sub" style="margin:8px 0 0">臨打球友保留完整球員資料與戰績，但不列入球桶購買名單。</p>
+  </div>
   <div id="voiceAdminSection" class="profile-panel host-only" style="margin-top:14px">
     <h3>🎤 播報設定（僅管理員）</h3>
     <div class="field"><label>播報名稱</label><input id="editVoiceName" class="input" placeholder="留空時使用姓名；例如：緁可填潔"></div>
