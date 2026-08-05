@@ -15,6 +15,7 @@ test('checking out removes the player from every future lineup',()=>{
     court:['p1','p2'],
     waitingQueue:['p3','p2'],
     queueDraftChosen:['p2'],
+    lastLoserReplayPlayerId:'p2',
     priority:'p3',
     nextCall:{players:['p2','p3','p4','p5']}
   },'p2',false);
@@ -24,4 +25,5 @@ test('checking out removes the player from every future lineup',()=>{
   assert.deepEqual(next.queueDraftChosen,[]);
   assert.equal(next.priority,'p3');
   assert.equal(next.nextCall,null);
+  assert.equal(next.lastLoserReplayPlayerId,null);
 });

@@ -21,6 +21,7 @@ export function normalizeFinishedMatchRollback(value){
     priority:value.priority||null,
     nextCall:cleanNextCall(value.nextCall),
     court:uniqueIds(value.court).slice(0,4),
+    lastLoserReplayPlayerId:value.lastLoserReplayPlayerId||null,
     createdAt:String(value.createdAt||''),
     inferred:!!value.inferred
   };
@@ -34,6 +35,7 @@ export function createFinishedMatchRollback(state,matchId,{inferred=false}={}){
     priority:state?.priority,
     nextCall:state?.nextCall,
     court:state?.court,
+    lastLoserReplayPlayerId:state?.lastLoserReplayPlayerId,
     createdAt:new Date().toISOString(),
     inferred
   });
@@ -57,6 +59,7 @@ export function inferFinishedMatchRollback(state,record){
     priority:waitingQueue[0]||null,
     nextCall:null,
     court:idList(teams).flat().slice(0,4),
+    lastLoserReplayPlayerId:null,
     createdAt:new Date().toISOString(),
     inferred:true
   });
@@ -78,6 +81,7 @@ export function reopenFinishedMatchState(state,matchId){
     priority:rollback?rollback.priority:(state?.priority||null),
     nextCall:rollback?rollback.nextCall:(state?.nextCall||null),
     court:rollback?rollback.court:idList(state?.court),
+    lastLoserReplayPlayerId:rollback?rollback.lastLoserReplayPlayerId:(state?.lastLoserReplayPlayerId||null),
     matchRollback:null
   };
 }
