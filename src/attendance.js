@@ -20,6 +20,7 @@ export function updateAttendanceState(source={},playerId='',attending=false){
     waitingQueue,
     queueDraftChosen,
     priority:waitingQueue[0]||null,
-    nextCall
+    nextCall,
+    lastLoserReplayPlayerId:!attending&&source.lastLoserReplayPlayerId===id?null:(source.lastLoserReplayPlayerId||null)
   };
 }

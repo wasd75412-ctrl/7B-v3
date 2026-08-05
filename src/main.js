@@ -17,6 +17,8 @@ import { activateShuttleTube, createShuttleTube, enforceLegacyActiveShuttleTube,
 import { careerAchievementBadges } from './player-achievements.js';
 import { PLAYER_TYPE_GUEST, isGuestPlayer, normalizePlayerType, shuttleEligiblePlayers, splitPlayersByMembership } from './player-membership.js';
 import { createFinishedMatchRollback, normalizeFinishedMatchRollback, reopenFinishedMatchState } from './match-correction.js';
+import { rotateAfterMatch } from './match-rotation.js';
+import { deletePlayerFromState, normalizeRetiredPlayers } from './player-deletion.js';
 
 const firebaseConfig={apiKey:'AIzaSyBrakbTPK7UqEChPBI6pM8-i03IcLq0IvM',authDomain:'badminton-7a1c3.firebaseapp.com',projectId:'badminton-7a1c3',storageBucket:'badminton-7a1c3.firebasestorage.app',messagingSenderId:'883534015507',appId:'1:883534015507:web:a7f6fb318151b6d07563e6',measurementId:'G-C97B98H7YW'};
 const fbApp=initializeApp(firebaseConfig);
@@ -49,7 +51,7 @@ function normalizeAdminNotices(source){
   }).filter(notice=>{if(seen.has(notice.id))return false;seen.add(notice.id);return true}).sort((a,b)=>(Date.parse(b.publishedAt)||0)-(Date.parse(a.publishedAt)||0)).slice(0,20);
 }
 function setAdminNotices(rows){state.adminNotices=normalizeAdminNotices({adminNotices:rows});state.adminNotice=state.adminNotices[0]||null}
-const initialState=()=>({version:9.7,roster:[],adminPlayerIds:[],attendance:[],court:[],waitingQueue:[],queueDraftChosen:[],priority:null,match:{active:false,players:[[],[]],scores:[0,0],rallies:[],serving:0,positions:[[0,1],[0,1]],winner:null,startedAt:''},matchRollback:null,rules:{target:11,cap:15,deuce:true},history:[],matchReplayPlaylistTitle:'',matchReplayPlaylistUrl:'',nextCall:null,schedulePoll:{status:'open',createdAt:'',deadlineAt:'',options:[],votes:{},voterPlayers:{}},nextEvent:null,adminNotice:null,adminNotices:[],shuttleTubes:[],shuttleLegacyActiveTubeId:'',shuttleNoTrackingTubeIds:[],updatedAt:null});
+const initialState=()=>({version:9.7,roster:[],retiredPlayers:[],adminPlayerIds:[],attendance:[],court:[],waitingQueue:[],queueDraftChosen:[],priority:null,lastLoserReplayPlayerId:null,match:{active:false,players:[[],[]],scores:[0,0],rallies:[],serving:0,positions:[[0,1],[0,1]],winner:null,startedAt:''},matchRollback:null,rules:{target:11,cap:15,deuce:true},history:[],matchReplayPlaylistTitle:'',matchReplayPlaylistUrl:'',nextCall:null,schedulePoll:{status:'open',createdAt:'',deadlineAt:'',options:[],votes:{},voterPlayers:{}},nextEvent:null,adminNotice:null,adminNotices:[],shuttleTubes:[],shuttleLegacyActiveTubeId:'',shuttleNoTrackingTubeIds:[],updatedAt:null});
 const DEVICE_SYNC_CODE_KEY='bcmDeviceSyncCodeV1',DEVICE_SYNC_TOKEN_KEY='bcmDeviceSyncTokenV1',DEVICE_SYNC_NAME_KEY='bcmDeviceSyncNameV1',DEVICE_SYNC_PLAYER_KEY='bcmDeviceSyncPlayerV1';
 let state=initialState(), roomId='', roomRef=null, liveScoreRef=null, chatCollectionRef=null, isHost=false, hostToken='', adminPinHash='', unsubscribe=null, liveScoreUnsubscribe=null, chatUnsubscribe=null, applying=false, saveTimer=null, liveScoreSaveTimer=null, matchAutoBackupTimer=null, editId=null;const expandedPlayerNotes=new Set();let profileOriginal=null,profileDirty={name:false,memberType:false,voiceName:false,racket:false,racketTension:false,racketString:false,backupRacket:false,backupTension:false,backupString:false,note:false};let voiceEnabled=localStorage.getItem('bdV76Voice')!=='0';let dismissedResultKey='';const selfToken=localStorage.getItem(DEVICE_SYNC_TOKEN_KEY)||localStorage.getItem('bdV73SelfToken')||randomToken();localStorage.setItem('bdV73SelfToken',selfToken);let selfHash='',scoreViewRequested=false,expandedShuttleTubeId='';
 let deviceProfileUnsubscribe=null,deviceProfileApplying=false,deviceProfileSaveTimer=null,identitySyncing=false,roomConnectInProgress=false;
@@ -219,12 +221,14 @@ function encodeState(src){
   return {
     version:9.7,
     roster:Array.isArray(src.roster)?src.roster.map(playerRecord=>({...withoutLegacyGender(playerRecord),memberType:normalizePlayerType(playerRecord.memberType),ownerHashes:playerOwnerHashes(playerRecord).join('|')})):[],
+    retiredPlayers:normalizeRetiredPlayers(src.retiredPlayers),
     adminPlayerIds:[...new Set((Array.isArray(src.adminPlayerIds)?src.adminPlayerIds:[]).map(id=>String(id||'').trim()).filter(Boolean))].slice(0,20),
     attendance:Array.isArray(src.attendance)?src.attendance:[],
     court:Array.isArray(src.court)?src.court:[],
     waitingQueue:Array.isArray(src.waitingQueue)?src.waitingQueue:[],
     queueDraftChosen:Array.isArray(src.queueDraftChosen)?src.queueDraftChosen:[],
     priority:src.priority||null,
+    lastLoserReplayPlayerId:src.lastLoserReplayPlayerId||null,
     match:{
       active:!!m.active,
       teamA:Array.isArray(m.players?.[0])?m.players[0]:[],
@@ -306,11 +310,13 @@ function decodeState(d){
     },
     matchRollback:normalizeFinishedMatchRollback(d.matchRollback),
     roster:Array.isArray(d.roster)?d.roster.map(p=>({...withoutLegacyGender(p),memberType:normalizePlayerType(p.memberType),ownerHashes:playerOwnerHashes(p),voiceName:p.voiceName||defaultVoiceName(p.name),backupRacket:p.backupRacket||'',racketTension:p.racketTension||'',racketString:p.racketString||'',backupTension:p.backupTension||'',backupString:p.backupString||'',favorite:!!p.favorite})):[],
+    retiredPlayers:normalizeRetiredPlayers(d.retiredPlayers),
     adminPlayerIds:[...new Set((Array.isArray(d.adminPlayerIds)?d.adminPlayerIds:[]).map(id=>String(id||'').trim()).filter(Boolean))].slice(0,20),
     attendance:Array.isArray(d.attendance)?d.attendance:[],
     court:Array.isArray(d.court)?d.court:[],
     waitingQueue:Array.isArray(d.waitingQueue)?d.waitingQueue:[],
     queueDraftChosen:Array.isArray(d.queueDraftChosen)?d.queueDraftChosen:[],
+    lastLoserReplayPlayerId:d.lastLoserReplayPlayerId||null,
     matchReplayPlaylistTitle:normalizeMatchReplayTitle(d.matchReplayPlaylistTitle),
     matchReplayPlaylistUrl:normalizeYouTubePlaylistUrl(d.matchReplayPlaylistUrl),
     nextCall:d.nextCall&&Array.isArray(d.nextCall.players)?{
@@ -336,7 +342,7 @@ function decodeState(d){
 }
 
 
-function player(id){return state.roster.find(p=>p.id===id)}function pname(id){return player(id)?.name||'未知球員'}function vname(id){const p=player(id);return p?.voiceName?.trim()||defaultVoiceName(p?.name)||p?.name||'未知球員'}function initials(n){return [...String(n||'?')].slice(0,2).join('').toUpperCase()}function avatar(id,size=''){const p=player(id);return `<span class="avatar ${size}">${p?.avatar?`<img src="${p.avatar}" alt="">`:esc(initials(p?.name))}</span>`}function playerStats(id){let games=0,wins=0;for(const h of state.history){const teams=h.teams||[];for(let t=0;t<2;t++){if((teams[t]||[]).includes(id)){games++;if(h.winner===t)wins++}}}return{games,wins,losses:games-wins,rate:games?Math.round(wins/games*100):0}}
+function player(id){return state.roster.find(p=>p.id===id)}function retiredPlayer(id){return state.retiredPlayers?.find(p=>p.id===id)}function playerDisplay(id){return player(id)||retiredPlayer(id)}function pname(id){return playerDisplay(id)?.name||'未知球員'}function vname(id){const p=playerDisplay(id);return p?.voiceName?.trim()||defaultVoiceName(p?.name)||p?.name||'未知球員'}function initials(n){return [...String(n||'?')].slice(0,2).join('').toUpperCase()}function avatar(id,size=''){const p=playerDisplay(id);return `<span class="avatar ${size}">${p?.avatar?`<img src="${p.avatar}" alt="">`:esc(initials(p?.name))}</span>`}function playerStats(id){let games=0,wins=0;for(const h of state.history){const teams=h.teams||[];for(let t=0;t<2;t++){if((teams[t]||[]).includes(id)){games++;if(h.winner===t)wins++}}}return{games,wins,losses:games-wins,rate:games?Math.round(wins/games*100):0}}
 function localDateKey(d=new Date()){return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`}function localMonthKey(d=new Date()){return localDateKey(d).slice(0,7)}
 function historyDate(h){if(/^\d{4}-\d{2}-\d{2}$/.test(h.dateKey||''))return h.dateKey;if(h.endedAt){const d=new Date(h.endedAt);if(!isNaN(d.getTime()))return localDateKey(d)}const text=String(h.time||'');const m=text.match(/(\d{4})[\/.-](\d{1,2})[\/.-](\d{1,2})/);if(m)return `${m[1]}-${String(m[2]).padStart(2,'0')}-${String(m[3]).padStart(2,'0')}`;const d=new Date(text);return isNaN(d.getTime())?'':localDateKey(d)}
 function scopedStats(id,scope='career',month=localMonthKey()){let games=0,wins=0;const list=[];for(const h of state.history){const dk=historyDate(h);if(scope==='today'&&dk!==localDateKey())continue;if(scope==='month'&&!dk.startsWith(month))continue;for(let t=0;t<2;t++){if((h.teams?.[t]||[]).includes(id)){games++;if(h.winner===t)wins++;list.push({h,won:h.winner===t})}}}let streak=0,kind='';for(const x of list.slice().reverse()){const k=x.won?'W':'L';if(!kind)kind=k;if(k!==kind)break;streak++}return{games,wins,losses:games-wins,rate:games?Math.round(wins/games*100):0,streak,kind,list}}
@@ -1446,6 +1452,7 @@ function completedMatchSyncPayload(){
     waitingQueue:encoded.waitingQueue,
     queueDraftChosen:encoded.queueDraftChosen,
     priority:encoded.priority,
+    lastLoserReplayPlayerId:encoded.lastLoserReplayPlayerId,
     nextCall:encoded.nextCall,
     matchRollback:encoded.matchRollback,
     liveScoreEnabled:true,
@@ -1571,14 +1578,15 @@ function uniqueIds(ids){return [...new Set((ids||[]).filter(Boolean))]}
 function currentCourtIds(){const live=state.match?.active?state.match.players?.flat?.()||[]:state.court||[];return uniqueIds(live)}
 function reconcileWaitingQueue(excludeIds=currentCourtIds()){
   const exclude=new Set(excludeIds||[]),eligible=state.attendance.filter(id=>!exclude.has(id));
-  const kept=uniqueIds(state.waitingQueue).filter(id=>eligible.includes(id));
+  const preferred=eligible.includes(state.priority)?[state.priority]:[];
+  const kept=uniqueIds([...preferred,...state.waitingQueue]).filter(id=>eligible.includes(id));
   const missing=eligible.filter(id=>!kept.includes(id));
   state.waitingQueue=[...kept,...missing];
   state.priority=state.waitingQueue[0]||null;
 }
 function projectedQueueForLineup(vals){
   const selected=new Set((vals||[]).filter(Boolean));
-  const ordered=uniqueIds([...(state.queueDraftChosen||[]),...(state.waitingQueue||[])]).filter(id=>state.attendance.includes(id)&&!selected.has(id));
+  const ordered=uniqueIds([...(state.queueDraftChosen||[]),state.priority,...(state.waitingQueue||[])]).filter(id=>state.attendance.includes(id)&&!selected.has(id));
   for(const id of state.attendance)if(!selected.has(id)&&!ordered.includes(id))ordered.push(id);
   return ordered;
 }
@@ -1590,6 +1598,7 @@ function applyAttendanceUpdate(next){
   state.queueDraftChosen=next.queueDraftChosen;
   state.priority=next.priority;
   state.nextCall=next.nextCall;
+  state.lastLoserReplayPlayerId=next.lastLoserReplayPlayerId;
 }
 async function toggleAttendance(id){
   const attending=!state.attendance.includes(id);
@@ -1628,12 +1637,12 @@ function renderAttendance(){
 }
 function options(selected=''){return `<option value="">請選擇</option>`+state.attendance.map(id=>`<option value="${id}" ${id===selected?'selected':''}>${esc(pname(id))}</option>`).join('')}
 function renderCourt(){for(let i=0;i<4;i++){const s=$('p'+i);s.innerHTML=options(state.court[i]||'');s.value=state.court[i]||'';s.onchange=()=>{if(!isHost)return;state.court[i]=s.value;reconcileWaitingQueue(state.court.filter(Boolean));renderWaiting();saveSoon()}}$('target').value=state.rules.target;$('cap').value=state.rules.cap;$('deuce').value=state.rules.deuce?'1':'0';renderWaiting()}
-function renderWaiting(){const used=state.court.filter(Boolean),eligible=state.attendance.filter(id=>!used.includes(id));const ordered=uniqueIds(state.waitingQueue).filter(id=>eligible.includes(id));for(const id of eligible)if(!ordered.includes(id))ordered.push(id);state.priority=ordered[0]||null;$('waiting').innerHTML=ordered.map((id,i)=>`<span class="chip ${i===0?'priority':''}">${esc(queueLabel(i,ordered.length))} · ${esc(pname(id))}</span>`).join('')||'<span class="sub">目前沒有候場球員</span>'}
+function renderWaiting(){const scheduled=state.match?.active&&state.match.winner!==null&&state.nextCall?.players?.length===4?state.nextCall.players:state.court,used=scheduled.filter(Boolean),eligible=state.attendance.filter(id=>!used.includes(id)),preferred=eligible.includes(state.priority)?[state.priority]:[];const ordered=uniqueIds([...preferred,...state.waitingQueue]).filter(id=>eligible.includes(id));for(const id of eligible)if(!ordered.includes(id))ordered.push(id);state.waitingQueue=ordered;state.priority=ordered[0]||null;$('waiting').innerHTML=ordered.map((id,i)=>`<span class="chip ${i===0?'priority':''}">${esc(queueLabel(i,ordered.length))} · ${esc(pname(id))}</span>`).join('')||'<span class="sub">目前沒有候場球員</span>'}
 function winFor(sc){const {target,cap,deuce}=state.rules;for(let t=0;t<2;t++){const o=1-t;if(!deuce&&sc[t]>=target)return t;if(deuce&&sc[t]>=target&&sc[t]-sc[o]>=2)return t;if(deuce&&sc[t]>=cap)return t}return null}
 function reopenRecordedMatch(){
   const matchId=state.match?.matchId,result=reopenFinishedMatchState(state,matchId);
   if(!result.reopened)return false;
-  state.history=result.history;state.waitingQueue=result.waitingQueue;state.queueDraftChosen=result.queueDraftChosen;state.priority=result.priority;state.nextCall=result.nextCall;state.court=result.court;state.matchRollback=null;
+  state.history=result.history;state.waitingQueue=result.waitingQueue;state.queueDraftChosen=result.queueDraftChosen;state.priority=result.priority;state.nextCall=result.nextCall;state.court=result.court;state.lastLoserReplayPlayerId=result.lastLoserReplayPlayerId;state.matchRollback=null;
   dismissedResultKey='';$('resultModal').classList.add('hidden');
   clearTimeout(matchAutoBackupTimer);matchAutoBackupTimer=null;
   if(isHost&&roomId&&matchId)void deleteDoc(backupDocRef(`auto_${matchId}`)).catch(error=>console.warn('撤回比賽時移除舊自動備份失敗',error));
@@ -1880,7 +1889,7 @@ function renderHistory(){renderMatchReplay();const list=state.history.map((h,ind
 function deleteHistoryRecord(index){if(!isHost)return;const h=state.history[index];if(!h)return;const title=`${(h.teams?.[0]||[]).map(pname).join('／')} ${h.scores?.[0]??0}：${h.scores?.[1]??0} ${(h.teams?.[1]||[]).map(pname).join('／')}`;if(!confirm(`確定刪除這筆比賽紀錄？\n\n${title}\n${h.time||''}`))return;state.history.splice(index,1);renderAll();saveSoon()}
 function clearAllHistory(){if(!isHost)return;if(!state.history.length)return alert('目前沒有比賽紀錄。');if(!confirm(`即將刪除全部 ${state.history.length} 筆比賽紀錄。\n球員名單與目前比分不會被刪除。`))return;const text=prompt('為避免誤刪，請輸入「清空」：','');if(text!=='清空')return alert('輸入不正確，已取消清空。');state.history=[];renderAll();saveSoon();alert('全部比賽紀錄已清空。')}
 function renderAll(){renderRoster();renderAttendance();renderCourt();renderHistory();renderScore();renderDashboard();renderStats();renderPoll();renderChat();if(!$('shuttleTubeModal')?.classList.contains('hidden'))renderShuttleTubeManager();applyRole();renderAndroidRemote()}
-function startMatch(){dismissedResultKey='';const selected=state.court.filter(Boolean);if(selected.length!==4||new Set(selected).size!==4)return alert('請選擇四位不同球員。');const ids=teammateSafeLineup(selected);state.court=[...ids];reconcileWaitingQueue(ids);state.queueDraftChosen=[];state.matchRollback=null;randomizeScoreThemeAtMatchStart();state.match={active:true,players:[[ids[0],ids[1]],[ids[2],ids[3]]],scores:[0,0],rallies:[],serving:0,positions:[[0,1],[0,1]],winner:null,startedAt:new Date().toISOString()};scoreViewRequested=true;saveLiveScoreSoon();saveSoon();renderScore();renderDashboard()}
+function startMatch(){dismissedResultKey='';const selected=state.court.filter(Boolean);if(selected.length!==4||new Set(selected).size!==4)return alert('請選擇四位不同球員。');const ids=teammateSafeLineup(selected);state.court=[...ids];reconcileWaitingQueue(ids);state.queueDraftChosen=[];state.lastLoserReplayPlayerId=null;state.matchRollback=null;randomizeScoreThemeAtMatchStart();state.match={active:true,players:[[ids[0],ids[1]],[ids[2],ids[3]]],scores:[0,0],rallies:[],serving:0,positions:[[0,1],[0,1]],winner:null,startedAt:new Date().toISOString()};scoreViewRequested=true;saveLiveScoreSoon();saveSoon();renderScore();renderDashboard()}
 function finishMatch(){
   const m=state.match;if(!m.active||m.winner===null)return;
   m.matchId=m.matchId||randomToken();let newlyRecorded=false,four=[];
@@ -1889,13 +1898,11 @@ function finishMatch(){
     state.history.push({matchId:m.matchId,time:now.toLocaleString('zh-TW'),endedAt:now.toISOString(),dateKey:localDateKey(now),monthKey:localMonthKey(now),teams:structuredClone(m.players),scores:[...m.scores],winner:m.winner});
     const winners=[...m.players[m.winner]],losers=[...m.players[1-m.winner]],previousCourt=m.players.flat();
     reconcileWaitingQueue(previousCourt);
-    let queue=[...state.waitingQueue],chosen=[],losersToTail=[];
-    if(queue.length>=2){chosen=queue.splice(0,2);losersToTail=[...losers]}
-    else if(queue.length===1){chosen=[queue.shift(),losers[0]];losersToTail=[losers[1]]}
-    else{chosen=[...losers];losersToTail=[]}
-    state.waitingQueue=uniqueIds([...queue,...losersToTail]).filter(id=>state.attendance.includes(id)&&!winners.includes(id)&&!chosen.includes(id));
+    const randomValue=crypto.getRandomValues(new Uint32Array(1))[0],rotation=rotateAfterMatch({winners,losers,waitingQueue:state.waitingQueue,attendance:state.attendance,lastLoserReplayPlayerId:state.lastLoserReplayPlayerId,randomValue}),chosen=rotation.chosen;
+    state.waitingQueue=rotation.waitingQueue;
     state.queueDraftChosen=[...chosen];
-    state.priority=state.waitingQueue[0]||null;
+    state.priority=rotation.priority;
+    state.lastLoserReplayPlayerId=rotation.lastLoserReplayPlayerId;
     four=teammateSafeLineup([...winners,...chosen],{randomize:true});
     state.nextCall={players:[...four],createdAt:new Date().toISOString()};
   }else{
@@ -2293,6 +2300,7 @@ async function endTodaySession(){
     state.waitingQueue=[];
     state.queueDraftChosen=[];
     state.priority=null;
+    state.lastLoserReplayPlayerId=null;
     $('resultModal').classList.add('hidden');
     renderAll();
     await saveNow();
@@ -2350,7 +2358,14 @@ $('closeEdit').onclick=closePlayerModal;
 $('closeEditTop').onclick=closePlayerModal;
 $('editModal').addEventListener('click',event=>{if(event.target===$('editModal'))closePlayerModal()});
 document.addEventListener('keydown',event=>{if(event.key==='Escape'&&!$('editModal').classList.contains('hidden'))closePlayerModal()});
-$('deletePlayer').onclick=()=>{if(!confirm('刪除這位球員？'))return;state.roster=state.roster.filter(p=>p.id!==editId);state.attendance=state.attendance.filter(x=>x!==editId);state.court=state.court.filter(x=>x!==editId);state.waitingQueue=state.waitingQueue.filter(x=>x!==editId);state.queueDraftChosen=state.queueDraftChosen.filter(x=>x!==editId);closePlayerModal();renderAll();saveSoon()};
+$('deletePlayer').onclick=()=>{
+  const record=player(editId),result=deletePlayerFromState(state,editId);
+  if(result.reason==='active-match')return alert('這位球員正在未結束的比賽中，請先完成或撤銷該場比賽後再刪除。');
+  if(!result.deleted||!record)return;
+  if(!confirm(`刪除「${record.name}」？\n\n球員會從名單、出席與候場移除；既有比賽仍會保留姓名。`))return;
+  state=result.state;closePlayerModal();renderAll();saveSoon();
+};
+$('clearAttend').onclick=()=>{state.attendance=[];state.court=[];state.waitingQueue=[];state.queueDraftChosen=[];state.priority=null;state.lastLoserReplayPlayerId=null;renderAll();saveSoon()};
 $('goCourt').onclick=()=>{
   if(state.attendance.length<4)return alert('至少需要四位出席球員');
   const current=uniqueIds(state.court.length>=4?state.court:state.attendance.slice(0,4)).slice(0,4);
@@ -2552,6 +2567,6 @@ const exitScoreBtn=$('exitScore');if(exitScoreBtn)exitScoreBtn.addEventListener(
 
 window.bcmMarkBooted?.();
 if('serviceWorker'in navigator&&location.protocol.startsWith('http')){
-  const swRevision='20260805-378';
+  const swRevision='20260805-379';
   navigator.serviceWorker.register(`./sw.js?v=${swRevision}`,{updateViaCache:'none'}).then(registration=>registration.update()).catch(()=>{});
 }
