@@ -16,6 +16,7 @@ import { pollWasFinalized } from './poll.js';
 import { activateShuttleTube, createShuttleTube, enforceLegacyActiveShuttleTube, normalizeShuttleTubes, restoreShuttleTube, setShuttlePaymentStatus, setShuttleRemaining, shuttlePaymentStatus, softDeleteShuttleTube, updateShuttleTube } from './shuttle-tube.js';
 import { careerAchievementBadges } from './player-achievements.js';
 import { PLAYER_TYPE_GUEST, isGuestPlayer, normalizePlayerType, shuttleEligiblePlayers, splitPlayersByMembership } from './player-membership.js';
+import { createFinishedMatchRollback, normalizeFinishedMatchRollback, reopenFinishedMatchState } from './match-correction.js';
 
 const firebaseConfig={apiKey:'AIzaSyBrakbTPK7UqEChPBI6pM8-i03IcLq0IvM',authDomain:'badminton-7a1c3.firebaseapp.com',projectId:'badminton-7a1c3',storageBucket:'badminton-7a1c3.firebasestorage.app',messagingSenderId:'883534015507',appId:'1:883534015507:web:a7f6fb318151b6d07563e6',measurementId:'G-C97B98H7YW'};
 const fbApp=initializeApp(firebaseConfig);
@@ -48,9 +49,9 @@ function normalizeAdminNotices(source){
   }).filter(notice=>{if(seen.has(notice.id))return false;seen.add(notice.id);return true}).sort((a,b)=>(Date.parse(b.publishedAt)||0)-(Date.parse(a.publishedAt)||0)).slice(0,20);
 }
 function setAdminNotices(rows){state.adminNotices=normalizeAdminNotices({adminNotices:rows});state.adminNotice=state.adminNotices[0]||null}
-const initialState=()=>({version:9.7,roster:[],adminPlayerIds:[],attendance:[],court:[],waitingQueue:[],queueDraftChosen:[],priority:null,match:{active:false,players:[[],[]],scores:[0,0],rallies:[],serving:0,positions:[[0,1],[0,1]],winner:null,startedAt:''},rules:{target:11,cap:15,deuce:true},history:[],matchReplayPlaylistTitle:'',matchReplayPlaylistUrl:'',nextCall:null,schedulePoll:{status:'open',createdAt:'',deadlineAt:'',options:[],votes:{},voterPlayers:{}},nextEvent:null,adminNotice:null,adminNotices:[],shuttleTubes:[],shuttleLegacyActiveTubeId:'',shuttleNoTrackingTubeIds:[],updatedAt:null});
+const initialState=()=>({version:9.7,roster:[],adminPlayerIds:[],attendance:[],court:[],waitingQueue:[],queueDraftChosen:[],priority:null,match:{active:false,players:[[],[]],scores:[0,0],rallies:[],serving:0,positions:[[0,1],[0,1]],winner:null,startedAt:''},matchRollback:null,rules:{target:11,cap:15,deuce:true},history:[],matchReplayPlaylistTitle:'',matchReplayPlaylistUrl:'',nextCall:null,schedulePoll:{status:'open',createdAt:'',deadlineAt:'',options:[],votes:{},voterPlayers:{}},nextEvent:null,adminNotice:null,adminNotices:[],shuttleTubes:[],shuttleLegacyActiveTubeId:'',shuttleNoTrackingTubeIds:[],updatedAt:null});
 const DEVICE_SYNC_CODE_KEY='bcmDeviceSyncCodeV1',DEVICE_SYNC_TOKEN_KEY='bcmDeviceSyncTokenV1',DEVICE_SYNC_NAME_KEY='bcmDeviceSyncNameV1',DEVICE_SYNC_PLAYER_KEY='bcmDeviceSyncPlayerV1';
-let state=initialState(), roomId='', roomRef=null, liveScoreRef=null, chatCollectionRef=null, isHost=false, hostToken='', adminPinHash='', unsubscribe=null, liveScoreUnsubscribe=null, chatUnsubscribe=null, applying=false, saveTimer=null, liveScoreSaveTimer=null, editId=null;const expandedPlayerNotes=new Set();let profileOriginal=null,profileDirty={name:false,memberType:false,voiceName:false,racket:false,racketTension:false,racketString:false,backupRacket:false,backupTension:false,backupString:false,note:false};let voiceEnabled=localStorage.getItem('bdV76Voice')!=='0';let dismissedResultKey='';const selfToken=localStorage.getItem(DEVICE_SYNC_TOKEN_KEY)||localStorage.getItem('bdV73SelfToken')||randomToken();localStorage.setItem('bdV73SelfToken',selfToken);let selfHash='',scoreViewRequested=false,expandedShuttleTubeId='';
+let state=initialState(), roomId='', roomRef=null, liveScoreRef=null, chatCollectionRef=null, isHost=false, hostToken='', adminPinHash='', unsubscribe=null, liveScoreUnsubscribe=null, chatUnsubscribe=null, applying=false, saveTimer=null, liveScoreSaveTimer=null, matchAutoBackupTimer=null, editId=null;const expandedPlayerNotes=new Set();let profileOriginal=null,profileDirty={name:false,memberType:false,voiceName:false,racket:false,racketTension:false,racketString:false,backupRacket:false,backupTension:false,backupString:false,note:false};let voiceEnabled=localStorage.getItem('bdV76Voice')!=='0';let dismissedResultKey='';const selfToken=localStorage.getItem(DEVICE_SYNC_TOKEN_KEY)||localStorage.getItem('bdV73SelfToken')||randomToken();localStorage.setItem('bdV73SelfToken',selfToken);let selfHash='',scoreViewRequested=false,expandedShuttleTubeId='';
 let deviceProfileUnsubscribe=null,deviceProfileApplying=false,deviceProfileSaveTimer=null,identitySyncing=false,roomConnectInProgress=false;
 let roomSnapshotFromCache=false,snapshotHasPendingWrites=false,pendingRoomWrites=0,roomWriteScheduled=false;
 let liveScoreSnapshotFromCache=false,liveScoreHasPendingWrites=false,pendingLiveScoreWrites=0,liveScoreWriteScheduled=false,liveScoreConnecting=false,liveScoreAvailable=true,liveScoreReady=false,liveScoreInitialSnapshot=true,liveScoreMigrationStarted=false,latestLiveMatch=null,lastRoomSnapshotData=null;
@@ -105,6 +106,7 @@ function showScoreRemoteIndicator(message){
 function performScoreRemoteAction(action,{announce=true}={}){
   const match=state.match;
   if(action==='teamAPlus'||action==='teamBPlus'){
+    if(match.winner!==null)return false;
     match.rallies.push(action==='teamAPlus'?0:1);replay();if(announce&&voiceEnabled)setTimeout(announceScore,80);return true;
   }
   if(action==='undo'){
@@ -137,7 +139,7 @@ function renderAndroidRemote(){
   const view=$('androidRemoteView');if(!view)return;
   if(!requestedAndroidRemote||!roomId){view.classList.add('hidden');return}
   $('landing').classList.add('hidden');$('app').classList.add('hidden');$('scoreView').classList.add('hidden');view.classList.remove('hidden');
-  const match=state.match,ready=isHost&&match.active&&match.winner===null;
+  const match=state.match,ready=isHost&&match.active&&match.winner===null,canUndo=isHost&&match.active&&match.rallies.length>0;
   try{window.BcmAndroid?.updateRemoteSession?.(roomId,isHost,ready,Math.max(1,Number(state.rules?.target)||11),Math.max(1,Number(state.rules?.cap)||15),!!state.rules?.deuce)}catch{}
   const hasKeyAccessBridge=hasAndroidRemoteKeyAccessBridge(),keyAccessEnabled=isAndroidRemoteKeyAccessEnabled();
   const hasRecordingBridge=hasAndroidRecordingModeBridge(),recordingModeEnabled=isAndroidRecordingModeEnabled();
@@ -161,13 +163,13 @@ function renderAndroidRemote(){
   $('androidRemoteMatch').classList.toggle('hidden',!isHost||!match.active);
   $('androidRemoteScoreA').textContent=match.scores?.[0]??0;$('androidRemoteScoreB').textContent=match.scores?.[1]??0;
   $('androidRemoteNamesA').textContent=(match.players?.[0]||[]).map(pname).join('／')||'—';$('androidRemoteNamesB').textContent=(match.players?.[1]||[]).map(pname).join('／')||'—';
-  $('androidRemoteAPlus').disabled=!ready;$('androidRemoteBPlus').disabled=!ready;$('androidRemoteUndo').disabled=!ready||!match.rallies.length;
+  $('androidRemoteAPlus').disabled=!ready;$('androidRemoteBPlus').disabled=!ready;$('androidRemoteUndo').disabled=!canUndo;
 }
 function handleAndroidRemoteAction(action){
   if(!requestedAndroidRemote)return false;
   if(!isHost){setAndroidRemoteFeedback('請先完成管理員登入','error');return false}
   if(!state.match.active){setAndroidRemoteFeedback('iPad 尚未開始比賽','error');return false}
-  if(state.match.winner!==null){setAndroidRemoteFeedback('本場已結束，請等待下一場','error');return false}
+  if(state.match.winner!==null&&action!=='undo'){setAndroidRemoteFeedback('本場已結束；可按撤銷修正','error');return false}
   const changed=performScoreRemoteAction(action,{announce:false});
   if(!changed){setAndroidRemoteFeedback(action==='undo'?'目前沒有可撤銷的分數':'操作未完成','error');return false}
   setAndroidRemoteFeedback(action==='teamAPlus'?'A隊 ＋1':action==='teamBPlus'?'B隊 ＋1':'已撤銷上一分','success');renderAndroidRemote();return true;
@@ -188,7 +190,9 @@ function handleScoreRemoteCode(event,code){
     completeScoreRemoteLearning(action,code,event);return;
   }
   const action=remoteActionForCode(scoreRemoteBindings,code);
-  if(!action||!shouldHandleRemoteInput({enabled:scoreRemoteEnabled,isHost,scoreVisible:!$('scoreView').classList.contains('hidden'),matchActive:state.match.active,matchFinished:state.match.winner!==null,repeat:event.repeat,editable:isEditableRemoteTarget(event.target)}))return;
+  const correctingFinishedMatch=state.match.winner!==null&&['undo','teamAMinus','teamBMinus'].includes(action);
+  if(!action||(!correctingFinishedMatch&&!shouldHandleRemoteInput({enabled:scoreRemoteEnabled,isHost,scoreVisible:!$('scoreView').classList.contains('hidden'),matchActive:state.match.active,matchFinished:state.match.winner!==null,repeat:event.repeat,editable:isEditableRemoteTarget(event.target)})))return;
+  if(correctingFinishedMatch&&(!scoreRemoteEnabled||!isHost||$('scoreView').classList.contains('hidden')||event.repeat||isEditableRemoteTarget(event.target)))return;
   const now=performance.now();if(now-scoreRemoteLastInputAt<280)return;scoreRemoteLastInputAt=now;
   event.preventDefault();
   if(performScoreRemoteAction(action)){scoreRemoteStatusMessage=`收到：${SCORE_REMOTE_ACTION_LABELS[action]}`;showScoreRemoteIndicator(SCORE_REMOTE_ACTION_LABELS[action]);updateScoreRemoteUi()}
@@ -234,6 +238,7 @@ function encodeState(src){
       matchId:m.matchId||null,
       startedAt:m.startedAt||''
     },
+    matchRollback:normalizeFinishedMatchRollback(src.matchRollback),
     rules:{...src.rules},
     matchReplayPlaylistTitle:normalizeMatchReplayTitle(src.matchReplayPlaylistTitle),
     matchReplayPlaylistUrl:normalizeYouTubePlaylistUrl(src.matchReplayPlaylistUrl),
@@ -299,6 +304,7 @@ function decodeState(d){
       players:Array.isArray(m.players)?m.players:[Array.isArray(m.teamA)?m.teamA:[],Array.isArray(m.teamB)?m.teamB:[]],
       positions:Array.isArray(m.positions)?m.positions:[Array.isArray(m.posA)?m.posA:[0,1],Array.isArray(m.posB)?m.posB:[0,1]]
     },
+    matchRollback:normalizeFinishedMatchRollback(d.matchRollback),
     roster:Array.isArray(d.roster)?d.roster.map(p=>({...withoutLegacyGender(p),memberType:normalizePlayerType(p.memberType),ownerHashes:playerOwnerHashes(p),voiceName:p.voiceName||defaultVoiceName(p.name),backupRacket:p.backupRacket||'',racketTension:p.racketTension||'',racketString:p.racketString||'',backupTension:p.backupTension||'',backupString:p.backupString||'',favorite:!!p.favorite})):[],
     adminPlayerIds:[...new Set((Array.isArray(d.adminPlayerIds)?d.adminPlayerIds:[]).map(id=>String(id||'').trim()).filter(Boolean))].slice(0,20),
     attendance:Array.isArray(d.attendance)?d.attendance:[],
@@ -1441,6 +1447,7 @@ function completedMatchSyncPayload(){
     queueDraftChosen:encoded.queueDraftChosen,
     priority:encoded.priority,
     nextCall:encoded.nextCall,
+    matchRollback:encoded.matchRollback,
     liveScoreEnabled:true,
     liveScoreMatchKey:liveMatchKey(state.match),
     updatedAt:serverTimestamp()
@@ -1623,7 +1630,24 @@ function options(selected=''){return `<option value="">請選擇</option>`+state
 function renderCourt(){for(let i=0;i<4;i++){const s=$('p'+i);s.innerHTML=options(state.court[i]||'');s.value=state.court[i]||'';s.onchange=()=>{if(!isHost)return;state.court[i]=s.value;reconcileWaitingQueue(state.court.filter(Boolean));renderWaiting();saveSoon()}}$('target').value=state.rules.target;$('cap').value=state.rules.cap;$('deuce').value=state.rules.deuce?'1':'0';renderWaiting()}
 function renderWaiting(){const used=state.court.filter(Boolean),eligible=state.attendance.filter(id=>!used.includes(id));const ordered=uniqueIds(state.waitingQueue).filter(id=>eligible.includes(id));for(const id of eligible)if(!ordered.includes(id))ordered.push(id);state.priority=ordered[0]||null;$('waiting').innerHTML=ordered.map((id,i)=>`<span class="chip ${i===0?'priority':''}">${esc(queueLabel(i,ordered.length))} · ${esc(pname(id))}</span>`).join('')||'<span class="sub">目前沒有候場球員</span>'}
 function winFor(sc){const {target,cap,deuce}=state.rules;for(let t=0;t<2;t++){const o=1-t;if(!deuce&&sc[t]>=target)return t;if(deuce&&sc[t]>=target&&sc[t]-sc[o]>=2)return t;if(deuce&&sc[t]>=cap)return t}return null}
-function replay(){const m=state.match;m.scores=[0,0];m.serving=0;m.positions=[[0,1],[0,1]];m.winner=null;for(const t of m.rallies){if(m.winner!==null)break;const same=m.serving===t;m.scores[t]++;if(same)m.positions[t].reverse();else m.serving=t;m.winner=winFor(m.scores)}renderScore();if(m.winner!==null){finishMatch();return}saveLiveScoreSoon()}
+function reopenRecordedMatch(){
+  const matchId=state.match?.matchId,result=reopenFinishedMatchState(state,matchId);
+  if(!result.reopened)return false;
+  state.history=result.history;state.waitingQueue=result.waitingQueue;state.queueDraftChosen=result.queueDraftChosen;state.priority=result.priority;state.nextCall=result.nextCall;state.court=result.court;state.matchRollback=null;
+  dismissedResultKey='';$('resultModal').classList.add('hidden');
+  clearTimeout(matchAutoBackupTimer);matchAutoBackupTimer=null;
+  if(isHost&&roomId&&matchId)void deleteDoc(backupDocRef(`auto_${matchId}`)).catch(error=>console.warn('撤回比賽時移除舊自動備份失敗',error));
+  return true;
+}
+function replay(){
+  const m=state.match,reopened=m.winner!==null?reopenRecordedMatch():false;
+  m.scores=[0,0];m.serving=0;m.positions=[[0,1],[0,1]];m.winner=null;
+  for(const t of m.rallies){if(m.winner!==null)break;const same=m.serving===t;m.scores[t]++;if(same)m.positions[t].reverse();else m.serving=t;m.winner=winFor(m.scores)}
+  renderScore();
+  if(m.winner!==null){finishMatch();return}
+  if(reopened&&isHost)void saveCompletedMatchStatsNow().catch(error=>console.warn('撤回比賽同步失敗，已排入完整資料重試',error));
+  saveLiveScoreSoon();if(reopened)saveSoon(180)
+}
 function gamePoint(){const m=state.match;if(m.winner!==null)return false;for(let t=0;t<2;t++){const test=[...m.scores];test[t]++;if(winFor(test)===t)return true}return false}
 function currentResultKey(){const m=state.match;if(m.winner===null)return'';return m.matchId||[m.winner,(m.scores||[]).join('-'),...(m.players||[]).flat()].join('|')}
 function setServingPlayer(team,playerIndex){const m=state.match;if(!isHost||!m.active||m.winner!==null)return;m.serving=team;const serverSide=m.scores[team]%2===0?1:0;const positions=m.positions[team]||[0,1];const currentSide=positions.indexOf(playerIndex);if(currentSide!==serverSide&&currentSide>=0){const other=positions[serverSide];positions[serverSide]=playerIndex;positions[currentSide]=other;m.positions[team]=positions}renderScore();saveLiveScoreSoon()}
@@ -1856,25 +1880,27 @@ function renderHistory(){renderMatchReplay();const list=state.history.map((h,ind
 function deleteHistoryRecord(index){if(!isHost)return;const h=state.history[index];if(!h)return;const title=`${(h.teams?.[0]||[]).map(pname).join('／')} ${h.scores?.[0]??0}：${h.scores?.[1]??0} ${(h.teams?.[1]||[]).map(pname).join('／')}`;if(!confirm(`確定刪除這筆比賽紀錄？\n\n${title}\n${h.time||''}`))return;state.history.splice(index,1);renderAll();saveSoon()}
 function clearAllHistory(){if(!isHost)return;if(!state.history.length)return alert('目前沒有比賽紀錄。');if(!confirm(`即將刪除全部 ${state.history.length} 筆比賽紀錄。\n球員名單與目前比分不會被刪除。`))return;const text=prompt('為避免誤刪，請輸入「清空」：','');if(text!=='清空')return alert('輸入不正確，已取消清空。');state.history=[];renderAll();saveSoon();alert('全部比賽紀錄已清空。')}
 function renderAll(){renderRoster();renderAttendance();renderCourt();renderHistory();renderScore();renderDashboard();renderStats();renderPoll();renderChat();if(!$('shuttleTubeModal')?.classList.contains('hidden'))renderShuttleTubeManager();applyRole();renderAndroidRemote()}
-function startMatch(){dismissedResultKey='';const selected=state.court.filter(Boolean);if(selected.length!==4||new Set(selected).size!==4)return alert('請選擇四位不同球員。');const ids=teammateSafeLineup(selected);state.court=[...ids];reconcileWaitingQueue(ids);state.queueDraftChosen=[];randomizeScoreThemeAtMatchStart();state.match={active:true,players:[[ids[0],ids[1]],[ids[2],ids[3]]],scores:[0,0],rallies:[],serving:0,positions:[[0,1],[0,1]],winner:null,startedAt:new Date().toISOString()};scoreViewRequested=true;saveLiveScoreSoon();saveSoon();renderScore();renderDashboard()}
+function startMatch(){dismissedResultKey='';const selected=state.court.filter(Boolean);if(selected.length!==4||new Set(selected).size!==4)return alert('請選擇四位不同球員。');const ids=teammateSafeLineup(selected);state.court=[...ids];reconcileWaitingQueue(ids);state.queueDraftChosen=[];state.matchRollback=null;randomizeScoreThemeAtMatchStart();state.match={active:true,players:[[ids[0],ids[1]],[ids[2],ids[3]]],scores:[0,0],rallies:[],serving:0,positions:[[0,1],[0,1]],winner:null,startedAt:new Date().toISOString()};scoreViewRequested=true;saveLiveScoreSoon();saveSoon();renderScore();renderDashboard()}
 function finishMatch(){
   const m=state.match;if(!m.active||m.winner===null)return;
-  let newlyRecorded=false;
+  m.matchId=m.matchId||randomToken();let newlyRecorded=false,four=[];
   if(!state.history.some(h=>h.matchId===m.matchId)){
-    newlyRecorded=true;m.matchId=m.matchId||randomToken();const now=new Date();
+    newlyRecorded=true;state.matchRollback=createFinishedMatchRollback(state,m.matchId);const now=new Date();
     state.history.push({matchId:m.matchId,time:now.toLocaleString('zh-TW'),endedAt:now.toISOString(),dateKey:localDateKey(now),monthKey:localMonthKey(now),teams:structuredClone(m.players),scores:[...m.scores],winner:m.winner});
+    const winners=[...m.players[m.winner]],losers=[...m.players[1-m.winner]],previousCourt=m.players.flat();
+    reconcileWaitingQueue(previousCourt);
+    let queue=[...state.waitingQueue],chosen=[],losersToTail=[];
+    if(queue.length>=2){chosen=queue.splice(0,2);losersToTail=[...losers]}
+    else if(queue.length===1){chosen=[queue.shift(),losers[0]];losersToTail=[losers[1]]}
+    else{chosen=[...losers];losersToTail=[]}
+    state.waitingQueue=uniqueIds([...queue,...losersToTail]).filter(id=>state.attendance.includes(id)&&!winners.includes(id)&&!chosen.includes(id));
+    state.queueDraftChosen=[...chosen];
+    state.priority=state.waitingQueue[0]||null;
+    four=teammateSafeLineup([...winners,...chosen],{randomize:true});
+    state.nextCall={players:[...four],createdAt:new Date().toISOString()};
+  }else{
+    four=state.nextCall?.players?.length===4?[...state.nextCall.players]:m.players.flat();
   }
-  const winners=[...m.players[m.winner]],losers=[...m.players[1-m.winner]],previousCourt=m.players.flat();
-  reconcileWaitingQueue(previousCourt);
-  let queue=[...state.waitingQueue],chosen=[],losersToTail=[];
-  if(queue.length>=2){chosen=queue.splice(0,2);losersToTail=[...losers]}
-  else if(queue.length===1){chosen=[queue.shift(),losers[0]];losersToTail=[losers[1]]}
-  else{chosen=[...losers];losersToTail=[]}
-  state.waitingQueue=uniqueIds([...queue,...losersToTail]).filter(id=>state.attendance.includes(id)&&!winners.includes(id)&&!chosen.includes(id));
-  state.queueDraftChosen=[...chosen];
-  state.priority=state.waitingQueue[0]||null;
-  const four=teammateSafeLineup([...winners,...chosen],{randomize:true});
-  state.nextCall={players:[...four],createdAt:new Date().toISOString()};
   for(let i=0;i<4;i++){$('n'+i).innerHTML=options(four[i]||'');$('n'+i).value=four[i]||'';$('n'+i).onchange=updatePriority}
   updatePriority();
   $('winnerTitle').textContent=`${m.winner===0?'A隊':'B隊'}獲勝`;
@@ -1884,7 +1910,7 @@ function finishMatch(){
   if(newlyRecorded&&isHost){
     void saveCompletedMatchStatsNow().catch(error=>console.warn('賽後戰績優先同步失敗，已排入完整資料重試',error));
     saveSoon(420);
-    setTimeout(()=>createCloudBackup('auto',{id:`auto_${m.matchId}`,silent:true,system:true}).then(loadBackups).catch(e=>console.warn('賽後備份失敗',e)),1200)
+    clearTimeout(matchAutoBackupTimer);matchAutoBackupTimer=setTimeout(()=>{matchAutoBackupTimer=null;createCloudBackup('auto',{id:`auto_${m.matchId}`,silent:true,system:true,replace:true}).then(loadBackups).catch(e=>console.warn('賽後備份失敗',e))},1200)
   }else saveSoon()
 }
 function updatePriority(){
@@ -1897,12 +1923,13 @@ function updatePriority(){
 }
 function startNext(){
   dismissedResultKey='';const selected=[0,1,2,3].map(i=>$('n'+i).value);
+  if(!state.match.active||state.match.winner===null)return alert('本場比分尚未結束，請先完成比賽。');
   if(selected.some(x=>!x)||new Set(selected).size!==4)return alert('下一場需要四位不同球員。');
   const vals=teammateSafeLineup(selected);
   const winners=state.match.players[state.match.winner];if(!winners.every(id=>vals.includes(id)))return alert('勝方兩位必須留場。');
   const finalCall=calloutText(vals);
   state.waitingQueue=projectedQueueForLineup(vals);state.queueDraftChosen=[];state.priority=state.waitingQueue[0]||null;
-  state.court=[...vals];state.nextCall=null;
+  state.court=[...vals];state.nextCall=null;state.matchRollback=null;
   randomizeScoreThemeAtMatchStart();
   state.match={active:true,players:[[vals[0],vals[1]],[vals[2],vals[3]]],scores:[0,0],rallies:[],serving:0,positions:[[0,1],[0,1]],winner:null,startedAt:new Date().toISOString()};
   scoreViewRequested=true;$('resultModal').classList.add('hidden');renderAll();saveLiveScoreSoon();saveSoon();if(isHost&&voiceEnabled&&finalCall)setTimeout(()=>speak(finalCall),180)
@@ -1915,7 +1942,7 @@ function backupCompleteness(data=state){const checks=[Array.isArray(data.roster)
 function backupId(type,custom=''){if(custom)return custom;const stamp=new Date().toISOString().replace(/[-:TZ.]/g,'').slice(0,14);return `${type}_${stamp}_${randomToken().slice(0,5)}`}
 function backupLabel(type){return({genesis:'Genesis Backup',manual:'手動備份',auto:'賽後自動備份',daily:'每日備份',session:'結束球局備份',emergency:'還原前保護備份'})[type]||'備份'}
 function makeBackupRecord(type='manual',id=''){const clean=encodeState(state),now=new Date();return{schemaVersion:1,appVersion:BCM_VERSION,roomId,type,label:backupLabel(type),createdAt:now.toISOString(),createdAtMs:now.getTime(),createdBy:type==='auto'||type==='daily'?'系統':'管理員',counts:backupCounts(state),completeness:backupCompleteness(state),data:clean}}
-async function createCloudBackup(type='manual',opts={}){if(!roomId||!roomRef)throw new Error('尚未進入球局');if(!isHost&&!opts.system)throw new Error('只有管理員可以建立備份');const id=backupId(type,opts.id||'');const ref=backupDocRef(id);if(opts.id&&['genesis','daily','auto'].includes(type)){const exists=await getDoc(ref);if(exists.exists())return{id,skipped:true}}const record=makeBackupRecord(type,id);await setDoc(ref,record);if(type==='auto'||type==='daily')await pruneAutomaticBackups();if(!opts.silent){alert(`${record.label}已建立`);await loadBackups()}return{id,record}}
+async function createCloudBackup(type='manual',opts={}){if(!roomId||!roomRef)throw new Error('尚未進入球局');if(!isHost&&!opts.system)throw new Error('只有管理員可以建立備份');const id=backupId(type,opts.id||'');const ref=backupDocRef(id);if(opts.id&&!opts.replace&&['genesis','daily','auto'].includes(type)){const exists=await getDoc(ref);if(exists.exists())return{id,skipped:true}}const record=makeBackupRecord(type,id);await setDoc(ref,record);if(type==='auto'||type==='daily')await pruneAutomaticBackups();if(!opts.silent){alert(`${record.label}已建立`);await loadBackups()}return{id,record}}
 async function ensureGenesisAndDaily(){if(!isHost||!roomId)return;try{await createCloudBackup('genesis',{id:'genesis',silent:true,system:true});const day=localDateKey();await createCloudBackup('daily',{id:`daily_${day}`,silent:true,system:true});await loadBackups()}catch(e){console.warn('自動備份未建立',e);setError('雲端備份尚未啟用：'+formatError(e))}}
 async function pruneAutomaticBackups(){const snaps=await getDocs(query(backupsRef(),orderBy('createdAtMs','desc'),limit(60)));const autos=snaps.docs.filter(d=>['auto','daily'].includes(d.data().type));for(const d of autos.slice(10))await deleteDoc(d.ref)}
 function backupTypeName(type){return({genesis:'Genesis',manual:'手動',auto:'自動',daily:'每日',session:'結束球局',emergency:'保護'})[type]||type}
@@ -2259,6 +2286,7 @@ async function endTodaySession(){
     await createCloudBackup('session',{silent:true,system:true});
     backupCreated=true;
     state.match={...initialState().match};
+    state.matchRollback=null;
     state.nextCall=null;
     state.attendance=[];
     state.court=[];
@@ -2338,6 +2366,7 @@ $('shuffleNext').onclick=()=>{
   vals.forEach((value,index)=>{$('n'+index).value=value});
   updatePriority();
 };
+$('undoFinishedMatch').onclick=()=>{if(state.match.rallies.length)performScoreRemoteAction('undo',{announce:false})};
 $('saveMatchReplay').onclick=saveMatchReplayPlaylist;
 $('clearMatchReplay').onclick=clearMatchReplayPlaylist;
 $('matchReplayUrl').addEventListener('keydown',event=>{if(event.key==='Enter'){event.preventDefault();saveMatchReplayPlaylist()}});
@@ -2523,6 +2552,6 @@ const exitScoreBtn=$('exitScore');if(exitScoreBtn)exitScoreBtn.addEventListener(
 
 window.bcmMarkBooted?.();
 if('serviceWorker'in navigator&&location.protocol.startsWith('http')){
-  const swRevision='20260804-376';
+  const swRevision='20260805-377';
   navigator.serviceWorker.register(`./sw.js?v=${swRevision}`,{updateViaCache:'none'}).then(registration=>registration.update()).catch(()=>{});
 }
