@@ -3338,12 +3338,12 @@ body>.modal .modal-card :is(.profile-panel,.profile-section,.stat-box,.health-bo
   min-width:0!important;
   width:100%!important;
   box-sizing:border-box!important;
-  padding-block:.12em!important;
-  border-radius:32%/24%!important;
-  background:radial-gradient(ellipse at center,rgba(3,10,18,.64) 0%,rgba(3,10,18,.42) 48%,rgba(3,10,18,.12) 68%,transparent 76%)!important;
-  box-shadow:inset 0 0 0 1px rgba(255,255,255,.12),0 12px 34px rgba(0,0,0,.2)!important;
-  backdrop-filter:blur(2px) brightness(.82);
-  -webkit-backdrop-filter:blur(2px) brightness(.82);
+  padding-block:0!important;
+  border-radius:0!important;
+  background:transparent!important;
+  box-shadow:none!important;
+  backdrop-filter:none!important;
+  -webkit-backdrop-filter:none!important;
   font-family:var(--score-number-font,"Score Audiowide"),"Arial Black",sans-serif!important;
   font-size:clamp(12rem,min(34vw,39vh),23rem)!important;
   font-weight:900!important;
