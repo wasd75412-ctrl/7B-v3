@@ -60,6 +60,11 @@ export function liveMatchKey(source={}){
   return JSON.stringify(encodeLiveMatch(source?.match||source));
 }
 
+export function shouldApplyIncomingLiveMatch({isHost=false,writePending=false,currentMatchId='',incomingMatchId=''}={}){
+  const current=String(currentMatchId||''),incoming=String(incomingMatchId||'');
+  return !(isHost&&writePending&&current&&incoming&&current!==incoming);
+}
+
 export function shouldAnnounceSyncedLiveScore({announce=true,snapshotReady=false,changed=false,scoreVisible=false,androidRemote=false,matchActive=false,voiceEnabled=false}={}){
   return Boolean(announce&&snapshotReady&&changed&&scoreVisible&&!androidRemote&&matchActive&&voiceEnabled);
 }
