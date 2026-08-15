@@ -7,6 +7,8 @@ test('normalizes unknown score fonts to a bundled font',()=>{
   assert.equal(normalizeScoreFont('unknown'),SCORE_FONTS[0]);
   assert.equal(normalizeScoreFont('monoton'),SCORE_FONTS[0]);
   assert.equal(SCORE_FONTS.includes('monoton'),false);
+  assert.equal(normalizeScoreFont('press-start-2p'),SCORE_FONTS[0]);
+  assert.equal(SCORE_FONTS.includes('press-start-2p'),false);
   assert.equal(normalizeScoreFont('orbitron'),'orbitron');
 });
 
