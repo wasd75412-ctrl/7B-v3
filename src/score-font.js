@@ -1,5 +1,5 @@
 export const SCORE_FONTS=Object.freeze([
-  'audiowide','black-ops-one','bungee','monoton',
+  'audiowide','black-ops-one','bungee',
   'orbitron','oxanium','press-start-2p','russo-one'
 ]);
 
