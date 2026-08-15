@@ -37,6 +37,19 @@ test('places the vote submit button after all poll choices',()=>{
   assert.match(styles,/@media\(max-width:700px\)\{\.poll-submit-row \.btn\{width:100%/);
 });
 
+test('lets the admin edit participant count before confirming the next event',()=>{
+  assert.match(html,/id="confirmParticipants"[^>]*type="number"[^>]*min="1"/);
+  assert.match(mainSource,/participantCount=wholeAmount\(\$\('confirmParticipants'\)\?\.value\)/);
+  assert.match(mainSource,/finalEvent=\{[^}]*participantCount,perPersonFee:finalFee/);
+});
+
+test('club announcements blend into the dashboard with a visible accent',()=>{
+  assert.match(styles,/BCM 2\.4\.49 — unmistakable integrated club notice/);
+  assert.match(styles,/#app \.admin-announcement\{[\s\S]*?border-left:6px solid #ffc84d[\s\S]*?rgba\(8,43,65,\.30\)/);
+  assert.match(styles,/content:"CLUB NOTICE"/);
+  assert.match(styles,/#app \.admin-announcement h3\{[\s\S]*?color:#ffdc82[\s\S]*?font-size:1\.27rem/);
+});
+
 test('keeps chat in primary navigation and removes backup from it',()=>{
   assert.match(nav,/data-page="8">聊天/);
   assert.doesNotMatch(nav,/data-page="7"/);
@@ -45,7 +58,18 @@ test('keeps chat in primary navigation and removes backup from it',()=>{
 test('places chat second and marks court as hidden for viewers',()=>{
   const pages=[...nav.matchAll(/data-page="(\d+)"/g)].map(match=>match[1]);
   assert.deepEqual(pages.slice(0,2),['0','8']);
+  assert.ok(pages.indexOf('5')<pages.indexOf('4'),'紀錄 must appear before 戰績');
   assert.match(nav,/class="tab viewer-hidden-tab" data-page="3">場上/);
+});
+
+test('removes the old score remote from More and provides a no-stats test mode',()=>{
+  const moreMenu=html.match(/id="roomMoreMenu"[\s\S]*?<\/details>\s*<\/div>/)?.[0]||'';
+  assert.doesNotMatch(moreMenu,/id="scoreRemoteBtn"/);
+  assert.match(moreMenu,/id="testModeToggle"/);
+  assert.match(html,/id="testModeBanner"/);
+  assert.match(mainSource,/const isTestMatch=!!m\.testMode\|\|!!state\.testMode/);
+  assert.match(mainSource,/testMode:isTestMatch/);
+  assert.match(mainSource,/function scoredHistory\(\)\{return state\.history\.filter\(h=>!h\.testMode\)\}/);
 });
 
 test('opens backup center from the more menu',()=>{

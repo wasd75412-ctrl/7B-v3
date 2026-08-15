@@ -1,7 +1,7 @@
 package tw.club7b.scoreremote;
 
 final class VolumeKeyInterpreter {
-    static final long LONG_PRESS_MS = 600L;
+    static final long LONG_PRESS_MS = 500L;
 
     enum Action {
         NONE,

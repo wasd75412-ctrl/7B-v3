@@ -39,7 +39,7 @@ const esc=s=>String(s??'').replace(/[&<>'"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&
 const randomCode=()=>{const chars='ABCDEFGHJKLMNPQRSTUVWXYZ23456789';let x='';crypto.getRandomValues(new Uint32Array(6)).forEach(n=>x+=chars[n%chars.length]);return x};
 const randomToken=()=>crypto.randomUUID?.()||([...crypto.getRandomValues(new Uint32Array(4))].map(n=>n.toString(36)).join(''));
 const shuffle=a=>{a=[...a];const r=new Uint32Array(Math.max(1,a.length));crypto.getRandomValues(r);for(let i=a.length-1;i>0;i--){const j=r[i]% (i+1);[a[i],a[j]]=[a[j],a[i]]}return a};
-function teammateSafeLineup(ids,{randomize=false}={}){const values=ids.filter(Boolean);if(values.length!==4||new Set(values).size!==4)return values;if(!randomize&&!lineupExceedsTeammateLimit(values,state.history))return values;const random=crypto.getRandomValues(new Uint32Array(1))[0];return arrangeTeamsWithTeammateLimit(shuffle(values),state.history,random)}
+function teammateSafeLineup(ids,{randomize=false}={}){const values=ids.filter(Boolean);if(values.length!==4||new Set(values).size!==4)return values;const todayHistory=state.history.filter(h=>historyDate(h)===localDateKey());if(!randomize&&!lineupExceedsTeammateLimit(values,todayHistory))return values;const random=crypto.getRandomValues(new Uint32Array(1))[0];return arrangeTeamsWithTeammateLimit(shuffle(values),todayHistory,random)}
 function wholeAmount(value){const n=Number(value);return Number.isFinite(n)&&n>0?Math.round(n):0}
 function normalizeAdminNotices(source){
   const rows=Array.isArray(source?.adminNotices)?source.adminNotices:(source?.adminNotice?.body?[source.adminNotice]:[]);
@@ -51,12 +51,12 @@ function normalizeAdminNotices(source){
   }).filter(notice=>{if(seen.has(notice.id))return false;seen.add(notice.id);return true}).sort((a,b)=>(Date.parse(b.publishedAt)||0)-(Date.parse(a.publishedAt)||0)).slice(0,20);
 }
 function setAdminNotices(rows){state.adminNotices=normalizeAdminNotices({adminNotices:rows});state.adminNotice=state.adminNotices[0]||null}
-const initialState=()=>({version:9.7,roster:[],retiredPlayers:[],adminPlayerIds:[],attendance:[],court:[],waitingQueue:[],queueDraftChosen:[],priority:null,lastLoserReplayPlayerId:null,match:{active:false,players:[[],[]],scores:[0,0],rallies:[],serving:0,positions:[[0,1],[0,1]],winner:null,startedAt:''},matchRollback:null,rules:{target:11,cap:15,deuce:true},history:[],matchReplayPlaylistTitle:'',matchReplayPlaylistUrl:'',nextCall:null,schedulePoll:{status:'open',createdAt:'',deadlineAt:'',options:[],votes:{},voterPlayers:{}},nextEvent:null,adminNotice:null,adminNotices:[],shuttleTubes:[],shuttleLegacyActiveTubeId:'',shuttleNoTrackingTubeIds:[],updatedAt:null});
+const initialState=()=>({version:9.7,testMode:false,roster:[],retiredPlayers:[],adminPlayerIds:[],attendance:[],court:[],waitingQueue:[],queueDraftChosen:[],priority:null,lastLoserReplayPlayerId:null,match:{active:false,players:[[],[]],scores:[0,0],rallies:[],serving:0,positions:[[0,1],[0,1]],winner:null,startedAt:''},matchRollback:null,rules:{target:11,cap:15,deuce:true},history:[],matchReplayPlaylistTitle:'',matchReplayPlaylistUrl:'',nextCall:null,schedulePoll:{status:'open',createdAt:'',deadlineAt:'',autoCycle:'',options:[],votes:{},voterPlayers:{}},nextEvent:null,adminNotice:null,adminNotices:[],shuttleTubes:[],shuttleLegacyActiveTubeId:'',shuttleNoTrackingTubeIds:[],updatedAt:null});
 const DEVICE_SYNC_CODE_KEY='bcmDeviceSyncCodeV1',DEVICE_SYNC_TOKEN_KEY='bcmDeviceSyncTokenV1',DEVICE_SYNC_NAME_KEY='bcmDeviceSyncNameV1',DEVICE_SYNC_PLAYER_KEY='bcmDeviceSyncPlayerV1';
-let state=initialState(), roomId='', roomRef=null, liveScoreRef=null, chatCollectionRef=null, isHost=false, hostToken='', adminPinHash='', unsubscribe=null, liveScoreUnsubscribe=null, chatUnsubscribe=null, applying=false, saveTimer=null, liveScoreSaveTimer=null, matchAutoBackupTimer=null, editId=null;const expandedPlayerNotes=new Set();let profileOriginal=null,profileDirty={name:false,memberType:false,voiceName:false,racket:false,racketTension:false,racketString:false,backupRacket:false,backupTension:false,backupString:false,note:false};let voiceEnabled=localStorage.getItem('bdV76Voice')!=='0';let dismissedResultKey='';const selfToken=localStorage.getItem(DEVICE_SYNC_TOKEN_KEY)||localStorage.getItem('bdV73SelfToken')||randomToken();localStorage.setItem('bdV73SelfToken',selfToken);let selfHash='',scoreViewRequested=false,expandedShuttleTubeId='';
+let state=initialState(), roomId='', roomRef=null, liveScoreRef=null, remoteControlRef=null, chatCollectionRef=null, isHost=false, hostToken='', adminPinHash='', unsubscribe=null, liveScoreUnsubscribe=null, remoteControlUnsubscribe=null, chatUnsubscribe=null, applying=false, saveTimer=null, liveScoreSaveTimer=null, matchAutoBackupTimer=null, editId=null;const expandedPlayerNotes=new Set();let profileOriginal=null,profileDirty={name:false,memberType:false,voiceName:false,racket:false,racketTension:false,racketString:false,backupRacket:false,backupTension:false,backupString:false,note:false};let voiceEnabled=localStorage.getItem('bdV76Voice')!=='0';let dismissedResultKey='';const selfToken=localStorage.getItem(DEVICE_SYNC_TOKEN_KEY)||localStorage.getItem('bdV73SelfToken')||randomToken();localStorage.setItem('bdV73SelfToken',selfToken);let selfHash='',scoreViewRequested=false,expandedShuttleTubeId='';
 let deviceProfileUnsubscribe=null,deviceProfileApplying=false,deviceProfileSaveTimer=null,identitySyncing=false,roomConnectInProgress=false;
 let roomSnapshotFromCache=false,snapshotHasPendingWrites=false,pendingRoomWrites=0,roomWriteScheduled=false;
-let liveScoreSnapshotFromCache=false,liveScoreHasPendingWrites=false,pendingLiveScoreWrites=0,liveScoreWriteScheduled=false,liveScoreConnecting=false,liveScoreAvailable=true,liveScoreReady=false,liveScoreInitialSnapshot=true,liveScoreMigrationStarted=false,latestLiveMatch=null,lastRoomSnapshotData=null;
+let liveScoreSnapshotFromCache=false,liveScoreHasPendingWrites=false,pendingLiveScoreWrites=0,liveScoreWriteScheduled=false,liveScoreConnecting=false,liveScoreAvailable=true,liveScoreReady=false,liveScoreInitialSnapshot=true,remoteControlInitialSnapshot=true,liveScoreMigrationStarted=false,latestLiveMatch=null,lastRoomSnapshotData=null,lastRemoteFullscreenCommandId='',lastRemoteNextMatchCommandId='',lastRemoteUndoFinishedCommandId='',lastRemoteStartMatchCommandId='',lastRemoteActionCommandId='';
 let chatMessages=[],chatMentionIds=new Set(),chatFirstRender=true,chatMessagesRenderKey='',chatLastSentAt=0,chatRequestRunning=false,chatSendRunning=false,chatPendingMedia=null;
 const requestParams=new URLSearchParams(location.search),requestedPage=requestParams.get('page'),requestedAndroidRemote=requestParams.get('androidRemote')==='1';
 if(requestedAndroidRemote){
@@ -68,10 +68,10 @@ if(requestedAndroidRemote){
   $('landingJoinDivider').textContent='連接目前球局';
   $('joinRoom').textContent='連接球局';
 }
-const SCORE_REMOTE_ENABLED_KEY='bcmScoreRemoteEnabledV1',SCORE_REMOTE_BINDINGS_KEY='bcmScoreRemoteBindingsV1';
+const SCORE_REMOTE_ENABLED_KEY='bcmScoreRemoteEnabledV1',SCORE_REMOTE_BINDINGS_KEY='bcmScoreRemoteBindingsV1',SCORE_REMOTE_DOUBLE_PRESS_MS=400;
 const SCORE_REMOTE_ACTION_LABELS={teamAPlus:'A隊 ＋1',teamBPlus:'B隊 ＋1',undo:'撤銷上一分',teamAMinus:'A隊 −1',teamBMinus:'B隊 −1'};
 const SCORE_REMOTE_BINDING_IDS={teamAPlus:'remoteBindingTeamAPlus',teamBPlus:'remoteBindingTeamBPlus',undo:'remoteBindingUndo',teamAMinus:'remoteBindingTeamAMinus',teamBMinus:'remoteBindingTeamBMinus'};
-let scoreRemoteEnabled=localStorage.getItem(SCORE_REMOTE_ENABLED_KEY)==='1',scoreRemoteBindings=loadScoreRemoteBindings(),scoreRemoteLearningAction='',scoreRemoteLastInputAt=0,scoreRemoteIndicatorTimer=null,scoreRemoteLearningTimer=null,scoreRemoteStatusMessage='',scoreRemoteStatusKind='',scoreRemotePressedCodes=new Set();
+let scoreRemoteEnabled=localStorage.getItem(SCORE_REMOTE_ENABLED_KEY)==='1',scoreRemoteBindings=loadScoreRemoteBindings(),scoreRemoteLearningAction='',scoreRemoteLastInputAt=0,scoreRemoteIndicatorTimer=null,scoreRemoteLearningTimer=null,scoreRemoteStatusMessage='',scoreRemoteStatusKind='',scoreRemotePressedCodes=new Set(),scoreRemotePendingPress=null;
 
 function loadScoreRemoteBindings(){
   try{return normalizeRemoteBindings(JSON.parse(localStorage.getItem(SCORE_REMOTE_BINDINGS_KEY)||'{}'))}catch{return normalizeRemoteBindings()}
@@ -116,6 +116,11 @@ function performScoreRemoteAction(action,{announce=true}={}){
   }
   const team=action==='teamAMinus'?0:action==='teamBMinus'?1:-1,index=match.rallies.lastIndexOf(team);
   if(index<0)return false;match.rallies.splice(index,1);replay();return true;
+}
+function runPendingScoreRemoteAction(){
+  const pending=scoreRemotePendingPress;if(!pending)return;
+  clearTimeout(pending.timer);scoreRemotePendingPress=null;
+  if(performScoreRemoteAction(pending.action)){showScoreRemoteIndicator(SCORE_REMOTE_ACTION_LABELS[pending.action]);updateScoreRemoteUi()}
 }
 let androidRemoteFeedbackTimer=null,scoreSnapshotReady=false;
 function hasAndroidRemoteKeyAccessBridge(){
@@ -170,13 +175,30 @@ function renderAndroidRemote(){
 function handleAndroidRemoteAction(action){
   if(!requestedAndroidRemote)return false;
   if(!isHost){setAndroidRemoteFeedback('請先完成管理員登入','error');return false}
-  if(!state.match.active){setAndroidRemoteFeedback('iPad 尚未開始比賽','error');return false}
-  if(state.match.winner!==null&&action!=='undo'){setAndroidRemoteFeedback('本場已結束；可按撤銷修正','error');return false}
-  const changed=performScoreRemoteAction(action,{announce:false});
-  if(!changed){setAndroidRemoteFeedback(action==='undo'?'目前沒有可撤銷的分數':'操作未完成','error');return false}
-  setAndroidRemoteFeedback(action==='teamAPlus'?'A隊 ＋1':action==='teamBPlus'?'B隊 ＋1':'已撤銷上一分','success');renderAndroidRemote();return true;
+  if(!remoteControlRef){setAndroidRemoteFeedback('尚未連接遙控通道','error');return false}
+  const remoteActionCommand={id:randomToken(),action,createdAt:new Date().toISOString()};
+  setDoc(remoteControlRef,{remoteActionCommand,updatedAt:serverTimestamp()},{merge:true}).then(()=>setAndroidRemoteFeedback('已送出遙控器指令','success')).catch(()=>setAndroidRemoteFeedback('遙控器指令傳送失敗','error'));
+  return true;
+}
+function sendRemoteStartMatchCommand(){
+  if(!remoteControlRef||!isHost){setAndroidRemoteFeedback('目前無法開始比賽','error');return false}
+  const startMatchCommand={id:randomToken(),createdAt:new Date().toISOString()};
+  setDoc(remoteControlRef,{startMatchCommand,updatedAt:serverTimestamp()},{merge:true}).then(()=>setAndroidRemoteFeedback('已送出開始比賽','success')).catch(()=>setAndroidRemoteFeedback('開始比賽指令傳送失敗','error'));
+  return true;
+}
+function sendRemoteNextMatchCommand(){
+  if(!remoteControlRef||!isHost||state.match.winner===null){setAndroidRemoteFeedback('目前無法開始下一場','error');return false}
+  const nextMatchCommand={id:randomToken(),createdAt:new Date().toISOString()};
+  setDoc(remoteControlRef,{nextMatchCommand,updatedAt:serverTimestamp()},{merge:true}).then(()=>setAndroidRemoteFeedback('已送出開始下一場','success')).catch(()=>setAndroidRemoteFeedback('開始下一場指令傳送失敗','error'));
+  return true;
 }
 window.bcmAndroidRemoteInput=action=>handleAndroidRemoteAction(String(action||''));
+window.bcmAndroidRemoteFullscreen=()=>{
+  if(!requestedAndroidRemote||!isHost||!state.match.active||!remoteControlRef){setAndroidRemoteFeedback('目前無法切換計分模式全螢幕','error');return false}
+  const command={id:randomToken(),createdAt:new Date().toISOString()},finished=state.match.winner!==null;
+  setDoc(remoteControlRef,{[finished?'undoFinishedCommand':'fullscreenCommand']:command,updatedAt:serverTimestamp()},{merge:true}).then(()=>setAndroidRemoteFeedback(finished?'已送出撤回誤觸結束':'已送出計分模式全螢幕切換','success')).catch(()=>setAndroidRemoteFeedback('遙控器指令傳送失敗','error'));
+  return true;
+};
 window.bcmAndroidKeyAccessChanged=()=>{renderAndroidRemote();return true};
 window.bcmAndroidRecordingModeChanged=()=>{renderAndroidRemote();return true};
 window.bcmAndroidRemoteKeyDetected=label=>{
@@ -195,9 +217,13 @@ function handleScoreRemoteCode(event,code){
   const correctingFinishedMatch=state.match.winner!==null&&['undo','teamAMinus','teamBMinus'].includes(action);
   if(!action||(!correctingFinishedMatch&&!shouldHandleRemoteInput({enabled:scoreRemoteEnabled,isHost,scoreVisible:!$('scoreView').classList.contains('hidden'),matchActive:state.match.active,matchFinished:state.match.winner!==null,repeat:event.repeat,editable:isEditableRemoteTarget(event.target)})))return;
   if(correctingFinishedMatch&&(!scoreRemoteEnabled||!isHost||$('scoreView').classList.contains('hidden')||event.repeat||isEditableRemoteTarget(event.target)))return;
-  const now=performance.now();if(now-scoreRemoteLastInputAt<280)return;scoreRemoteLastInputAt=now;
+  const now=performance.now();if(now-scoreRemoteLastInputAt<120)return;scoreRemoteLastInputAt=now;
   event.preventDefault();
-  if(performScoreRemoteAction(action)){scoreRemoteStatusMessage=`收到：${SCORE_REMOTE_ACTION_LABELS[action]}`;showScoreRemoteIndicator(SCORE_REMOTE_ACTION_LABELS[action]);updateScoreRemoteUi()}
+  if(scoreRemotePendingPress&&scoreRemotePendingPress.code===code&&now-scoreRemotePendingPress.at<=SCORE_REMOTE_DOUBLE_PRESS_MS){
+    clearTimeout(scoreRemotePendingPress.timer);scoreRemotePendingPress=null;toggleScoreFullscreen();showScoreRemoteIndicator('切換全螢幕');return;
+  }
+  if(scoreRemotePendingPress)runPendingScoreRemoteAction();
+  scoreRemotePendingPress={code,action,at:now,timer:setTimeout(runPendingScoreRemoteAction,SCORE_REMOTE_DOUBLE_PRESS_MS)};
 }
 function handleScoreRemoteKeyboard(event){
   const code=remoteEventCode(event),phase=event.type;
@@ -220,6 +246,7 @@ function encodeState(src){
   const noTrackingTubeIds=[...new Set((Array.isArray(src.shuttleNoTrackingTubeIds)?src.shuttleNoTrackingTubeIds:[]).map(id=>String(id||'').trim()).filter(Boolean))].slice(0,20);
   return {
     version:9.7,
+    testMode:!!src.testMode,
     roster:Array.isArray(src.roster)?src.roster.map(playerRecord=>({...withoutLegacyGender(playerRecord),memberType:normalizePlayerType(playerRecord.memberType),ownerHashes:playerOwnerHashes(playerRecord).join('|')})):[],
     retiredPlayers:normalizeRetiredPlayers(src.retiredPlayers),
     adminPlayerIds:[...new Set((Array.isArray(src.adminPlayerIds)?src.adminPlayerIds:[]).map(id=>String(id||'').trim()).filter(Boolean))].slice(0,20),
@@ -240,6 +267,8 @@ function encodeState(src){
       posB:Array.isArray(m.positions?.[1])?m.positions[1]:[0,1],
       winner:m.winner===0||m.winner===1?m.winner:null,
       matchId:m.matchId||null,
+      testMode:!!m.testMode,
+      testCompleted:!!m.testCompleted,
       startedAt:m.startedAt||''
     },
     matchRollback:normalizeFinishedMatchRollback(src.matchRollback),
@@ -254,6 +283,7 @@ function encodeState(src){
       status:src.schedulePoll?.status==='closed'?'closed':'open',
       createdAt:src.schedulePoll?.createdAt||'',
       deadlineAt:src.schedulePoll?.deadlineAt||'',
+      autoCycle:src.schedulePoll?.autoCycle||'',
       options:(Array.isArray(src.schedulePoll?.options)?src.schedulePoll.options:[]).map(o=>({id:o.id||randomToken(),date:o.date||'',time:o.time||'',endTime:o.endTime||'',note:o.note||''})),
       votes:src.schedulePoll?.votes&&typeof src.schedulePoll.votes==='object'?src.schedulePoll.votes:{},
       voterPlayers:src.schedulePoll?.voterPlayers&&typeof src.schedulePoll.voterPlayers==='object'?src.schedulePoll.voterPlayers:{}
@@ -274,6 +304,7 @@ function encodeState(src){
       scoreA:h.scores?.[0]??0,
       scoreB:h.scores?.[1]??0,
       winner:h.winner===0||h.winner===1?h.winner:null,
+      testMode:!!h.testMode,
       endedAt:h.endedAt||'',
       dateKey:h.dateKey||'',
       monthKey:h.monthKey||''
@@ -295,6 +326,7 @@ function decodeState(d){
       teams:[[h.teamA1||'',h.teamA2||''].filter(Boolean),[h.teamB1||'',h.teamB2||''].filter(Boolean)],
       scores:[h.scoreA??0,h.scoreB??0],
       winner:h.winner===0||h.winner===1?h.winner:null,
+      testMode:!!h.testMode,
       endedAt:h.endedAt||'',
       dateKey:h.dateKey||'',
       monthKey:h.monthKey||''
@@ -302,6 +334,7 @@ function decodeState(d){
   }):[];
   return {
     ...base,...d,
+    testMode:!!d.testMode,
     rules:{...base.rules,...(d.rules||{})},
     match:{
       ...base.match,...m,
@@ -327,6 +360,7 @@ function decodeState(d){
       status:d.schedulePoll?.status==='closed'?'closed':'open',
       createdAt:d.schedulePoll?.createdAt||'',
       deadlineAt:d.schedulePoll?.deadlineAt||'',
+      autoCycle:d.schedulePoll?.autoCycle||'',
       options:Array.isArray(d.schedulePoll?.options)?d.schedulePoll.options:[],
       votes:d.schedulePoll?.votes&&typeof d.schedulePoll.votes==='object'?d.schedulePoll.votes:{},
       voterPlayers:d.schedulePoll?.voterPlayers&&typeof d.schedulePoll.voterPlayers==='object'?d.schedulePoll.voterPlayers:{}
@@ -342,11 +376,12 @@ function decodeState(d){
 }
 
 
-function player(id){return state.roster.find(p=>p.id===id)}function retiredPlayer(id){return state.retiredPlayers?.find(p=>p.id===id)}function playerDisplay(id){return player(id)||retiredPlayer(id)}function pname(id){return playerDisplay(id)?.name||'未知球員'}function vname(id){const p=playerDisplay(id);return p?.voiceName?.trim()||defaultVoiceName(p?.name)||p?.name||'未知球員'}function initials(n){return [...String(n||'?')].slice(0,2).join('').toUpperCase()}function avatar(id,size=''){const p=playerDisplay(id);return `<span class="avatar ${size}">${p?.avatar?`<img src="${p.avatar}" alt="">`:esc(initials(p?.name))}</span>`}function playerStats(id){let games=0,wins=0;for(const h of state.history){const teams=h.teams||[];for(let t=0;t<2;t++){if((teams[t]||[]).includes(id)){games++;if(h.winner===t)wins++}}}return{games,wins,losses:games-wins,rate:games?Math.round(wins/games*100):0}}
+function scoredHistory(){return state.history.filter(h=>!h.testMode)}
+function player(id){return state.roster.find(p=>p.id===id)}function retiredPlayer(id){return state.retiredPlayers?.find(p=>p.id===id)}function playerDisplay(id){return player(id)||retiredPlayer(id)}function pname(id){return playerDisplay(id)?.name||'未知球員'}function vname(id){const p=playerDisplay(id);return p?.voiceName?.trim()||defaultVoiceName(p?.name)||p?.name||'未知球員'}function initials(n){return [...String(n||'?')].slice(0,2).join('').toUpperCase()}function avatar(id,size=''){const p=playerDisplay(id);return `<span class="avatar ${size}">${p?.avatar?`<img src="${p.avatar}" alt="">`:esc(initials(p?.name))}</span>`}function playerStats(id){let games=0,wins=0;for(const h of scoredHistory()){const teams=h.teams||[];for(let t=0;t<2;t++){if((teams[t]||[]).includes(id)){games++;if(h.winner===t)wins++}}}return{games,wins,losses:games-wins,rate:games?Math.round(wins/games*100):0}}
 function localDateKey(d=new Date()){return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`}function localMonthKey(d=new Date()){return localDateKey(d).slice(0,7)}
 function historyDate(h){if(/^\d{4}-\d{2}-\d{2}$/.test(h.dateKey||''))return h.dateKey;if(h.endedAt){const d=new Date(h.endedAt);if(!isNaN(d.getTime()))return localDateKey(d)}const text=String(h.time||'');const m=text.match(/(\d{4})[\/.-](\d{1,2})[\/.-](\d{1,2})/);if(m)return `${m[1]}-${String(m[2]).padStart(2,'0')}-${String(m[3]).padStart(2,'0')}`;const d=new Date(text);return isNaN(d.getTime())?'':localDateKey(d)}
-function scopedStats(id,scope='career',month=localMonthKey()){let games=0,wins=0;const list=[];for(const h of state.history){const dk=historyDate(h);if(scope==='today'&&dk!==localDateKey())continue;if(scope==='month'&&!dk.startsWith(month))continue;for(let t=0;t<2;t++){if((h.teams?.[t]||[]).includes(id)){games++;if(h.winner===t)wins++;list.push({h,won:h.winner===t})}}}let streak=0,kind='';for(const x of list.slice().reverse()){const k=x.won?'W':'L';if(!kind)kind=k;if(k!==kind)break;streak++}return{games,wins,losses:games-wins,rate:games?Math.round(wins/games*100):0,streak,kind,list}}
-function relationshipStats(id){const partners=new Map(),opponents=new Map();for(const h of state.history){const teams=h.teams||[];let team=-1;for(let t=0;t<2;t++)if((teams[t]||[]).includes(id)){team=t;break}if(team<0)continue;for(const pid of teams[team]||[]){if(pid===id)continue;const x=partners.get(pid)||{id:pid,games:0,wins:0};x.games++;if(h.winner===team)x.wins++;partners.set(pid,x)}for(const oid of teams[1-team]||[]){const x=opponents.get(oid)||{id:oid,games:0,wins:0};x.games++;if(h.winner===team)x.wins++;opponents.set(oid,x)}}const finish=m=>[...m.values()].map(x=>({...x,rate:x.games?Math.round(x.wins/x.games*100):0}));return{partners:finish(partners).sort((a,b)=>b.rate-a.rate||b.games-a.games||pname(a.id).localeCompare(pname(b.id))),opponents:finish(opponents).sort((a,b)=>b.games-a.games||b.rate-a.rate)}}
+function scopedStats(id,scope='career',month=localMonthKey()){let games=0,wins=0;const list=[];for(const h of scoredHistory()){const dk=historyDate(h);if(scope==='today'&&dk!==localDateKey())continue;if(scope==='month'&&!dk.startsWith(month))continue;for(let t=0;t<2;t++){if((h.teams?.[t]||[]).includes(id)){games++;if(h.winner===t)wins++;list.push({h,won:h.winner===t})}}}let streak=0,kind='';for(const x of list.slice().reverse()){const k=x.won?'W':'L';if(!kind)kind=k;if(k!==kind)break;streak++}return{games,wins,losses:games-wins,rate:games?Math.round(wins/games*100):0,streak,kind,list}}
+function relationshipStats(id){const partners=new Map(),opponents=new Map();for(const h of scoredHistory()){const teams=h.teams||[];let team=-1;for(let t=0;t<2;t++)if((teams[t]||[]).includes(id)){team=t;break}if(team<0)continue;for(const pid of teams[team]||[]){if(pid===id)continue;const x=partners.get(pid)||{id:pid,games:0,wins:0};x.games++;if(h.winner===team)x.wins++;partners.set(pid,x)}for(const oid of teams[1-team]||[]){const x=opponents.get(oid)||{id:oid,games:0,wins:0};x.games++;if(h.winner===team)x.wins++;opponents.set(oid,x)}}const finish=m=>[...m.values()].map(x=>({...x,rate:x.games?Math.round(x.wins/x.games*100):0}));return{partners:finish(partners).sort((a,b)=>b.rate-a.rate||b.games-a.games||pname(a.id).localeCompare(pname(b.id))),opponents:finish(opponents).sort((a,b)=>b.games-a.games||b.rate-a.rate)}}
 function playerStatus(id){const td=scopedStats(id,'today');if(!td.games)return{label:'🌱 今日尚未出賽',kind:'idle'};if(td.kind==='W'&&td.streak>=3)return{label:`🔥 火燙 · ${td.streak} 連勝`,kind:'hot'};if(td.kind==='L'&&td.streak>=3)return{label:`🧊 調整中 · ${td.streak} 連敗`,kind:'cold'};if(td.wins===td.games)return{label:`✨ 今日全勝 · ${td.wins} 勝`,kind:'hot'};return{label:`🏸 今日 ${td.wins} 勝 ${td.losses} 敗`,kind:'normal'}}
 function careerBadges(id){const c=scopedStats(id,'career');return careerAchievementBadges({games:c.games,wins:c.wins,results:c.list})}
 function relationRows(list,emptyText){if(!list.length)return `<div class="sub">${emptyText}</div>`;return list.slice(0,3).map((x,i)=>`<div class="duo-row"><span class="duo-rank">${i+1}</span><span>${avatar(x.id,'tiny')} <strong>${esc(pname(x.id))}</strong><div class="duo-meta">共同 ${x.games} 場 · ${x.wins} 勝</div></span><strong>${x.rate}%</strong></div>`).join('')}
@@ -489,13 +524,14 @@ function renderDashboard() {
         teams = m.players || [[], []],
         hasCurrentMatch = !!m.startedAt && teams.flat().filter(Boolean).length === 4,
         month = localMonthKey(),
-        monthGames = state.history.filter(h => historyDate(h).startsWith(month)),
+        recordedGames=scoredHistory(),
+        monthGames = recordedGames.filter(h => historyDate(h).startsWith(month)),
         monthPlayers = new Set(monthGames.flatMap(h => (h.teams || []).flat()).filter(Boolean));
     if($('endSessionBtn'))$('endSessionBtn').disabled=!hasCurrentMatch&&!state.nextCall&&!state.attendance.length;
 
     $('clubMetrics').innerHTML = `
         <div class="club-metric"><span class="club-metric-icon">🏸</span><span><strong>${monthGames.length}</strong><small>本月比賽</small></span></div>
-        <div class="club-metric"><span class="club-metric-icon">🎯</span><span><strong>${state.history.length}</strong><small>累積比賽</small></span></div>
+        <div class="club-metric"><span class="club-metric-icon">🎯</span><span><strong>${recordedGames.length}</strong><small>累積比賽</small></span></div>
         <div class="club-metric"><span class="club-metric-icon">🙌</span><span><strong>${monthPlayers.size}</strong><small>本月出賽球友</small></span></div>
         <div class="club-metric"><span class="club-metric-icon">👥</span><span><strong>${state.roster.length}</strong><small>球友人數</small></span></div>
     `;
@@ -542,8 +578,8 @@ function renderDashboard() {
 function renderStats(){
   const month=$('monthPick').value||localMonthKey(),sortKey=$('statsSort')?.value||'career-record',order=$('statsOrder')?.value||'desc';
   $('monthPick').value=month;
-  const todayGames=state.history.filter(h=>historyDate(h)===localDateKey()).length,monthGames=state.history.filter(h=>historyDate(h).startsWith(month)).length;
-  $('statsSummary').innerHTML=`<div class="metric"><strong>${state.history.length}</strong><span class="sub">生涯總場次</span></div><div class="metric"><strong>${todayGames}</strong><span class="sub">今日場次</span></div><div class="metric"><strong>${monthGames}</strong><span class="sub">選定月份場次</span></div><div class="metric"><strong>${state.roster.length}</strong><span class="sub">球員人數</span></div>`;
+  const recordedGames=scoredHistory(),todayGames=recordedGames.filter(h=>historyDate(h)===localDateKey()).length,monthGames=recordedGames.filter(h=>historyDate(h).startsWith(month)).length;
+  $('statsSummary').innerHTML=`<div class="metric"><strong>${recordedGames.length}</strong><span class="sub">生涯總場次</span></div><div class="metric"><strong>${todayGames}</strong><span class="sub">今日場次</span></div><div class="metric"><strong>${monthGames}</strong><span class="sub">選定月份場次</span></div><div class="metric"><strong>${state.roster.length}</strong><span class="sub">球員人數</span></div>`;
   const {hot}=todayLeaders();
   $('hotColdStats').innerHTML=`<div class="leader-card hot"><strong>🔥 手感火熱</strong><div>${hot?`${esc(hot.p.name)} · ${hot.s.streak} 連勝 · 今日 ${hot.s.wins} 勝`:'尚無資料'}</div></div>`;
   const rows=state.roster.map(p=>({p,t:scopedStats(p.id,'today'),mo:scopedStats(p.id,'month',month),c:scopedStats(p.id,'career')})),scope=sortKey.startsWith('career')?'c':sortKey.startsWith('today')?'t':'mo',metric=sortKey.endsWith('rate')?'rate':'record',direction=order==='asc'?1:-1;
@@ -1007,10 +1043,15 @@ function pollParticipantCount(optionId){
 }
 function pollOptionLabel(o){if(!o?.date)return '未設定日期';const d=new Date(`${o.date}T${o.time||'00:00'}`);const date=isNaN(d)?o.date:d.toLocaleDateString('zh-TW',{month:'long',day:'numeric',weekday:'short'}),time=o.time?` ${o.time}${o.endTime?`-${o.endTime}`:''}`:'';return `${date}${time}${o.note?` · ${o.note}`:''}`}
 function updateConfirmFeePreview(){
-  const optionId=$('confirmPollOption')?.value||'',rentalTotal=wholeAmount($('confirmRentalTotal')?.value),participantCount=pollParticipantCount(optionId),perPersonFee=calculatePerPersonFee(rentalTotal,participantCount);
+  const optionId=$('confirmPollOption')?.value||'',rentalTotal=wholeAmount($('confirmRentalTotal')?.value),participantCount=wholeAmount($('confirmParticipants')?.value),perPersonFee=calculatePerPersonFee(rentalTotal,participantCount);
   if($('confirmPerPersonFee'))$('confirmPerPersonFee').value=perPersonFee?`${formatMoney(perPersonFee)} 元`:'';
   if($('confirmFeeHint'))$('confirmFeeHint').textContent=!optionId?'請先選擇確定日期。':!participantCount?'這個日期目前沒有人投票參加。':!rentalTotal?`參加 ${participantCount} 人；輸入場租後自動計算。`:`場租 ${formatMoney(rentalTotal)} 元 ÷ ${participantCount} 人＝每人 ${formatMoney(perPersonFee)} 元`;
   return{rentalTotal,participantCount,perPersonFee};
+}
+function updateConfirmParticipantDefault(){
+  const optionId=$('confirmPollOption')?.value||'',input=$('confirmParticipants');
+  if(!input)return;
+  if(input.dataset.optionId!==optionId){input.value=optionId?(state.nextEvent?.optionId===optionId?wholeAmount(state.nextEvent.participantCount):pollParticipantCount(optionId))||'':'';input.dataset.optionId=optionId}
 }
 function suggestedEndTime(time){const match=String(time||'').match(/^(\d{2}):(\d{2})$/);if(!match)return'';const minutes=(+match[1]*60+ +match[2]+180)%(24*60);return `${String(Math.floor(minutes/60)).padStart(2,'0')}:${String(minutes%60).padStart(2,'0')}`}
 function updateConfirmOptionDetails(){
@@ -1020,7 +1061,7 @@ function updateConfirmOptionDetails(){
     if(option?.note&&(!locationInput.value.trim()||locationInput.dataset.autoVenue==='1')){locationInput.value=option.note;locationInput.dataset.autoVenue='1'}
     else if(!option?.note&&locationInput.dataset.autoVenue==='1'){locationInput.value=''}
   }
-  updateVenueMapPreviews();
+  updateConfirmParticipantDefault();updateVenueMapPreviews();
   updateConfirmFeePreview();
 }
 function renderPoll(){
@@ -1052,6 +1093,7 @@ function renderPoll(){
     cp.innerHTML='<option value="">請選擇已確定的日期</option>'+options.map(o=>`<option value="${o.id}">${esc(pollOptionLabel(o))}</option>`).join('');
     cp.value=options.some(o=>o.id===current)?current:'';
     if(hasCurrentEventOption){$('confirmLocation').value=state.nextEvent.location||'';$('confirmLocation').dataset.autoVenue='0';$('confirmEventNote').value=state.nextEvent.note||'';$('confirmRentalTotal').value=state.nextEvent.rentalTotal||'';$('confirmEndTime').value=state.nextEvent.endTime||''}
+    updateConfirmParticipantDefault();
     $('clearNextEvent').disabled=!state.nextEvent?.date;
     $('editNextEventFromPoll').disabled=!state.nextEvent?.date;
     updateConfirmFeePreview();
@@ -1109,7 +1151,7 @@ async function confirmNextEvent(){
   if(!location)return alert('請填寫已預約的場地。');
   const {rentalTotal,participantCount,perPersonFee}=updateConfirmFeePreview();
   if(!rentalTotal)return alert('請填寫場租總金額。');
-  if(!participantCount)return alert('這個日期目前沒有投票參加者，無法計算每人費用。');
+  if(!participantCount)return alert('請填寫預計參與人數。');
   const summary=`${formatEventDate(option.date,option.time,endTime)}\n${location}${note?`\n場地備註：${note}`:''}\n場租 ${formatMoney(rentalTotal)} 元｜每人 ${formatMoney(perPersonFee)} 元\n\n結束後會刪除全部候選日期與票數。`;
   if(!confirm(`確定發布球局並結束投票？\n\n${summary}`))return;
   const button=$('confirmNextEvent'),publishedAt=new Date().toISOString();
@@ -1123,14 +1165,8 @@ async function confirmNextEvent(){
       if(pollWasFinalized(poll))throw new Error('這次投票已由另一台裝置發布完成。');
       const remoteOption=(Array.isArray(poll.options)?poll.options:[]).find(item=>item.id===optionId);
       if(!remoteOption)throw new Error('候選日期已變更，請重新確認。');
-      const remoteParticipants=new Set();
-      for(const [deviceHash,value] of Object.entries(poll.votes||{})){
-        if(!pollSelectionList(value).includes(optionId))continue;
-        remoteParticipants.add(poll.voterPlayers?.[deviceHash]||deviceHash);
-      }
-      if(!remoteParticipants.size)throw new Error('這個日期目前沒有投票參加者，無法計算每人費用。');
-      finalFee=calculatePerPersonFee(rentalTotal,remoteParticipants.size);
-      finalEvent={optionId:remoteOption.id,date:remoteOption.date,time:remoteOption.time||'',endTime,location,note,rentalTotal,participantCount:remoteParticipants.size,perPersonFee:finalFee,publishedAt};
+      finalFee=calculatePerPersonFee(rentalTotal,participantCount);
+      finalEvent={optionId:remoteOption.id,date:remoteOption.date,time:remoteOption.time||'',endTime,location,note,rentalTotal,participantCount,perPersonFee:finalFee,publishedAt};
       tx.update(roomRef,{nextEvent:finalEvent,schedulePoll:{status:'closed',createdAt:poll.createdAt||'',deadlineAt:'',options:[],votes:{},voterPlayers:{}},updatedAt:serverTimestamp()});
     });
     state.nextEvent=finalEvent;
@@ -1146,7 +1182,7 @@ async function confirmNextEvent(){
   alert(`已結束投票並發布球局。\n每人需繳 ${formatMoney(finalFee)} 元。${pushMessage}`);
 }
 function clearNextEvent(){if(!state.nextEvent)return;if(!confirm('確定取消總覽中的下一次打球公告？'))return;state.nextEvent=null;closeNextEventEditor();renderDashboard();renderPoll();saveSoon()}
-async function startNewPoll(){if(!confirm('建立新投票？目前的球局公告會保留在總覽。'))return;state.schedulePoll={status:'open',createdAt:new Date().toISOString(),deadlineAt:'',options:[],votes:{},voterPlayers:{}};['confirmPollOption','confirmEndTime','confirmLocation','confirmRentalTotal','confirmPerPersonFee','confirmEventNote'].forEach(id=>{const input=$(id);if(input)input.value=''});renderPoll();renderDashboard();try{await saveNow();alert('新投票已建立，現在可以新增候選日期。')}catch(error){saveSoon();alert(`新投票已建立，但雲端同步尚未完成：${formatError(error)}`)}}
+async function startNewPoll(){if(!confirm('建立新投票？目前的球局公告會保留在總覽。'))return;state.schedulePoll={status:'open',createdAt:new Date().toISOString(),deadlineAt:'',options:[],votes:{},voterPlayers:{}};['confirmPollOption','confirmEndTime','confirmLocation','confirmParticipants','confirmRentalTotal','confirmPerPersonFee','confirmEventNote'].forEach(id=>{const input=$(id);if(input){input.value='';delete input.dataset.optionId}});renderPoll();renderDashboard();try{await saveNow();alert('新投票已建立，現在可以新增候選日期。')}catch(error){saveSoon();alert(`新投票已建立，但雲端同步尚未完成：${formatError(error)}`)}}
 async function submitPollVote(){
   if(isPollClosed(state.schedulePoll))return alert('投票已截止。');
   const voterId=$('pollVoter').value;
@@ -1292,6 +1328,7 @@ async function connectRoom(id){
   roomConnectInProgress=true;
   unsubscribe?.();unsubscribe=null;
   liveScoreUnsubscribe?.();liveScoreUnsubscribe=null;
+  remoteControlUnsubscribe?.();remoteControlUnsubscribe=null;
   chatUnsubscribe?.();chatUnsubscribe=null;
   clearChatPendingMedia();
   chatCollectionRef=null;chatMessages=[];chatMentionIds.clear();chatFirstRender=true;chatMessagesRenderKey='';chatRequestRunning=false;chatSendRunning=false;
@@ -1302,7 +1339,9 @@ async function connectRoom(id){
   roomId=id;
   roomRef=doc(db,'badmintonRooms',id);
   liveScoreRef=doc(db,'badmintonRooms',id,'liveScore','current');
+  remoteControlRef=doc(db,'badmintonRooms',id,'remoteControl','current');
   liveScoreReady=false;liveScoreInitialSnapshot=true;liveScoreMigrationStarted=false;liveScoreAvailable=true;liveScoreConnecting=true;latestLiveMatch=null;lastRoomSnapshotData=null;
+  remoteControlInitialSnapshot=true;lastRemoteFullscreenCommandId='';lastRemoteNextMatchCommandId='';lastRemoteUndoFinishedCommandId='';lastRemoteStartMatchCommandId='';lastRemoteActionCommandId='';
   liveScoreSnapshotFromCache=false;liveScoreHasPendingWrites=false;pendingLiveScoreWrites=0;liveScoreWriteScheduled=false;
   selfHash=await sha256(selfToken);
   setSync(navigator.onLine?'連線中':'讀取離線資料','pending');
@@ -1372,7 +1411,8 @@ async function connectRoom(id){
         updateSyncBadge();
         return;
       }
-      applyLiveScoreState(snapshot.data(),{announce:!liveScoreInitialSnapshot});
+      const liveData=snapshot.data();
+      applyLiveScoreState(liveData,{announce:!liveScoreInitialSnapshot});
       liveScoreInitialSnapshot=false;
       updateSyncBadge();
     },error=>{
@@ -1381,6 +1421,16 @@ async function connectRoom(id){
       updateSyncBadge();
       console.warn('獨立即時比分無法連線，已切回完整房間同步',error);
     });
+    remoteControlUnsubscribe=onSnapshot(remoteControlRef,{includeMetadataChanges:true},snapshot=>{
+      if(!snapshot.exists()){remoteControlInitialSnapshot=false;return}
+      const commandData=snapshot.data(),initial=remoteControlInitialSnapshot;
+      handleRemoteFullscreenCommand(commandData,{initial});
+      handleRemoteNextMatchCommand(commandData,{initial});
+      handleRemoteUndoFinishedCommand(commandData,{initial});
+      handleRemoteStartMatchCommand(commandData,{initial});
+      handleRemoteActionCommand(commandData,{initial});
+      remoteControlInitialSnapshot=false;
+    },error=>console.warn('遙控控制通道無法連線',error));
     updateSyncBadge();
     if(isHost&&navigator.onLine)setTimeout(ensureGenesisAndDaily,900);
   }catch(e){
@@ -1421,6 +1471,46 @@ function matchScoreSignature(source=state){const match=source?.match||{};return 
 function announceSyncedScore(before,announce=true){const changed=before!==matchScoreSignature(),scoreVisible=!$('scoreView')?.classList.contains('hidden');if(shouldAnnounceSyncedLiveScore({announce,snapshotReady:scoreSnapshotReady,changed,scoreVisible,androidRemote:requestedAndroidRemote,matchActive:state.match.active,voiceEnabled}))setTimeout(announceScore,120);scoreSnapshotReady=true}
 function applyState(data){const before=matchScoreSignature(),next=cleanState(data),legacyMatchChanged=!!data.liveScoreEnabled&&!!data.liveScoreMatchKey&&data.liveScoreMatchKey!==liveMatchKey(data.match);if(liveScoreReady&&latestLiveMatch&&!legacyMatchChanged)next.match=structuredClone(latestLiveMatch);else if(legacyMatchChanged)latestLiveMatch=structuredClone(next.match);applying=true;state=next;renderAll();applying=false;announceSyncedScore(before);if(legacyMatchChanged&&isHost&&liveScoreAvailable)saveLiveScoreSoon()}
 function applyLiveScoreState(data,{announce=true}={}){const before=matchScoreSignature(),beforeWinner=state.match?.winner,match=decodeLiveMatch(data,state.match),shouldFinish=beforeWinner===null&&match.winner!==null&&isHost&&!requestedAndroidRemote&&scoreViewRequested;liveScoreReady=true;latestLiveMatch=structuredClone(match);applying=true;state.match=match;renderScore();renderDashboard();renderAndroidRemote();applying=false;announceSyncedScore(before,announce);if(shouldFinish)finishMatch()}
+function handleRemoteFullscreenCommand(data,{initial=false}={}){
+  const id=String(data?.fullscreenCommand?.id||'');if(!id||id===lastRemoteFullscreenCommandId)return false;
+  lastRemoteFullscreenCommandId=id;
+  if(initial||requestedAndroidRemote||!isHost||!state.match.active||$('scoreView').classList.contains('hidden'))return false;
+  toggleScoreFullscreen();showScoreRemoteIndicator('遙控器切換全螢幕');return true;
+}
+function handleRemoteNextMatchCommand(data,{initial=false}={}){
+  const id=String(data?.nextMatchCommand?.id||'');if(!id||id===lastRemoteNextMatchCommandId)return false;
+  lastRemoteNextMatchCommandId=id;
+  if(initial||requestedAndroidRemote||!isHost||!state.match.active||state.match.winner===null)return false;
+  startNext();showScoreRemoteIndicator('遙控器開始下一場');return true;
+}
+function handleRemoteUndoFinishedCommand(data,{initial=false}={}){
+  const id=String(data?.undoFinishedCommand?.id||'');if(!id||id===lastRemoteUndoFinishedCommandId)return false;
+  lastRemoteUndoFinishedCommandId=id;
+  if(initial||requestedAndroidRemote||!isHost||!state.match.active||state.match.winner===null)return false;
+  if(performScoreRemoteAction('undo',{announce:false})){showScoreRemoteIndicator('撤回誤觸結束');return true}return false;
+}
+function handleRemoteStartMatchCommand(data,{initial=false}={}){
+  const id=String(data?.startMatchCommand?.id||'');if(!id||id===lastRemoteStartMatchCommandId)return false;
+  lastRemoteStartMatchCommandId=id;
+  if(initial||requestedAndroidRemote||!isHost||state.match.active)return false;
+  startMatch();showScoreRemoteIndicator('遙控器開始比賽');return true;
+}
+function handleRemoteActionCommand(data,{initial=false}={}){
+  const command=data?.remoteActionCommand||{},id=String(command.id||''),action=String(command.action||'');
+  if(!id||id===lastRemoteActionCommandId)return false;lastRemoteActionCommandId=id;
+  if(initial||requestedAndroidRemote||!isHost||!['teamAPlus','teamBPlus','undo'].includes(action))return false;
+  const scoreHidden=$('scoreView').classList.contains('hidden'),resultHidden=$('resultModal').classList.contains('hidden'),courtVisible=!$('page3').classList.contains('hidden');
+  if(scoreHidden&&resultHidden){
+    if(courtVisible&&action!=='undo'){startMatch();showScoreRemoteIndicator('遙控器開始新比賽')}
+    else if(state.match.active&&state.match.winner===null){scoreViewRequested=true;renderScore();showScoreRemoteIndicator('進入比分模式')}
+    else if(action!=='undo'){startMatch();showScoreRemoteIndicator('遙控器開始比賽')}
+    return true;
+  }
+  if(!state.match.active){if(action!=='undo')startMatch();return true}
+  if(state.match.winner!==null){if(action==='undo')performScoreRemoteAction('undo',{announce:false});else startNext();return true}
+  if(performScoreRemoteAction(action))showScoreRemoteIndicator(SCORE_REMOTE_ACTION_LABELS[action]);
+  return true;
+}
 function payload(){return {...generalRoomStateWithoutMatch(encodeState(state)),liveScoreEnabled:true,updatedAt:serverTimestamp()}}
 function liveScorePayload(){return {...createLiveScoreData(state.match),updatedAt:serverTimestamp()}}
 function liveScoreFallbackPayload(){const encoded=encodeState(state);return{match:encoded.match,liveScoreEnabled:true,liveScoreMatchKey:liveMatchKey(state.match),updatedAt:serverTimestamp()}}
@@ -1665,8 +1755,30 @@ const APP_WAKE_LOCK_KEY='bcmWakeLockEnabledV1';
 let appWakeLockWanted=localStorage.getItem(APP_WAKE_LOCK_KEY)!=='0';
 let appWakeLock=null,appWakeLockRequest=null,appWakeLockRetryTimer=null,appWakeLockLastError='';
 let appWakeLockNeedsGesture=false;
+let appNoSleepVideo=null,appNoSleepFallbackActive=false;
+function enableAppNoSleepFallback(){
+  if(!appWakeLockWanted||document.hidden)return;
+  if(!appNoSleepVideo){
+    const video=document.createElement('video');
+    video.src='./assets/no-sleep.mp4';
+    video.setAttribute('playsinline','');
+    video.setAttribute('aria-hidden','true');
+    video.preload='auto';
+    video.style.cssText='position:fixed;width:1px;height:1px;opacity:.001;pointer-events:none;left:-10px;bottom:-10px';
+    video.addEventListener('timeupdate',()=>{if(video.currentTime>.5)video.currentTime=.01});
+    video.addEventListener('pause',()=>{appNoSleepFallbackActive=false;renderAppWakeLockStatus()});
+    document.documentElement.append(video);
+    appNoSleepVideo=video;
+  }
+  const playback=appNoSleepVideo.play();
+  if(playback?.then)playback.then(()=>{appNoSleepFallbackActive=true;renderAppWakeLockStatus()}).catch(()=>{});
+}
+function disableAppNoSleepFallback(){
+  if(appNoSleepVideo&&!appNoSleepVideo.paused)appNoSleepVideo.pause();
+  appNoSleepFallbackActive=false;
+}
 function nativeWakeLockActive(){return !!appWakeLock&&!appWakeLock.released}
-function appWakeLockProtected(){return wakeLockControlIsActive({nativeActive:nativeWakeLockActive()})}
+function appWakeLockProtected(){return wakeLockControlIsActive({nativeActive:nativeWakeLockActive()})||appNoSleepFallbackActive}
 function describeWakeLockError(error){
   if(error?.name==='NotAllowedError')return'iPad 拒絕螢幕恆亮。請關閉低耗電模式，再點一次重試。';
   if(error?.name==='NotSupportedError')return'目前的 iPadOS 或開啟方式不支援真正恆亮，請更新 iPadOS 後重試。';
@@ -1682,7 +1794,7 @@ function renderAppWakeLockStatus(){
   button.textContent=!appWakeLockWanted?'🌙 恆亮已關閉（點擊開啟）':!nativeSupported?'🚫 此裝置不支援原生恆亮（點擊關閉）':nativeActive?'☀️ 恆亮已開啟（點擊關閉）':pending?'☀️ 正在啟用恆亮…':appWakeLockNeedsGesture?'☀️ 恆亮待啟用（點一下畫面）':'⚠️ 恆亮未成功（點擊重試）';
   button.title=!appWakeLockWanted?'點擊開啟螢幕恆亮':active?'點擊關閉螢幕恆亮':'點擊重新啟用螢幕恆亮';
   if(feedback){
-    feedback.className=`wake-lock-feedback ${nativeActive?'success':appWakeLockWanted&&(!nativeSupported||appWakeLockLastError)?'error':pending?'pending':''}`;
+    feedback.className=`wake-lock-feedback ${appWakeLockProtected()?'success':appWakeLockWanted&&(!nativeSupported||appWakeLockLastError)?'error':pending?'pending':''}`;
     feedback.textContent=!appWakeLockWanted?'已關閉；iPad 將依系統設定熄屏。':!nativeSupported?'此裝置或目前的開啟方式不支援原生螢幕恆亮，請改用系統的「自動鎖定」設定。':nativeActive?'✅ iPad 已確認螢幕恆亮，畫面不會自動變暗。':appWakeLockLastError?`⚠️ 尚未啟用：${appWakeLockLastError}`:appWakeLockNeedsGesture?'請在畫面任一處點一下，系統會再次要求原生恆亮。':pending?'正在向 iPad 取得螢幕恆亮權限…':'尚未啟用；請點上方按鈕。';
   }
 }
@@ -1691,16 +1803,17 @@ function scheduleAppWakeLockRetry(delay=1200){
   if(document.hidden||!appWakeLockWanted)return;
   appWakeLockRetryTimer=setTimeout(()=>{appWakeLockRetryTimer=null;void syncAppWakeLock()},delay);
 }
-async function releaseAppWakeLock(){
+async function releaseAppWakeLock(disableFallback=false){
   clearTimeout(appWakeLockRetryTimer);
   appWakeLockRetryTimer=null;
   const lock=appWakeLock;
   appWakeLock=null;
   if(lock&&!lock.released){try{await lock.release()}catch{}}
+  if(disableFallback)disableAppNoSleepFallback();
   renderAppWakeLockStatus();
 }
 async function syncAppWakeLock(userActivated=false){
-  if(!appWakeLockWanted){await releaseAppWakeLock();return}
+  if(!appWakeLockWanted){await releaseAppWakeLock(true);return}
   if(document.hidden){await releaseAppWakeLock();return}
   if(nativeWakeLockActive()){
     renderAppWakeLockStatus();
@@ -1717,7 +1830,9 @@ async function syncAppWakeLock(userActivated=false){
     renderAppWakeLockStatus();
     return;
   }
-  if(appWakeLockNeedsGesture&&!userActivated){renderAppWakeLockStatus();return}
+  // A visible page must keep retrying even when Safari previously returned
+  // NotAllowedError. iPadOS can make the API available again without another
+  // fullscreen transition (for example after focus or power-state changes).
   appWakeLockRequest=navigator.wakeLock.request('screen');
   renderAppWakeLockStatus();
   try{
@@ -1734,19 +1849,20 @@ async function syncAppWakeLock(userActivated=false){
   }catch(error){
     appWakeLockLastError=describeWakeLockError(error);
     appWakeLockNeedsGesture=true;
+    scheduleAppWakeLockRetry(5000);
     console.warn('無法保持 App 螢幕亮起',error)
   }
   finally{appWakeLockRequest=null;renderAppWakeLockStatus()}
 }
 document.addEventListener('visibilitychange',()=>{void syncAppWakeLock()});
-function resumeWakeLockFromGesture(){void syncAppWakeLock(true)}
+function resumeWakeLockFromGesture(){enableAppNoSleepFallback();void syncAppWakeLock(true)}
 document.addEventListener('pointerdown',resumeWakeLockFromGesture,{capture:true,passive:true});
 document.addEventListener('touchstart',resumeWakeLockFromGesture,{capture:true,passive:true});
 document.addEventListener('click',resumeWakeLockFromGesture,{capture:true,passive:true});
 document.addEventListener('keydown',resumeWakeLockFromGesture,{capture:true});
 window.addEventListener('focus',()=>scheduleAppWakeLockRetry(100));
 window.addEventListener('pageshow',()=>scheduleAppWakeLockRetry(100));
-window.addEventListener('pagehide',()=>{void releaseAppWakeLock()});
+window.addEventListener('pagehide',()=>{void releaseAppWakeLock(true)});
 $('wakeLockBtn').onclick=async()=>{
   const intent=wakeLockButtonIntent({wanted:appWakeLockWanted,active:appWakeLockProtected(),supported:hasNativeWakeLock()});
   if(intent==='retry'){
@@ -1759,13 +1875,13 @@ $('wakeLockBtn').onclick=async()=>{
   localStorage.setItem(APP_WAKE_LOCK_KEY,appWakeLockWanted?'1':'0');
   appWakeLockLastError='';
   renderAppWakeLockStatus();
-  if(appWakeLockWanted)await syncAppWakeLock(true);else await releaseAppWakeLock();
+  if(appWakeLockWanted){enableAppNoSleepFallback();await syncAppWakeLock(true)}else await releaseAppWakeLock(true);
   renderAppWakeLockStatus();
 };
 setInterval(()=>{
   const shouldRetryNative=shouldRequestNativeWakeLock({wanted:appWakeLockWanted,hidden:document.hidden,nativeSupported:hasNativeWakeLock(),nativeActive:nativeWakeLockActive(),requestPending:!!appWakeLockRequest});
   if(shouldRetryNative)void syncAppWakeLock();
-},15000);
+},5000);
 void syncAppWakeLock();
 function renderScore(){
   const m=state.match;
@@ -1885,17 +2001,34 @@ async function clearMatchReplayPlaylist(){
     button.disabled=!state.matchReplayPlaylistUrl;
   }
 }
-function renderHistory(){renderMatchReplay();const list=state.history.map((h,index)=>({h,index})).reverse();$('history').innerHTML=list.map(({h,index})=>`<div class="history-item"><div class="history-main"><strong>${esc((h.teams?.[0]||[]).map(pname).join('／'))} ${h.scores?.[0]??0}：${h.scores?.[1]??0} ${esc((h.teams?.[1]||[]).map(pname).join('／'))}</strong><div class="sub">${esc(h.time||'')}</div></div><div class="history-actions host-only"><button class="btn danger-outline" data-delete-history="${index}">刪除</button></div></div>`).join('')||'<p class="sub">尚無比賽紀錄。</p>';all('[data-delete-history]').forEach(btn=>btn.onclick=()=>deleteHistoryRecord(+btn.dataset.deleteHistory));applyRole()}
+function renderHistory(){renderMatchReplay();const list=state.history.map((h,index)=>({h,index})).reverse();$('history').innerHTML=list.map(({h,index})=>`<div class="history-item ${h.testMode?'test-record':''}"><div class="history-main"><strong>${h.testMode?'<span class="test-record-badge">測試</span> ':''}${esc((h.teams?.[0]||[]).map(pname).join('／'))} ${h.scores?.[0]??0}：${h.scores?.[1]??0} ${esc((h.teams?.[1]||[]).map(pname).join('／'))}</strong><div class="sub">${esc(h.time||'')}${h.testMode?' · 不計入戰績':''}</div></div><div class="history-actions host-only"><button class="btn danger-outline" data-delete-history="${index}">刪除</button></div></div>`).join('')||'<p class="sub">尚無比賽紀錄。</p>';all('[data-delete-history]').forEach(btn=>btn.onclick=()=>deleteHistoryRecord(+btn.dataset.deleteHistory));applyRole()}
 function deleteHistoryRecord(index){if(!isHost)return;const h=state.history[index];if(!h)return;const title=`${(h.teams?.[0]||[]).map(pname).join('／')} ${h.scores?.[0]??0}：${h.scores?.[1]??0} ${(h.teams?.[1]||[]).map(pname).join('／')}`;if(!confirm(`確定刪除這筆比賽紀錄？\n\n${title}\n${h.time||''}`))return;state.history.splice(index,1);renderAll();saveSoon()}
 function clearAllHistory(){if(!isHost)return;if(!state.history.length)return alert('目前沒有比賽紀錄。');if(!confirm(`即將刪除全部 ${state.history.length} 筆比賽紀錄。\n球員名單與目前比分不會被刪除。`))return;const text=prompt('為避免誤刪，請輸入「清空」：','');if(text!=='清空')return alert('輸入不正確，已取消清空。');state.history=[];renderAll();saveSoon();alert('全部比賽紀錄已清空。')}
-function renderAll(){renderRoster();renderAttendance();renderCourt();renderHistory();renderScore();renderDashboard();renderStats();renderPoll();renderChat();if(!$('shuttleTubeModal')?.classList.contains('hidden'))renderShuttleTubeManager();applyRole();renderAndroidRemote()}
-function startMatch(){dismissedResultKey='';const selected=state.court.filter(Boolean);if(selected.length!==4||new Set(selected).size!==4)return alert('請選擇四位不同球員。');const ids=teammateSafeLineup(selected);state.court=[...ids];reconcileWaitingQueue(ids);state.queueDraftChosen=[];state.lastLoserReplayPlayerId=null;state.matchRollback=null;randomizeScoreThemeAtMatchStart();state.match={active:true,players:[[ids[0],ids[1]],[ids[2],ids[3]]],scores:[0,0],rallies:[],serving:0,positions:[[0,1],[0,1]],winner:null,startedAt:new Date().toISOString()};scoreViewRequested=true;saveLiveScoreSoon();saveSoon();renderScore();renderDashboard()}
+function renderAll(){renderRoster();renderAttendance();renderCourt();renderHistory();renderScore();renderDashboard();renderStats();renderPoll();renderChat();renderTestMode();if(!$('shuttleTubeModal')?.classList.contains('hidden'))renderShuttleTubeManager();applyRole();renderAndroidRemote()}
+function renderTestMode(){
+  const enabled=!!state.testMode,currentMatchIsTest=!!state.match?.active&&!!state.match?.testMode,button=$('testModeToggle'),banner=$('testModeBanner');
+  if(button){button.setAttribute('aria-pressed',enabled?'true':'false');button.textContent=enabled?'🧪 關閉測試模式':'🧪 開啟測試模式';button.classList.toggle('test-mode-on',enabled)}
+  banner?.classList.toggle('hidden',!enabled&&!currentMatchIsTest);
+  if(banner)banner.textContent=enabled?'🧪 測試模式已開啟：完成的比賽不會寫入紀錄或戰績。':'🧪 目前這場仍是測試比賽，不會寫入紀錄或戰績。';
+}
+function toggleTestMode(){
+  if(!isHost)return;
+  const enabling=!state.testMode;
+  if(enabling&&!confirm('開啟測試模式？\n\n開啟後完成的比賽不會加入比賽紀錄，也不會影響任何戰績。'))return;
+  state.testMode=enabling;
+  if(enabling&&state.match.active&&state.match.winner===null)state.match.testMode=true;
+  renderTestMode();saveSoon();
+}
+function startMatch(){dismissedResultKey='';const selected=state.court.filter(Boolean);if(selected.length!==4||new Set(selected).size!==4)return alert('請選擇四位不同球員。');const ids=teammateSafeLineup(selected);state.court=[...ids];reconcileWaitingQueue(ids);state.queueDraftChosen=[];state.lastLoserReplayPlayerId=null;state.matchRollback=null;randomizeScoreThemeAtMatchStart();state.match={active:true,players:[[ids[0],ids[1]],[ids[2],ids[3]]],scores:[0,0],rallies:[],serving:0,positions:[[0,1],[0,1]],winner:null,testMode:!!state.testMode,startedAt:new Date().toISOString()};scoreViewRequested=true;saveLiveScoreSoon();saveSoon();renderScore();renderDashboard();renderTestMode()}
 function finishMatch(){
   const m=state.match;if(!m.active||m.winner===null)return;
   m.matchId=m.matchId||randomToken();let newlyRecorded=false,four=[];
-  if(!state.history.some(h=>h.matchId===m.matchId)){
-    newlyRecorded=true;state.matchRollback=createFinishedMatchRollback(state,m.matchId);const now=new Date();
-    state.history.push({matchId:m.matchId,time:now.toLocaleString('zh-TW'),endedAt:now.toISOString(),dateKey:localDateKey(now),monthKey:localMonthKey(now),teams:structuredClone(m.players),scores:[...m.scores],winner:m.winner});
+  const isTestMatch=!!m.testMode||!!state.testMode;
+  const firstCompletion=!state.history.some(h=>h.matchId===m.matchId);
+  if(firstCompletion){
+    const now=new Date();
+    newlyRecorded=true;state.matchRollback=createFinishedMatchRollback(state,m.matchId);
+    state.history.push({matchId:m.matchId,time:now.toLocaleString('zh-TW'),endedAt:now.toISOString(),dateKey:localDateKey(now),monthKey:localMonthKey(now),teams:structuredClone(m.players),scores:[...m.scores],winner:m.winner,testMode:isTestMatch});
     const winners=[...m.players[m.winner]],losers=[...m.players[1-m.winner]],previousCourt=m.players.flat();
     reconcileWaitingQueue(previousCourt);
     const randomValue=crypto.getRandomValues(new Uint32Array(1))[0],rotation=rotateAfterMatch({winners,losers,waitingQueue:state.waitingQueue,attendance:state.attendance,lastLoserReplayPlayerId:state.lastLoserReplayPlayerId,randomValue}),chosen=rotation.chosen;
@@ -1910,7 +2043,7 @@ function finishMatch(){
   }
   for(let i=0;i<4;i++){$('n'+i).innerHTML=options(four[i]||'');$('n'+i).value=four[i]||'';$('n'+i).onchange=updatePriority}
   updatePriority();
-  $('winnerTitle').textContent=`${m.winner===0?'A隊':'B隊'}獲勝`;
+  $('winnerTitle').textContent=`${m.winner===0?'A隊':'B隊'}獲勝${isTestMatch?'（測試，不計戰績）':''}`;
   $('finalScore').textContent=`${m.scores[0]}：${m.scores[1]}`;
   if(isHost)$('resultModal').classList.remove('hidden');else $('resultModal').classList.add('hidden');
   renderAll();
@@ -1938,7 +2071,7 @@ function startNext(){
   state.waitingQueue=projectedQueueForLineup(vals);state.queueDraftChosen=[];state.priority=state.waitingQueue[0]||null;
   state.court=[...vals];state.nextCall=null;state.matchRollback=null;
   randomizeScoreThemeAtMatchStart();
-  state.match={active:true,players:[[vals[0],vals[1]],[vals[2],vals[3]]],scores:[0,0],rallies:[],serving:0,positions:[[0,1],[0,1]],winner:null,startedAt:new Date().toISOString()};
+  state.match={active:true,players:[[vals[0],vals[1]],[vals[2],vals[3]]],scores:[0,0],rallies:[],serving:0,positions:[[0,1],[0,1]],winner:null,testMode:!!state.testMode,startedAt:new Date().toISOString()};
   scoreViewRequested=true;$('resultModal').classList.add('hidden');renderAll();saveLiveScoreSoon();saveSoon();if(isHost&&voiceEnabled&&finalCall)setTimeout(()=>speak(finalCall),180)
 }
 
@@ -2320,7 +2453,7 @@ async function endTodaySession(){
 }
 
 $('clearHistory').onclick=clearAllHistory;$('addPollOption').onclick=addPollOption;$('submitVote').onclick=submitPollVote;$('confirmNextEvent').onclick=confirmNextEvent;$('clearNextEvent').onclick=clearNextEvent;$('announceBtn').onclick=()=>{const text=calloutText();if(!text)return alert('目前尚未安排下一場。');speak(text)};$('monthPick').value=localMonthKey();$('monthPick').onchange=renderStats;$('thisMonthBtn').onclick=()=>{$('monthPick').value=localMonthKey();renderStats()};$('createRoom').onclick=createRoom;$('joinRoom').onclick=()=>enterRoom($('joinCode').value);$('favoriteRoomBtn').onclick=()=>{const r=roomRecord(roomId)||rememberRoom(roomId,isHost);updateRoomRecord(roomId,{favorite:!r.favorite})};$('renameRoomBtn').onclick=()=>{const r=roomRecord(roomId)||rememberRoom(roomId,isHost),name=prompt('替這台裝置上的球局取一個名稱：',r.name||'7B 羽球團');if(name===null)return;updateRoomRecord(roomId,{name:name.trim().slice(0,30)})};$('autoReturnRoom').checked=localStorage.getItem(ROOM_AUTO_KEY)==='1';$('autoReturnRoom').onchange=()=>localStorage.setItem(ROOM_AUTO_KEY,$('autoReturnRoom').checked?'1':'0');$('adminLoginBtn').onclick=async()=>{const pin=prompt('輸入管理員 PIN：');if(pin===null)return;const h=await sha256(pin.trim());if(!adminPinHash||h!==adminPinHash)return alert('PIN 不正確。');hostToken=(await getDoc(roomRef)).data().hostToken;localStorage.setItem(hostKey(roomId),hostToken);isHost=true;$('roleBadge').textContent='管理員';$('roleBadge').className='pill host';$('viewerNote').classList.add('hidden');applyRole();renderAll();alert('已切換為管理員模式。')};$('qrBtn').onclick=()=>{const url=currentUrl();$('qrImage').src='https://api.qrserver.com/v1/create-qr-code/?size=300x300&data='+encodeURIComponent(url);$('qrRoomCode').textContent='房間代碼：'+roomId;$('qrModal').classList.remove('hidden')};$('closeQr').onclick=()=>$('qrModal').classList.add('hidden');$('claimPlayer').onclick=async()=>{const p=player(editId);if(!p)return;if(p.ownerHash&&p.ownerHash!==selfHash&&!confirm(`「${p.name}」目前綁定在另一台裝置。確定這是你的資料，並改綁到目前裝置嗎？`))return;const updated={...p,ownerHash:selfHash};await saveSelfPlayer(updated);$('selfNote').textContent=`你已認領「${p.name}」，現在可在這台裝置修改姓名、球拍與備註。`;$('selfNote').classList.remove('hidden');state.roster=state.roster.map(x=>x.id===p.id?updated:x);updateProfilePermissions();renderRoster()};$('joinCode').onkeydown=e=>{if(e.key==='Enter')enterRoom(e.target.value)};$('leaveBtn').onclick=()=>{if(unsubscribe)unsubscribe();sessionStorage.setItem(ROOM_SKIP_AUTO_ONCE,'1');history.replaceState(null,'',location.pathname);location.reload()};$('shareBtn').onclick=async()=>{const url=currentUrl();try{await navigator.clipboard.writeText(url);alert(`觀看網址已複製。\n房間代碼：${roomId}`)}catch{prompt('複製觀看網址：',url)}};$('openPollReminder').onclick=()=>page(6);all('.tab').forEach(b=>b.onclick=()=>page(+b.dataset.page));$('addPlayer').onclick=()=>{const n=$('newName').value.trim();if(!n)return;if(state.roster.some(p=>p.name===n))return alert('已有相同姓名');state.roster.push({id:randomToken(),name:n,voiceName:defaultVoiceName(n),avatar:'',racket:'',racketTension:'',racketString:'',backupRacket:'',backupTension:'',backupString:'',note:'',favorite:false,ownerHash:''});$('newName').value='';renderAll();saveSoon()};$('allAttend').onclick=()=>{state.attendance=state.roster.map(p=>p.id);reconcileWaitingQueue();renderAll();saveSoon()};$('clearAttend').onclick=()=>{state.attendance=[];state.court=[];state.waitingQueue=[];state.queueDraftChosen=[];state.priority=null;renderAll();saveSoon()};$('goCourt').onclick=()=>{if(state.attendance.length<4)return alert('至少需要四位出席球員');if(state.court.length<4)state.court=state.attendance.slice(0,4);reconcileWaitingQueue(state.court);renderAll();page(3);saveSoon()};$('randomCourt').onclick=()=>{state.court=shuffle(state.attendance).slice(0,4);reconcileWaitingQueue(state.court);renderAll();saveSoon()};$('target').onchange=()=>{state.rules.target=Math.max(1,+$('target').value||11);saveSoon()};$('cap').onchange=()=>{state.rules.cap=Math.max(state.rules.target,+$('cap').value||15);saveSoon()};$('deuce').onchange=()=>{state.rules.deuce=$('deuce').value==='1';saveSoon()};$('startMatch').onclick=startMatch;$('resumeScore').onclick=()=>{if(!isHost||!state.match.active)return;scoreViewRequested=true;renderScore()};function addPointAndSpeak(team){if(!isHost||state.match.winner!==null)return;state.match.rallies.push(team);replay();if(voiceEnabled)setTimeout(announceScore,80)}const scoreSideA=$('namesA').closest('.score-side'),scoreSideB=$('namesB').closest('.score-side');scoreSideA.classList.add('clickable');scoreSideB.classList.add('clickable');scoreSideA.onclick=()=>addPointAndSpeak(0);scoreSideB.onclick=()=>addPointAndSpeak(1);$('scoreA').onclick=e=>{e.stopPropagation();addPointAndSpeak(0)};$('scoreB').onclick=e=>{e.stopPropagation();addPointAndSpeak(1)};$('undo').onclick=()=>{if(state.match.rallies.length){state.match.rallies.pop();replay()}};$('minusA').onclick=()=>{const i=state.match.rallies.lastIndexOf(0);if(i>=0){state.match.rallies.splice(i,1);replay()}};$('minusB').onclick=()=>{const i=state.match.rallies.lastIndexOf(1);if(i>=0){state.match.rallies.splice(i,1);replay()}};$('exitScore').onclick=()=>{scoreViewRequested=false;renderScore()};$('shuffleNext').onclick=()=>{const vals=shuffle([0,1,2,3].map(i=>$('n'+i).value));vals.forEach((v,i)=>{$('n'+i).value=v});updatePriority()};$('startNext').onclick=startNext;$('closeResult').onclick=()=>{dismissedResultKey=currentResultKey();$('resultModal').classList.add('hidden')};$('voiceToggle').onclick=()=>{voiceEnabled=!voiceEnabled;localStorage.setItem('bdV76Voice',voiceEnabled?'1':'0');if(!voiceEnabled&&'speechSynthesis'in window)window.speechSynthesis.cancel();updateVoiceButton()};$('speakerTest').onclick=speakerTest;$('audioHelp').onclick=()=>$('audioHelpModal').classList.remove('hidden');$('closeAudioHelp').onclick=()=>$('audioHelpModal').classList.add('hidden');$('editName').addEventListener('input',()=>profileDirty.name=true);$('editVoiceName').addEventListener('input',()=>profileDirty.voiceName=true);$('testVoiceName').onclick=()=>{if(!isHost)return;const p=player(editId);const name=$('editVoiceName').value.trim()||p?.name||'球員';speak(`請${name}準備上場。`)};$('editRacket').addEventListener('input',()=>profileDirty.racket=true);$('editRacketTension').addEventListener('input',()=>profileDirty.racketTension=true);$('editRacketString').addEventListener('input',()=>profileDirty.racketString=true);$('editBackupRacket').addEventListener('input',()=>profileDirty.backupRacket=true);$('editBackupTension').addEventListener('input',()=>profileDirty.backupTension=true);$('editBackupString').addEventListener('input',()=>profileDirty.backupString=true);$('editNote').addEventListener('input',()=>profileDirty.note=true);$('editPhoto').onchange=async e=>{const file=e.target.files?.[0];if(!file)return;try{pendingAvatar=await compressPhoto(file);refreshProfilePreview()}catch(err){alert(err.message||'照片處理失敗')}e.target.value=''};$('removePhoto').onclick=()=>{pendingAvatar='';refreshProfilePreview()};$('saveEdit').onclick=saveEdit;$('deletePlayer').onclick=()=>{if(!confirm('刪除這位球員？'))return;state.roster=state.roster.filter(p=>p.id!==editId);state.attendance=state.attendance.filter(x=>x!==editId);state.court=state.court.filter(x=>x!==editId);state.waitingQueue=state.waitingQueue.filter(x=>x!==editId);state.queueDraftChosen=state.queueDraftChosen.filter(x=>x!==editId);$('editModal').classList.add('hidden');renderAll();saveSoon()};$('closeEdit').onclick=()=>$('editModal').classList.add('hidden');$('playerSearch').addEventListener('input',renderRoster);$('playerSort').addEventListener('change',renderRoster);document.addEventListener('dblclick',e=>e.preventDefault(),{passive:false});
-$('leaveBtn').addEventListener('click',()=>{liveScoreUnsubscribe?.();chatUnsubscribe?.()},{capture:true});
+$('leaveBtn').addEventListener('click',()=>{liveScoreUnsubscribe?.();remoteControlUnsubscribe?.();chatUnsubscribe?.()},{capture:true});
 $('sendChat').onclick=sendChatMessage;
 $('claimPlayer').onclick=claimEditedPlayer;
 $('chatClaimHelp').onclick=()=>{
@@ -2434,6 +2567,7 @@ $('adminLoginBtn').onclick=async()=>{
 };
 $('confirmPollOption').addEventListener('change',updateConfirmOptionDetails);
 $('confirmRentalTotal').addEventListener('input',updateConfirmFeePreview);
+$('confirmParticipants').addEventListener('input',updateConfirmFeePreview);
 $('pollNote').addEventListener('input',()=>updateMapPreview('pollNote','pollLocationMap'));
 $('confirmLocation').addEventListener('input',()=>{$('confirmLocation').dataset.autoVenue='0';updateMapPreview('confirmLocation','confirmLocationMap')});
 $('statsSort').onchange=renderStats;
@@ -2463,7 +2597,7 @@ $('androidRemoteOpenCamera').onclick=()=>{
   try{window.BcmAndroid?.openVideoCamera?.()}catch{setAndroidRemoteFeedback('無法開啟相機錄影','error')}
 };
 $('androidRemoteRefresh').onclick=()=>location.reload();
-$('scoreRemoteBtn').onclick=openScoreRemoteSettings;
+$('scoreRemoteBtn')?.addEventListener('click',openScoreRemoteSettings);
 $('scoreRemoteQuickBtn').onclick=openScoreRemoteSettings;
 $('closeScoreRemote').onclick=closeScoreRemoteSettings;
 $('scoreRemoteToggle').onclick=()=>{scoreRemoteEnabled=!scoreRemoteEnabled;localStorage.setItem(SCORE_REMOTE_ENABLED_KEY,scoreRemoteEnabled?'1':'0');scoreRemoteStatusKind='';scoreRemoteStatusMessage=scoreRemoteEnabled?'已開啟，等待遙控器按鍵':'遙控計分已關閉';updateScoreRemoteUi()};
@@ -2475,6 +2609,7 @@ document.addEventListener('keypress',handleScoreRemoteKeyboard,true);
 document.addEventListener('keyup',handleScoreRemoteKeyboard,true);
 document.addEventListener('click',handleScoreRemoteVirtualClick,true);
 updateScoreRemoteUi();
+$('testModeToggle').onclick=toggleTestMode;
 if(!$('pollTime').value)$('pollTime').value='01:00';
 if(!$('pollEndTime').value)$('pollEndTime').value=suggestedEndTime($('pollTime').value);
 $('pollTime').addEventListener('change',()=>{$('pollEndTime').value=suggestedEndTime($('pollTime').value)});
@@ -2517,12 +2652,14 @@ refreshAppButtons.forEach(button=>button.onclick=()=>{refreshAppButtons.forEach(
 const fullscreenScoreBtn=$('fullscreenScore'),fullscreenScoreView=$('scoreView');
 const SCORE_THEME_KEY='bcmScoreThemeV1';
 const SCORE_RANDOM_THEME_KEY='bcmRandomScoreThemeV1';
-const SCORE_THEMES=new Set(['green','blue','black','purple','red','brown','teal','indigo','rose','amber','aurora','galaxy','sunset','waves']);
+const SCORE_THEMES=new Set(['gbc-grass','pudding-pattern','pudding-hug','pudding-collection','sanrio-party','three-eyed-pattern','vspo-hbl','blue-stage','the-star','vspo','vspo-snut','happy-panda','pudding-puppy','bow-kitty','girls-band','girls-band-fashion','jujutsu']);
 const scoreThemeSelect=$('scoreTheme');
 const randomThemeToggle=$('randomThemeToggle');
 let randomScoreThemeEnabled=localStorage.getItem(SCORE_RANDOM_THEME_KEY)==='1';
 function applyScoreTheme(value){
-  const theme=SCORE_THEMES.has(value)?value:'green';
+  if(value==='tricolor-girls')value='vspo-hbl';
+  if(value==='idol-group')value='vspo';
+  const theme=SCORE_THEMES.has(value)?value:'happy-panda';
   fullscreenScoreView.dataset.scoreTheme=theme;
   if(scoreThemeSelect)scoreThemeSelect.value=theme;
   localStorage.setItem(SCORE_THEME_KEY,theme);
@@ -2539,9 +2676,9 @@ function randomizeScoreThemeAtMatchStart(){
   if(!randomScoreThemeEnabled)return;
   const current=fullscreenScoreView.dataset.scoreTheme;
   const choices=[...SCORE_THEMES].filter(theme=>theme!==current);
-  applyScoreTheme(choices[Math.floor(Math.random()*choices.length)]||'green');
+  applyScoreTheme(choices[Math.floor(Math.random()*choices.length)]||'happy-panda');
 }
-applyScoreTheme(localStorage.getItem(SCORE_THEME_KEY)||'green');
+applyScoreTheme(localStorage.getItem(SCORE_THEME_KEY)||'happy-panda');
 if(scoreThemeSelect)scoreThemeSelect.onchange=()=>applyScoreTheme(scoreThemeSelect.value);
 updateRandomThemeButton();
 if(randomThemeToggle)randomThemeToggle.onclick=()=>{
@@ -2559,14 +2696,26 @@ function updateFullscreenButton(){
   fullscreenScoreBtn.title=fullscreen?'離開全螢幕':'進入全螢幕';
 }
 async function exitScoreFullscreen(){fullscreenScoreView?.classList.remove('immersive-mode');if(currentFullscreenElement()){const exit=document.exitFullscreen||document.webkitExitFullscreen;if(exit)await exit.call(document)}updateFullscreenButton()}
-async function toggleScoreFullscreen(){if(isScoreFullscreen())return exitScoreFullscreen();const enter=fullscreenScoreView?.requestFullscreen||fullscreenScoreView?.webkitRequestFullscreen;if(enter){try{await enter.call(fullscreenScoreView);return updateFullscreenButton()}catch{}}fullscreenScoreView?.classList.add('immersive-mode');updateFullscreenButton()}
+async function toggleScoreFullscreen(){
+  if(isScoreFullscreen())return exitScoreFullscreen();
+  appWakeLockWanted=true;
+  localStorage.setItem(APP_WAKE_LOCK_KEY,'1');
+  appWakeLockLastError='';
+  await syncAppWakeLock(true);
+  const enter=fullscreenScoreView?.requestFullscreen||fullscreenScoreView?.webkitRequestFullscreen;
+  if(enter){try{await enter.call(fullscreenScoreView);void syncAppWakeLock(true);scheduleAppWakeLockRetry(350);return updateFullscreenButton()}catch{}}
+  fullscreenScoreView?.classList.add('immersive-mode');
+  void syncAppWakeLock(true);
+  scheduleAppWakeLockRetry(350);
+  updateFullscreenButton()
+}
 if(fullscreenScoreBtn)fullscreenScoreBtn.onclick=toggleScoreFullscreen;
-document.addEventListener('fullscreenchange',updateFullscreenButton);
-document.addEventListener('webkitfullscreenchange',updateFullscreenButton);
+document.addEventListener('fullscreenchange',()=>{updateFullscreenButton();if(isScoreFullscreen())void syncAppWakeLock(true)});
+document.addEventListener('webkitfullscreenchange',()=>{updateFullscreenButton();if(isScoreFullscreen())void syncAppWakeLock(true)});
 const exitScoreBtn=$('exitScore');if(exitScoreBtn)exitScoreBtn.addEventListener('click',exitScoreFullscreen);
 
 window.bcmMarkBooted?.();
 if('serviceWorker'in navigator&&location.protocol.startsWith('http')){
-  const swRevision='20260805-379';
+  const swRevision='20260815-417';
   navigator.serviceWorker.register(`./sw.js?v=${swRevision}`,{updateViaCache:'none'}).then(registration=>registration.update()).catch(()=>{});
 }

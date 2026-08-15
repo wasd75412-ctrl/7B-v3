@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0"><dict>
+<key>CFBundleDisplayName</key><string>7B 循環錄影</string>
+<key>UILaunchScreen</key><dict/>
+<key>NSCameraUsageDescription</key><string>用於錄製羽球底線並保留最近一分鐘。</string>
+<key>NSMicrophoneUsageDescription</key><string>用於錄製比賽現場聲音。</string>
+<key>NSPhotoLibraryAddUsageDescription</key><string>用於把最近一分鐘片段保存到照片。</string>
+<key>UISupportedInterfaceOrientations</key><array><string>UIInterfaceOrientationLandscapeLeft</string><string>UIInterfaceOrientationLandscapeRight</string></array>
+</dict></plist>

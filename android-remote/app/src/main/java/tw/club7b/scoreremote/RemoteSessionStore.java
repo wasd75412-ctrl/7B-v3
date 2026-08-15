@@ -98,5 +98,9 @@ final class RemoteSessionStore {
         boolean isReady() {
             return roomId.length() == 6 && hostAuthorized && matchActive;
         }
+
+        boolean isAuthorized() {
+            return roomId.length() == 6 && hostAuthorized;
+        }
     }
 }

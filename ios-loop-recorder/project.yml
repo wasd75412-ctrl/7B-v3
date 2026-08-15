@@ -1,0 +1,15 @@
+name: SevenBLoopRecorder
+options:
+  bundleIdPrefix: tw.club7b
+targets:
+  SevenBLoopRecorder:
+    type: application
+    platform: iOS
+    deploymentTarget: "16.0"
+    sources: [Sources]
+    info:
+      path: Sources/Info.plist
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: tw.club7b.looprecorder
+        SWIFT_VERSION: 5.0
