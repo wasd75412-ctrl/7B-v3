@@ -331,7 +331,7 @@ function decodeState(d){
       dateKey:h.dateKey||'',
       monthKey:h.monthKey||''
     }
-  }):[];
+  }).filter(h=>!h.testMode):[];
   return {
     ...base,...d,
     testMode:!!d.testMode,
@@ -1733,6 +1733,7 @@ function reopenRecordedMatch(){
   const matchId=state.match?.matchId,result=reopenFinishedMatchState(state,matchId);
   if(!result.reopened)return false;
   state.history=result.history;state.waitingQueue=result.waitingQueue;state.queueDraftChosen=result.queueDraftChosen;state.priority=result.priority;state.nextCall=result.nextCall;state.court=result.court;state.lastLoserReplayPlayerId=result.lastLoserReplayPlayerId;state.matchRollback=null;
+  state.match.testCompleted=false;
   dismissedResultKey='';$('resultModal').classList.add('hidden');
   clearTimeout(matchAutoBackupTimer);matchAutoBackupTimer=null;
   if(isHost&&roomId&&matchId)void deleteDoc(backupDocRef(`auto_${matchId}`)).catch(error=>console.warn('撤回比賽時移除舊自動備份失敗',error));
@@ -2024,11 +2025,13 @@ function finishMatch(){
   const m=state.match;if(!m.active||m.winner===null)return;
   m.matchId=m.matchId||randomToken();let newlyRecorded=false,four=[];
   const isTestMatch=!!m.testMode||!!state.testMode;
-  const firstCompletion=!state.history.some(h=>h.matchId===m.matchId);
+  if(isTestMatch)state.history=state.history.filter(h=>!h.testMode);
+  const firstCompletion=isTestMatch?!m.testCompleted:!state.history.some(h=>h.matchId===m.matchId);
   if(firstCompletion){
     const now=new Date();
     newlyRecorded=true;state.matchRollback=createFinishedMatchRollback(state,m.matchId);
-    state.history.push({matchId:m.matchId,time:now.toLocaleString('zh-TW'),endedAt:now.toISOString(),dateKey:localDateKey(now),monthKey:localMonthKey(now),teams:structuredClone(m.players),scores:[...m.scores],winner:m.winner,testMode:isTestMatch});
+    if(isTestMatch)m.testCompleted=true;
+    else state.history.push({matchId:m.matchId,time:now.toLocaleString('zh-TW'),endedAt:now.toISOString(),dateKey:localDateKey(now),monthKey:localMonthKey(now),teams:structuredClone(m.players),scores:[...m.scores],winner:m.winner});
     const winners=[...m.players[m.winner]],losers=[...m.players[1-m.winner]],previousCourt=m.players.flat();
     reconcileWaitingQueue(previousCourt);
     const randomValue=crypto.getRandomValues(new Uint32Array(1))[0],rotation=rotateAfterMatch({winners,losers,waitingQueue:state.waitingQueue,attendance:state.attendance,lastLoserReplayPlayerId:state.lastLoserReplayPlayerId,randomValue}),chosen=rotation.chosen;
@@ -2047,7 +2050,7 @@ function finishMatch(){
   $('finalScore').textContent=`${m.scores[0]}：${m.scores[1]}`;
   if(isHost)$('resultModal').classList.remove('hidden');else $('resultModal').classList.add('hidden');
   renderAll();
-  if(newlyRecorded&&isHost){
+  if(newlyRecorded&&isHost&&!isTestMatch){
     void saveCompletedMatchStatsNow().catch(error=>console.warn('賽後戰績優先同步失敗，已排入完整資料重試',error));
     saveSoon(420);
     clearTimeout(matchAutoBackupTimer);matchAutoBackupTimer=setTimeout(()=>{matchAutoBackupTimer=null;createCloudBackup('auto',{id:`auto_${m.matchId}`,silent:true,system:true,replace:true}).then(loadBackups).catch(e=>console.warn('賽後備份失敗',e))},1200)

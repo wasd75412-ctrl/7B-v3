@@ -68,7 +68,10 @@ test('removes the old score remote from More and provides a no-stats test mode',
   assert.match(moreMenu,/id="testModeToggle"/);
   assert.match(html,/id="testModeBanner"/);
   assert.match(mainSource,/const isTestMatch=!!m\.testMode\|\|!!state\.testMode/);
-  assert.match(mainSource,/testMode:isTestMatch/);
+  assert.match(mainSource,/if\(isTestMatch\)m\.testCompleted=true/);
+  assert.match(mainSource,/else state\.history\.push/);
+  assert.match(mainSource,/\.filter\(h=>!h\.testMode\)/);
+  assert.match(mainSource,/if\(newlyRecorded&&isHost&&!isTestMatch\)/);
   assert.match(mainSource,/function scoredHistory\(\)\{return state\.history\.filter\(h=>!h\.testMode\)\}/);
 });
 
