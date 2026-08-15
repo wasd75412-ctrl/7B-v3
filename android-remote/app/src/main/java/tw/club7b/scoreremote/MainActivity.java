@@ -15,7 +15,6 @@ import android.os.SystemClock;
 import android.os.VibrationEffect;
 import android.os.Vibrator;
 import android.os.VibratorManager;
-import android.provider.MediaStore;
 import android.provider.Settings;
 import android.view.KeyEvent;
 import android.view.ViewGroup;
@@ -34,8 +33,10 @@ import java.util.concurrent.atomic.AtomicBoolean;
 public final class MainActivity extends Activity {
     private static final String APP_HOST = "frolicking-taffy-4c3e5b.netlify.app";
     private static final String APP_URL = "https://" + APP_HOST + "/?androidRemote=1";
-    private static final long MISSING_KEY_UP_DELAY_MS = 800L;
-    private static final long ACTION_DEBOUNCE_MS = 240L;
+    private static final long MISSING_KEY_UP_DELAY_MS = 575L;
+    private static final long ACTION_DEBOUNCE_MS = 300L;
+    private static final long UNDO_DEBOUNCE_MS = 600L;
+    private static final long DOUBLE_PRESS_MS = 400L;
     private static final long CAMERA_PRECONNECT_TIMEOUT_MS = 5000L;
 
     private final VolumeKeyInterpreter volumeKeys = new VolumeKeyInterpreter();
@@ -44,7 +45,11 @@ public final class MainActivity extends Activity {
     private WebView webView;
     private Runnable pendingLongPress;
     private Runnable pendingKeyFallback;
-    private long lastActionAt;
+    private Runnable pendingShortPress;
+    private int pendingShortPressKey = KeyEvent.KEYCODE_UNKNOWN;
+    private long pendingShortPressAt;
+    private long lastPointActionAt;
+    private long lastUndoActionAt;
     private volatile boolean activityStarted;
     private volatile boolean recordingModeEnabled;
     private BackgroundScoreController backgroundScoreController;
@@ -144,7 +149,7 @@ public final class MainActivity extends Activity {
             cancelMissingKeyUpFallback();
             action = volumeKeys.onKeyUp(keyCode, event.getEventTime());
         }
-        if (action != VolumeKeyInterpreter.Action.NONE) sendRemoteAction(action);
+        if (action != VolumeKeyInterpreter.Action.NONE) handleResolvedRemoteAction(action, keyCode, event.getEventTime());
         return true;
     }
 
@@ -174,7 +179,7 @@ public final class MainActivity extends Activity {
         pendingKeyFallback = () -> {
             pendingKeyFallback = null;
             VolumeKeyInterpreter.Action action = volumeKeys.onMissingKeyUp(keyCode);
-            if (action != VolumeKeyInterpreter.Action.NONE) sendRemoteAction(action);
+            if (action != VolumeKeyInterpreter.Action.NONE) handleResolvedRemoteAction(action, keyCode, SystemClock.uptimeMillis());
         };
         keyHandler.postDelayed(pendingKeyFallback, MISSING_KEY_UP_DELAY_MS);
     }
@@ -183,6 +188,47 @@ public final class MainActivity extends Activity {
         if (pendingKeyFallback == null) return;
         keyHandler.removeCallbacks(pendingKeyFallback);
         pendingKeyFallback = null;
+    }
+
+    private void handleResolvedRemoteAction(VolumeKeyInterpreter.Action action, int keyCode, long eventTime) {
+        if (action == VolumeKeyInterpreter.Action.UNDO) {
+            cancelPendingShortPress();
+            sendRemoteAction(action);
+            return;
+        }
+        if (pendingShortPress != null && pendingShortPressKey == keyCode && eventTime - pendingShortPressAt <= DOUBLE_PRESS_MS) {
+            cancelPendingShortPress();
+            sendRemoteFullscreenCommand();
+            return;
+        }
+        cancelPendingShortPress();
+        pendingShortPressKey = keyCode;
+        pendingShortPressAt = eventTime;
+        pendingShortPress = () -> {
+            pendingShortPress = null;
+            pendingShortPressKey = KeyEvent.KEYCODE_UNKNOWN;
+            sendRemoteAction(action);
+        };
+        keyHandler.postDelayed(pendingShortPress, DOUBLE_PRESS_MS);
+    }
+
+    private void cancelPendingShortPress() {
+        if (pendingShortPress != null) keyHandler.removeCallbacks(pendingShortPress);
+        pendingShortPress = null;
+        pendingShortPressKey = KeyEvent.KEYCODE_UNKNOWN;
+        pendingShortPressAt = 0L;
+    }
+
+    private void sendRemoteFullscreenCommand() {
+        if (webView == null) return;
+        webView.post(() -> webView.evaluateJavascript(
+                "(function(){return !!(window.bcmAndroidRemoteFullscreen&&window.bcmAndroidRemoteFullscreen());})()",
+                result -> {
+                    boolean accepted = "true".equals(result);
+                    Toast.makeText(MainActivity.this, accepted ? "已送出遙控器雙按指令" : "目前無法執行雙按功能", Toast.LENGTH_SHORT).show();
+                    vibrate(accepted ? 70L : 28L);
+                }
+        ));
     }
 
     private void notifyKeyDetected(int keyCode) {
@@ -197,8 +243,13 @@ public final class MainActivity extends Activity {
     private void sendRemoteAction(VolumeKeyInterpreter.Action action) {
         if (webView == null) return;
         long now = SystemClock.uptimeMillis();
-        if (now - lastActionAt < ACTION_DEBOUNCE_MS) return;
-        lastActionAt = now;
+        if (action == VolumeKeyInterpreter.Action.UNDO) {
+            if (now - lastUndoActionAt < UNDO_DEBOUNCE_MS) return;
+            lastUndoActionAt = now;
+        } else {
+            if (now - lastPointActionAt < ACTION_DEBOUNCE_MS) return;
+            lastPointActionAt = now;
+        }
         String command;
         String successMessage;
         switch (action) {
@@ -275,7 +326,7 @@ public final class MainActivity extends Activity {
     }
 
     private void openVideoCamera() {
-        Intent intent = new Intent(MediaStore.INTENT_ACTION_VIDEO_CAMERA);
+        Intent intent = new Intent(this, LoopCameraActivity.class);
         if (intent.resolveActivity(getPackageManager()) == null) {
             Toast.makeText(this, "找不到可用的錄影相機", Toast.LENGTH_LONG).show();
             return;
@@ -379,6 +430,7 @@ public final class MainActivity extends Activity {
     protected void onDestroy() {
         cancelLongPress();
         cancelMissingKeyUpFallback();
+        cancelPendingShortPress();
         RemoteKeyRelay.clearListener(remoteKeyListener);
         if (webView != null) {
             webView.stopLoading();

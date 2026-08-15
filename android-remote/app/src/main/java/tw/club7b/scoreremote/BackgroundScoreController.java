@@ -8,6 +8,7 @@ import com.google.firebase.firestore.DocumentSnapshot;
 import com.google.firebase.firestore.FieldValue;
 import com.google.firebase.firestore.FirebaseFirestore;
 import com.google.firebase.firestore.Source;
+import com.google.firebase.firestore.SetOptions;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -25,6 +26,10 @@ final class BackgroundScoreController {
     }
 
     interface WarmUpCallback {
+        void onComplete(boolean success, String message);
+    }
+
+    interface FullscreenCallback {
         void onComplete(boolean success, String message);
     }
 
@@ -70,6 +75,32 @@ final class BackgroundScoreController {
                 .addOnFailureListener(error -> callback.onComplete(false, errorMessage(error)));
     }
 
+    void toggleScoreFullscreen(FullscreenCallback callback) {
+        RemoteSessionStore.Session session = RemoteSessionStore.getSession(context);
+        if (!session.isReady()) {
+            callback.onComplete(false, "請先連接球局並開始比賽");
+            return;
+        }
+        DocumentReference liveScore = liveScoreReference(session);
+        DocumentReference remoteControl = remoteControlReference(session);
+        firestore.runTransaction(transaction -> {
+            DocumentSnapshot snapshot = transaction.get(liveScore);
+            if (!snapshot.exists()) throw new IllegalStateException("找不到即時比分");
+            Map<String, Object> match = mapValue(snapshot.get("match"));
+            boolean finished = match.get("winner") != null;
+            Map<String, Object> command = new HashMap<>();
+            command.put("id", java.util.UUID.randomUUID().toString());
+            command.put("createdAt", FieldValue.serverTimestamp());
+            Map<String, Object> updates = new HashMap<>();
+            updates.put(finished ? "undoFinishedCommand" : "fullscreenCommand", command);
+            updates.put("updatedAt", FieldValue.serverTimestamp());
+            transaction.set(remoteControl, updates, SetOptions.merge());
+            return finished;
+        })
+                .addOnSuccessListener(finished -> callback.onComplete(true, finished ? "已撤回誤觸結束" : "已切換計分模式全螢幕"))
+                .addOnFailureListener(error -> callback.onComplete(false, errorMessage(error)));
+    }
+
     private synchronized void processNext() {
         Request request = pending.pollFirst();
         if (request == null) {
@@ -78,44 +109,21 @@ final class BackgroundScoreController {
         }
         processing = true;
         RemoteSessionStore.Session session = RemoteSessionStore.getSession(context);
-        if (!session.isReady()) {
-            complete(request, false, "請先連接球局、登入管理員並開始比賽");
+        if (!session.isAuthorized()) {
+            complete(request, false, "請先連接球局並登入管理員");
             return;
         }
 
-        DocumentReference liveScore = liveScoreReference(session);
-        firestore.runTransaction(transaction -> {
-            DocumentSnapshot snapshot = transaction.get(liveScore);
-            if (!snapshot.exists()) throw new IllegalStateException("找不到即時比分，請回 App 重新整理");
-            Map<String, Object> match = mapValue(snapshot.get("match"));
-            if (!Boolean.TRUE.equals(match.get("active"))) throw new IllegalStateException("目前沒有進行中的比賽");
-            if (match.get("winner") != null) throw new IllegalStateException("本場比賽已結束");
-
-            List<Integer> rallies = integerList(match.get("rallies"));
-            if (request.action == VolumeKeyInterpreter.Action.UNDO) {
-                if (rallies.isEmpty()) throw new IllegalStateException("目前沒有可撤銷的分數");
-                rallies.remove(rallies.size() - 1);
-            } else {
-                rallies.add(request.action == VolumeKeyInterpreter.Action.TEAM_A_PLUS ? 0 : 1);
-            }
-
-            ScoreReplay.Result result = ScoreReplay.fromRallies(
-                    rallies,
-                    session.target,
-                    session.cap,
-                    session.deuce
-            );
-            Map<String, Object> updates = new HashMap<>();
-            updates.put("match.rallies", result.rallies);
-            updates.put("match.scores", result.scores);
-            updates.put("match.serving", result.serving);
-            updates.put("match.posA", result.posA);
-            updates.put("match.posB", result.posB);
-            updates.put("match.winner", result.winner);
-            updates.put("updatedAt", FieldValue.serverTimestamp());
-            transaction.update(liveScore, updates);
-            return result;
-        }).addOnSuccessListener(result -> complete(request, true, successMessage(request.action, result)))
+        DocumentReference remoteControl = remoteControlReference(session);
+        Map<String, Object> command = new HashMap<>();
+        command.put("id", java.util.UUID.randomUUID().toString());
+        command.put("action", request.action == VolumeKeyInterpreter.Action.UNDO ? "undo" : request.action == VolumeKeyInterpreter.Action.TEAM_A_PLUS ? "teamAPlus" : "teamBPlus");
+        command.put("createdAt", FieldValue.serverTimestamp());
+        Map<String, Object> commandUpdates = new HashMap<>();
+        commandUpdates.put("remoteActionCommand", command);
+        commandUpdates.put("updatedAt", FieldValue.serverTimestamp());
+        remoteControl.set(commandUpdates, SetOptions.merge())
+                .addOnSuccessListener(unused -> complete(request, true, "已送出遙控器指令"))
                 .addOnFailureListener(error -> complete(request, false, errorMessage(error)));
     }
 
@@ -123,6 +131,13 @@ final class BackgroundScoreController {
         return firestore.collection("badmintonRooms")
                 .document(session.roomId)
                 .collection("liveScore")
+                .document("current");
+    }
+
+    private DocumentReference remoteControlReference(RemoteSessionStore.Session session) {
+        return firestore.collection("badmintonRooms")
+                .document(session.roomId)
+                .collection("remoteControl")
                 .document("current");
     }
 

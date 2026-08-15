@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {createLiveScoreData,decodeLiveMatch,encodeLiveMatch,generalRoomStateWithoutMatch,liveMatchKey,shouldAnnounceSyncedLiveScore,shouldShowScoreView,LIVE_SCORE_SCHEMA_VERSION} from '../src/live-score.js';
+import {createLiveScoreData,decodeLiveMatch,encodeLiveMatch,generalRoomStateWithoutMatch,liveMatchKey,shouldAnnounceSyncedLiveScore,shouldApplyIncomingLiveMatch,shouldKeepLatestLiveMatch,shouldShowScoreView,LIVE_SCORE_SCHEMA_VERSION} from '../src/live-score.js';
 
 test('encodes Firestore-safe live score without nested arrays',()=>{
   const data=createLiveScoreData({
@@ -11,6 +11,7 @@ test('encodes Firestore-safe live score without nested arrays',()=>{
     serving:1,
     positions:[[1,0],[0,1]],
     winner:null,
+    scoreFont:'orbitron',
     startedAt:'2026-07-22T00:00:00.000Z'
   });
 
@@ -18,17 +19,19 @@ test('encodes Firestore-safe live score without nested arrays',()=>{
   assert.deepEqual(data.match.teamA,['a','b']);
   assert.deepEqual(data.match.teamB,['c','d']);
   assert.equal(Array.isArray(data.match.teamA[0]),false);
+  assert.equal(data.match.scoreFont,'orbitron');
   assert.equal(JSON.stringify(data).length<1000,true);
 });
 
 test('decodes live score while preserving compatible fallback fields',()=>{
   const fallback={active:false,players:[[],[]],scores:[0,0],rallies:[],serving:0,positions:[[0,1],[0,1]],winner:null,custom:'keep'};
-  const decoded=decodeLiveMatch({match:{active:true,teamA:['a','b'],teamB:['c','d'],scores:[11,8],rallies:[0,1],serving:0,posA:[1,0],posB:[0,1],winner:0,matchId:'m1',startedAt:'now'}},fallback);
+  const decoded=decodeLiveMatch({match:{active:true,teamA:['a','b'],teamB:['c','d'],scores:[11,8],rallies:[0,1],serving:0,posA:[1,0],posB:[0,1],winner:0,matchId:'m1',scoreFont:'bungee',startedAt:'now'}},fallback);
 
   assert.deepEqual(decoded.players,[['a','b'],['c','d']]);
   assert.deepEqual(decoded.positions,[[1,0],[0,1]]);
   assert.deepEqual(decoded.scores,[11,8]);
   assert.equal(decoded.winner,0);
+  assert.equal(decoded.scoreFont,'bungee');
   assert.equal(decoded.custom,'keep');
 });
 
@@ -59,6 +62,18 @@ test('does not announce initial, hidden, disabled, or Android remote snapshots',
     {...ready,matchActive:false},
     {...ready,voiceEnabled:false}
   ])assert.equal(shouldAnnounceSyncedLiveScore(blocked),false);
+});
+
+test('does not restore an old match while a newly started match is being written',()=>{
+  assert.equal(shouldApplyIncomingLiveMatch({isHost:true,writePending:true,currentMatchId:'new-match',incomingMatchId:'old-match'}),false);
+  assert.equal(shouldApplyIncomingLiveMatch({isHost:true,writePending:true,currentMatchId:'new-match',incomingMatchId:'new-match'}),true);
+  assert.equal(shouldApplyIncomingLiveMatch({isHost:false,writePending:false,currentMatchId:'old-match',incomingMatchId:'new-match'}),true);
+});
+
+test('keeps the live match authoritative when a stale room snapshot arrives',()=>{
+  assert.equal(shouldKeepLatestLiveMatch({liveScoreReady:true,hasLatestLiveMatch:true}),true);
+  assert.equal(shouldKeepLatestLiveMatch({liveScoreReady:false,hasLatestLiveMatch:true}),false);
+  assert.equal(shouldKeepLatestLiveMatch({liveScoreReady:true,hasLatestLiveMatch:false}),false);
 });
 
 test('keeps general admin writes separate from the live match',()=>{

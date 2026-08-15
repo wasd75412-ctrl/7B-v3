@@ -1,5 +1,5 @@
-const CACHE='7b-bcm-20260805-player-delete-queue-fairness-379';
-const ASSETS=['./manifest.webmanifest','./icons/icon-180.png','./icons/icon-192.png','./icons/icon-512.png','./icons/icon-maskable-512.png','./assets/7b-score-icon.png','./assets/7b-logo-full.png','./assets/fonts/jason-handwriting-9-brand.woff2?v=20260714-277'];
+const CACHE='7b-bcm-20260815-vspo-snut-low-score-420';
+const ASSETS=['./manifest.webmanifest','./icons/icon-180.png','./icons/icon-192.png','./icons/icon-512.png','./icons/icon-maskable-512.png','./assets/7b-score-icon.png','./assets/7b-logo-full.png','./assets/fonts/jason-handwriting-9-brand.woff2?v=20260714-277','./assets/fonts/score/audiowide.ttf','./assets/fonts/score/black-ops-one.ttf','./assets/fonts/score/bungee.ttf','./assets/fonts/score/monoton.ttf','./assets/fonts/score/orbitron-900.ttf','./assets/fonts/score/oxanium-800.ttf','./assets/fonts/score/press-start-2p.ttf','./assets/fonts/score/russo-one.ttf'];
 
 async function installAppShell(){
   const cache=await caches.open(CACHE);

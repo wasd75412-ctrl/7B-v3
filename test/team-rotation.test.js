@@ -19,7 +19,7 @@ test('splits teammates before a third consecutive game',()=>{
   assert.equal(pairs(lineup).includes('C|D'),false);
 });
 
-test('allows former teammates again after they have been split',()=>{
+test('keeps former teammates eligible but prefers a less-used pairing',()=>{
   const history=[
     game(['A','B'],['C','D']),
     game(['A','B'],['C','D']),
@@ -27,10 +27,29 @@ test('allows former teammates again after they have been split',()=>{
   ];
   const lineup=arrangeTeamsWithTeammateLimit(['A','B','C','D'],history,0);
   assert.equal(consecutiveTeammateGames(history,'A','B'),0);
-  assert.deepEqual(pairs(lineup),['A|B','C|D']);
+  assert.equal(lineupExceedsTeammateLimit(lineup,history),false);
+  assert.deepEqual(pairs(lineup),['A|D','B|C']);
 });
 
 test('ignores games where one teammate was resting',()=>{
   const history=[game(['A','B'],['C','D']),game(['A','E'],['F','G'])];
   assert.equal(consecutiveTeammateGames(history,'A','B'),1);
+});
+
+test('prefers the least-used teammate pairing from today',()=>{
+  const history=[
+    game(['A','B'],['C','D']),
+    game(['A','C'],['B','D'])
+  ];
+  const lineup=arrangeTeamsWithTeammateLimit(['A','B','C','D'],history,0);
+  assert.deepEqual(pairs(lineup),['A|D','B|C']);
+});
+
+test('randomizes only between pairings with the same repeat count',()=>{
+  const history=[game(['A','B'],['C','D'])];
+  const first=arrangeTeamsWithTeammateLimit(['A','B','C','D'],history,0);
+  const second=arrangeTeamsWithTeammateLimit(['A','B','C','D'],history,1);
+  assert.notDeepEqual(pairs(first),pairs(second));
+  assert.equal(pairs(first).includes('A|B'),false);
+  assert.equal(pairs(second).includes('A|B'),false);
 });

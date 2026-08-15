@@ -44,7 +44,6 @@
           <button id="wakeLockBtn" class="btn" type="button" aria-pressed="false">☀️ 檢查恆亮狀態…</button>
           <button id="shareBtn" class="btn" type="button">🔗 分享球局</button>
           <button id="adminNoticeManagerBtn" class="btn host-only" type="button">📣 事務公告</button>
-          <button id="scoreRemoteBtn" class="btn host-only" type="button" aria-pressed="false">🎮 比分遙控器</button>
           <button id="leaveBtn" class="btn danger-outline room-leave-btn" type="button">離開房間</button>
           <div id="wakeLockFeedback" class="wake-lock-feedback pending" role="status" aria-live="polite">正在確認螢幕恆亮狀態…</div>
         </div>
@@ -60,17 +59,19 @@
             <button id="shuttleTubeManagerBtn" class="btn host-only" type="button">🏸 球桶管理</button>
             <button id="backupCenterBtn" class="btn" type="button">☁️ 備份中心</button>
             <button id="pushTestBtn" class="btn" type="button">📳 測試通知</button>
-            <label class="app-theme-control" for="appThemeSelect"><span>🎨 整體背景</span><select id="appThemeSelect" class="viewer-enabled" aria-label="選擇整體背景"><option value="default">雲霧藍</option><option value="court">羽球場綠</option><option value="ocean">海洋藍</option><option value="sunset">夕陽橘</option><option value="lavender">薰衣草紫</option><option value="rose">櫻花粉</option><option value="midnight">深夜藍</option><option value="dawn">晨曦金</option><option value="mint">薄荷青</option><option value="peach">蜜桃粉</option><option value="lagoon">湖水綠</option><option value="starlight">星夜紫</option><option value="sand">暖沙杏</option></select></label>
+            <button id="testModeToggle" class="btn host-only" type="button" aria-pressed="false">🧪 開啟測試模式</button>
+            <label class="app-theme-control" for="appThemeSelect"><span>🎨 整體背景</span><select id="appThemeSelect" class="viewer-enabled" aria-label="選擇整體背景"><option value="default">雲霧藍</option><option value="court">羽球場綠</option><option value="ocean">海洋藍</option><option value="lavender">薰衣草紫</option><option value="rose">櫻花粉</option><option value="midnight">深夜藍</option><option value="dawn">晨曦金</option><option value="mint">薄荷青</option><option value="peach">蜜桃粉</option><option value="lagoon">湖水綠</option><option value="starlight">星夜紫</option><option value="sand">暖沙杏</option></select></label>
             <button id="randomAppThemeToggle" class="btn" type="button" aria-pressed="false">🎲 隨機背景</button>
           </div>
         </details>
       </div>
     </div>
   </header>
+  <div id="testModeBanner" class="test-mode-banner hidden" role="status">🧪 測試模式已開啟：完成的比賽不會寫入紀錄或戰績。</div>
   <div id="viewerNote" class="viewer-note hidden">你目前是觀看模式；可認領並修改自己的球員資料，也能在「出席」切換自己的到場狀態。</div><div id="selfNote" class="self-note hidden"></div>
   <div id="pollReminder" class="hidden"><button id="openPollReminder" class="hidden" type="button" aria-hidden="true" tabindex="-1"></button></div>
   <div id="cloudError" class="error-box hidden"></div>
-  <nav class="tabs"><button class="tab active" data-page="0">總覽</button><button class="tab" data-page="8">聊天<span id="chatTabBadge" class="chat-tab-badge hidden" aria-label="未讀聊天室訊息"></span></button><button class="tab" data-page="1">球員</button><button class="tab" data-page="2">出席</button><button class="tab viewer-hidden-tab" data-page="3">場上</button><button class="tab" data-page="4">戰績</button><button class="tab" data-page="5">紀錄</button><button class="tab" data-page="6">下次球局<span id="pollTabDot" class="poll-dot hidden" aria-label="有新的下次球局投票"></span></button></nav>
+  <nav class="tabs"><button class="tab active" data-page="0">總覽</button><button class="tab" data-page="8">聊天<span id="chatTabBadge" class="chat-tab-badge hidden" aria-label="未讀聊天室訊息"></span></button><button class="tab" data-page="1">球員</button><button class="tab" data-page="2">出席</button><button class="tab viewer-hidden-tab" data-page="3">場上</button><button class="tab" data-page="5">紀錄</button><button class="tab" data-page="4">戰績</button><button class="tab" data-page="6">下次球局<span id="pollTabDot" class="poll-dot hidden" aria-label="有新的下次球局投票"></span></button></nav>
 
 
   <section id="page0" class="card page">
@@ -170,10 +171,11 @@
         <label class="field"><span>確定日期與開始時間</span><select id="confirmPollOption" class="input"></select></label>
         <label class="field"><span>結束時間</span><input id="confirmEndTime" class="input" type="time"></label>
         <div class="field location-field"><label for="confirmLocation">場地</label><input id="confirmLocation" class="input" placeholder="例如：XX 羽球館"><a id="confirmLocationMap" class="map-preview-link hidden" href="#" target="_blank" rel="noopener noreferrer">📍 在 Google Maps 查看</a></div>
+        <label class="field"><span>預計參與人數</span><input id="confirmParticipants" class="input" type="number" min="1" step="1" inputmode="numeric" placeholder="依投票人數帶入"></label>
         <label class="field"><span>場租總額（元）</span><input id="confirmRentalTotal" class="input" type="number" min="1" step="1" inputmode="numeric" placeholder="例如：2400"></label>
         <label class="field"><span>每人需繳</span><input id="confirmPerPersonFee" class="input" type="text" readonly placeholder="自動計算"></label>
         <label class="field"><span>場地／場號備註（選填）</span><input id="confirmEventNote" class="input" maxlength="120" placeholder="例如：3、4 號場；請提前 10 分鐘到"></label>
-        <div id="confirmFeeHint" class="confirm-fee-hint">依選定日期的參加人數計算。</div>
+        <div id="confirmFeeHint" class="confirm-fee-hint">預設帶入選定日期的投票人數，可自行修改。</div>
       </div>
       <button id="confirmNextEvent" class="btn red wide poll-finish-btn">確認並結束投票</button>
     </div>
@@ -231,7 +233,7 @@
     <div class="score-actions">
       <label class="score-theme-control host-only" for="scoreTheme" title="選擇計分模式背景">
         <select id="scoreTheme" class="score-theme-select" aria-label="選擇計分模式背景" title="選擇計分模式背景">
-          <option value="green" aria-label="經典綠" title="經典綠">🟢</option><option value="blue" aria-label="深海藍" title="深海藍">🔵</option><option value="black" aria-label="午夜黑" title="午夜黑">⚫</option><option value="purple" aria-label="紫羅蘭" title="紫羅蘭">🟣</option><option value="red" aria-label="酒紅" title="酒紅">🔴</option><option value="brown" aria-label="木質棕" title="木質棕">🟤</option><option value="teal" aria-label="湖水青" title="湖水青">🩵</option><option value="indigo" aria-label="靛青" title="靛青">🔷</option><option value="rose" aria-label="玫瑰" title="玫瑰">🌸</option><option value="amber" aria-label="琥珀" title="琥珀">🟠</option><option value="aurora" aria-label="極光" title="極光">🌈</option><option value="galaxy" aria-label="星空" title="星空">🌌</option><option value="sunset" aria-label="晚霞" title="晚霞">🌅</option><option value="waves" aria-label="海浪" title="海浪">🌊</option>
+          <option value="gbc-grass" aria-label="GBC 草地團員" title="GBC 草地團員">🌿 GBC 草地團員</option><option value="pudding-pattern" aria-label="布丁狗圖案" title="布丁狗圖案">🍪 布丁狗圖案</option><option value="pudding-hug" aria-label="布丁狗抱抱" title="布丁狗抱抱">💛 布丁狗抱抱</option><option value="pudding-collection" aria-label="布丁狗收藏" title="布丁狗收藏">🍮 布丁狗收藏</option><option value="sanrio-party" aria-label="三麗鷗同樂會" title="三麗鷗同樂會">🎈 三麗鷗同樂會</option><option value="three-eyed-pattern" aria-label="三眼怪" title="三眼怪">👽 三眼怪</option><option value="vspo-hbl" aria-label="VSPO HBL" title="VSPO HBL">🌸 VSPO HBL</option><option value="blue-stage" aria-label="星街彗星" title="星街彗星">💎 星街彗星</option><option value="the-star" aria-label="星街彗星" title="星街彗星">⭐ 星街彗星</option><option value="vspo" aria-label="VSPO" title="VSPO">🎤 VSPO</option><option value="vspo-snut" aria-label="VSPO SNUT" title="VSPO SNUT">🌇 VSPO SNUT</option><option value="happy-panda" aria-label="開心熊貓" title="開心熊貓">🐼 開心熊貓</option><option value="pudding-puppy" aria-label="布丁狗" title="布丁狗">🍮 布丁狗</option><option value="bow-kitty" aria-label="Hello Kitty" title="Hello Kitty">🎀 Hello Kitty</option><option value="girls-band" aria-label="Girls Band Cry 團員" title="Girls Band Cry 團員">🎸 GBC 團員</option><option value="girls-band-fashion" aria-label="Girls Band Cry 時尚" title="Girls Band Cry 時尚">👗 GBC 時尚</option><option value="jujutsu" aria-label="咒術迴戰" title="咒術迴戰">🌀 咒術迴戰</option>
         </select>
       </label>
       <button id="randomThemeToggle" class="btn host-only" type="button" aria-label="開啟下一場隨機背景" title="下一場隨機背景" aria-pressed="false">🎲</button>
@@ -247,7 +249,7 @@
   </header>
   <div id="scoreRemoteIndicator" class="score-remote-indicator hidden" aria-live="polite"></div>
   <div id="matchPoint" class="match-point hidden">🔥 MATCH POINT</div>
-  <div class="scoreboard"><div class="score-watermark" aria-hidden="true"><img src="/assets/7b-score-icon.png" alt=""></div><article class="score-side a"><div class="score-title">A隊</div><div id="namesA" class="court-names"></div></article><div class="score-center"><div id="scoreA" class="score-number clickable" title="A隊加分">0</div><div class="score-divider"></div><div id="scoreB" class="score-number clickable" title="B隊加分">0</div></div><article class="score-side b"><div class="score-title">B隊</div><div id="namesB" class="court-names"></div></article></div>
+  <div class="scoreboard"><article class="score-side a"><div class="score-title">A隊</div><div id="namesA" class="court-names"></div></article><div class="score-center"><div id="scoreA" class="score-number clickable" title="A隊加分">0</div><div class="score-divider"></div><div id="scoreB" class="score-number clickable" title="B隊加分">0</div></div><article class="score-side b"><div class="score-title">B隊</div><div id="namesB" class="court-names"></div></article></div>
   <footer class="score-foot"><div class="server-control host-only"><span class="server-control-label">選擇發球員</span><div id="serverButtons" class="server-buttons"></div></div><span id="serveText">準備開賽</span><div class="score-actions host-only"><button id="minusA" class="btn">A −1</button><button id="minusB" class="btn">B −1</button></div></footer>
 </section>
 
@@ -278,14 +280,16 @@
   </div>
   <button id="androidRemoteUndo" class="android-remote-undo" type="button">↶ 撤銷上一分</button>
   <div id="androidRemoteFeedback" class="android-remote-feedback" role="status" aria-live="polite">等待快門遙控器按鍵</div>
-  <div class="android-remote-guide"><span><b>短按音量＋</b>A隊加分</span><span><b>短按音量－</b>B隊加分</span><span><b>按住任一鍵</b>撤銷上一分</span></div>
+  <div class="android-remote-guide"><span><b>短按音量＋</b>A隊加分</span><span><b>短按音量－</b>B隊加分</span><span><b>按住任一鍵</b>撤銷上一分</span><span><b>同一鍵按兩下</b>切換全螢幕</span></div>
 </section>
 
 <div id="scoreRemoteModal" class="modal hidden"><div class="modal-card score-remote-card">
   <div class="score-remote-head"><div><h2>🎮 藍牙比分遙控器</h2><p><strong>App 內不會直接配對藍牙。</strong>請先在 iPad「設定 → 藍牙」完成連接，再回來學習每顆按鍵。</p></div><button id="closeScoreRemote" class="btn" type="button" aria-label="關閉比分遙控器設定" title="關閉">✕</button></div>
   <div class="score-remote-enable"><div><strong>遙控計分</strong><span id="scoreRemoteStatus">目前未啟用</span></div><button id="scoreRemoteToggle" class="btn primary" type="button" aria-pressed="false">開啟</button></div>
   <div class="score-remote-note">按下「學習按鍵」後有 7 秒可按實體遙控器。新版同時偵測按下、放開與鍵盤式遙控點擊；iPad 音量鍵與純相機快門鍵仍不會傳給網頁。</div>
+  <div class="score-remote-note">同一顆已設定按鍵快速按兩下，可進入或退出全螢幕；單按仍執行原本的計分動作。</div>
   <div class="score-remote-bindings" aria-label="比分遙控器按鍵設定">
+    <div class="score-remote-row"><span class="score-remote-action">進入／退出全螢幕</span><kbd>同一按鍵按兩下</kbd><span class="score-remote-fixed">固定功能</span></div>
     <div class="score-remote-row"><span class="score-remote-action team-a">A隊 ＋1</span><kbd id="remoteBindingTeamAPlus">←</kbd><button class="btn" type="button" data-remote-learn="teamAPlus">學習按鍵</button></div>
     <div class="score-remote-row"><span class="score-remote-action team-b">B隊 ＋1</span><kbd id="remoteBindingTeamBPlus">→</kbd><button class="btn" type="button" data-remote-learn="teamBPlus">學習按鍵</button></div>
     <div class="score-remote-row"><span class="score-remote-action">撤銷上一分</span><kbd id="remoteBindingUndo">↓</kbd><button class="btn" type="button" data-remote-learn="undo">學習按鍵</button></div>

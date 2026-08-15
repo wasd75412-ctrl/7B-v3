@@ -1,0 +1,292 @@
+package tw.club7b.scoreremote;
+
+import android.Manifest;
+import android.content.ContentValues;
+import android.content.pm.PackageManager;
+import android.graphics.Color;
+import android.media.MediaCodec;
+import android.media.MediaExtractor;
+import android.media.MediaFormat;
+import android.media.MediaMetadataRetriever;
+import android.media.MediaMuxer;
+import android.os.Build;
+import android.os.Bundle;
+import android.os.Environment;
+import android.provider.MediaStore;
+import android.view.Gravity;
+import android.view.ViewGroup;
+import android.view.WindowManager;
+import android.widget.Button;
+import android.widget.FrameLayout;
+import android.widget.LinearLayout;
+import android.widget.TextView;
+import android.widget.Toast;
+import androidx.activity.ComponentActivity;
+import androidx.activity.result.ActivityResultLauncher;
+import androidx.activity.result.contract.ActivityResultContracts;
+import androidx.annotation.NonNull;
+import androidx.camera.core.CameraSelector;
+import androidx.camera.core.Preview;
+import androidx.camera.lifecycle.ProcessCameraProvider;
+import androidx.camera.video.FileOutputOptions;
+import androidx.camera.video.PendingRecording;
+import androidx.camera.video.Quality;
+import androidx.camera.video.QualitySelector;
+import androidx.camera.video.Recorder;
+import androidx.camera.video.Recording;
+import androidx.camera.video.VideoCapture;
+import androidx.camera.video.VideoRecordEvent;
+import androidx.camera.view.PreviewView;
+import androidx.core.content.ContextCompat;
+import com.google.common.util.concurrent.ListenableFuture;
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.OutputStream;
+import java.nio.ByteBuffer;
+import java.text.SimpleDateFormat;
+import java.util.ArrayDeque;
+import java.util.ArrayList;
+import java.util.Date;
+import java.util.List;
+import java.util.Locale;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+
+/** App-internal camera that keeps only eighteen completed ten-second clips. */
+public final class LoopCameraActivity extends ComponentActivity {
+    private static final long SEGMENT_MS = 10_000L;
+    private static final int SEGMENT_LIMIT = 18;
+    private final ArrayDeque<File> segments = new ArrayDeque<>();
+    private final ExecutorService io = Executors.newSingleThreadExecutor();
+    private final android.os.Handler handler = new android.os.Handler(android.os.Looper.getMainLooper());
+    private final Runnable rotate = this::stopSegment;
+    private PreviewView previewView;
+    private TextView status;
+    private VideoCapture<Recorder> videoCapture;
+    private Recording recording;
+    private File activeFile;
+    private boolean closing;
+    private boolean saveAfterFinalize;
+
+    private final ActivityResultLauncher<String[]> permissions = registerForActivityResult(
+            new ActivityResultContracts.RequestMultiplePermissions(), result -> {
+                if (Boolean.TRUE.equals(result.get(Manifest.permission.CAMERA))) startCamera();
+                else { Toast.makeText(this, "需要相機權限才能循環錄影", Toast.LENGTH_LONG).show(); finish(); }
+            });
+
+    @Override protected void onCreate(Bundle state) {
+        super.onCreate(state);
+        getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
+        RemoteSessionStore.setRecordingEnabled(this, true);
+        buildUi();
+        if (hasPermission(Manifest.permission.CAMERA)) startCamera();
+        else permissions.launch(new String[]{Manifest.permission.CAMERA, Manifest.permission.RECORD_AUDIO});
+    }
+
+    private void buildUi() {
+        FrameLayout root = new FrameLayout(this);
+        root.setBackgroundColor(Color.BLACK);
+        previewView = new PreviewView(this);
+        previewView.setScaleType(PreviewView.ScaleType.FILL_CENTER);
+        root.addView(previewView, new FrameLayout.LayoutParams(-1, -1));
+        LinearLayout bar = new LinearLayout(this);
+        bar.setGravity(Gravity.CENTER_VERTICAL); bar.setPadding(22, 14, 22, 14); bar.setBackgroundColor(0xB0000000);
+        status = new TextView(this); status.setTextColor(Color.WHITE); status.setTextSize(17f); status.setText("相機準備中…");
+        bar.addView(status, new LinearLayout.LayoutParams(0, -2, 1f));
+        Button save = new Button(this); save.setText("保存最近 3 分鐘"); save.setOnClickListener(v -> saveRecentVideo()); bar.addView(save);
+        Button close = new Button(this); close.setText("結束"); close.setOnClickListener(v -> finish()); bar.addView(close);
+        root.addView(bar, new FrameLayout.LayoutParams(-1, -2, Gravity.BOTTOM));
+        setContentView(root, new ViewGroup.LayoutParams(-1, -1));
+    }
+
+    private boolean hasPermission(String permission) {
+        return ContextCompat.checkSelfPermission(this, permission) == PackageManager.PERMISSION_GRANTED;
+    }
+
+    private void startCamera() {
+        ListenableFuture<ProcessCameraProvider> future = ProcessCameraProvider.getInstance(this);
+        future.addListener(() -> {
+            try {
+                ProcessCameraProvider provider = future.get();
+                Preview preview = new Preview.Builder().build();
+                preview.setSurfaceProvider(previewView.getSurfaceProvider());
+                Recorder recorder = new Recorder.Builder().setQualitySelector(QualitySelector.from(Quality.HD)).build();
+                videoCapture = VideoCapture.withOutput(recorder);
+                provider.unbindAll();
+                provider.bindToLifecycle(this, CameraSelector.DEFAULT_BACK_CAMERA, preview, videoCapture);
+                startSegment();
+            } catch (Exception error) {
+                status.setText("相機啟動失敗");
+                Toast.makeText(this, String.valueOf(error.getMessage()), Toast.LENGTH_LONG).show();
+            }
+        }, ContextCompat.getMainExecutor(this));
+    }
+
+    private void startSegment() {
+        if (closing || recording != null || videoCapture == null) return;
+        File dir = new File(getCacheDir(), "rolling-video");
+        if (!dir.exists() && !dir.mkdirs()) { Toast.makeText(this, "無法建立暫存區", Toast.LENGTH_LONG).show(); return; }
+        activeFile = new File(dir, "segment-" + System.currentTimeMillis() + ".mp4");
+        PendingRecording pending = videoCapture.getOutput().prepareRecording(this, new FileOutputOptions.Builder(activeFile).build());
+        if (hasPermission(Manifest.permission.RECORD_AUDIO)) pending = pending.withAudioEnabled();
+        recording = pending.start(ContextCompat.getMainExecutor(this), this::onVideoEvent);
+        status.setText("● 循環錄影中 · 僅暫存最近 3 分鐘");
+        handler.postDelayed(rotate, SEGMENT_MS);
+    }
+
+    private void stopSegment() { handler.removeCallbacks(rotate); if (recording != null) recording.stop(); }
+
+    private void onVideoEvent(@NonNull VideoRecordEvent event) {
+        if (!(event instanceof VideoRecordEvent.Finalize)) return;
+        VideoRecordEvent.Finalize finalized = (VideoRecordEvent.Finalize) event;
+        recording = null;
+        File finished = activeFile; activeFile = null;
+        if (!finalized.hasError() && finished != null && finished.length() > 0) {
+            segments.addLast(finished);
+            while (segments.size() > SEGMENT_LIMIT) { File old = segments.removeFirst(); if (!old.delete()) old.deleteOnExit(); }
+        } else if (finished != null) finished.delete();
+        if (saveAfterFinalize) { saveAfterFinalize = false; persistSegments(); }
+        if (!closing) startSegment();
+    }
+
+    private void saveRecentVideo() {
+        if (recording != null) {
+            saveAfterFinalize = true;
+            status.setText("正在完成目前片段…");
+            stopSegment();
+            return;
+        }
+        persistSegments();
+    }
+
+    private void persistSegments() {
+        List<File> snapshot = new ArrayList<>(segments);
+        if (snapshot.isEmpty()) { Toast.makeText(this, "第一段仍在錄製，請稍候", Toast.LENGTH_SHORT).show(); return; }
+        status.setText("正在合併最近 3 分鐘…");
+        io.execute(() -> {
+            String group = new SimpleDateFormat("yyyyMMdd-HHmmss", Locale.TAIWAN).format(new Date());
+            File merged = new File(getCacheDir(), "7B-" + group + ".mp4");
+            boolean saved = false;
+            try {
+                mergeSegments(snapshot, merged);
+                saved = copyToGallery(merged, group);
+            } catch (Exception ignored) {
+                saved = false;
+            } finally {
+                if (merged.exists()) merged.delete();
+            }
+            boolean success = saved;
+            runOnUiThread(() -> {
+                status.setText("● 循環錄影中 · 僅暫存最近 3 分鐘");
+                Toast.makeText(this, success ? "已保存一個最近 3 分鐘影片" : "影片合併或保存失敗", Toast.LENGTH_LONG).show();
+            });
+        });
+    }
+
+    private void mergeSegments(List<File> sources, File destination) throws Exception {
+        if (destination.exists() && !destination.delete()) throw new IllegalStateException("無法更新合併影片");
+        MediaExtractor first = new MediaExtractor();
+        first.setDataSource(sources.get(0).getAbsolutePath());
+        MediaMuxer muxer = new MediaMuxer(destination.getAbsolutePath(), MediaMuxer.OutputFormat.MUXER_OUTPUT_MPEG_4);
+        List<TrackInfo> tracks = new ArrayList<>();
+        try {
+            for (int i = 0; i < first.getTrackCount(); i++) {
+                MediaFormat format = first.getTrackFormat(i);
+                String mime = format.getString(MediaFormat.KEY_MIME);
+                if (mime == null || (!mime.startsWith("video/") && !mime.startsWith("audio/"))) continue;
+                tracks.add(new TrackInfo(mime, muxer.addTrack(format)));
+            }
+            if (tracks.isEmpty()) throw new IllegalStateException("找不到影片軌道");
+            setOrientationHint(muxer, sources.get(0));
+            muxer.start();
+            long segmentBaseUs = 0L;
+            for (File source : sources) {
+                long segmentDurationUs = 0L;
+                for (TrackInfo track : tracks) {
+                    long duration = appendTrack(source, track, muxer, segmentBaseUs);
+                    segmentDurationUs = Math.max(segmentDurationUs, duration);
+                }
+                segmentBaseUs += Math.max(1L, segmentDurationUs + 1L);
+            }
+        } finally {
+            first.release();
+            try { muxer.stop(); } catch (Exception ignored) { }
+            muxer.release();
+        }
+    }
+
+    private long appendTrack(File source, TrackInfo target, MediaMuxer muxer, long baseUs) throws Exception {
+        MediaExtractor extractor = new MediaExtractor();
+        try {
+            extractor.setDataSource(source.getAbsolutePath());
+            int sourceTrack = -1;
+            int bufferSize = 2 * 1024 * 1024;
+            for (int i = 0; i < extractor.getTrackCount(); i++) {
+                MediaFormat format = extractor.getTrackFormat(i);
+                if (!target.mime.equals(format.getString(MediaFormat.KEY_MIME))) continue;
+                sourceTrack = i;
+                if (format.containsKey(MediaFormat.KEY_MAX_INPUT_SIZE)) bufferSize = Math.max(bufferSize, format.getInteger(MediaFormat.KEY_MAX_INPUT_SIZE));
+                break;
+            }
+            if (sourceTrack < 0) return 0L;
+            extractor.selectTrack(sourceTrack);
+            ByteBuffer buffer = ByteBuffer.allocateDirect(bufferSize);
+            MediaCodec.BufferInfo info = new MediaCodec.BufferInfo();
+            long firstTimeUs = -1L;
+            long lastRelativeUs = 0L;
+            while (true) {
+                buffer.clear();
+                int size = extractor.readSampleData(buffer, 0);
+                if (size < 0) break;
+                long sampleTimeUs = extractor.getSampleTime();
+                if (firstTimeUs < 0L) firstTimeUs = sampleTimeUs;
+                lastRelativeUs = Math.max(0L, sampleTimeUs - firstTimeUs);
+                info.set(0, size, baseUs + lastRelativeUs, extractor.getSampleFlags());
+                muxer.writeSampleData(target.muxerTrack, buffer, info);
+                extractor.advance();
+            }
+            return lastRelativeUs;
+        } finally {
+            extractor.release();
+        }
+    }
+
+    private void setOrientationHint(MediaMuxer muxer, File source) {
+        MediaMetadataRetriever retriever = new MediaMetadataRetriever();
+        try {
+            retriever.setDataSource(source.getAbsolutePath());
+            String rotation = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_VIDEO_ROTATION);
+            if (rotation != null) muxer.setOrientationHint(Integer.parseInt(rotation));
+        } catch (Exception ignored) {
+        } finally {
+            try { retriever.release(); } catch (Exception ignored) { }
+        }
+    }
+
+    private boolean copyToGallery(File source, String group) {
+        ContentValues values = new ContentValues();
+        values.put(MediaStore.Video.Media.DISPLAY_NAME, "7B-" + group + ".mp4");
+        values.put(MediaStore.Video.Media.MIME_TYPE, "video/mp4");
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) { values.put(MediaStore.Video.Media.RELATIVE_PATH, Environment.DIRECTORY_MOVIES + "/7B羽球"); values.put(MediaStore.Video.Media.IS_PENDING, 1); }
+        android.net.Uri uri = getContentResolver().insert(MediaStore.Video.Media.EXTERNAL_CONTENT_URI, values);
+        if (uri == null) return false;
+        try (FileInputStream input = new FileInputStream(source); OutputStream output = getContentResolver().openOutputStream(uri)) {
+            if (output == null) throw new IllegalStateException("無法開啟相簿輸出");
+            byte[] buffer = new byte[65536]; int read;
+            while ((read = input.read(buffer)) != -1) output.write(buffer, 0, read);
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) { ContentValues ready = new ContentValues(); ready.put(MediaStore.Video.Media.IS_PENDING, 0); getContentResolver().update(uri, ready, null, null); }
+            return true;
+        } catch (Exception error) { getContentResolver().delete(uri, null, null); return false; }
+    }
+
+    private static final class TrackInfo {
+        final String mime;
+        final int muxerTrack;
+        TrackInfo(String mime, int muxerTrack) { this.mime = mime; this.muxerTrack = muxerTrack; }
+    }
+
+    @Override protected void onDestroy() {
+        closing = true; handler.removeCallbacks(rotate); if (recording != null) recording.stop(); io.shutdown();
+        RemoteSessionStore.setRecordingEnabled(this, false); super.onDestroy();
+    }
+}

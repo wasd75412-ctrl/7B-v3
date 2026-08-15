@@ -14,15 +14,21 @@ import android.view.accessibility.AccessibilityEvent;
 import android.widget.Toast;
 
 public final class RemoteKeyAccessibilityService extends AccessibilityService {
-    private static final long MISSING_KEY_UP_DELAY_MS = 800L;
-    private static final long ACTION_DEBOUNCE_MS = 240L;
+    private static final long MISSING_KEY_UP_DELAY_MS = 575L;
+    private static final long ACTION_DEBOUNCE_MS = 300L;
+    private static final long UNDO_DEBOUNCE_MS = 600L;
+    private static final long DOUBLE_PRESS_MS = 400L;
 
     private final VolumeKeyInterpreter backgroundKeys = new VolumeKeyInterpreter();
     private final Handler keyHandler = new Handler(Looper.getMainLooper());
     private BackgroundScoreController scoreController;
     private Runnable pendingLongPress;
     private Runnable pendingKeyFallback;
-    private long lastActionAt;
+    private Runnable pendingShortPress;
+    private int pendingShortPressKey = KeyEvent.KEYCODE_UNKNOWN;
+    private long pendingShortPressAt;
+    private long lastPointActionAt;
+    private long lastUndoActionAt;
 
     @Override
     protected void onServiceConnected() {
@@ -60,7 +66,7 @@ public final class RemoteKeyAccessibilityService extends AccessibilityService {
             cancelMissingKeyUpFallback();
             action = backgroundKeys.onKeyUp(keyCode, event.getEventTime());
         }
-        if (action != VolumeKeyInterpreter.Action.NONE) sendBackgroundAction(action);
+        if (action != VolumeKeyInterpreter.Action.NONE) handleResolvedBackgroundAction(action, keyCode, event.getEventTime());
         return true;
     }
 
@@ -74,7 +80,7 @@ public final class RemoteKeyAccessibilityService extends AccessibilityService {
             );
             if (action == VolumeKeyInterpreter.Action.NONE) return;
             cancelMissingKeyUpFallback();
-            sendBackgroundAction(action);
+            handleResolvedBackgroundAction(action, keyCode, pressedAt + VolumeKeyInterpreter.LONG_PRESS_MS);
         };
         keyHandler.postDelayed(pendingLongPress, VolumeKeyInterpreter.LONG_PRESS_MS);
     }
@@ -84,7 +90,7 @@ public final class RemoteKeyAccessibilityService extends AccessibilityService {
         pendingKeyFallback = () -> {
             pendingKeyFallback = null;
             VolumeKeyInterpreter.Action action = backgroundKeys.onMissingKeyUp(keyCode);
-            if (action != VolumeKeyInterpreter.Action.NONE) sendBackgroundAction(action);
+            if (action != VolumeKeyInterpreter.Action.NONE) handleResolvedBackgroundAction(action, keyCode, SystemClock.uptimeMillis());
         };
         keyHandler.postDelayed(pendingKeyFallback, MISSING_KEY_UP_DELAY_MS);
     }
@@ -101,13 +107,64 @@ public final class RemoteKeyAccessibilityService extends AccessibilityService {
         pendingKeyFallback = null;
     }
 
+    private void handleResolvedBackgroundAction(VolumeKeyInterpreter.Action action, int keyCode, long eventTime) {
+        if (action == VolumeKeyInterpreter.Action.UNDO) {
+            cancelPendingShortPress();
+            sendBackgroundAction(action);
+            return;
+        }
+        if (pendingShortPress != null && pendingShortPressKey == keyCode && eventTime - pendingShortPressAt <= DOUBLE_PRESS_MS) {
+            cancelPendingShortPress();
+            sendBackgroundFullscreenCommand();
+            return;
+        }
+        cancelPendingShortPress();
+        pendingShortPressKey = keyCode;
+        pendingShortPressAt = eventTime;
+        pendingShortPress = () -> {
+            pendingShortPress = null;
+            pendingShortPressKey = KeyEvent.KEYCODE_UNKNOWN;
+            sendBackgroundAction(action);
+        };
+        keyHandler.postDelayed(pendingShortPress, DOUBLE_PRESS_MS);
+    }
+
+    private void cancelPendingShortPress() {
+        if (pendingShortPress != null) keyHandler.removeCallbacks(pendingShortPress);
+        pendingShortPress = null;
+        pendingShortPressKey = KeyEvent.KEYCODE_UNKNOWN;
+        pendingShortPressAt = 0L;
+    }
+
+    private BackgroundScoreController scoreController() {
+        if (scoreController == null) scoreController = new BackgroundScoreController(this);
+        return scoreController;
+    }
+
+    private void sendBackgroundFullscreenCommand() {
+        try {
+            scoreController().toggleScoreFullscreen((success, message) -> keyHandler.post(() -> {
+                Toast.makeText(RemoteKeyAccessibilityService.this, message, Toast.LENGTH_SHORT).show();
+                vibrate(success ? 70L : 28L);
+            }));
+        } catch (RuntimeException error) {
+            Toast.makeText(this, "無法連接計分模式", Toast.LENGTH_SHORT).show();
+            vibrate(28L);
+        }
+    }
+
     private void sendBackgroundAction(VolumeKeyInterpreter.Action action) {
         long now = SystemClock.uptimeMillis();
-        if (now - lastActionAt < ACTION_DEBOUNCE_MS) return;
-        lastActionAt = now;
+        if (action == VolumeKeyInterpreter.Action.UNDO) {
+            if (now - lastUndoActionAt < UNDO_DEBOUNCE_MS) return;
+            lastUndoActionAt = now;
+        } else {
+            if (now - lastPointActionAt < ACTION_DEBOUNCE_MS) return;
+            lastPointActionAt = now;
+        }
         if (scoreController == null) {
             try {
-                scoreController = new BackgroundScoreController(this);
+                scoreController = scoreController();
             } catch (RuntimeException error) {
                 Toast.makeText(this, "無法啟動比分同步，請回 App 重新開啟", Toast.LENGTH_SHORT).show();
                 vibrate(28L);
@@ -147,6 +204,7 @@ public final class RemoteKeyAccessibilityService extends AccessibilityService {
     public void onDestroy() {
         cancelLongPress();
         cancelMissingKeyUpFallback();
+        cancelPendingShortPress();
         super.onDestroy();
     }
 }

@@ -24,8 +24,9 @@ test('only treats a real native wake lock as active',()=>{
   assert.equal(wakeLockControlIsActive({nativeActive:true}),true);
 });
 
-test('does not create or bundle a video-based wake lock fallback',()=>{
-  assert.doesNotMatch(mainSource,/createElement\(['"]video['"]\)|nosleep|fallbackNoSleep/i);
+test('includes an iOS media fallback without adding a runtime dependency',()=>{
+  assert.match(mainSource,/createElement\(['"]video['"]\)/);
+  assert.match(mainSource,/assets\/no-sleep\.mp4/);
   assert.doesNotMatch(packageSource,/nosleep/i);
 });
 
@@ -34,4 +35,9 @@ test('keeps requesting the native wake lock when it is missing',()=>{
   assert.equal(shouldRequestNativeWakeLock({wanted:true,nativeSupported:true,nativeActive:true,requestPending:false}),false);
   assert.equal(shouldRequestNativeWakeLock({wanted:true,nativeSupported:true,nativeActive:false,requestPending:true}),false);
   assert.equal(shouldRequestNativeWakeLock({wanted:true,hidden:true,nativeSupported:true,nativeActive:false,requestPending:false}),false);
+});
+
+test('does not restrict automatic wake lock recovery to fullscreen',()=>{
+  assert.doesNotMatch(mainSource,/appWakeLockNeedsGesture\s*&&[^\n]*isScoreFullscreen/);
+  assert.match(mainSource,/scheduleAppWakeLockRetry\(5000\)/);
 });

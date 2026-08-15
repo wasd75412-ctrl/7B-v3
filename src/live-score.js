@@ -15,6 +15,9 @@ export function encodeLiveMatch(source={}){
     posB:pair(source.positions?.[1]??source.posB,[0,1]),
     winner:source.winner===0||source.winner===1?source.winner:null,
     matchId:source.matchId||null,
+    scoreFont:typeof source.scoreFont==='string'?source.scoreFont:'',
+    testMode:!!source.testMode,
+    testCompleted:!!source.testCompleted,
     startedAt:source.startedAt||''
   };
 }
@@ -33,6 +36,9 @@ export function decodeLiveMatch(source={},fallback={}){
     positions:[match.posA,match.posB],
     winner:match.winner,
     matchId:match.matchId,
+    scoreFont:match.scoreFont,
+    testMode:match.testMode,
+    testCompleted:match.testCompleted,
     startedAt:match.startedAt
   };
 }
@@ -52,6 +58,15 @@ export function shouldShowScoreView({matchActive=false,isHost=false,androidRemot
 
 export function liveMatchKey(source={}){
   return JSON.stringify(encodeLiveMatch(source?.match||source));
+}
+
+export function shouldApplyIncomingLiveMatch({isHost=false,writePending=false,currentMatchId='',incomingMatchId=''}={}){
+  const current=String(currentMatchId||''),incoming=String(incomingMatchId||'');
+  return !(isHost&&writePending&&current&&incoming&&current!==incoming);
+}
+
+export function shouldKeepLatestLiveMatch({liveScoreReady=false,hasLatestLiveMatch=false}={}){
+  return Boolean(liveScoreReady&&hasLatestLiveMatch);
 }
 
 export function shouldAnnounceSyncedLiveScore({announce=true,snapshotReady=false,changed=false,scoreVisible=false,androidRemote=false,matchActive=false,voiceEnabled=false}={}){
