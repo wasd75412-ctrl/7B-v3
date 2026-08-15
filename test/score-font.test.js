@@ -27,5 +27,7 @@ test('keeps the score separator centered outside the number layout flow',()=>{
   assert.match(css,/\.score-center \.score-number\.two-digit\{[\s\S]*?font-size:clamp\(9\.5rem,min\(28vw,33vh\),19rem\)!important;/);
   assert.match(css,/#scoreA\.two-digit\{padding-right:[^}]+!important\}/);
   assert.match(css,/#scoreB\.two-digit\{padding-left:[^}]+!important\}/);
+  assert.match(css,/background:radial-gradient\(ellipse at center,rgba\(3,10,18,\.64\)/);
+  assert.match(css,/backdrop-filter:blur\(2px\) brightness\(\.82\)/);
   assert.match(css,/\.score-center \.score-divider\{[\s\S]*?position:absolute!important;[\s\S]*?left:50%!important;[\s\S]*?transform:translate\(-50%,-50%\)!important;/);
 });
