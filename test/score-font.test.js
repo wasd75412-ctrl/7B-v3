@@ -24,5 +24,8 @@ test('keeps the score separator centered outside the number layout flow',()=>{
   const css=readFileSync(new URL('../src/styles.css',import.meta.url),'utf8');
   assert.match(css,/\.score-center\{\s*top:50%!important;/);
   assert.match(css,/grid-template-columns:repeat\(2,minmax\(0,1fr\)\)!important/);
+  assert.match(css,/\.score-center \.score-number\.two-digit\{[\s\S]*?font-size:clamp\(9\.5rem,min\(28vw,33vh\),19rem\)!important;/);
+  assert.match(css,/#scoreA\.two-digit\{padding-right:[^}]+!important\}/);
+  assert.match(css,/#scoreB\.two-digit\{padding-left:[^}]+!important\}/);
   assert.match(css,/\.score-center \.score-divider\{[\s\S]*?position:absolute!important;[\s\S]*?left:50%!important;[\s\S]*?transform:translate\(-50%,-50%\)!important;/);
 });

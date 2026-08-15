@@ -3351,6 +3351,13 @@ body>.modal .modal-card :is(.profile-panel,.profile-section,.stat-box,.health-bo
     4px 6px 0 rgba(4,12,20,.52),
     7px 10px 12px rgba(0,0,0,.55)!important;
 }
+.score-center .score-number.two-digit{
+  box-sizing:border-box!important;
+  font-size:clamp(9.5rem,min(28vw,33vh),19rem)!important;
+  letter-spacing:-.1em!important;
+}
+.score-center #scoreA.two-digit{padding-right:clamp(1rem,2vw,2.5rem)!important}
+.score-center #scoreB.two-digit{padding-left:clamp(1rem,2vw,2.5rem)!important}
 .score-center #scoreA{text-align:right!important}
 .score-center #scoreB{text-align:left!important}
 .score-center #scoreA{color:var(--score-a)!important}
