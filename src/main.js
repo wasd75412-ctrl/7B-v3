@@ -5,7 +5,7 @@ import { calculatePerPersonFee, shouldShowNextEventAnnouncement } from './next-e
 import { shouldShowNotificationPrompt } from './notifications.js';
 import { normalizeMatchReplayTitle, normalizeYouTubePlaylistUrl } from './youtube.js';
 import { DEFAULT_SCORE_REMOTE_BINDINGS, VIRTUAL_REMOTE_CLICK_CODE, advanceRemotePressState, assignRemoteBinding, isEditableRemoteTarget, normalizeRemoteBindings, remoteActionForCode, remoteEventCode, shouldHandleRemoteInput } from './score-remote.js';
-import { createLiveScoreData, decodeLiveMatch, generalRoomStateWithoutMatch, liveMatchKey, shouldAnnounceSyncedLiveScore, shouldShowScoreView } from './live-score.js';
+import { createLiveScoreData, decodeLiveMatch, generalRoomStateWithoutMatch, liveMatchKey, shouldAnnounceSyncedLiveScore, shouldApplyIncomingLiveMatch, shouldKeepLatestLiveMatch, shouldShowScoreView } from './live-score.js';
 import { canAutoSyncPlayerIdentity } from './device-sync.js';
 import { shouldRequestNativeWakeLock, wakeLockButtonIntent, wakeLockControlIsActive } from './wake-lock.js';
 import { arrangeTeamsWithTeammateLimit, lineupExceedsTeammateLimit } from './team-rotation.js';
@@ -1470,8 +1470,8 @@ function applyRole(){
 function cleanState(d){return decodeState(d)}
 function matchScoreSignature(source=state){const match=source?.match||{};return `${!!match.active}|${(match.rallies||[]).join('')}|${match.winner??''}`}
 function announceSyncedScore(before,announce=true){const changed=before!==matchScoreSignature(),scoreVisible=!$('scoreView')?.classList.contains('hidden');if(shouldAnnounceSyncedLiveScore({announce,snapshotReady:scoreSnapshotReady,changed,scoreVisible,androidRemote:requestedAndroidRemote,matchActive:state.match.active,voiceEnabled}))setTimeout(announceScore,120);scoreSnapshotReady=true}
-function applyState(data){const before=matchScoreSignature(),next=cleanState(data),legacyMatchChanged=!!data.liveScoreEnabled&&!!data.liveScoreMatchKey&&data.liveScoreMatchKey!==liveMatchKey(data.match);if(liveScoreReady&&latestLiveMatch&&!legacyMatchChanged)next.match=structuredClone(latestLiveMatch);else if(legacyMatchChanged)latestLiveMatch=structuredClone(next.match);applying=true;state=next;renderAll();applying=false;announceSyncedScore(before);if(legacyMatchChanged&&isHost&&liveScoreAvailable)saveLiveScoreSoon()}
-function applyLiveScoreState(data,{announce=true}={}){const before=matchScoreSignature(),beforeWinner=state.match?.winner,match=decodeLiveMatch(data,state.match),shouldFinish=beforeWinner===null&&match.winner!==null&&isHost&&!requestedAndroidRemote&&scoreViewRequested;liveScoreReady=true;latestLiveMatch=structuredClone(match);applying=true;state.match=match;renderScore();renderDashboard();renderAndroidRemote();applying=false;announceSyncedScore(before,announce);if(shouldFinish)finishMatch()}
+function applyState(data){const before=matchScoreSignature(),next=cleanState(data),legacyMatchChanged=!!data.liveScoreEnabled&&!!data.liveScoreMatchKey&&data.liveScoreMatchKey!==liveMatchKey(data.match),keepLiveMatch=shouldKeepLatestLiveMatch({liveScoreReady,hasLatestLiveMatch:!!latestLiveMatch});if(keepLiveMatch)next.match=structuredClone(latestLiveMatch);else if(legacyMatchChanged)latestLiveMatch=structuredClone(next.match);applying=true;state=next;renderAll();applying=false;announceSyncedScore(before);if(!keepLiveMatch&&legacyMatchChanged&&isHost&&liveScoreAvailable)saveLiveScoreSoon()}
+function applyLiveScoreState(data,{announce=true}={}){const before=matchScoreSignature(),beforeWinner=state.match?.winner,match=decodeLiveMatch(data,state.match),writePending=liveScoreWriteScheduled||pendingLiveScoreWrites>0;if(!shouldApplyIncomingLiveMatch({isHost,writePending,currentMatchId:state.match?.matchId,incomingMatchId:match.matchId}))return false;const shouldFinish=beforeWinner===null&&match.winner!==null&&isHost&&!requestedAndroidRemote&&scoreViewRequested;liveScoreReady=true;latestLiveMatch=structuredClone(match);applying=true;state.match=match;renderScore();renderDashboard();renderAndroidRemote();applying=false;announceSyncedScore(before,announce);if(shouldFinish)finishMatch();return true}
 function handleRemoteFullscreenCommand(data,{initial=false}={}){
   const id=String(data?.fullscreenCommand?.id||'');if(!id||id===lastRemoteFullscreenCommandId)return false;
   lastRemoteFullscreenCommandId=id;
@@ -2022,7 +2022,7 @@ function toggleTestMode(){
   if(enabling&&state.match.active&&state.match.winner===null)state.match.testMode=true;
   renderTestMode();saveSoon();
 }
-function startMatch(){dismissedResultKey='';const selected=state.court.filter(Boolean);if(selected.length!==4||new Set(selected).size!==4)return alert('請選擇四位不同球員。');const ids=teammateSafeLineup(selected);state.court=[...ids];reconcileWaitingQueue(ids);state.queueDraftChosen=[];state.lastLoserReplayPlayerId=null;state.matchRollback=null;randomizeScoreThemeAtMatchStart();state.match={active:true,players:[[ids[0],ids[1]],[ids[2],ids[3]]],scores:[0,0],rallies:[],serving:0,positions:[[0,1],[0,1]],winner:null,scoreFont:randomScoreFont(state.match?.scoreFont),testMode:!!state.testMode,startedAt:new Date().toISOString()};scoreViewRequested=true;saveLiveScoreSoon();saveSoon();renderScore();renderDashboard();renderTestMode()}
+function startMatch(){dismissedResultKey='';const selected=state.court.filter(Boolean);if(selected.length!==4||new Set(selected).size!==4)return alert('請選擇四位不同球員。');const ids=teammateSafeLineup(selected);state.court=[...ids];reconcileWaitingQueue(ids);state.queueDraftChosen=[];state.lastLoserReplayPlayerId=null;state.matchRollback=null;randomizeScoreThemeAtMatchStart();state.match={active:true,players:[[ids[0],ids[1]],[ids[2],ids[3]]],scores:[0,0],rallies:[],serving:0,positions:[[0,1],[0,1]],winner:null,matchId:randomToken(),scoreFont:randomScoreFont(state.match?.scoreFont),testMode:!!state.testMode,startedAt:new Date().toISOString()};scoreViewRequested=true;saveLiveScoreSoon();saveSoon();renderScore();renderDashboard();renderTestMode()}
 function finishMatch(){
   const m=state.match;if(!m.active||m.winner===null)return;
   m.matchId=m.matchId||randomToken();let newlyRecorded=false,four=[];
@@ -2076,7 +2076,7 @@ function startNext(){
   state.waitingQueue=projectedQueueForLineup(vals);state.queueDraftChosen=[];state.priority=state.waitingQueue[0]||null;
   state.court=[...vals];state.nextCall=null;state.matchRollback=null;
   randomizeScoreThemeAtMatchStart();
-  state.match={active:true,players:[[vals[0],vals[1]],[vals[2],vals[3]]],scores:[0,0],rallies:[],serving:0,positions:[[0,1],[0,1]],winner:null,scoreFont:randomScoreFont(state.match?.scoreFont),testMode:!!state.testMode,startedAt:new Date().toISOString()};
+  state.match={active:true,players:[[vals[0],vals[1]],[vals[2],vals[3]]],scores:[0,0],rallies:[],serving:0,positions:[[0,1],[0,1]],winner:null,matchId:randomToken(),scoreFont:randomScoreFont(state.match?.scoreFont),testMode:!!state.testMode,startedAt:new Date().toISOString()};
   scoreViewRequested=true;$('resultModal').classList.add('hidden');renderAll();saveLiveScoreSoon();saveSoon();if(isHost&&voiceEnabled&&finalCall)setTimeout(()=>speak(finalCall),180)
 }
 

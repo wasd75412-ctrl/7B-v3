@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {createLiveScoreData,decodeLiveMatch,encodeLiveMatch,generalRoomStateWithoutMatch,liveMatchKey,shouldAnnounceSyncedLiveScore,shouldApplyIncomingLiveMatch,shouldShowScoreView,LIVE_SCORE_SCHEMA_VERSION} from '../src/live-score.js';
+import {createLiveScoreData,decodeLiveMatch,encodeLiveMatch,generalRoomStateWithoutMatch,liveMatchKey,shouldAnnounceSyncedLiveScore,shouldApplyIncomingLiveMatch,shouldKeepLatestLiveMatch,shouldShowScoreView,LIVE_SCORE_SCHEMA_VERSION} from '../src/live-score.js';
 
 test('encodes Firestore-safe live score without nested arrays',()=>{
   const data=createLiveScoreData({
@@ -68,6 +68,12 @@ test('does not restore an old match while a newly started match is being written
   assert.equal(shouldApplyIncomingLiveMatch({isHost:true,writePending:true,currentMatchId:'new-match',incomingMatchId:'old-match'}),false);
   assert.equal(shouldApplyIncomingLiveMatch({isHost:true,writePending:true,currentMatchId:'new-match',incomingMatchId:'new-match'}),true);
   assert.equal(shouldApplyIncomingLiveMatch({isHost:false,writePending:false,currentMatchId:'old-match',incomingMatchId:'new-match'}),true);
+});
+
+test('keeps the live match authoritative when a stale room snapshot arrives',()=>{
+  assert.equal(shouldKeepLatestLiveMatch({liveScoreReady:true,hasLatestLiveMatch:true}),true);
+  assert.equal(shouldKeepLatestLiveMatch({liveScoreReady:false,hasLatestLiveMatch:true}),false);
+  assert.equal(shouldKeepLatestLiveMatch({liveScoreReady:true,hasLatestLiveMatch:false}),false);
 });
 
 test('keeps general admin writes separate from the live match',()=>{
