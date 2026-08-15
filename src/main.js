@@ -8,6 +8,7 @@ import { DEFAULT_SCORE_REMOTE_BINDINGS, VIRTUAL_REMOTE_CLICK_CODE, advanceRemote
 import { createLiveScoreData, decodeLiveMatch, generalRoomStateWithoutMatch, liveMatchKey, shouldAnnounceSyncedLiveScore, shouldApplyIncomingLiveMatch, shouldKeepLatestLiveMatch, shouldShowScoreView } from './live-score.js';
 import { canAutoSyncPlayerIdentity } from './device-sync.js';
 import { shouldRequestNativeWakeLock, wakeLockButtonIntent, wakeLockControlIsActive } from './wake-lock.js';
+import { chooseScoreTheme } from './score-theme-preference.js';
 import { arrangeTeamsWithTeammateLimit, lineupExceedsTeammateLimit } from './team-rotation.js';
 import { CHAT_MEDIA_MAX_BYTES, CHAT_MEDIA_TYPES, CHAT_MENTION_ALL_ID, CHAT_MESSAGE_MAX_LENGTH, addPlayerOwnerHash, chatMediaLabel, chatMentionSearch, claimedChatPlayerId, cleanChatText, hasChatAllMention, mentionIdsFromText, normalizeChatMedia, normalizeChatMentionIds, playerOwnerHashes, removeChatAllMention, removeChatMention } from './chat.js';
 import { adminRoleButtonState, claimedAdminPlayerId, resolveAdminSessionToken } from './admin-role.js';
@@ -2022,7 +2023,7 @@ function toggleTestMode(){
   if(enabling&&state.match.active&&state.match.winner===null)state.match.testMode=true;
   renderTestMode();saveSoon();
 }
-function startMatch(){dismissedResultKey='';const selected=state.court.filter(Boolean);if(selected.length!==4||new Set(selected).size!==4)return alert('請選擇四位不同球員。');const ids=teammateSafeLineup(selected);state.court=[...ids];reconcileWaitingQueue(ids);state.queueDraftChosen=[];state.lastLoserReplayPlayerId=null;state.matchRollback=null;randomizeScoreThemeAtMatchStart();state.match={active:true,players:[[ids[0],ids[1]],[ids[2],ids[3]]],scores:[0,0],rallies:[],serving:0,positions:[[0,1],[0,1]],winner:null,matchId:randomToken(),scoreFont:randomScoreFont(state.match?.scoreFont),testMode:!!state.testMode,startedAt:new Date().toISOString()};scoreViewRequested=true;saveLiveScoreSoon();saveSoon();renderScore();renderDashboard();renderTestMode()}
+function startMatch(){dismissedResultKey='';const selected=state.court.filter(Boolean);if(selected.length!==4||new Set(selected).size!==4)return alert('請選擇四位不同球員。');const ids=teammateSafeLineup(selected);state.court=[...ids];reconcileWaitingQueue(ids);state.queueDraftChosen=[];state.lastLoserReplayPlayerId=null;state.matchRollback=null;randomizeScoreThemeAtMatchStart(ids);state.match={active:true,players:[[ids[0],ids[1]],[ids[2],ids[3]]],scores:[0,0],rallies:[],serving:0,positions:[[0,1],[0,1]],winner:null,matchId:randomToken(),scoreFont:randomScoreFont(state.match?.scoreFont),testMode:!!state.testMode,startedAt:new Date().toISOString()};scoreViewRequested=true;saveLiveScoreSoon();saveSoon();renderScore();renderDashboard();renderTestMode()}
 function finishMatch(){
   const m=state.match;if(!m.active||m.winner===null)return;
   m.matchId=m.matchId||randomToken();let newlyRecorded=false,four=[];
@@ -2076,7 +2077,7 @@ function startNext(){
   const finalCall=calloutText(vals);
   state.waitingQueue=projectedQueueForLineup(vals);state.queueDraftChosen=[];state.priority=state.waitingQueue[0]||null;
   state.court=[...vals];state.nextCall=null;state.matchRollback=null;
-  randomizeScoreThemeAtMatchStart();
+  randomizeScoreThemeAtMatchStart(vals);
   state.match={active:true,players:[[vals[0],vals[1]],[vals[2],vals[3]]],scores:[0,0],rallies:[],serving:0,positions:[[0,1],[0,1]],winner:null,matchId:randomToken(),scoreFont:randomScoreFont(state.match?.scoreFont),testMode:!!state.testMode,startedAt:new Date().toISOString()};
   scoreViewRequested=true;$('resultModal').classList.add('hidden');renderAll();saveLiveScoreSoon();saveSoon();if(isHost&&voiceEnabled&&finalCall)setTimeout(()=>speak(finalCall),180)
 }
@@ -2678,11 +2679,10 @@ function updateRandomThemeButton(){
   randomThemeToggle.title=action;
   randomThemeToggle.textContent='🎲';
 }
-function randomizeScoreThemeAtMatchStart(){
+function randomizeScoreThemeAtMatchStart(playerIds=[]){
   if(!randomScoreThemeEnabled)return;
   const current=fullscreenScoreView.dataset.scoreTheme;
-  const choices=[...SCORE_THEMES].filter(theme=>theme!==current);
-  applyScoreTheme(choices[Math.floor(Math.random()*choices.length)]||'happy-panda');
+  applyScoreTheme(chooseScoreTheme({themes:[...SCORE_THEMES],current,playerNames:playerIds.map(pname)}));
 }
 applyScoreTheme(localStorage.getItem(SCORE_THEME_KEY)||'happy-panda');
 if(scoreThemeSelect)scoreThemeSelect.onchange=()=>applyScoreTheme(scoreThemeSelect.value);
