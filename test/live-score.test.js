@@ -11,6 +11,7 @@ test('encodes Firestore-safe live score without nested arrays',()=>{
     serving:1,
     positions:[[1,0],[0,1]],
     winner:null,
+    scoreFont:'orbitron',
     startedAt:'2026-07-22T00:00:00.000Z'
   });
 
@@ -18,17 +19,19 @@ test('encodes Firestore-safe live score without nested arrays',()=>{
   assert.deepEqual(data.match.teamA,['a','b']);
   assert.deepEqual(data.match.teamB,['c','d']);
   assert.equal(Array.isArray(data.match.teamA[0]),false);
+  assert.equal(data.match.scoreFont,'orbitron');
   assert.equal(JSON.stringify(data).length<1000,true);
 });
 
 test('decodes live score while preserving compatible fallback fields',()=>{
   const fallback={active:false,players:[[],[]],scores:[0,0],rallies:[],serving:0,positions:[[0,1],[0,1]],winner:null,custom:'keep'};
-  const decoded=decodeLiveMatch({match:{active:true,teamA:['a','b'],teamB:['c','d'],scores:[11,8],rallies:[0,1],serving:0,posA:[1,0],posB:[0,1],winner:0,matchId:'m1',startedAt:'now'}},fallback);
+  const decoded=decodeLiveMatch({match:{active:true,teamA:['a','b'],teamB:['c','d'],scores:[11,8],rallies:[0,1],serving:0,posA:[1,0],posB:[0,1],winner:0,matchId:'m1',scoreFont:'bungee',startedAt:'now'}},fallback);
 
   assert.deepEqual(decoded.players,[['a','b'],['c','d']]);
   assert.deepEqual(decoded.positions,[[1,0],[0,1]]);
   assert.deepEqual(decoded.scores,[11,8]);
   assert.equal(decoded.winner,0);
+  assert.equal(decoded.scoreFont,'bungee');
   assert.equal(decoded.custom,'keep');
 });
 

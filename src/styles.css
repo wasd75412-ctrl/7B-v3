@@ -3300,6 +3300,24 @@ body>.modal .modal-card :is(.profile-panel,.profile-section,.stat-box,.health-bo
   text-shadow:0 0 34px rgba(var(--score-b-rgb),.30),0 7px 22px rgba(0,0,0,.34)
 }
 
+/* Open-license digit subsets are bundled so every match keeps its font offline. */
+@font-face{font-family:"Score Audiowide";src:url('/assets/fonts/score/audiowide.ttf') format('truetype');font-display:swap}
+@font-face{font-family:"Score Black Ops One";src:url('/assets/fonts/score/black-ops-one.ttf') format('truetype');font-display:swap}
+@font-face{font-family:"Score Bungee";src:url('/assets/fonts/score/bungee.ttf') format('truetype');font-display:swap}
+@font-face{font-family:"Score Monoton";src:url('/assets/fonts/score/monoton.ttf') format('truetype');font-display:swap}
+@font-face{font-family:"Score Orbitron";src:url('/assets/fonts/score/orbitron-900.ttf') format('truetype');font-weight:900;font-display:swap}
+@font-face{font-family:"Score Oxanium";src:url('/assets/fonts/score/oxanium-800.ttf') format('truetype');font-weight:800;font-display:swap}
+@font-face{font-family:"Score Press Start 2P";src:url('/assets/fonts/score/press-start-2p.ttf') format('truetype');font-display:swap}
+@font-face{font-family:"Score Russo One";src:url('/assets/fonts/score/russo-one.ttf') format('truetype');font-display:swap}
+.score-view[data-score-font="audiowide"]{--score-number-font:"Score Audiowide"}
+.score-view[data-score-font="black-ops-one"]{--score-number-font:"Score Black Ops One"}
+.score-view[data-score-font="bungee"]{--score-number-font:"Score Bungee"}
+.score-view[data-score-font="monoton"]{--score-number-font:"Score Monoton"}
+.score-view[data-score-font="orbitron"]{--score-number-font:"Score Orbitron"}
+.score-view[data-score-font="oxanium"]{--score-number-font:"Score Oxanium"}
+.score-view[data-score-font="press-start-2p"]{--score-number-font:"Score Press Start 2P"}
+.score-view[data-score-font="russo-one"]{--score-number-font:"Score Russo One"}
+
 /* iPad scoreboard: oversized high-contrast scores stay readable on artwork. */
 .score-center{
   top:58%!important;
@@ -3319,7 +3337,7 @@ body>.modal .modal-card :is(.profile-panel,.profile-section,.stat-box,.health-bo
 .score-center .score-number{
   min-width:0!important;
   width:100%!important;
-  font-family:"Rockwell Extra Bold",Rockwell,Copperplate,"Arial Black",serif!important;
+  font-family:var(--score-number-font,"Score Audiowide"),"Arial Black",sans-serif!important;
   font-size:clamp(12rem,min(34vw,39vh),23rem)!important;
   font-weight:900!important;
   line-height:.72!important;
