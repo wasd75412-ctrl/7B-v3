@@ -3322,8 +3322,8 @@ body>.modal .modal-card :is(.profile-panel,.profile-section,.stat-box,.health-bo
 .score-center{
   top:58%!important;
   display:grid!important;
-  grid-template-columns:minmax(0,1fr) auto minmax(0,1fr)!important;
-  column-gap:clamp(12px,1.5vw,26px)!important;
+  grid-template-columns:repeat(2,minmax(0,1fr))!important;
+  column-gap:clamp(7rem,10vw,12rem)!important;
   width:min(82vw,1180px)!important;
   max-width:82vw!important;
   padding:0!important;
@@ -3361,16 +3361,22 @@ body>.modal .modal-card :is(.profile-panel,.profile-section,.stat-box,.health-bo
   paint-order:stroke fill;
 }
 .score-center .score-divider{
-  align-self:center!important;
+  position:absolute!important;
+  left:50%!important;
+  top:50%!important;
+  z-index:2!important;
+  width:clamp(5rem,8vw,9rem)!important;
+  height:1em!important;
   display:flex!important;
   align-items:center!important;
   justify-content:center!important;
-  transform:none!important;
+  pointer-events:none!important;
+  transform:translate(-50%,-50%)!important;
 }
 .score-center .score-divider::before{
   font-size:clamp(5.2rem,8vw,9rem)!important;
   line-height:1!important;
-  transform:translateY(-.85em);
+  transform:none!important;
 }
 
 /* VSPO SNUT keeps the character group above and uses the open road for scores. */
