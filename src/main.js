@@ -148,7 +148,7 @@ function renderAndroidRemote(){
   if(!requestedAndroidRemote||!roomId){view.classList.add('hidden');return}
   $('landing').classList.add('hidden');$('app').classList.add('hidden');$('scoreView').classList.add('hidden');view.classList.remove('hidden');
   const match=state.match,ready=isHost&&match.active&&match.winner===null,canUndo=isHost&&match.active&&match.rallies.length>0;
-  try{window.BcmAndroid?.updateRemoteSession?.(roomId,isHost,ready,Math.max(1,Number(state.rules?.target)||11),Math.max(1,Number(state.rules?.cap)||15),!!state.rules?.deuce)}catch{}
+  try{window.BcmAndroid?.updateRemoteSession?.(roomId,isHost,!!match.active,Math.max(1,Number(state.rules?.target)||11),Math.max(1,Number(state.rules?.cap)||15),!!state.rules?.deuce)}catch{}
   const hasKeyAccessBridge=hasAndroidRemoteKeyAccessBridge(),keyAccessEnabled=isAndroidRemoteKeyAccessEnabled();
   const hasRecordingBridge=hasAndroidRecordingModeBridge(),recordingModeEnabled=isAndroidRecordingModeEnabled();
   $('androidRemoteRoom').textContent=roomId;

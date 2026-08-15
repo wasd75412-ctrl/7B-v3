@@ -75,6 +75,11 @@ test('removes the old score remote from More and provides a no-stats test mode',
   assert.match(mainSource,/function scoredHistory\(\)\{return state\.history\.filter\(h=>!h\.testMode\)\}/);
 });
 
+test('keeps the Android remote session active after a match finishes so it can undo',()=>{
+  assert.match(mainSource,/updateRemoteSession\?\.\(roomId,isHost,!!match\.active,/);
+  assert.doesNotMatch(mainSource,/updateRemoteSession\?\.\(roomId,isHost,ready,/);
+});
+
 test('opens backup center from the more menu',()=>{
   assert.match(html,/id="backupCenterBtn"[^>]*>☁️ 備份中心<\/button>/);
 });
