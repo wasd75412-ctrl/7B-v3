@@ -3320,7 +3320,7 @@ body>.modal .modal-card :is(.profile-panel,.profile-section,.stat-box,.health-bo
 
 /* iPad scoreboard: oversized high-contrast scores stay readable on artwork. */
 .score-center{
-  top:58%!important;
+  top:50%!important;
   display:grid!important;
   grid-template-columns:repeat(2,minmax(0,1fr))!important;
   column-gap:clamp(7rem,10vw,12rem)!important;
