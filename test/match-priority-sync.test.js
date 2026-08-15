@@ -18,6 +18,7 @@ test('finished matches enqueue compact stats before the full room sync',()=>{
 
 test('only a newly recorded match starts the priority stats sync',()=>{
   const finishFlow=source.slice(source.indexOf('function finishMatch()'),source.indexOf('function updatePriority()'));
+  assert.match(finishFlow,/if\(newlyRecorded&&isTestMatch\)saveLiveScoreSoon\(\)/);
   assert.match(finishFlow,/if\(newlyRecorded&&isHost&&!isTestMatch\)\{[\s\S]*?saveCompletedMatchStatsNow\(\)/);
   assert.match(finishFlow,/else saveSoon\(\)/);
 });

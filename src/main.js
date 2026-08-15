@@ -2052,6 +2052,7 @@ function finishMatch(){
   $('finalScore').textContent=`${m.scores[0]}：${m.scores[1]}`;
   if(isHost)$('resultModal').classList.remove('hidden');else $('resultModal').classList.add('hidden');
   renderAll();
+  if(newlyRecorded&&isTestMatch)saveLiveScoreSoon();
   if(newlyRecorded&&isHost&&!isTestMatch){
     void saveCompletedMatchStatsNow().catch(error=>console.warn('賽後戰績優先同步失敗，已排入完整資料重試',error));
     saveSoon(420);
