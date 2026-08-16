@@ -1,6 +1,6 @@
 export const SCORE_FONTS=Object.freeze([
-  'audiowide','black-ops-one','bungee','monoton',
-  'orbitron','oxanium','press-start-2p','russo-one'
+  'audiowide','black-ops-one','bungee',
+  'orbitron','oxanium','russo-one'
 ]);
 
 export function normalizeScoreFont(value){

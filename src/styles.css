@@ -1326,6 +1326,9 @@ html.brand-font-fallback .brand-copy .brand-mark h1{
 .score-view[data-score-theme="the-star"]{--score-court-bg:#031225;--score-court-image:linear-gradient(rgba(1,8,24,.04),rgba(0,5,16,.42)),url('/assets/score-backgrounds/the-star.webp')}
 .score-view[data-score-theme="vspo"]{--score-court-bg:#696978;--score-court-image:linear-gradient(rgba(35,30,55,.06),rgba(12,12,26,.50)),url('/assets/score-backgrounds/idol-group.webp')}
 .score-view[data-score-theme="vspo-snut"]{--score-court-bg:#9c627a;--score-court-image:linear-gradient(rgba(85,35,65,.04),rgba(25,12,30,.42)),url('/assets/score-backgrounds/vspo-snut.webp')}
+.score-view[data-score-theme="suisei-2023-09"]{--score-court-bg:#06151b;--score-court-image:linear-gradient(rgba(1,8,15,.08),rgba(0,5,12,.42)),url('/assets/score-backgrounds/suisei-2023-09.webp')}
+.score-view[data-score-theme="suisei-2024-07"]{--score-court-bg:#392069;--score-court-image:linear-gradient(rgba(27,10,62,.05),rgba(14,5,40,.38)),url('/assets/score-backgrounds/suisei-2024-07.webp')}
+.score-view[data-score-theme="suisei-2026-01"]{--score-court-bg:#8c4937;--score-court-image:linear-gradient(rgba(60,25,20,.04),rgba(28,10,9,.38)),url('/assets/score-backgrounds/suisei-2026-01.webp')}
 .scoreboard{
   background-color:var(--score-court-bg,#0b7048)!important;
   background-image:var(--score-court-image,none)!important;
@@ -3337,6 +3340,13 @@ body>.modal .modal-card :is(.profile-panel,.profile-section,.stat-box,.health-bo
 .score-center .score-number{
   min-width:0!important;
   width:100%!important;
+  box-sizing:border-box!important;
+  padding-block:0!important;
+  border-radius:0!important;
+  background:transparent!important;
+  box-shadow:none!important;
+  backdrop-filter:none!important;
+  -webkit-backdrop-filter:none!important;
   font-family:var(--score-number-font,"Score Audiowide"),"Arial Black",sans-serif!important;
   font-size:clamp(12rem,min(34vw,39vh),23rem)!important;
   font-weight:900!important;
@@ -3349,8 +3359,16 @@ body>.modal .modal-card :is(.profile-panel,.profile-section,.stat-box,.health-bo
     0 2px 0 rgba(255,255,255,.92),
     2px 3px 0 rgba(4,12,20,.72),
     4px 6px 0 rgba(4,12,20,.52),
-    7px 10px 12px rgba(0,0,0,.55)!important;
+    7px 10px 12px rgba(0,0,0,.72),
+    0 0 28px rgba(0,0,0,.5)!important;
 }
+.score-center .score-number.two-digit{
+  box-sizing:border-box!important;
+  font-size:clamp(9.5rem,min(28vw,33vh),19rem)!important;
+  letter-spacing:-.1em!important;
+}
+.score-center #scoreA.two-digit{padding-right:clamp(1rem,2vw,2.5rem)!important}
+.score-center #scoreB.two-digit{padding-left:clamp(1rem,2vw,2.5rem)!important}
 .score-center #scoreA{text-align:right!important}
 .score-center #scoreB{text-align:left!important}
 .score-center #scoreA{color:var(--score-a)!important}
