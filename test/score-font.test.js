@@ -43,3 +43,8 @@ test('fills the September background edge while keeping the character left of th
   assert.match(css,/data-score-theme="suisei-2023-09"\] \.scoreboard::before\{[^}]*background-position:center,right center!important;[^}]*background-size:100% 100%,auto 132%!important;/);
   assert.doesNotMatch(css,/data-score-theme="suisei-2023-09"\] \.scoreboard::before\{[^}]*transform:/);
 });
+
+test('fills the Pompompurin collection and raises the hug character eyes',()=>{
+  assert.match(css,/data-score-theme="pudding-collection"\] \.scoreboard\{[^}]*background-size:100% 100%,110% 100%!important;/);
+  assert.match(css,/data-score-theme="pudding-hug"\] \.scoreboard\{[^}]*background-position:center,center bottom!important;[^}]*background-size:100% 100%,auto 138%!important;/);
+});

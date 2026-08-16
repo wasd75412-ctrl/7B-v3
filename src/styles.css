@@ -1339,6 +1339,16 @@ html.brand-font-fallback .brand-copy .brand-mark h1{
 .score-view[data-score-theme="suisei-2023-09"] .scoreboard{
   background-image:none!important;
 }
+.score-view[data-score-theme="pudding-collection"] .scoreboard{
+  background-position:center!important;
+  background-repeat:no-repeat!important;
+  background-size:100% 100%,110% 100%!important;
+}
+.score-view[data-score-theme="pudding-hug"] .scoreboard{
+  background-position:center,center bottom!important;
+  background-repeat:no-repeat!important;
+  background-size:100% 100%,auto 138%!important;
+}
 .score-side.a,
 .score-side.b{
   background:transparent!important;
