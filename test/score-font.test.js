@@ -34,3 +34,7 @@ test('keeps the score separator centered outside the number layout flow',()=>{
 test('keeps artwork visible behind score digits without a dark panel',()=>{
   assert.match(css,/\.score-center \.score-number\{[\s\S]*?background:transparent!important;[\s\S]*?box-shadow:none!important;[\s\S]*?backdrop-filter:none!important;/);
 });
+
+test('keeps the September character face above a lowered compact score',()=>{
+  assert.match(css,/data-score-theme="suisei-2023-09"\] \.score-center\{\s*top:61%!important;\s*transform:translate\(-50%,-50%\) scale\(\.86\)!important;/);
+});

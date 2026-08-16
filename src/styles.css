@@ -3414,6 +3414,12 @@ body>.modal .modal-card :is(.profile-panel,.profile-section,.stat-box,.health-bo
   top:76%!important;
 }
 
+/* Keep the September character's face above the score on iPad. */
+.score-view[data-score-theme="suisei-2023-09"] .score-center{
+  top:61%!important;
+  transform:translate(-50%,-50%) scale(.86)!important;
+}
+
 /* Artwork-aware score palettes; random background changes also change the scores. */
 .score-view:is([data-score-theme="ocean-view"],[data-score-theme="sky"],[data-score-theme="blue-stage"],[data-score-theme="the-star"],[data-score-theme="jujutsu"]){--score-a:#ffd166;--score-b:#72e8ff}
 .score-view:is([data-score-theme="grassland"],[data-score-theme="happy-panda"],[data-score-theme="gbc-grass"]){--score-a:#ffe36e;--score-b:#7ef0b2}
