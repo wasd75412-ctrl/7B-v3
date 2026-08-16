@@ -1336,6 +1336,9 @@ html.brand-font-fallback .brand-copy .brand-mark h1{
   background-size:100% 100%!important;
   box-shadow:none!important;
 }
+.score-view[data-score-theme="suisei-2023-09"] .scoreboard{
+  background-image:none!important;
+}
 .score-side.a,
 .score-side.b{
   background:transparent!important;
@@ -1347,6 +1350,15 @@ html.brand-font-fallback .brand-copy .brand-mark h1{
 .scoreboard::before{
   content:none!important;
   background:none!important;
+}
+.score-view[data-score-theme="suisei-2023-09"] .scoreboard::before{
+  content:""!important;
+  background-image:linear-gradient(rgba(1,8,15,.08),rgba(0,5,12,.42)),url('/assets/score-backgrounds/suisei-2023-09.webp')!important;
+  background-position:center!important;
+  background-repeat:no-repeat!important;
+  background-size:100% 100%,cover!important;
+  transform:scale(1.32) translateX(-13%);
+  transform-origin:center;
 }
 
 /* BCM 2.3.38 — subtle 7B icon watermark behind the scoreboard */
