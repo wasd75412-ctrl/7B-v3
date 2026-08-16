@@ -2659,7 +2659,7 @@ refreshAppButtons.forEach(button=>button.onclick=()=>{refreshAppButtons.forEach(
 const fullscreenScoreBtn=$('fullscreenScore'),fullscreenScoreView=$('scoreView');
 const SCORE_THEME_KEY='bcmScoreThemeV1';
 const SCORE_RANDOM_THEME_KEY='bcmRandomScoreThemeV1';
-const SCORE_THEMES=new Set(['gbc-grass','pudding-pattern','pudding-hug','pudding-collection','sanrio-party','three-eyed-pattern','vspo-hbl','blue-stage','the-star','vspo','vspo-snut','happy-panda','pudding-puppy','bow-kitty','girls-band','girls-band-fashion','jujutsu']);
+const SCORE_THEMES=new Set(['suisei-2023-09','suisei-2024-07','suisei-2026-01','gbc-grass','pudding-pattern','pudding-hug','pudding-collection','sanrio-party','three-eyed-pattern','vspo-hbl','blue-stage','the-star','vspo','vspo-snut','happy-panda','pudding-puppy','bow-kitty','girls-band','girls-band-fashion','jujutsu']);
 const scoreThemeSelect=$('scoreTheme');
 const randomThemeToggle=$('randomThemeToggle');
 let randomScoreThemeEnabled=localStorage.getItem(SCORE_RANDOM_THEME_KEY)==='1';
