@@ -2010,7 +2010,7 @@ function deleteHistoryRecord(index){if(!isHost)return;const h=state.history[inde
 function clearAllHistory(){if(!isHost)return;if(!state.history.length)return alert('目前沒有比賽紀錄。');if(!confirm(`即將刪除全部 ${state.history.length} 筆比賽紀錄。\n球員名單與目前比分不會被刪除。`))return;const text=prompt('為避免誤刪，請輸入「清空」：','');if(text!=='清空')return alert('輸入不正確，已取消清空。');state.history=[];renderAll();saveSoon();alert('全部比賽紀錄已清空。')}
 function renderAll(){renderRoster();renderAttendance();renderCourt();renderHistory();renderScore();renderDashboard();renderStats();renderPoll();renderChat();renderTestMode();if(!$('shuttleTubeModal')?.classList.contains('hidden'))renderShuttleTubeManager();applyRole();renderAndroidRemote()}
 function renderTestMode(){
-  const enabled=!!state.testMode,currentMatchIsTest=!!state.match?.active&&!!state.match?.testMode,button=$('testModeToggle'),banner=$('testModeBanner');
+  const enabled=!!state.testMode,currentMatchIsTest=!!state.match?.active&&state.match?.winner===null&&!!state.match?.testMode,button=$('testModeToggle'),banner=$('testModeBanner');
   if(button){button.setAttribute('aria-pressed',enabled?'true':'false');button.textContent=enabled?'🧪 關閉測試模式':'🧪 開啟測試模式';button.classList.toggle('test-mode-on',enabled)}
   banner?.classList.toggle('hidden',!enabled&&!currentMatchIsTest);
   if(banner)banner.textContent=enabled?'🧪 測試模式已開啟：完成的比賽不會寫入紀錄或戰績。':'🧪 目前這場仍是測試比賽，不會寫入紀錄或戰績。';
@@ -2020,7 +2020,10 @@ function toggleTestMode(){
   const enabling=!state.testMode;
   if(enabling&&!confirm('開啟測試模式？\n\n開啟後完成的比賽不會加入比賽紀錄，也不會影響任何戰績。'))return;
   state.testMode=enabling;
-  if(enabling&&state.match.active&&state.match.winner===null)state.match.testMode=true;
+  if(state.match.active&&state.match.winner===null){
+    state.match.testMode=enabling;
+    saveLiveScoreSoon();
+  }
   renderTestMode();saveSoon();
 }
 function startMatch(){dismissedResultKey='';const selected=state.court.filter(Boolean);if(selected.length!==4||new Set(selected).size!==4)return alert('請選擇四位不同球員。');const ids=teammateSafeLineup(selected);state.court=[...ids];reconcileWaitingQueue(ids);state.queueDraftChosen=[];state.lastLoserReplayPlayerId=null;state.matchRollback=null;randomizeScoreThemeAtMatchStart(ids);state.match={active:true,players:[[ids[0],ids[1]],[ids[2],ids[3]]],scores:[0,0],rallies:[],serving:0,positions:[[0,1],[0,1]],winner:null,matchId:randomToken(),scoreFont:randomScoreFont(state.match?.scoreFont),testMode:!!state.testMode,startedAt:new Date().toISOString()};scoreViewRequested=true;saveLiveScoreSoon();saveSoon();renderScore();renderDashboard();renderTestMode()}
