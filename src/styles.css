@@ -3417,9 +3417,11 @@ body>.modal .modal-card :is(.profile-panel,.profile-section,.stat-box,.health-bo
   transform:none!important;
 }
 
-/* VSPO SNUT keeps the character group above and uses the open road for scores. */
+/* VSPO SNUT uses the previously approved true-center score placement. */
 .score-view[data-score-theme="vspo-snut"] .score-center{
-  top:76%!important;
+  left:50%!important;
+  top:50%!important;
+  transform:translate(-50%,-50%)!important;
 }
 
 /* Keep the September character's face above the score on iPad. */
