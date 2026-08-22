@@ -3418,9 +3418,10 @@ body>.modal .modal-card :is(.profile-panel,.profile-section,.stat-box,.health-bo
   transform:translate(-50%,-50%)!important;
 }
 
-/* Keep the September character's face above the score on iPad. */
+/* Keep the September score group at the true scoreboard center. */
 .score-view[data-score-theme="suisei-2023-09"] .score-center{
-  top:61%!important;
+  left:50%!important;
+  top:50%!important;
   transform:translate(-50%,-50%) scale(.86)!important;
 }
 
