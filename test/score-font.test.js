@@ -36,11 +36,14 @@ test('keeps artwork visible behind score digits without a dark panel',()=>{
   assert.match(css,/\.score-center \.score-number\{[\s\S]*?background:transparent!important;[\s\S]*?box-shadow:none!important;[\s\S]*?backdrop-filter:none!important;/);
 });
 
-test('uses bold player names and a badge instead of boxing the serving player',()=>{
+test('uses bold player names and one integrated label instead of boxing the serving player',()=>{
   assert.match(css,/\.court-player-name\{[\s\S]*?font-weight:1000!important;[\s\S]*?font-synthesis:weight;/);
   assert.match(css,/\.court-name\.server\{[\s\S]*?border:0!important;[\s\S]*?background:transparent!important;[\s\S]*?box-shadow:none!important;/);
-  assert.match(css,/\.serve-indicator\{[\s\S]*?background:linear-gradient\([\s\S]*?animation:serve-indicator-pulse/);
-  assert.match(main,/serving\?'<span class="serve-indicator" aria-label="目前發球員">🏸 發球<\/span>':''/);
+  assert.match(css,/\.court-position\.serve-position\{[\s\S]*?background:linear-gradient\(/);
+  assert.match(css,/\.court-name\.server \.court-player-name\{[\s\S]*?background:linear-gradient\(to bottom,transparent 72%/);
+  assert.match(css,/\.court-name\.server \.court-position\{[\s\S]*?font-size:clamp\(\.85rem,1\.6vw,1\.35rem\)!important;[\s\S]*?white-space:nowrap!important;/);
+  assert.match(main,/\$\{serving\?'🏸 發球 · ':''\}\$\{physicalSide\}/);
+  assert.doesNotMatch(css,/serve-indicator-pulse/);
 });
 
 test('keeps the September character face above a lowered compact score',()=>{
