@@ -740,14 +740,17 @@ html.brand-font-fallback .brand-copy .brand-mark h1{
   overflow:visible;
   color:#fff;
   font-size:clamp(2.8rem,6.3vw,7.6rem);
-  font-weight:1000;
+  font-weight:1000!important;
+  font-synthesis:weight;
   line-height:.88;
   letter-spacing:-.07em;
   white-space:normal;
   overflow-wrap:anywhere;
   word-break:keep-all;
   text-align:left;
-  text-shadow:0 6px 20px rgba(0,0,0,.42);
+  -webkit-text-stroke:clamp(.45px,.055vw,1px) rgba(255,255,255,.4);
+  paint-order:stroke fill;
+  text-shadow:0 3px 1px rgba(0,0,0,.78),0 7px 22px rgba(0,0,0,.62);
 }
 .score-side.b .court-player-name{text-align:right}
 .court-position{
@@ -936,8 +939,7 @@ html.brand-font-fallback .brand-copy .brand-mark h1{
   .score-divider::before{font-size:clamp(2rem,8vw,2.8rem)}
 }
 
-/* BCM 2.3.4 — borderless scoreboard
-   中央比分無框；一般球員無框；只有發球員保留黃色外框。 */
+/* BCM 2.3.4 — borderless scoreboard */
 .score-center{
   padding:0!important;
   border:0!important;
@@ -958,18 +960,21 @@ html.brand-font-fallback .brand-copy .brand-mark h1{
 
 .court-name.server{
   color:#fff!important;
-  border:clamp(3px,.35vw,6px) solid var(--serve-yellow)!important;
-  border-radius:20px!important;
+  border:0!important;
+  border-radius:0!important;
   background:transparent!important;
-  box-shadow:
-    0 0 0 2px rgba(255,225,79,.2),
-    0 0 24px rgba(255,225,79,.42)!important;
+  box-shadow:none!important;
 }
 
 .court-name.server .score-player,
 .court-name.server .court-player-name{
-  color:#fff!important;
-  text-shadow:0 6px 20px rgba(0,0,0,.42)!important;
+  color:#fff7a8!important;
+  -webkit-text-stroke:clamp(1px,.11vw,2px) #171006;
+  paint-order:stroke fill;
+  text-shadow:
+    0 0 5px rgba(255,255,255,.95),
+    0 0 18px rgba(255,225,79,.95),
+    0 5px 10px rgba(0,0,0,.9)!important;
 }
 
 .court-name.server .avatar.score-large{
@@ -977,8 +982,42 @@ html.brand-font-fallback .brand-copy .brand-mark h1{
   box-shadow:0 10px 30px rgba(0,0,0,.34)!important;
 }
 
+.court-player-meta{
+  display:flex;
+  align-items:center;
+  gap:clamp(6px,.65vw,11px);
+  width:max-content;
+  max-width:100%;
+}
+.score-side.b .court-player-meta{justify-content:flex-end}
+.serve-indicator{
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  min-height:1.9em;
+  padding:.32em .72em;
+  border-radius:999px;
+  color:#171006;
+  font-size:clamp(1rem,1.75vw,1.75rem);
+  font-weight:1000;
+  font-synthesis:weight;
+  line-height:1;
+  letter-spacing:.08em;
+  white-space:nowrap;
+  background:linear-gradient(135deg,#fffbd0 0%,var(--serve-yellow) 45%,#ffae00 100%);
+  box-shadow:0 3px 8px rgba(0,0,0,.7),0 0 14px 4px rgba(255,225,79,.7);
+  animation:serve-indicator-pulse 1.25s ease-in-out infinite alternate;
+}
+@keyframes serve-indicator-pulse{
+  from{transform:scale(1);filter:brightness(1)}
+  to{transform:scale(1.06);filter:brightness(1.18)}
+}
+@media(prefers-reduced-motion:reduce){
+  .serve-indicator{animation:none}
+}
+
 @media(max-width:760px){
-  .court-name.server{border-radius:14px!important}
+  .serve-indicator{font-size:clamp(.72rem,3.1vw,1rem);padding:.28em .58em}
 }
 
 

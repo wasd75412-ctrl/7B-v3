@@ -4,6 +4,7 @@ import {readFileSync} from 'node:fs';
 import {SCORE_FONTS,normalizeScoreFont,randomScoreFont} from '../src/score-font.js';
 
 const css=readFileSync(new URL('../src/styles.css',import.meta.url),'utf8');
+const main=readFileSync(new URL('../src/main.js',import.meta.url),'utf8');
 
 test('normalizes unknown score fonts to a bundled font',()=>{
   assert.equal(normalizeScoreFont('unknown'),SCORE_FONTS[0]);
@@ -33,6 +34,13 @@ test('keeps the score separator centered outside the number layout flow',()=>{
 
 test('keeps artwork visible behind score digits without a dark panel',()=>{
   assert.match(css,/\.score-center \.score-number\{[\s\S]*?background:transparent!important;[\s\S]*?box-shadow:none!important;[\s\S]*?backdrop-filter:none!important;/);
+});
+
+test('uses bold player names and a badge instead of boxing the serving player',()=>{
+  assert.match(css,/\.court-player-name\{[\s\S]*?font-weight:1000!important;[\s\S]*?font-synthesis:weight;/);
+  assert.match(css,/\.court-name\.server\{[\s\S]*?border:0!important;[\s\S]*?background:transparent!important;[\s\S]*?box-shadow:none!important;/);
+  assert.match(css,/\.serve-indicator\{[\s\S]*?background:linear-gradient\([\s\S]*?animation:serve-indicator-pulse/);
+  assert.match(main,/serving\?'<span class="serve-indicator" aria-label="目前發球員">🏸 發球<\/span>':''/);
 });
 
 test('keeps the September character face above a lowered compact score',()=>{
