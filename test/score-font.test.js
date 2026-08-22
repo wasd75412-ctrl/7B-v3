@@ -39,6 +39,10 @@ test('keeps the September character face above a lowered compact score',()=>{
   assert.match(css,/data-score-theme="suisei-2023-09"\] \.score-center\{\s*top:61%!important;\s*transform:translate\(-50%,-50%\) scale\(\.86\)!important;/);
 });
 
+test('restores the approved true-center score placement for VSPO SNUT',()=>{
+  assert.match(css,/data-score-theme="vspo-snut"\] \.score-center\{\s*left:50%!important;\s*top:50%!important;\s*transform:translate\(-50%,-50%\)!important;/);
+});
+
 test('fills the September background edge while keeping the character left of the right player card',()=>{
   assert.match(css,/data-score-theme="suisei-2023-09"\] \.scoreboard::before\{[^}]*background-position:center,right center!important;[^}]*background-size:100% 100%,auto 132%!important;/);
   assert.doesNotMatch(css,/data-score-theme="suisei-2023-09"\] \.scoreboard::before\{[^}]*transform:/);
