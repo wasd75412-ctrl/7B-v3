@@ -1915,7 +1915,7 @@ function renderScore(){
       const physicalSide=sideIndex===1?'右邊':'左邊';
       const serving=m.serving===t&&serverIndex===i&&m.winner===null;
       const nameClass=scoreNameClass(displayName);
-      return `<div class="court-name ${serving?'server':''}"><span class="score-player">${avatar(id,'score-large')}<span class="court-player-copy"><span class="court-player-meta"><span class="court-position${nameClass}">${physicalSide}</span>${serving?'<span class="serve-indicator" aria-label="目前發球員">🏸 發球</span>':''}</span><span class="court-player-name${nameClass}">${esc(displayName)}</span></span></span></div>`;
+      return `<div class="court-name ${serving?'server':''}"><span class="score-player">${avatar(id,'score-large')}<span class="court-player-copy"><span class="court-player-meta"><span class="court-position${nameClass}${serving?' serve-position':''}">${serving?'🏸 發球 · ':''}${physicalSide}</span></span><span class="court-player-name${nameClass}">${esc(displayName)}</span></span></span></div>`;
     }).join('');
   };
   renderTeam(0,$('namesA'));

@@ -778,7 +778,7 @@ html.brand-font-fallback .brand-copy .brand-mark h1{
   box-shadow:0 0 0 3px rgba(255,244,125,.9),0 10px 28px rgba(0,0,0,.34),inset 0 1px 0 rgba(255,255,255,.72)!important;
 }
 .court-name.server .score-player,.court-name.server .court-player-name{color:#15120a!important;text-shadow:none}
-.court-name.server .court-position{color:var(--serve-yellow)!important;background:#15191e!important}
+.court-name.server .court-position{color:#171006!important;background:var(--serve-yellow)!important}
 .court-name.server .avatar.score-large{border-color:#15191e;box-shadow:0 0 0 5px rgba(255,255,255,.52),0 10px 28px rgba(0,0,0,.34)}
 
 .score-center{
@@ -966,15 +966,13 @@ html.brand-font-fallback .brand-copy .brand-mark h1{
   box-shadow:none!important;
 }
 
-.court-name.server .score-player,
 .court-name.server .court-player-name{
-  color:#fff7a8!important;
-  -webkit-text-stroke:clamp(1px,.11vw,2px) #171006;
+  width:auto!important;
+  color:#fff!important;
+  -webkit-text-stroke:clamp(.7px,.08vw,1.4px) rgba(0,0,0,.88);
   paint-order:stroke fill;
-  text-shadow:
-    0 0 5px rgba(255,255,255,.95),
-    0 0 18px rgba(255,225,79,.95),
-    0 5px 10px rgba(0,0,0,.9)!important;
+  background:linear-gradient(to bottom,transparent 72%,rgba(255,225,79,.92) 72%,rgba(255,225,79,.92) 91%,transparent 91%);
+  text-shadow:0 3px 1px rgba(0,0,0,.78),0 7px 22px rgba(0,0,0,.62)!important;
 }
 
 .court-name.server .avatar.score-large{
@@ -990,34 +988,10 @@ html.brand-font-fallback .brand-copy .brand-mark h1{
   max-width:100%;
 }
 .score-side.b .court-player-meta{justify-content:flex-end}
-.serve-indicator{
-  display:inline-flex;
-  align-items:center;
-  justify-content:center;
-  min-height:1.9em;
-  padding:.32em .72em;
-  border-radius:999px;
+.court-position.serve-position{
   color:#171006;
-  font-size:clamp(1rem,1.75vw,1.75rem);
-  font-weight:1000;
-  font-synthesis:weight;
-  line-height:1;
-  letter-spacing:.08em;
-  white-space:nowrap;
   background:linear-gradient(135deg,#fffbd0 0%,var(--serve-yellow) 45%,#ffae00 100%);
-  box-shadow:0 3px 8px rgba(0,0,0,.7),0 0 14px 4px rgba(255,225,79,.7);
-  animation:serve-indicator-pulse 1.25s ease-in-out infinite alternate;
-}
-@keyframes serve-indicator-pulse{
-  from{transform:scale(1);filter:brightness(1)}
-  to{transform:scale(1.06);filter:brightness(1.18)}
-}
-@media(prefers-reduced-motion:reduce){
-  .serve-indicator{animation:none}
-}
-
-@media(max-width:760px){
-  .serve-indicator{font-size:clamp(.72rem,3.1vw,1rem);padding:.28em .58em}
+  box-shadow:0 3px 8px rgba(0,0,0,.64),0 0 10px 2px rgba(255,225,79,.52);
 }
 
 
@@ -3480,9 +3454,15 @@ body>.modal .modal-card :is(.profile-panel,.profile-section,.stat-box,.health-bo
 .score-view:is([data-score-theme="girls-band"],[data-score-theme="girls-band-fashion"]){--score-a:#e72f4d;--score-b:#687cff}
 .score-view[data-score-theme="three-eyed-pattern"]{--score-a:#62c98a;--score-b:#5ba9dc}
 .court-name.server .court-position{
-  color:var(--serve-yellow)!important;
-  background:#15191e!important;
-  box-shadow:0 3px 10px rgba(0,0,0,.22)!important
+  color:#171006!important;
+  min-width:0!important;
+  max-width:none!important;
+  padding:.45em .75em!important;
+  font-size:clamp(.85rem,1.6vw,1.35rem)!important;
+  line-height:1!important;
+  white-space:nowrap!important;
+  background:linear-gradient(135deg,#fffbd0 0%,var(--serve-yellow) 45%,#ffae00 100%)!important;
+  box-shadow:0 3px 8px rgba(0,0,0,.64),0 0 10px 2px rgba(255,225,79,.52)!important
 }
 
 /* BCM 2.4.17 — player chat and mention notifications */
