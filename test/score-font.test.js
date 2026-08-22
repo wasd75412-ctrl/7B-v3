@@ -44,8 +44,8 @@ test('uses bold names and only a solid name color to identify the serving player
   assert.doesNotMatch(main,/serve-position|🏸 發球 · /);
 });
 
-test('keeps the September character face above a lowered compact score',()=>{
-  assert.match(css,/data-score-theme="suisei-2023-09"\] \.score-center\{\s*top:61%!important;\s*transform:translate\(-50%,-50%\) scale\(\.86\)!important;/);
+test('keeps the September score at the true scoreboard center',()=>{
+  assert.match(css,/data-score-theme="suisei-2023-09"\] \.score-center\{\s*left:50%!important;\s*top:50%!important;\s*transform:translate\(-50%,-50%\) scale\(\.86\)!important;/);
 });
 
 test('restores the approved true-center score placement for VSPO SNUT',()=>{
