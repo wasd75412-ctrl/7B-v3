@@ -778,7 +778,6 @@ html.brand-font-fallback .brand-copy .brand-mark h1{
   box-shadow:0 0 0 3px rgba(255,244,125,.9),0 10px 28px rgba(0,0,0,.34),inset 0 1px 0 rgba(255,255,255,.72)!important;
 }
 .court-name.server .score-player,.court-name.server .court-player-name{color:#15120a!important;text-shadow:none}
-.court-name.server .court-position{color:#171006!important;background:var(--serve-yellow)!important}
 .court-name.server .avatar.score-large{border-color:#15191e;box-shadow:0 0 0 5px rgba(255,255,255,.52),0 10px 28px rgba(0,0,0,.34)}
 
 .score-center{
@@ -967,11 +966,9 @@ html.brand-font-fallback .brand-copy .brand-mark h1{
 }
 
 .court-name.server .court-player-name{
-  width:auto!important;
-  color:#fff!important;
-  -webkit-text-stroke:clamp(.7px,.08vw,1.4px) rgba(0,0,0,.88);
-  paint-order:stroke fill;
-  background:linear-gradient(to bottom,transparent 72%,rgba(255,225,79,.92) 72%,rgba(255,225,79,.92) 91%,transparent 91%);
+  color:var(--serve-yellow)!important;
+  -webkit-text-stroke:0!important;
+  background:none!important;
   text-shadow:0 3px 1px rgba(0,0,0,.78),0 7px 22px rgba(0,0,0,.62)!important;
 }
 
@@ -979,22 +976,6 @@ html.brand-font-fallback .brand-copy .brand-mark h1{
   border-color:rgba(255,255,255,.9)!important;
   box-shadow:0 10px 30px rgba(0,0,0,.34)!important;
 }
-
-.court-player-meta{
-  display:flex;
-  align-items:center;
-  gap:clamp(6px,.65vw,11px);
-  width:max-content;
-  max-width:100%;
-}
-.score-side.b .court-player-meta{justify-content:flex-end}
-.court-position.serve-position{
-  color:#171006;
-  background:linear-gradient(135deg,#fffbd0 0%,var(--serve-yellow) 45%,#ffae00 100%);
-  box-shadow:0 3px 8px rgba(0,0,0,.64),0 0 10px 2px rgba(255,225,79,.52);
-}
-
-
 
 /* Green court surface */
 .scoreboard{
@@ -3453,18 +3434,6 @@ body>.modal .modal-card :is(.profile-panel,.profile-section,.stat-box,.health-bo
 .score-view:is([data-score-theme="bow-kitty"],[data-score-theme="sanrio-party"]){--score-a:#ff718d;--score-b:#65bde8}
 .score-view:is([data-score-theme="girls-band"],[data-score-theme="girls-band-fashion"]){--score-a:#e72f4d;--score-b:#687cff}
 .score-view[data-score-theme="three-eyed-pattern"]{--score-a:#62c98a;--score-b:#5ba9dc}
-.court-name.server .court-position{
-  color:#171006!important;
-  min-width:0!important;
-  max-width:none!important;
-  padding:.45em .75em!important;
-  font-size:clamp(.85rem,1.6vw,1.35rem)!important;
-  line-height:1!important;
-  white-space:nowrap!important;
-  background:linear-gradient(135deg,#fffbd0 0%,var(--serve-yellow) 45%,#ffae00 100%)!important;
-  box-shadow:0 3px 8px rgba(0,0,0,.64),0 0 10px 2px rgba(255,225,79,.52)!important
-}
-
 /* BCM 2.4.17 — player chat and mention notifications */
 .tab[data-page="8"]{position:relative}
 .chat-tab-badge{
