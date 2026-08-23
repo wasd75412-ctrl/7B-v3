@@ -75,6 +75,8 @@ test('removes the old score remote from More and provides a no-stats test mode',
   assert.match(mainSource,/function scoredHistory\(\)\{return state\.history\.filter\(h=>!h\.testMode\)\}/);
   assert.match(mainSource,/state\.match\.testMode=enabling;\s*saveLiveScoreSoon\(\)/);
   assert.match(mainSource,/state\.match\?\.winner===null&&!!state\.match\?\.testMode/);
+  assert.match(mainSource,/function currentTestModeEnabled\(\)\{[\s\S]*?!!state\.testMode\|\|!!state\.match\?\.active/);
+  assert.match(mainSource,/const enabling=!currentTestModeEnabled\(\)/);
 });
 
 test('keeps the Android remote session active after a match finishes so it can undo',()=>{

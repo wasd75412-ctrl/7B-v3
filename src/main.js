@@ -2009,15 +2009,18 @@ function renderHistory(){renderMatchReplay();const list=state.history.map((h,ind
 function deleteHistoryRecord(index){if(!isHost)return;const h=state.history[index];if(!h)return;const title=`${(h.teams?.[0]||[]).map(pname).join('／')} ${h.scores?.[0]??0}：${h.scores?.[1]??0} ${(h.teams?.[1]||[]).map(pname).join('／')}`;if(!confirm(`確定刪除這筆比賽紀錄？\n\n${title}\n${h.time||''}`))return;state.history.splice(index,1);renderAll();saveSoon()}
 function clearAllHistory(){if(!isHost)return;if(!state.history.length)return alert('目前沒有比賽紀錄。');if(!confirm(`即將刪除全部 ${state.history.length} 筆比賽紀錄。\n球員名單與目前比分不會被刪除。`))return;const text=prompt('為避免誤刪，請輸入「清空」：','');if(text!=='清空')return alert('輸入不正確，已取消清空。');state.history=[];renderAll();saveSoon();alert('全部比賽紀錄已清空。')}
 function renderAll(){renderRoster();renderAttendance();renderCourt();renderHistory();renderScore();renderDashboard();renderStats();renderPoll();renderChat();renderTestMode();if(!$('shuttleTubeModal')?.classList.contains('hidden'))renderShuttleTubeManager();applyRole();renderAndroidRemote()}
+function currentTestModeEnabled(){
+  return !!state.testMode||!!state.match?.active&&state.match?.winner===null&&!!state.match?.testMode;
+}
 function renderTestMode(){
-  const enabled=!!state.testMode,currentMatchIsTest=!!state.match?.active&&state.match?.winner===null&&!!state.match?.testMode,button=$('testModeToggle'),banner=$('testModeBanner');
+  const enabled=currentTestModeEnabled(),currentMatchIsTest=!!state.match?.active&&state.match?.winner===null&&!!state.match?.testMode,button=$('testModeToggle'),banner=$('testModeBanner');
   if(button){button.setAttribute('aria-pressed',enabled?'true':'false');button.textContent=enabled?'🧪 關閉測試模式':'🧪 開啟測試模式';button.classList.toggle('test-mode-on',enabled)}
   banner?.classList.toggle('hidden',!enabled&&!currentMatchIsTest);
   if(banner)banner.textContent=enabled?'🧪 測試模式已開啟：完成的比賽不會寫入紀錄或戰績。':'🧪 目前這場仍是測試比賽，不會寫入紀錄或戰績。';
 }
 function toggleTestMode(){
   if(!isHost)return;
-  const enabling=!state.testMode;
+  const enabling=!currentTestModeEnabled();
   if(enabling&&!confirm('開啟測試模式？\n\n開啟後完成的比賽不會加入比賽紀錄，也不會影響任何戰績。'))return;
   state.testMode=enabling;
   if(state.match.active&&state.match.winner===null){
