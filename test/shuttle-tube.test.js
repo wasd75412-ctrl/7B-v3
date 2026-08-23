@@ -35,6 +35,20 @@ test('changes a paid player to played after a later match',()=>{
   assert.equal(shuttlePaymentStatus(tube,history,'p1'),'paid-played');
 });
 
+test('syncs a paid player who already played after the tube was activated',()=>{
+  const tube=setShuttlePayment(
+    normalizeShuttleTubes([{
+      id:'tube-1',name:'AS-30',status:'active',createdAt:'2026-07-24T00:30:00.000Z',
+      activatedAt:'2026-07-24T01:00:00.000Z',activationHistoryCount:0
+    }])[0],
+    'p1',
+    true,
+    {paidAt:'2026-07-24T04:00:00.000Z',historyCount:1}
+  );
+  const history=[{endedAt:'2026-07-24T03:00:00.000Z',teams:[['p1','p2'],['p3','p4']]}];
+  assert.equal(shuttlePaymentStatus(tube,history,'p1'),'paid-played');
+});
+
 test('keeps a paid player waiting while a new tube is not active',()=>{
   const tube=setShuttlePayment(
     createShuttleTube({id:'pending',name:'AS-30',createdAt:'2026-07-24T01:00:00.000Z'}),
@@ -81,10 +95,19 @@ test('migrates the newest legacy tube as active and clamps remaining shuttles',(
 test('lets an admin explicitly edit paid and played status',()=>{
   const tube=createShuttleTube({id:'tube',name:'AS-30',status:'active'});
   const paid=setShuttlePaymentStatus(tube,'p1','paid-waiting',{paidAt:'2026-07-28T01:00:00.000Z',historyCount:0});
-  assert.equal(shuttlePaymentStatus(paid,[{endedAt:'2026-07-28T02:00:00.000Z',teams:[['p1'],[]]}],'p1'),'paid-waiting');
+  assert.equal(shuttlePaymentStatus(paid,[{endedAt:'2026-07-28T02:00:00.000Z',teams:[['p1'],[]]}],'p1'),'paid-played');
   const played=setShuttlePaymentStatus(paid,'p1','paid-played');
   assert.equal(shuttlePaymentStatus(played,[],'p1'),'paid-played');
   assert.equal(shuttlePaymentStatus(setShuttlePaymentStatus(played,'p1','unpaid'),[],'p1'),'unpaid');
+});
+
+test('removes legacy waiting overrides so participation can sync again',()=>{
+  const tube=normalizeShuttleTubes([{
+    id:'tube',name:'AS-30',status:'active',activatedAt:'2026-07-28T01:00:00.000Z',
+    paid:{p1:{paidAt:'2026-07-28T03:00:00.000Z',historyCount:1,playedOverride:false}}
+  }])[0];
+  assert.equal('playedOverride' in tube.paid.p1,false);
+  assert.equal(shuttlePaymentStatus(tube,[{endedAt:'2026-07-28T02:00:00.000Z',teams:[['p1'],[]]}],'p1'),'paid-played');
 });
 
 test('edits tube details while keeping remaining count valid',()=>{

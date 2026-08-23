@@ -12,7 +12,7 @@ export function normalizeShuttleTubes(value,maxCount=20){
       paid[playerId]={
         paidAt:cleanText(payment?.paidAt,40),
         historyCount:Math.max(0,Number(payment?.historyCount)||0),
-        ...(typeof payment?.playedOverride==='boolean'?{playedOverride:payment.playedOverride}:{})
+        ...(payment?.playedOverride===true?{playedOverride:true}:{})
       };
     }
     const totalShuttles=clamp(tube?.totalShuttles||12,1,100);
@@ -79,7 +79,7 @@ export function setShuttlePaymentStatus(tube,playerId,status,{paidAt='',historyC
     payments[id]={
       paidAt:existing.paidAt||String(paidAt||''),
       historyCount:Math.max(0,Number(existing.historyCount??historyCount)||0),
-      playedOverride:status==='paid-played'
+      ...(status==='paid-played'?{playedOverride:true}:{})
     };
   }
   return{...normalized,paid:payments};
@@ -143,8 +143,11 @@ export function playerPlayedSincePayment(history=[],playerId='',payment=null,tub
   if(!payment||!playerId||tube?.status==='pending')return false;
   const paidAt=Date.parse(payment.paidAt||''),activatedAt=Date.parse(tube?.activatedAt||'');
   const finishedAt=Date.parse(tube?.finishedAt||'');
-  const baseline=Math.max(0,Number(payment.historyCount)||0,Number(tube?.activationHistoryCount)||0);
-  const starts=[paidAt,activatedAt].filter(Number.isFinite),startedAt=starts.length?Math.max(...starts):NaN;
+  const hasActivationBoundary=Number.isFinite(activatedAt)||Number(tube?.activationHistoryCount)>0;
+  const baseline=hasActivationBoundary
+    ?Math.max(0,Number(tube?.activationHistoryCount)||0)
+    :Math.max(0,Number(payment.historyCount)||0);
+  const startedAt=Number.isFinite(activatedAt)?activatedAt:paidAt;
   return (Array.isArray(history)?history:[]).some((match,index)=>{
     if(index<baseline)return false;
     const played=(match?.teams||[]).some(team=>(team||[]).includes(playerId));
