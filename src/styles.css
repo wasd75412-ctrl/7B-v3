@@ -956,6 +956,7 @@ html.brand-font-fallback .brand-copy .brand-mark h1{
   border-radius:0!important;
   background:transparent!important;
   box-shadow:none!important;
+  overflow:visible!important;
 }
 
 .court-name.server{
@@ -1419,6 +1420,8 @@ html.brand-font-fallback .brand-copy .brand-mark h1{
 .court-player-name.score-name-yoyo{
   --score-name-reduction:4pt;
   letter-spacing:-.065em;
+  line-height:1;
+  padding-bottom:clamp(5px,.55vw,9px);
 }
 .court-player-name.score-name-yuxuan-jr{
   --score-name-reduction:17pt;

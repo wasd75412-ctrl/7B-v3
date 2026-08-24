@@ -52,6 +52,11 @@ test('enlarges only the current serving player name and restores the normal size
   assert.match(main,/class="court-name \$\{serving\?'server':''\}"/);
 });
 
+test('keeps the lowercase y descender in Yoyo visible with a thick outline',()=>{
+  assert.match(css,/\.court-name,\s*\.court-name \+ \.court-name\{[\s\S]*?overflow:visible!important;/);
+  assert.match(css,/\.court-player-name\.score-name-yoyo\{[\s\S]*?line-height:1;[\s\S]*?padding-bottom:clamp\(5px,\.55vw,9px\);/);
+});
+
 test('keeps the September score at the true scoreboard center',()=>{
   assert.match(css,/data-score-theme="suisei-2023-09"\] \.score-center\{\s*left:50%!important;\s*top:50%!important;\s*transform:translate\(-50%,-50%\) scale\(\.86\)!important;/);
 });
