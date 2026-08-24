@@ -739,8 +739,9 @@ html.brand-font-fallback .brand-copy .brand-mark h1{
   width:100%;
   overflow:visible;
   color:#fff;
+  font-family:"PingFang TC","Noto Sans TC","Microsoft JhengHei UI","Microsoft JhengHei",system-ui,sans-serif!important;
   font-size:clamp(2.8rem,6.3vw,7.6rem);
-  font-weight:1000!important;
+  font-weight:900!important;
   font-synthesis:weight;
   line-height:.88;
   letter-spacing:-.07em;
@@ -748,7 +749,7 @@ html.brand-font-fallback .brand-copy .brand-mark h1{
   overflow-wrap:anywhere;
   word-break:keep-all;
   text-align:left;
-  -webkit-text-stroke:clamp(.45px,.055vw,1px) rgba(255,255,255,.4);
+  -webkit-text-stroke:clamp(1px,.12vw,1.8px) currentColor;
   paint-order:stroke fill;
   text-shadow:0 3px 1px rgba(0,0,0,.78),0 7px 22px rgba(0,0,0,.62);
 }
@@ -967,7 +968,7 @@ html.brand-font-fallback .brand-copy .brand-mark h1{
 
 .court-name.server .court-player-name{
   color:var(--serve-yellow)!important;
-  -webkit-text-stroke:0!important;
+  -webkit-text-stroke:clamp(1px,.12vw,1.8px) var(--serve-yellow)!important;
   background:none!important;
   text-shadow:0 3px 1px rgba(0,0,0,.78),0 7px 22px rgba(0,0,0,.62)!important;
 }

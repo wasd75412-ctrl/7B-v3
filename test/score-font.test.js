@@ -36,10 +36,10 @@ test('keeps artwork visible behind score digits without a dark panel',()=>{
   assert.match(css,/\.score-center \.score-number\{[\s\S]*?background:transparent!important;[\s\S]*?box-shadow:none!important;[\s\S]*?backdrop-filter:none!important;/);
 });
 
-test('uses bold names and only a solid name color to identify the serving player',()=>{
-  assert.match(css,/\.court-player-name\{[\s\S]*?font-weight:1000!important;[\s\S]*?font-synthesis:weight;/);
+test('uses a heavy sans-serif face and a solid name color to identify the serving player',()=>{
+  assert.match(css,/\.court-player-name\{[\s\S]*?font-family:"PingFang TC","Noto Sans TC","Microsoft JhengHei UI","Microsoft JhengHei",system-ui,sans-serif!important;[\s\S]*?font-weight:900!important;[\s\S]*?font-synthesis:weight;[\s\S]*?-webkit-text-stroke:clamp\(1px,\.12vw,1\.8px\) currentColor;/);
   assert.match(css,/\.court-name\.server\{[\s\S]*?border:0!important;[\s\S]*?background:transparent!important;[\s\S]*?box-shadow:none!important;/);
-  assert.match(css,/\.court-name\.server \.court-player-name\{\s*color:var\(--serve-yellow\)!important;\s*-webkit-text-stroke:0!important;\s*background:none!important;/);
+  assert.match(css,/\.court-name\.server \.court-player-name\{\s*color:var\(--serve-yellow\)!important;\s*-webkit-text-stroke:clamp\(1px,\.12vw,1\.8px\) var\(--serve-yellow\)!important;\s*background:none!important;/);
   assert.doesNotMatch(css,/serve-position|serve-indicator-pulse/);
   assert.doesNotMatch(main,/serve-position|🏸 發球 · /);
 });
