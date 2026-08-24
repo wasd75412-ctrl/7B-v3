@@ -1765,11 +1765,15 @@ function enableAppNoSleepFallback(){
     const video=document.createElement('video');
     video.src='./assets/no-sleep.mp4';
     video.setAttribute('playsinline','');
+    video.setAttribute('webkit-playsinline','');
     video.setAttribute('aria-hidden','true');
+    video.loop=true;
     video.preload='auto';
     video.style.cssText='position:fixed;width:1px;height:1px;opacity:.001;pointer-events:none;left:-10px;bottom:-10px';
     video.addEventListener('timeupdate',()=>{if(video.currentTime>.5)video.currentTime=.01});
+    video.addEventListener('playing',()=>{appNoSleepFallbackActive=true;renderAppWakeLockStatus()});
     video.addEventListener('pause',()=>{appNoSleepFallbackActive=false;renderAppWakeLockStatus()});
+    video.addEventListener('ended',()=>{appNoSleepFallbackActive=false;if(appWakeLockWanted&&!document.hidden)enableAppNoSleepFallback();renderAppWakeLockStatus()});
     document.documentElement.append(video);
     appNoSleepVideo=video;
   }
@@ -1857,15 +1861,15 @@ async function syncAppWakeLock(userActivated=false){
   }
   finally{appWakeLockRequest=null;renderAppWakeLockStatus()}
 }
-document.addEventListener('visibilitychange',()=>{void syncAppWakeLock()});
+document.addEventListener('visibilitychange',()=>{if(!document.hidden)enableAppNoSleepFallback();void syncAppWakeLock()});
 function resumeWakeLockFromGesture(){enableAppNoSleepFallback();void syncAppWakeLock(true)}
 document.addEventListener('pointerdown',resumeWakeLockFromGesture,{capture:true,passive:true});
 document.addEventListener('touchstart',resumeWakeLockFromGesture,{capture:true,passive:true});
 document.addEventListener('click',resumeWakeLockFromGesture,{capture:true,passive:true});
 document.addEventListener('keydown',resumeWakeLockFromGesture,{capture:true});
 window.addEventListener('focus',()=>scheduleAppWakeLockRetry(100));
-window.addEventListener('pageshow',()=>scheduleAppWakeLockRetry(100));
-window.addEventListener('pagehide',()=>{void releaseAppWakeLock(true)});
+window.addEventListener('pageshow',()=>{enableAppNoSleepFallback();scheduleAppWakeLockRetry(100)});
+window.addEventListener('pagehide',()=>{void releaseAppWakeLock()});
 $('wakeLockBtn').onclick=async()=>{
   const intent=wakeLockButtonIntent({wanted:appWakeLockWanted,active:appWakeLockProtected(),supported:hasNativeWakeLock()});
   if(intent==='retry'){
@@ -1882,6 +1886,7 @@ $('wakeLockBtn').onclick=async()=>{
   renderAppWakeLockStatus();
 };
 setInterval(()=>{
+  if(appWakeLockWanted&&!document.hidden&&!appNoSleepFallbackActive)enableAppNoSleepFallback();
   const shouldRetryNative=shouldRequestNativeWakeLock({wanted:appWakeLockWanted,hidden:document.hidden,nativeSupported:hasNativeWakeLock(),nativeActive:nativeWakeLockActive(),requestPending:!!appWakeLockRequest});
   if(shouldRetryNative)void syncAppWakeLock();
 },5000);
