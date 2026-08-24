@@ -35,8 +35,8 @@ test('includes an iOS media fallback without adding a runtime dependency',()=>{
 test('restores both wake lock layers after an iPad page lifecycle transition',()=>{
   assert.match(mainSource,/visibilitychange[^\n]*enableAppNoSleepFallback\(\)[^\n]*syncAppWakeLock/);
   assert.match(mainSource,/pageshow[^\n]*enableAppNoSleepFallback\(\)[^\n]*scheduleAppWakeLockRetry/);
-  assert.match(mainSource,/pagehide[^\n]*releaseAppWakeLock\(\)/);
-  assert.doesNotMatch(mainSource,/pagehide[^\n]*releaseAppWakeLock\(true\)/);
+  assert.match(mainSource,/pagehide[^\n]*releaseAppWakeLock\(true,true\)/);
+  assert.match(mainSource,/destroy&&appNoSleepVideo[^\n]*appNoSleepVideo\.remove\(\)[^\n]*appNoSleepVideo=null/);
 });
 
 test('periodically repairs a stopped iOS media fallback',()=>{
