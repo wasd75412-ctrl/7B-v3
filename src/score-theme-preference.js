@@ -1,6 +1,6 @@
 export const PLAYER_SCORE_THEME_LINKS=Object.freeze({
   '建昱':['vspo-hbl','vspo','vspo-snut','happy-panda'],
-  '于萱':['blue-stage','the-star'],
+  '于萱':['blue-stage','the-star','suisei-2023-09','suisei-2024-07','suisei-2026-01'],
   '于瑄':['suisei-2023-09','suisei-2024-07','suisei-2026-01'],
   '宇恬':['pudding-pattern','pudding-hug','pudding-collection','pudding-puppy'],
   '慧璇':['sanrio-party','bow-kitty'],
