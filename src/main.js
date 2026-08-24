@@ -1780,8 +1780,9 @@ function enableAppNoSleepFallback(){
   const playback=appNoSleepVideo.play();
   if(playback?.then)playback.then(()=>{appNoSleepFallbackActive=true;renderAppWakeLockStatus()}).catch(()=>{});
 }
-function disableAppNoSleepFallback(){
+function disableAppNoSleepFallback(destroy=false){
   if(appNoSleepVideo&&!appNoSleepVideo.paused)appNoSleepVideo.pause();
+  if(destroy&&appNoSleepVideo){appNoSleepVideo.remove();appNoSleepVideo=null}
   appNoSleepFallbackActive=false;
 }
 function nativeWakeLockActive(){return !!appWakeLock&&!appWakeLock.released}
@@ -1810,13 +1811,13 @@ function scheduleAppWakeLockRetry(delay=1200){
   if(document.hidden||!appWakeLockWanted)return;
   appWakeLockRetryTimer=setTimeout(()=>{appWakeLockRetryTimer=null;void syncAppWakeLock()},delay);
 }
-async function releaseAppWakeLock(disableFallback=false){
+async function releaseAppWakeLock(disableFallback=false,destroyFallback=false){
   clearTimeout(appWakeLockRetryTimer);
   appWakeLockRetryTimer=null;
   const lock=appWakeLock;
   appWakeLock=null;
   if(lock&&!lock.released){try{await lock.release()}catch{}}
-  if(disableFallback)disableAppNoSleepFallback();
+  if(disableFallback)disableAppNoSleepFallback(destroyFallback);
   renderAppWakeLockStatus();
 }
 async function syncAppWakeLock(userActivated=false){
@@ -1869,7 +1870,7 @@ document.addEventListener('click',resumeWakeLockFromGesture,{capture:true,passiv
 document.addEventListener('keydown',resumeWakeLockFromGesture,{capture:true});
 window.addEventListener('focus',()=>scheduleAppWakeLockRetry(100));
 window.addEventListener('pageshow',()=>{enableAppNoSleepFallback();scheduleAppWakeLockRetry(100)});
-window.addEventListener('pagehide',()=>{void releaseAppWakeLock()});
+window.addEventListener('pagehide',()=>{void releaseAppWakeLock(true,true)});
 $('wakeLockBtn').onclick=async()=>{
   const intent=wakeLockButtonIntent({wanted:appWakeLockWanted,active:appWakeLockProtected(),supported:hasNativeWakeLock()});
   if(intent==='retry'){
