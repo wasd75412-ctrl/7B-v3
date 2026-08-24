@@ -47,6 +47,7 @@ test('uses a heavy sans-serif face and a solid name color to identify the servin
 test('enlarges only the current serving player name and restores the normal size when serve changes',()=>{
   assert.match(css,/\.court-player-name\{\s*--score-server-boost:0pt;[\s\S]*?var\(--score-server-boost\)[\s\S]*?transition:font-size \.18s ease,color \.18s ease;/);
   assert.match(css,/\.court-name\.server \.court-player-name\{\s*--score-server-boost:clamp\(8pt,1\.8vw,16pt\);[\s\S]*?width:max-content;[\s\S]*?white-space:nowrap;[\s\S]*?overflow-wrap:normal;/);
+  assert.match(css,/\.court-name\.server\{\s*color:#fff!important;\s*overflow:visible!important;/);
   assert.match(main,/const serving=m\.serving===t&&serverIndex===i&&m\.winner===null;/);
   assert.match(main,/class="court-name \$\{serving\?'server':''\}"/);
 });
