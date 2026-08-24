@@ -44,6 +44,13 @@ test('uses bold names and only a solid name color to identify the serving player
   assert.doesNotMatch(main,/serve-position|🏸 發球 · /);
 });
 
+test('enlarges only the current serving player name and restores the normal size when serve changes',()=>{
+  assert.match(css,/\.court-player-name\{\s*--score-server-boost:0pt;[\s\S]*?var\(--score-server-boost\)[\s\S]*?transition:font-size \.18s ease,color \.18s ease;/);
+  assert.match(css,/\.court-name\.server \.court-player-name\{\s*--score-server-boost:clamp\(8pt,1\.8vw,16pt\);[\s\S]*?width:max-content;[\s\S]*?white-space:nowrap;[\s\S]*?overflow-wrap:normal;/);
+  assert.match(main,/const serving=m\.serving===t&&serverIndex===i&&m\.winner===null;/);
+  assert.match(main,/class="court-name \$\{serving\?'server':''\}"/);
+});
+
 test('keeps the September score at the true scoreboard center',()=>{
   assert.match(css,/data-score-theme="suisei-2023-09"\] \.score-center\{\s*left:50%!important;\s*top:50%!important;\s*transform:translate\(-50%,-50%\) scale\(\.86\)!important;/);
 });
