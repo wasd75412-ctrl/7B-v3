@@ -749,7 +749,7 @@ html.brand-font-fallback .brand-copy .brand-mark h1{
   overflow-wrap:anywhere;
   word-break:keep-all;
   text-align:left;
-  -webkit-text-stroke:clamp(1px,.12vw,1.8px) currentColor;
+  -webkit-text-stroke:clamp(2px,.28vw,4px) #111;
   paint-order:stroke fill;
   text-shadow:none;
 }
@@ -969,7 +969,7 @@ html.brand-font-fallback .brand-copy .brand-mark h1{
 
 .court-name.server .court-player-name{
   color:var(--serve-yellow)!important;
-  -webkit-text-stroke:clamp(1px,.12vw,1.8px) var(--serve-yellow)!important;
+  -webkit-text-stroke:clamp(2px,.28vw,4px) #111!important;
   background:none!important;
   text-shadow:none!important;
 }
