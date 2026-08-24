@@ -751,7 +751,7 @@ html.brand-font-fallback .brand-copy .brand-mark h1{
   text-align:left;
   -webkit-text-stroke:clamp(1px,.12vw,1.8px) currentColor;
   paint-order:stroke fill;
-  text-shadow:0 3px 1px rgba(0,0,0,.78),0 7px 22px rgba(0,0,0,.62);
+  text-shadow:none;
 }
 .score-side.b .court-player-name{text-align:right}
 .court-position{
@@ -971,7 +971,7 @@ html.brand-font-fallback .brand-copy .brand-mark h1{
   color:var(--serve-yellow)!important;
   -webkit-text-stroke:clamp(1px,.12vw,1.8px) var(--serve-yellow)!important;
   background:none!important;
-  text-shadow:0 3px 1px rgba(0,0,0,.78),0 7px 22px rgba(0,0,0,.62)!important;
+  text-shadow:none!important;
 }
 
 .court-name.server .avatar.score-large{
