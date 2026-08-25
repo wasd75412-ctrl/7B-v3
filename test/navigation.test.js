@@ -58,7 +58,7 @@ test('keeps chat in primary navigation and removes backup from it',()=>{
 test('places chat second and marks court as hidden for viewers',()=>{
   const pages=[...nav.matchAll(/data-page="(\d+)"/g)].map(match=>match[1]);
   assert.deepEqual(pages.slice(0,2),['0','8']);
-  assert.ok(pages.indexOf('5')<pages.indexOf('4'),'紀錄 must appear before 戰績');
+  assert.ok(pages.indexOf('4')<pages.indexOf('5'),'戰績 must appear before 紀錄');
   assert.match(nav,/class="tab viewer-hidden-tab" data-page="3">場上/);
 });
 
