@@ -2636,7 +2636,7 @@ $('androidRemoteOpenCamera').onclick=()=>{
 };
 $('androidRemoteRefresh').onclick=()=>location.reload();
 $('scoreRemoteBtn')?.addEventListener('click',openScoreRemoteSettings);
-$('scoreRemoteQuickBtn').onclick=openScoreRemoteSettings;
+$('scoreRemoteQuickBtn')?.addEventListener('click',openScoreRemoteSettings);
 $('closeScoreRemote').onclick=closeScoreRemoteSettings;
 $('scoreRemoteToggle').onclick=()=>{scoreRemoteEnabled=!scoreRemoteEnabled;localStorage.setItem(SCORE_REMOTE_ENABLED_KEY,scoreRemoteEnabled?'1':'0');scoreRemoteStatusKind='';scoreRemoteStatusMessage=scoreRemoteEnabled?'已開啟，等待遙控器按鍵':'遙控計分已關閉';updateScoreRemoteUi()};
 $('resetScoreRemote').onclick=()=>{if(!confirm('恢復預設按鍵設定？'))return;scoreRemoteBindings={...DEFAULT_SCORE_REMOTE_BINDINGS};saveScoreRemoteBindings();scoreRemoteLearningAction='';scoreRemoteStatusMessage='已恢復預設按鍵';updateScoreRemoteUi()};

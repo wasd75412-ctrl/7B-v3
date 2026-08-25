@@ -84,6 +84,13 @@ test('removes the old score remote from More and provides a no-stats test mode',
   assert.match(mainSource,/const enabling=!currentTestModeEnabled\(\)/);
 });
 
+test('keeps only the requested controls in normal score mode',()=>{
+  const scoreActions=html.match(/<div class="score-actions">([\s\S]*?)<\/div>\s*<\/header>/)?.[1]||'';
+  for(const id of ['randomThemeToggle','fullscreenScore','refreshApp','scoreTestModeToggle','undo','exitScore'])assert.match(scoreActions,new RegExp(`id="${id}"`));
+  assert.match(scoreActions,/id="scoreTheme"/);
+  for(const id of ['voiceToggle','speakerTest','scoreRemoteQuickBtn','audioHelp'])assert.doesNotMatch(scoreActions,new RegExp(`id="${id}"`));
+});
+
 test('provides a direct new event flow without changing the poll',()=>{
   assert.match(html,/id="directNewEventBtn"[^>]*>＋ 新增球局<\/button>/);
   const directFlow=mainSource.slice(mainSource.indexOf('function openDirectNextEventCreator()'),mainSource.indexOf('function closeNextEventEditor()'));
