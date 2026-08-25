@@ -713,6 +713,15 @@ function selectedChatPlayerId(){
   return ownedPlayerId();
 }
 function chatPageVisible(){return !!$('page8')&&!$('page8').classList.contains('hidden')}
+function scrollChatToLatest(){
+  const scroll=()=>{const list=$('chatMessages');if(list&&chatPageVisible())list.scrollTop=list.scrollHeight};
+  scroll();
+  requestAnimationFrame(()=>requestAnimationFrame(scroll));
+  setTimeout(scroll,160);
+  const list=$('chatMessages');
+  list?.querySelectorAll('img').forEach(image=>{if(!image.complete)image.addEventListener('load',scroll,{once:true})});
+  list?.querySelectorAll('video').forEach(video=>video.addEventListener('loadedmetadata',scroll,{once:true}));
+}
 function markChatSeen(){
   if(!roomId)return;
   const newest=Math.max(Date.now(),...chatMessages.map(chatMessageTimeMs));
@@ -1665,7 +1674,7 @@ function page(n){
   if(n===7)loadBackups();
   if(n===8){
     renderChat();markChatSeen();
-    requestAnimationFrame(()=>{const list=$('chatMessages');if(list)list.scrollTop=list.scrollHeight;syncChatKeyboardViewport()});
+    syncChatKeyboardViewport();scrollChatToLatest();
   }else syncChatKeyboardViewport();
 }
 function renderRoster(){

@@ -167,6 +167,14 @@ test('chat preserves unchanged media elements between sync polls',()=>{
   assert.match(mainSource,/messagesChanged&&wasNearBottom/);
 });
 
+test('chat always opens at the latest message',()=>{
+  const pageFlow=mainSource.slice(mainSource.indexOf('function page(n)'),mainSource.indexOf('function renderRoster()'));
+  assert.match(pageFlow,/if\(n===8\)\{[\s\S]*scrollChatToLatest\(\)/);
+  assert.match(mainSource,/function scrollChatToLatest\(\)[\s\S]*list\.scrollTop=list\.scrollHeight/);
+  assert.match(mainSource,/requestAnimationFrame\(\(\)=>requestAnimationFrame\(scroll\)\)/);
+  assert.match(mainSource,/addEventListener\('load',scroll,\{once:true\}\)/);
+});
+
 test('editing the next event updates the announcement without another push',()=>{
   const editFlow=mainSource.slice(mainSource.indexOf('async function saveNextEventEdits()'),mainSource.indexOf('async function confirmNextEvent()'));
   assert.match(html,/id="saveNextEventEdits"[^>]*>儲存公告<\/button>/);
