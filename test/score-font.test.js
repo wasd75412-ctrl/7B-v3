@@ -70,8 +70,8 @@ test('uses the original VSPO SNUT artwork as a large cover crop',()=>{
   assert.match(css,/data-score-theme="vspo-snut"\] \.scoreboard\{\s*background-position:center,center 52%!important;\s*background-repeat:no-repeat!important;\s*background-size:100% 100%,cover!important;/);
 });
 
-test('fills the September background edge while keeping the character left of the right player card',()=>{
-  assert.match(css,/data-score-theme="suisei-2023-09"\] \.scoreboard::before\{[^}]*background-position:center,right center!important;[^}]*background-size:100% 100%,auto 132%!important;/);
+test('fills the September background edge while raising the character above the center score',()=>{
+  assert.match(css,/data-score-theme="suisei-2023-09"\] \.scoreboard::before\{[^}]*background-position:center,right 100%!important;[^}]*background-size:100% 100%,auto 132%!important;/);
   assert.doesNotMatch(css,/data-score-theme="suisei-2023-09"\] \.scoreboard::before\{[^}]*transform:/);
 });
 
