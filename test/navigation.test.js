@@ -189,6 +189,9 @@ test('next-event venue fields stay separated and support reusable venue choices'
   assert.doesNotMatch(html,/<datalist|list="favoriteVenueOptions"/);
   for(const id of ['pollVenueOptions','confirmVenueOptions','editVenueOptions'])assert.match(html,new RegExp(`id="${id}" class="venue-options hidden"`));
   assert.match(styles,/\.venue-options\{[^}]*position:absolute[^}]*top:calc\(100% \+ 6px\)[^}]*left:0[^}]*right:0/);
+  assert.match(styles,/#app \.venue-options,body>\.modal \.venue-options\{[^}]*background:#071f33[^}]*color:#eefaff/);
+  assert.match(styles,/#app \.venue-option,body>\.modal \.venue-option\{[^}]*background:#0b2b43[^}]*color:#eefaff!important/);
+  assert.match(styles,/#app \.venue-option:hover,[^}]*background:#164e70[^}]*color:#fff6a8!important/);
   assert.match(styles,/\.location-field\{[^}]*overflow:visible!important/);
   assert.match(styles,/\.poll-flow-section:has\(\.venue-options:not\(\.hidden\)\)[^}]*z-index:100[^}]*overflow:visible/);
   assert.match(styles,/\.field:not\(\.location-field\),[\s\S]*?\.next-event-edit-grid \.field\{overflow:hidden\}/);
