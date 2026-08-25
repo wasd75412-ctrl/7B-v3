@@ -138,7 +138,7 @@
   </section>
 
   <section id="page6" class="card page hidden">
-    <div class="history-head"><div><h2 style="margin:0">📅 下次球局</h2><p class="sub" style="margin:5px 0 0">選擇能參加的日期，截止前都能更新。</p></div><span id="pollStatus" class="poll-status">尚未建立</span></div>
+    <div class="history-head"><div><h2 style="margin:0">📅 下次球局</h2><p class="sub" style="margin:5px 0 0">可直接新增球局，或建立候選日期讓大家投票。</p></div><div class="toolbar host-only"><button id="directNewEventBtn" class="btn primary" type="button">＋ 新增球局</button><span id="pollStatus" class="poll-status">尚未建立</span></div></div>
 
     <div id="pollSetupPanel" class="poll-flow-section host-only">
       <h3>建立投票</h3>
@@ -243,6 +243,7 @@
       <button id="voiceToggle" class="btn host-only" type="button" aria-label="關閉比分播報" title="關閉比分播報" aria-pressed="true">🔊</button>
       <button id="speakerTest" class="btn host-only" type="button" aria-label="喇叭測試" title="喇叭測試">📢</button>
       <button id="scoreRemoteQuickBtn" class="btn host-only" type="button" aria-label="比分遙控器設定" title="比分遙控器設定" aria-pressed="false">🎮</button>
+      <button id="scoreTestModeToggle" class="btn host-only" type="button" aria-label="開啟測試模式" title="開啟測試模式" aria-pressed="false">🧪</button>
       <button id="audioHelp" class="btn hidden" type="button" hidden aria-hidden="true" tabindex="-1">藍牙說明</button>
       <button id="undo" class="btn host-only" type="button" aria-label="撤銷上一分" title="撤銷上一分">↶<span class="score-undo-label">撤銷</span></button>
       <button id="exitScore" class="btn" type="button" aria-label="返回管理畫面" title="返回管理畫面">✕</button>
@@ -318,7 +319,7 @@
 </div></div>
 
 <div id="nextEventEditModal" class="modal hidden"><div class="modal-card next-event-editor">
-  <div class="next-event-editor-head"><div><h2>編輯下一次打球公告</h2><p class="sub">臨時增減人數後，每人費用會依場租重新計算；儲存修改不會再次發送通知。</p></div><button id="closeNextEventEditor" class="btn" type="button">關閉</button></div>
+  <div class="next-event-editor-head"><div><h2 id="nextEventEditorTitle">編輯下一次打球公告</h2><p id="nextEventEditorDescription" class="sub">臨時增減人數後，每人費用會依場租重新計算；儲存修改不會再次發送通知。</p></div><button id="closeNextEventEditor" class="btn" type="button">關閉</button></div>
   <div class="next-event-edit-grid">
     <label class="field"><span>打球日期</span><input id="editNextEventDate" class="input" type="date"></label>
     <label class="field"><span>開始時間</span><input id="editNextEventTime" class="input" type="time"></label>
