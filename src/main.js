@@ -602,7 +602,7 @@ function renderStats(){
   const rows=state.roster.map(p=>({p,t:scopedStats(p.id,'today'),mo:scopedStats(p.id,'month',month),c:scopedStats(p.id,'career')})),scope=sortKey.startsWith('career')?'c':sortKey.startsWith('today')?'t':'mo',metric=sortKey.endsWith('rate')?'rate':'record',direction=order==='asc'?1:-1;
   const compareStat=(a,b)=>metric==='rate'?a.rate-b.rate||a.games-b.games||a.wins-b.wins:a.wins-b.wins||b.losses-a.losses||a.rate-b.rate||a.games-b.games;
   rows.sort((a,b)=>direction*compareStat(a[scope],b[scope])||a.p.name.localeCompare(b.p.name,'zh-Hant'));
-  $('statsBody').innerHTML=rows.map(({p,t,mo,c})=>{const st=t.kind==='W'&&t.streak>=2?`🔥 ${t.streak}連勝`:'—';return `<tr data-profile="${p.id}" style="cursor:pointer"><td>${avatar(p.id,'tiny')} <strong>${esc(p.name)}</strong></td><td>${c.wins}勝 ${c.losses}敗 (${c.rate}%)</td><td>${t.wins}勝 ${t.losses}敗 (${t.rate}%)</td><td>${mo.wins}勝 ${mo.losses}敗 (${mo.rate}%)</td><td>${st}</td></tr>`}).join('');
+  $('statsBody').innerHTML=rows.map(({p,t,mo,c})=>{const st=t.kind==='W'&&t.streak>=2?`🔥 ${t.streak}連勝`:'—';return `<tr data-profile="${p.id}" style="cursor:pointer"><td>${avatar(p.id,'tiny')} <strong>${esc(p.name)}</strong></td><td>${c.games}場${c.wins}勝(${c.rate}%)</td><td>${t.games}場${t.wins}勝(${t.rate}%)</td><td>${mo.games}場${mo.wins}勝(${mo.rate}%)</td><td>${st}</td></tr>`}).join('');
   all('[data-profile]').forEach(x=>x.onclick=()=>openEdit(x.dataset.profile));
 }
 

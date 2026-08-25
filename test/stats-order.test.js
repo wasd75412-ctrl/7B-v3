@@ -27,3 +27,11 @@ test('shows the hot-streak bar only for an active winning streak',()=>{
   assert.match(source,/classList\.toggle\('hidden',!hot\)/);
   assert.doesNotMatch(source,/手感冰冷|調整中|連敗/);
 });
+
+test('formats each record as games, wins and win rate',()=>{
+  const statsRow=source.match(/\$\('statsBody'\)\.innerHTML=rows\.map[\s\S]*?\.join\(''\);/)?.[0]||'';
+  assert.match(statsRow,/\$\{c\.games\}場\$\{c\.wins\}勝\(\$\{c\.rate\}%\)/);
+  assert.match(statsRow,/\$\{t\.games\}場\$\{t\.wins\}勝\(\$\{t\.rate\}%\)/);
+  assert.match(statsRow,/\$\{mo\.games\}場\$\{mo\.wins\}勝\(\$\{mo\.rate\}%\)/);
+  assert.doesNotMatch(statsRow,/losses.*敗/);
+});
