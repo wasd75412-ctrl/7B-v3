@@ -70,6 +70,8 @@ test('removes the old score remote from More and provides a no-stats test mode',
   assert.match(html,/id="scoreTestModeToggle"/);
   assert.doesNotMatch(mainSource,/confirm\(['"]開啟測試模式/);
   assert.match(mainSource,/\$\('scoreTestModeToggle'\)\.onclick=toggleTestMode/);
+  assert.match(styles,/immersive-mode \.score-head \.score-actions>button:not\(#fullscreenScore\):not\(#undo\)/);
+  assert.doesNotMatch(styles,/button:not\(#fullscreenScore\):not\(#undo\):not\(#scoreTestModeToggle\)/);
   assert.match(mainSource,/const isTestMatch=!!m\.testMode\|\|!!state\.testMode/);
   assert.match(mainSource,/if\(isTestMatch\)m\.testCompleted=true/);
   assert.match(mainSource,/else state\.history\.push/);
