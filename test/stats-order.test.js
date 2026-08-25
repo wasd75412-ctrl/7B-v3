@@ -19,3 +19,11 @@ test('offers career, today and month sorting in the same order',()=>{
   assert.match(source,/sortKey=.*\|\|'career-record'/);
   assert.match(source,/sortKey\.startsWith\('today'\)\?'t':'mo'/);
 });
+
+test('shows the hot-streak bar only for an active winning streak',()=>{
+  assert.match(html,/id="hotColdStats" class="leader-grid hidden"/);
+  assert.match(html,/<th>目前連勝<\/th>/);
+  assert.match(source,/kind==='W'&&x\.s\.streak>=2/);
+  assert.match(source,/classList\.toggle\('hidden',!hot\)/);
+  assert.doesNotMatch(source,/手感冰冷|調整中|連敗/);
+});
