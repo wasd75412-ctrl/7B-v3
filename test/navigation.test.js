@@ -202,6 +202,10 @@ test('next-event venue fields stay separated and support reusable venue choices'
   assert.match(mainSource,/function saveFavoriteVenue\(inputId\)/);
   assert.match(mainSource,/function bindVenuePicker\(inputId,panelId\)/);
   assert.match(mainSource,/localStorage\.setItem\(FAVORITE_VENUES_KEY/);
+  assert.match(mainSource,/queueDeviceProfileSave\(\);alert\(`已加入常用球館/);
+  assert.match(mainSource,/mergedVenues=mergeFavoriteVenues\(mergedVenues,profile\.favoriteVenues\)/);
+  assert.match(mainSource,/favoriteVenues:mergedVenues/);
+  assert.match(mainSource,/applyCloudFavoriteVenues\(profile\.favoriteVenues\)/);
   assert.match(mainSource,/favoriteModifiedAt=Number\(r\.favoriteModifiedAt\)\|\|\(favorite\?modifiedAt:0\)/);
   assert.match(mainSource,/favoriteSource=room\.favoriteModifiedAt>=old\.favoriteModifiedAt\?room:old/);
   assert.match(mainSource,/favoritePatch=Object\.prototype\.hasOwnProperty\.call\(patch,'favorite'\)\?\{favoriteModifiedAt:now\}:\{\}/);
