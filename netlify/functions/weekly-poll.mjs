@@ -1,7 +1,7 @@
 import { getStore } from '@netlify/blobs';
 import webpush from 'web-push';
 import { PUSH_STORE, jsonResponse, validRoomId, validSubscription } from './lib/push-shared.mjs';
-import { shouldOpenWeeklyPoll, taipeiWeekSchedule, weeklyPollFirestoreValue } from './lib/weekly-poll.mjs';
+import { shouldOpenWeeklyPoll, taipeiWeekSchedule, weeklyPollFirestoreValue, weeklyPollPushPayload } from './lib/weekly-poll.mjs';
 
 const FIREBASE_PROJECT='badminton-7a1c3';
 const FIREBASE_API_KEY='AIzaSyBrakbTPK7UqEChPBI6pM8-i03IcLq0IvM';
@@ -53,7 +53,7 @@ export default async()=>{
   for(const {id} of due){
     try{await openPoll(id,now);opened++}catch(error){console.error(error);failed++;continue}
     if(!publicKey||!privateKey||!siteUrl)continue;
-    const payload=JSON.stringify({title:'🏸 下週球局投票開始！',body:'立羽會館 01:00–04:00，請在週六中午前選擇可參加的日期。',url:`${siteUrl}/?room=${encodeURIComponent(id)}&page=poll`,icon:`${siteUrl}/icons/icon-192.png`,badge:`${siteUrl}/icons/icon-192.png`,tag:`7b-weekly-poll-${id}-${schedule.cycle}`});
+    const payload=JSON.stringify(weeklyPollPushPayload({siteUrl,roomId:id,cycle:schedule.cycle}));
     for(const item of byRoom.get(id)||[]){
       try{await webpush.sendNotification(item.record.subscription,payload,{TTL:86400,urgency:'normal',topic:`weekly-${id}`});sent++}
       catch(error){if(error?.statusCode===404||error?.statusCode===410){await store.delete(item.key);removed++}else{console.error(`Push ${id} failed`,error);failed++}}
@@ -63,5 +63,5 @@ export default async()=>{
   console.log('Weekly poll run',response);return jsonResponse(response);
 };
 
-// Every five minutes lets a delayed deploy recover automatically during the Mon–Sat window.
+// Every five minutes lets a delayed deploy recover automatically after Monday noon in Taipei.
 export const config={schedule:'*/5 * * * *'};

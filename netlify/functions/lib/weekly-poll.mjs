@@ -1,5 +1,5 @@
 export const TAIPEI_OFFSET_MS=8*60*60*1000;
-export const WEEKLY_POLL_LOCATION='立羽會館';
+export const WEEKLY_POLL_LOCATION='立羽';
 export const WEEKLY_POLL_START='01:00';
 export const WEEKLY_POLL_END='04:00';
 
@@ -10,6 +10,8 @@ export function taipeiWeekSchedule(now=Date.now()){
   const day=local.getUTCDay();
   const daysSinceMonday=(day+6)%7;
   const monday=new Date(Date.UTC(local.getUTCFullYear(),local.getUTCMonth(),local.getUTCDate()-daysSinceMonday));
+  const opensLocalMs=monday.getTime()+12*3600000;
+  const opensAt=new Date(opensLocalMs-TAIPEI_OFFSET_MS).toISOString();
   const deadlineLocalMs=monday.getTime()+5*86400000+12*3600000;
   const deadlineAt=new Date(deadlineLocalMs-TAIPEI_OFFSET_MS).toISOString();
   const nextMonday=new Date(monday.getTime()+7*86400000);
@@ -21,13 +23,24 @@ export function taipeiWeekSchedule(now=Date.now()){
     endTime:WEEKLY_POLL_END,
     note:WEEKLY_POLL_LOCATION
   }));
-  return{cycle,mondayLocalMs:monday.getTime(),deadlineAt,options};
+  return{cycle,mondayLocalMs:monday.getTime(),opensAt,deadlineAt,options};
 }
 
 export function shouldOpenWeeklyPoll(document,now=Date.now()){
-  const schedule=taipeiWeekSchedule(now),localNow=now+TAIPEI_OFFSET_MS;
-  if(localNow<schedule.mondayLocalMs||now>=Date.parse(schedule.deadlineAt))return false;
+  const schedule=taipeiWeekSchedule(now);
+  if(now<Date.parse(schedule.opensAt)||now>=Date.parse(schedule.deadlineAt))return false;
   return document?.fields?.weeklyPollCycle?.stringValue!==schedule.cycle;
+}
+
+export function weeklyPollPushPayload({siteUrl,roomId,cycle}){
+  return{
+    title:'🏸 新投票開始了',
+    body:'下週球局投票已開放，請前往投票。',
+    url:`${siteUrl}/?room=${encodeURIComponent(roomId)}&page=poll`,
+    icon:`${siteUrl}/icons/icon-192.png`,
+    badge:`${siteUrl}/icons/icon-192.png`,
+    tag:`7b-weekly-poll-${roomId}-${cycle}`
+  };
 }
 
 function stringValue(value){return{stringValue:value}}
