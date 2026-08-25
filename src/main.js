@@ -460,6 +460,10 @@ function formatEventDate(date,time,endTime=''){if(!date)return'';const d=new Dat
 function formatMoney(value){return new Intl.NumberFormat('zh-TW',{maximumFractionDigits:0}).format(wholeAmount(value))}
 function googleMapsUrl(place){const query=String(place||'').trim();return query?`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(query)}`:''}
 function googleMapsLink(place,label='Google Maps'){const href=googleMapsUrl(place);return href?`<a class="map-link" href="${esc(href)}" target="_blank" rel="noopener noreferrer" aria-label="在 Google Maps 查看 ${esc(place)}">📍 ${esc(label)}</a>`:''}
+const FAVORITE_VENUES_KEY='bdVFavoriteVenues';
+function favoriteVenues(){try{const saved=JSON.parse(localStorage.getItem(FAVORITE_VENUES_KEY)||'[]');return[...new Set(['立羽',...(Array.isArray(saved)?saved:[])].map(name=>String(name||'').trim()).filter(Boolean))].slice(0,20)}catch{return['立羽']}}
+function renderFavoriteVenues(){const list=$('favoriteVenueOptions');if(list)list.innerHTML=favoriteVenues().map(name=>`<option value="${esc(name)}"></option>`).join('')}
+function saveFavoriteVenue(inputId){const input=$(inputId),name=String(input?.value||'').trim();if(!name)return alert('請先輸入球館名稱。');const venues=[...new Set([...favoriteVenues(),name])].slice(-20);localStorage.setItem(FAVORITE_VENUES_KEY,JSON.stringify(venues));renderFavoriteVenues();alert(`已加入常用球館：${name}`)}
 function updateMapPreview(inputId,linkId){const input=$(inputId),link=$(linkId),href=googleMapsUrl(input?.value);if(!link)return;link.classList.toggle('hidden',!href);if(href){link.href=href;link.setAttribute('aria-label',`在 Google Maps 查看 ${input.value.trim()}`)}}
 function updateVenueMapPreviews(){updateMapPreview('pollNote','pollLocationMap');updateMapPreview('confirmLocation','confirmLocationMap');updateMapPreview('editNextEventLocation','editNextEventLocationMap')}
 function renderNextEventAnnouncement(){
@@ -2588,6 +2592,10 @@ $('saveNextEventEdits').onclick=saveNextEventEdits;
 $('editNextEventRentalTotal').addEventListener('input',updateNextEventEditFeePreview);
 $('editNextEventParticipants').addEventListener('input',updateNextEventEditFeePreview);
 $('editNextEventLocation').addEventListener('input',()=>updateMapPreview('editNextEventLocation','editNextEventLocationMap'));
+$('savePollVenue').onclick=()=>saveFavoriteVenue('pollNote');
+$('saveConfirmVenue').onclick=()=>saveFavoriteVenue('confirmLocation');
+$('saveEditVenue').onclick=()=>saveFavoriteVenue('editNextEventLocation');
+renderFavoriteVenues();
 $('enablePushPrompt').onclick=enablePushFromPrompt;
 $('dismissPushPrompt').onclick=()=>closePushPrompt();
 const originalAdminLoginHandler=$('adminLoginBtn').onclick;

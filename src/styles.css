@@ -1494,6 +1494,9 @@ html.brand-font-fallback .brand-copy .brand-mark h1{
 
 /* BCM 2.3.29 — Google Maps venue links */
 .location-field label{display:block;margin-bottom:5px;color:var(--muted);font-size:.82rem;font-weight:900}
+.venue-tools{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-top:6px;min-height:27px}
+.venue-save-btn{border:0;background:transparent;color:var(--primary);font:inherit;font-size:.78rem;font-weight:1000;cursor:pointer;padding:4px 2px;white-space:nowrap}
+.venue-save-btn:hover{filter:brightness(.82)}
 .map-preview-link,.map-link{
   display:inline-flex;
   align-items:center;
@@ -1626,10 +1629,10 @@ html.brand-font-fallback .brand-copy .brand-mark h1{
 .next-event-editor-head{display:flex;align-items:flex-start;justify-content:space-between;gap:14px}
 .next-event-editor-head h2{margin:0 0 5px}
 .next-event-editor-head p{margin:0}
-.next-event-edit-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:13px;margin-top:20px}
+.next-event-edit-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px 14px;margin-top:20px}
 .next-event-edit-grid .field{min-width:0}
 .next-event-edit-grid .field>span{display:block;margin-bottom:6px;color:var(--muted);font-size:.82rem;font-weight:900}
-.next-event-edit-grid .location-field,.next-event-edit-note{grid-column:span 2}
+.next-event-edit-grid .next-event-edit-date,.next-event-edit-grid .location-field,.next-event-edit-note{grid-column:1/-1}
 .next-event-editor .confirm-fee-hint{margin-top:14px}
 .next-event-editor-actions{display:flex;justify-content:flex-end;gap:9px;margin-top:18px}
 .push-prompt-card{width:min(440px,100%);text-align:center;padding:28px}

@@ -145,7 +145,7 @@
         <label class="field"><span>候選日期</span><input id="pollDate" type="date"></label>
         <label class="field"><span>開始時間</span><input id="pollTime" type="time"></label>
         <label class="field"><span>結束時間</span><input id="pollEndTime" type="time"></label>
-        <div class="field location-field"><label for="pollNote">場地（選填）</label><input id="pollNote" class="input" placeholder="例如：XX 羽球館"><a id="pollLocationMap" class="map-preview-link hidden" href="#" target="_blank" rel="noopener noreferrer">📍 在 Google Maps 查看</a></div>
+        <div class="field location-field"><label for="pollNote">場地（選填）</label><input id="pollNote" class="input" list="favoriteVenueOptions" placeholder="例如：立羽"><div class="venue-tools"><a id="pollLocationMap" class="map-preview-link hidden" href="#" target="_blank" rel="noopener noreferrer">📍 在 Google Maps 查看</a><button id="savePollVenue" class="venue-save-btn" type="button">＋ 常用</button></div></div>
         <button id="addPollOption" class="btn primary wide-mobile">新增候選</button>
       </div>
       <div class="poll-deadline-controls">
@@ -168,7 +168,7 @@
       <div class="confirm-event-grid">
         <label class="field"><span>確定日期與開始時間</span><select id="confirmPollOption" class="input"></select></label>
         <label class="field"><span>結束時間</span><input id="confirmEndTime" class="input" type="time"></label>
-        <div class="field location-field"><label for="confirmLocation">場地</label><input id="confirmLocation" class="input" placeholder="例如：XX 羽球館"><a id="confirmLocationMap" class="map-preview-link hidden" href="#" target="_blank" rel="noopener noreferrer">📍 在 Google Maps 查看</a></div>
+        <div class="field location-field"><label for="confirmLocation">場地</label><input id="confirmLocation" class="input" list="favoriteVenueOptions" placeholder="例如：立羽"><div class="venue-tools"><a id="confirmLocationMap" class="map-preview-link hidden" href="#" target="_blank" rel="noopener noreferrer">📍 在 Google Maps 查看</a><button id="saveConfirmVenue" class="venue-save-btn" type="button">＋ 常用</button></div></div>
         <label class="field"><span>預計參與人數</span><input id="confirmParticipants" class="input" type="number" min="1" step="1" inputmode="numeric" placeholder="依投票人數帶入"></label>
         <label class="field"><span>場租總額（元）</span><input id="confirmRentalTotal" class="input" type="number" min="1" step="1" inputmode="numeric" placeholder="例如：2400"></label>
         <label class="field"><span>每人需繳</span><input id="confirmPerPersonFee" class="input" type="text" readonly placeholder="自動計算"></label>
@@ -313,10 +313,10 @@
 <div id="nextEventEditModal" class="modal hidden"><div class="modal-card next-event-editor">
   <div class="next-event-editor-head"><div><h2 id="nextEventEditorTitle">編輯下一次打球公告</h2></div><button id="closeNextEventEditor" class="btn" type="button">關閉</button></div>
   <div class="next-event-edit-grid">
-    <label class="field"><span>打球日期</span><input id="editNextEventDate" class="input" type="date"></label>
+    <label class="field next-event-edit-date"><span>打球日期</span><input id="editNextEventDate" class="input" type="date"></label>
     <label class="field"><span>開始時間</span><input id="editNextEventTime" class="input" type="time"></label>
     <label class="field"><span>結束時間</span><input id="editNextEventEndTime" class="input" type="time"></label>
-    <div class="field location-field"><label for="editNextEventLocation">場地</label><input id="editNextEventLocation" class="input" placeholder="例如：XX 羽球館"><a id="editNextEventLocationMap" class="map-preview-link hidden" href="#" target="_blank" rel="noopener noreferrer">📍 在 Google Maps 查看</a></div>
+    <div class="field location-field"><label for="editNextEventLocation">場地</label><input id="editNextEventLocation" class="input" list="favoriteVenueOptions" placeholder="例如：立羽"><div class="venue-tools"><a id="editNextEventLocationMap" class="map-preview-link hidden" href="#" target="_blank" rel="noopener noreferrer">📍 在 Google Maps 查看</a><button id="saveEditVenue" class="venue-save-btn" type="button">＋ 常用</button></div></div>
     <label class="field"><span>場租總額（元）</span><input id="editNextEventRentalTotal" class="input" type="number" min="1" step="1" inputmode="numeric"></label>
     <label class="field"><span>預計參與總人數</span><input id="editNextEventParticipants" class="input" type="number" min="1" step="1" inputmode="numeric"></label>
     <label class="field"><span>每人需繳</span><input id="editNextEventPerPersonFee" class="input" type="text" readonly></label>
@@ -325,6 +325,8 @@
   <div id="editNextEventFeeHint" class="confirm-fee-hint"></div>
   <div class="next-event-editor-actions"><button id="saveNextEventEdits" class="btn primary" type="button">儲存公告</button><button id="cancelNextEventEdits" class="btn" type="button">取消</button></div>
 </div></div>
+
+<datalist id="favoriteVenueOptions"><option value="立羽"></option></datalist>
 
 <div id="pushPromptModal" class="modal hidden"><div class="modal-card push-prompt-card">
   <div class="push-prompt-icon" aria-hidden="true">🔔</div>
