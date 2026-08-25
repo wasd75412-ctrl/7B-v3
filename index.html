@@ -239,15 +239,12 @@
       <button id="randomThemeToggle" class="btn host-only" type="button" aria-label="開啟下一場隨機背景" title="下一場隨機背景" aria-pressed="false">🎲</button>
       <button id="fullscreenScore" class="btn" type="button" aria-label="進入全螢幕" title="進入全螢幕">⛶</button>
       <button id="refreshApp" class="btn" type="button" data-refresh-app aria-label="重新整理" title="重新整理">↻</button>
-      <button id="voiceToggle" class="btn host-only" type="button" aria-label="關閉比分播報" title="關閉比分播報" aria-pressed="true">🔊</button>
-      <button id="speakerTest" class="btn host-only" type="button" aria-label="喇叭測試" title="喇叭測試">📢</button>
-      <button id="scoreRemoteQuickBtn" class="btn host-only" type="button" aria-label="比分遙控器設定" title="比分遙控器設定" aria-pressed="false">🎮</button>
       <button id="scoreTestModeToggle" class="btn host-only" type="button" aria-label="開啟測試模式" title="開啟測試模式" aria-pressed="false">🧪</button>
-      <button id="audioHelp" class="btn hidden" type="button" hidden aria-hidden="true" tabindex="-1">藍牙說明</button>
       <button id="undo" class="btn host-only" type="button" aria-label="撤銷上一分" title="撤銷上一分">↶<span class="score-undo-label">撤銷</span></button>
       <button id="exitScore" class="btn" type="button" aria-label="返回管理畫面" title="返回管理畫面">✕</button>
     </div>
   </header>
+  <div class="hidden" hidden aria-hidden="true"><button id="voiceToggle" type="button"></button><button id="speakerTest" type="button"></button><button id="audioHelp" type="button"></button></div>
   <div id="scoreRemoteIndicator" class="score-remote-indicator hidden" aria-live="polite"></div>
   <div id="matchPoint" class="match-point hidden">🔥 MATCH POINT</div>
   <div class="scoreboard"><article class="score-side a"><div class="score-title">A隊</div><div id="namesA" class="court-names"></div></article><div class="score-center"><div id="scoreA" class="score-number clickable" title="A隊加分">0</div><div class="score-divider"></div><div id="scoreB" class="score-number clickable" title="B隊加分">0</div></div><article class="score-side b"><div class="score-title">B隊</div><div id="namesB" class="court-names"></div></article></div>
