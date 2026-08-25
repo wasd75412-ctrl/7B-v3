@@ -461,8 +461,12 @@ function formatMoney(value){return new Intl.NumberFormat('zh-TW',{maximumFractio
 function googleMapsUrl(place){const query=String(place||'').trim();return query?`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(query)}`:''}
 function googleMapsLink(place,label='Google Maps'){const href=googleMapsUrl(place);return href?`<a class="map-link" href="${esc(href)}" target="_blank" rel="noopener noreferrer" aria-label="在 Google Maps 查看 ${esc(place)}">📍 ${esc(label)}</a>`:''}
 const FAVORITE_VENUES_KEY='bdVFavoriteVenues';
+const VENUE_PICKERS=[['pollNote','pollVenueOptions'],['confirmLocation','confirmVenueOptions'],['editNextEventLocation','editVenueOptions']];
 function favoriteVenues(){try{const saved=JSON.parse(localStorage.getItem(FAVORITE_VENUES_KEY)||'[]');return[...new Set(['立羽',...(Array.isArray(saved)?saved:[])].map(name=>String(name||'').trim()).filter(Boolean))].slice(0,20)}catch{return['立羽']}}
-function renderFavoriteVenues(){const list=$('favoriteVenueOptions');if(list)list.innerHTML=favoriteVenues().map(name=>`<option value="${esc(name)}"></option>`).join('')}
+function closeVenueOptions(exceptId=''){for(const[,panelId]of VENUE_PICKERS)if(panelId!==exceptId)$(panelId)?.classList.add('hidden')}
+function renderVenueOptions(inputId,panelId,open=false){const input=$(inputId),panel=$(panelId);if(!input||!panel)return;const query=input.value.trim().toLowerCase(),venues=favoriteVenues().filter(name=>!query||name.toLowerCase().includes(query));panel.innerHTML=venues.map(name=>`<button class="venue-option" type="button" role="option" data-venue-name="${esc(name)}">${esc(name)}</button>`).join('');panel.classList.toggle('hidden',!open||!venues.length);panel.querySelectorAll('[data-venue-name]').forEach(button=>button.onclick=()=>{input.value=button.dataset.venueName;input.dispatchEvent(new Event('input',{bubbles:true}));panel.classList.add('hidden')})}
+function renderFavoriteVenues(){for(const[inputId,panelId]of VENUE_PICKERS)renderVenueOptions(inputId,panelId,false)}
+function bindVenuePicker(inputId,panelId){const input=$(inputId);if(!input)return;const open=()=>{closeVenueOptions(panelId);renderVenueOptions(inputId,panelId,true)};input.addEventListener('focus',open);input.addEventListener('click',open);input.addEventListener('input',open)}
 function saveFavoriteVenue(inputId){const input=$(inputId),name=String(input?.value||'').trim();if(!name)return alert('請先輸入球館名稱。');const venues=[...new Set([...favoriteVenues(),name])].slice(-20);localStorage.setItem(FAVORITE_VENUES_KEY,JSON.stringify(venues));renderFavoriteVenues();alert(`已加入常用球館：${name}`)}
 function updateMapPreview(inputId,linkId){const input=$(inputId),link=$(linkId),href=googleMapsUrl(input?.value);if(!link)return;link.classList.toggle('hidden',!href);if(href){link.href=href;link.setAttribute('aria-label',`在 Google Maps 查看 ${input.value.trim()}`)}}
 function updateVenueMapPreviews(){updateMapPreview('pollNote','pollLocationMap');updateMapPreview('confirmLocation','confirmLocationMap');updateMapPreview('editNextEventLocation','editNextEventLocationMap')}
@@ -2596,6 +2600,8 @@ $('savePollVenue').onclick=()=>saveFavoriteVenue('pollNote');
 $('saveConfirmVenue').onclick=()=>saveFavoriteVenue('confirmLocation');
 $('saveEditVenue').onclick=()=>saveFavoriteVenue('editNextEventLocation');
 renderFavoriteVenues();
+for(const[inputId,panelId]of VENUE_PICKERS)bindVenuePicker(inputId,panelId);
+document.addEventListener('click',event=>{if(!event.target.closest('.venue-picker'))closeVenueOptions()});
 $('enablePushPrompt').onclick=enablePushFromPrompt;
 $('dismissPushPrompt').onclick=()=>closePushPrompt();
 const originalAdminLoginHandler=$('adminLoginBtn').onclick;

@@ -185,9 +185,12 @@ test('editing the next event updates the announcement without another push',()=>
 test('next-event venue fields stay separated and support reusable venue choices',()=>{
   assert.match(styles,/\.next-event-edit-grid\{[^}]*grid-template-columns:repeat\(2,minmax\(0,1fr\)\)/);
   assert.match(styles,/\.next-event-edit-grid \.next-event-edit-date,[^}]*grid-column:1\/-1/);
-  assert.match(html,/id="favoriteVenueOptions"><option value="立羽"><\/option>/);
-  for(const id of ['pollNote','confirmLocation','editNextEventLocation'])assert.match(html,new RegExp(`id="${id}"[^>]*list="favoriteVenueOptions"`));
+  assert.doesNotMatch(html,/<datalist|list="favoriteVenueOptions"/);
+  for(const id of ['pollVenueOptions','confirmVenueOptions','editVenueOptions'])assert.match(html,new RegExp(`id="${id}" class="venue-options hidden"`));
+  assert.match(styles,/\.venue-options\{[^}]*position:absolute[^}]*top:calc\(100% \+ 6px\)[^}]*left:0[^}]*right:0/);
+  assert.match(styles,/@media\(min-width:701px\) and \(max-width:1366px\)[\s\S]*?\.confirm-event-grid\{grid-template-columns:repeat\(2,minmax\(0,1fr\)\)[\s\S]*?\.confirm-event-grid \.location-field\{grid-column:1\/-1/);
   assert.match(mainSource,/function saveFavoriteVenue\(inputId\)/);
+  assert.match(mainSource,/function bindVenuePicker\(inputId,panelId\)/);
   assert.match(mainSource,/localStorage\.setItem\(FAVORITE_VENUES_KEY/);
 });
 
