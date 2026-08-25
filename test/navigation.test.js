@@ -91,6 +91,10 @@ test('keeps only the requested controls in normal score mode',()=>{
   for(const id of ['voiceToggle','speakerTest','scoreRemoteQuickBtn','audioHelp'])assert.doesNotMatch(scoreActions,new RegExp(`id="${id}"`));
 });
 
+test('removes the bottom server-selection bar from score mode',()=>{
+  assert.match(styles,/\.score-view \.score-foot\s*\{display:none\}/);
+});
+
 test('provides a direct new event flow without changing the poll',()=>{
   assert.match(html,/id="directNewEventBtn"[^>]*>＋ 新增球局<\/button>/);
   const directFlow=mainSource.slice(mainSource.indexOf('function openDirectNextEventCreator()'),mainSource.indexOf('function closeNextEventEditor()'));
