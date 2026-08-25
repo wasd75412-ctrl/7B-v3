@@ -125,10 +125,11 @@ test('separates fixed members and guest players while excluding guests from shut
   assert.match(styles,/BCM 2\.4\.42 — fixed members and guest-player sections/);
 });
 
-test('puts refresh beside the favorite control and keeps low-frequency actions collapsed',()=>{
+test('shows refresh without a visible favorite control and keeps low-frequency actions collapsed',()=>{
   const favoriteIndex=html.indexOf('id="favoriteRoomBtn"'),refreshIndex=html.indexOf('id="refreshAppMenu"'),moreButtonIndex=html.indexOf('id="roomMoreBtn"'),moreIndex=html.indexOf('id="roomMoreMenu"'),advancedIndex=html.indexOf('id="roomMoreAdvanced"',moreIndex);
   const primary=html.match(/<div class="room-more-primary">([\s\S]*?)<\/div>\s*<\/div>/)?.[1]||'';
   assert.ok(favoriteIndex>=0&&refreshIndex>favoriteIndex&&moreButtonIndex>refreshIndex&&moreIndex>moreButtonIndex&&advancedIndex>moreIndex);
+  assert.match(html,/id="favoriteRoomBtn" class="btn hidden"[^>]*aria-hidden="true"/);
   assert.match(html,/id="refreshAppMenu"[^>]*>↻ 重新整理<\/button>/);
   assert.doesNotMatch(primary,/id="refreshAppMenu"/);
   assert.ok((primary.match(/<button/g)||[]).length<=7);
