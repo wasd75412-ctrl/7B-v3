@@ -24,23 +24,17 @@ test('only treats a real native wake lock as active',()=>{
   assert.equal(wakeLockControlIsActive({nativeActive:true}),true);
 });
 
-test('includes an iOS media fallback without adding a runtime dependency',()=>{
-  assert.match(mainSource,/createElement\(['"]video['"]\)/);
-  assert.match(mainSource,/assets\/no-sleep\.mp4/);
-  assert.match(mainSource,/video\.loop=true/);
-  assert.match(mainSource,/webkit-playsinline/);
+test('uses native wake lock without foreground media playback',()=>{
+  assert.doesNotMatch(mainSource,/createElement\(['"]video['"]\)/);
+  assert.doesNotMatch(mainSource,/assets\/no-sleep\.mp4/);
+  assert.doesNotMatch(mainSource,/appNoSleep/);
   assert.doesNotMatch(packageSource,/nosleep/i);
 });
 
-test('restores both wake lock layers after an iPad page lifecycle transition',()=>{
-  assert.match(mainSource,/visibilitychange[^\n]*enableAppNoSleepFallback\(\)[^\n]*syncAppWakeLock/);
-  assert.match(mainSource,/pageshow[^\n]*enableAppNoSleepFallback\(\)[^\n]*scheduleAppWakeLockRetry/);
-  assert.match(mainSource,/pagehide[^\n]*releaseAppWakeLock\(true,true\)/);
-  assert.match(mainSource,/destroy&&appNoSleepVideo[^\n]*appNoSleepVideo\.remove\(\)[^\n]*appNoSleepVideo=null/);
-});
-
-test('periodically repairs a stopped iOS media fallback',()=>{
-  assert.match(mainSource,/appWakeLockWanted&&!document\.hidden&&!appNoSleepFallbackActive\)enableAppNoSleepFallback\(\)/);
+test('restores native wake lock after an iPad page lifecycle transition',()=>{
+  assert.match(mainSource,/visibilitychange[^\n]*syncAppWakeLock/);
+  assert.match(mainSource,/pageshow[^\n]*scheduleAppWakeLockRetry/);
+  assert.match(mainSource,/pagehide[^\n]*releaseAppWakeLock\(\)/);
 });
 
 test('keeps requesting the native wake lock when it is missing',()=>{

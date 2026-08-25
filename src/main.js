@@ -1355,7 +1355,7 @@ function roomTime(ts){if(!ts)return'';const d=new Date(ts),today=new Date();cons
 function savedRoomCard(r){return `<div class="saved-room ${r.favorite?'favorite':''}"><div class="saved-room-main"><div class="saved-room-name">${r.favorite?'⭐ ':''}${esc(roomDisplayName(r))}</div><div class="saved-room-meta">房號 ${esc(r.id)} · ${r.lastRole==='host'?'管理員':'觀看者'} · ${esc(roomTime(r.lastUsed))}</div></div><div class="saved-room-actions"><button class="btn primary" data-open-room="${r.id}">直接進入</button><button class="btn" data-toggle-room="${r.id}">${r.favorite?'取消常用':'加入常用'}</button><button class="btn danger-outline" data-forget-room="${r.id}">忘記</button></div></div>`}
 function bindRoomLibraryActions(){all('[data-open-room]').forEach(b=>b.onclick=()=>openSavedRoom(b.dataset.openRoom));all('[data-toggle-room]').forEach(b=>b.onclick=()=>{const r=roomRecord(b.dataset.toggleRoom);updateRoomRecord(b.dataset.toggleRoom,{favorite:!r?.favorite})});all('[data-forget-room]').forEach(b=>b.onclick=()=>forgetRoom(b.dataset.forgetRoom))}
 function renderRoomLibrary(){const rows=roomLibrary().sort((a,b)=>Number(b.favorite)-Number(a.favorite)||b.lastUsed-a.lastUsed),lastId=localStorage.getItem('bcmLastRoomV1'),last=rows.find(r=>r.id===lastId)||rows[0],cont=$('continueRoom'),fav=$('favoriteRooms'),recent=$('recentRooms');if(cont){cont.classList.toggle('hidden',!last);cont.innerHTML=last?`<strong>回到上次球局</strong><div style="font-size:1.25rem;font-weight:1000;margin-top:5px">${esc(roomDisplayName(last))}</div><div class="sub">房號 ${esc(last.id)} · ${esc(roomTime(last.lastUsed))}</div><button class="btn" data-open-room="${last.id}">繼續使用</button>`:''}const favorites=rows.filter(r=>r.favorite),recents=rows.filter(r=>!r.favorite).slice(0,5);if(fav){fav.classList.toggle('hidden',!favorites.length);fav.innerHTML=favorites.length?`<div class="room-library-title"><h3>⭐ 常用球局</h3></div>${favorites.map(savedRoomCard).join('')}`:''}if(recent){recent.classList.toggle('hidden',!recents.length);recent.innerHTML=recents.length?`<div class="room-library-title"><h3>最近加入</h3></div>${recents.map(savedRoomCard).join('')}`:''}bindRoomLibraryActions()}
-function updateCurrentRoomControls(){if(!roomId)return;const r=roomRecord(roomId)||{id:roomId};$('favoriteRoomBtn').textContent=r.favorite?'★ 已加入常用':'☆ 加入常用';$('roomLocalName').textContent=r.name?` · ${r.name}`:''}
+function updateCurrentRoomControls(){if(!roomId)return;const r=roomRecord(roomId)||{id:roomId};$('roomLocalName').textContent=r.name?` · ${r.name}`:''}
 function showRoomCreationError(message){if(!$('app').classList.contains('hidden'))alert(message);else setLandingError(message)}
 async function createRoom(){setLandingError('');let pin=prompt('請設定 4～8 位管理員 PIN。之後可在 iPad 或其他裝置輸入 PIN 進入管理員模式：','2580');if(pin===null)return;pin=pin.trim();if(!/^\d{4,8}$/.test(pin))return showRoomCreationError('管理員 PIN 請輸入 4～8 位數字。');const id=randomCode(),token=randomToken(),ref=doc(db,'badmintonRooms',id),initial=initialState();const pinHash=await sha256(pin);const data={...encodeState(initial),liveScoreEnabled:true,liveScoreMatchKey:liveMatchKey(initial.match),hostToken:token,adminPinHash:pinHash,createdAt:serverTimestamp(),updatedAt:serverTimestamp()};try{await setDoc(ref,data);await setDoc(doc(db,'badmintonRooms',id,'liveScore','current'),{...createLiveScoreData(initial.match),updatedAt:serverTimestamp()}).catch(error=>console.warn('即時比分初始化失敗，暫時使用完整同步',error));localStorage.setItem(hostKey(id),token);updateRoomRecord(id,{lastRole:'host',hostToken:token,lastUsed:Date.now()});await syncDeviceProfileNow().catch(()=>{});history.replaceState(null,'',currentUrl(id));await connectRoom(id)}catch(e){showRoomCreationError(formatError(e))}}
 async function enterRoom(id){id=id.trim().toUpperCase().replace(/[^A-Z0-9]/g,'').slice(0,6);if(id.length!==6)return showRoomCreationError('請輸入正確的 6 位房間代碼。');setLandingError('');history.replaceState(null,'',currentUrl(id));await connectRoom(id)}
@@ -1792,35 +1792,8 @@ const APP_WAKE_LOCK_KEY='bcmWakeLockEnabledV1';
 let appWakeLockWanted=localStorage.getItem(APP_WAKE_LOCK_KEY)!=='0';
 let appWakeLock=null,appWakeLockRequest=null,appWakeLockRetryTimer=null,appWakeLockLastError='';
 let appWakeLockNeedsGesture=false;
-let appNoSleepVideo=null,appNoSleepFallbackActive=false;
-function enableAppNoSleepFallback(){
-  if(!appWakeLockWanted||document.hidden)return;
-  if(!appNoSleepVideo){
-    const video=document.createElement('video');
-    video.src='./assets/no-sleep.mp4';
-    video.setAttribute('playsinline','');
-    video.setAttribute('webkit-playsinline','');
-    video.setAttribute('aria-hidden','true');
-    video.loop=true;
-    video.preload='auto';
-    video.style.cssText='position:fixed;width:1px;height:1px;opacity:.001;pointer-events:none;left:-10px;bottom:-10px';
-    video.addEventListener('timeupdate',()=>{if(video.currentTime>.5)video.currentTime=.01});
-    video.addEventListener('playing',()=>{appNoSleepFallbackActive=true;renderAppWakeLockStatus()});
-    video.addEventListener('pause',()=>{appNoSleepFallbackActive=false;renderAppWakeLockStatus()});
-    video.addEventListener('ended',()=>{appNoSleepFallbackActive=false;if(appWakeLockWanted&&!document.hidden)enableAppNoSleepFallback();renderAppWakeLockStatus()});
-    document.documentElement.append(video);
-    appNoSleepVideo=video;
-  }
-  const playback=appNoSleepVideo.play();
-  if(playback?.then)playback.then(()=>{appNoSleepFallbackActive=true;renderAppWakeLockStatus()}).catch(()=>{});
-}
-function disableAppNoSleepFallback(destroy=false){
-  if(appNoSleepVideo&&!appNoSleepVideo.paused)appNoSleepVideo.pause();
-  if(destroy&&appNoSleepVideo){appNoSleepVideo.remove();appNoSleepVideo=null}
-  appNoSleepFallbackActive=false;
-}
 function nativeWakeLockActive(){return !!appWakeLock&&!appWakeLock.released}
-function appWakeLockProtected(){return wakeLockControlIsActive({nativeActive:nativeWakeLockActive()})||appNoSleepFallbackActive}
+function appWakeLockProtected(){return wakeLockControlIsActive({nativeActive:nativeWakeLockActive()})}
 function describeWakeLockError(error){
   if(error?.name==='NotAllowedError')return'iPad 拒絕螢幕恆亮。請關閉低耗電模式，再點一次重試。';
   if(error?.name==='NotSupportedError')return'目前的 iPadOS 或開啟方式不支援真正恆亮，請更新 iPadOS 後重試。';
@@ -1845,17 +1818,16 @@ function scheduleAppWakeLockRetry(delay=1200){
   if(document.hidden||!appWakeLockWanted)return;
   appWakeLockRetryTimer=setTimeout(()=>{appWakeLockRetryTimer=null;void syncAppWakeLock()},delay);
 }
-async function releaseAppWakeLock(disableFallback=false,destroyFallback=false){
+async function releaseAppWakeLock(){
   clearTimeout(appWakeLockRetryTimer);
   appWakeLockRetryTimer=null;
   const lock=appWakeLock;
   appWakeLock=null;
   if(lock&&!lock.released){try{await lock.release()}catch{}}
-  if(disableFallback)disableAppNoSleepFallback(destroyFallback);
   renderAppWakeLockStatus();
 }
 async function syncAppWakeLock(userActivated=false){
-  if(!appWakeLockWanted){await releaseAppWakeLock(true);return}
+  if(!appWakeLockWanted){await releaseAppWakeLock();return}
   if(document.hidden){await releaseAppWakeLock();return}
   if(nativeWakeLockActive()){
     renderAppWakeLockStatus();
@@ -1896,15 +1868,15 @@ async function syncAppWakeLock(userActivated=false){
   }
   finally{appWakeLockRequest=null;renderAppWakeLockStatus()}
 }
-document.addEventListener('visibilitychange',()=>{if(!document.hidden)enableAppNoSleepFallback();void syncAppWakeLock()});
-function resumeWakeLockFromGesture(){enableAppNoSleepFallback();void syncAppWakeLock(true)}
+document.addEventListener('visibilitychange',()=>{void syncAppWakeLock()});
+function resumeWakeLockFromGesture(){void syncAppWakeLock(true)}
 document.addEventListener('pointerdown',resumeWakeLockFromGesture,{capture:true,passive:true});
 document.addEventListener('touchstart',resumeWakeLockFromGesture,{capture:true,passive:true});
 document.addEventListener('click',resumeWakeLockFromGesture,{capture:true,passive:true});
 document.addEventListener('keydown',resumeWakeLockFromGesture,{capture:true});
 window.addEventListener('focus',()=>scheduleAppWakeLockRetry(100));
-window.addEventListener('pageshow',()=>{enableAppNoSleepFallback();scheduleAppWakeLockRetry(100)});
-window.addEventListener('pagehide',()=>{void releaseAppWakeLock(true,true)});
+window.addEventListener('pageshow',()=>scheduleAppWakeLockRetry(100));
+window.addEventListener('pagehide',()=>{void releaseAppWakeLock()});
 $('wakeLockBtn').onclick=async()=>{
   const intent=wakeLockButtonIntent({wanted:appWakeLockWanted,active:appWakeLockProtected(),supported:hasNativeWakeLock()});
   if(intent==='retry'){
@@ -1917,11 +1889,10 @@ $('wakeLockBtn').onclick=async()=>{
   localStorage.setItem(APP_WAKE_LOCK_KEY,appWakeLockWanted?'1':'0');
   appWakeLockLastError='';
   renderAppWakeLockStatus();
-  if(appWakeLockWanted){enableAppNoSleepFallback();await syncAppWakeLock(true)}else await releaseAppWakeLock(true);
+  if(appWakeLockWanted)await syncAppWakeLock(true);else await releaseAppWakeLock();
   renderAppWakeLockStatus();
 };
 setInterval(()=>{
-  if(appWakeLockWanted&&!document.hidden&&!appNoSleepFallbackActive)enableAppNoSleepFallback();
   const shouldRetryNative=shouldRequestNativeWakeLock({wanted:appWakeLockWanted,hidden:document.hidden,nativeSupported:hasNativeWakeLock(),nativeActive:nativeWakeLockActive(),requestPending:!!appWakeLockRequest});
   if(shouldRetryNative)void syncAppWakeLock();
 },5000);
