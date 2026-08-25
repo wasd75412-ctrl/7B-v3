@@ -173,3 +173,17 @@ test('editing the next event updates the announcement without another push',()=>
   assert.match(editFlow,/publishedAt=creating\?new Date\(\)\.toISOString\(\):\(previous\?\.publishedAt\|\|new Date\(\)\.toISOString\(\)\)/);
   assert.match(editFlow,/creating\?await nextEventPushMessage\(publishedAt\):''/);
 });
+
+test('removes the next-match announcement button and explanatory feature notes',()=>{
+  assert.doesNotMatch(html,/<button[^>]*id="announceBtn"/);
+  for(const note of [
+    '聊天或標記球友；被標記的人會收到手機通知。',
+    '查看歷史比分與比賽影片回放。',
+    '可直接新增球局，或建立候選日期讓大家投票。',
+    '截止前一天自動提醒已開啟通知的球友',
+    '完整保護球員、比賽、歷史、投票、公告與房間設定。',
+    '新球桶會先保留為待使用；按下開始使用後，才追蹤球友是否上場。',
+    '臨打球友保留完整球員資料與戰績，但不列入球桶購買名單。'
+  ]) assert.ok(!html.includes(note),`still shows explanatory note: ${note}`);
+  assert.match(styles,/#resultModal>\.modal-card>\.sub\{display:none\}/);
+});
