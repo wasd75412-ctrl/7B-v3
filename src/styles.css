@@ -1495,6 +1495,9 @@ html.brand-font-fallback .brand-copy .brand-mark h1{
 /* BCM 2.3.29 — Google Maps venue links */
 .location-field label{display:block;margin-bottom:5px;color:var(--muted);font-size:.82rem;font-weight:900}
 .venue-picker{position:relative;width:100%;min-width:0}
+.location-field{position:relative;overflow:visible!important}
+.poll-flow-section:has(.venue-options:not(.hidden)),.confirm-event-panel:has(.venue-options:not(.hidden)){position:relative;z-index:100;overflow:visible}
+.venue-picker:has(.venue-options:not(.hidden)){z-index:110}
 .venue-options{position:absolute;top:calc(100% + 6px);left:0;right:0;z-index:80;display:grid;gap:4px;max-height:220px;overflow:auto;padding:7px;border:1px solid var(--line);border-radius:14px;background:#fff;box-shadow:0 16px 34px rgba(8,41,71,.2)}
 .venue-option{width:100%;border:0;border-radius:10px;background:#fff;padding:11px 12px;color:var(--ink);font:inherit;font-weight:900;text-align:left;cursor:pointer}
 .venue-option:hover,.venue-option:focus{outline:0;background:#eaf4ff;color:#0b579f}
@@ -1519,7 +1522,7 @@ html.brand-font-fallback .brand-copy .brand-mark h1{
   @media(min-width:701px) and (max-width:1367px){
     #app #page6 input:is([type="date"],[type="time"],[type="datetime-local"]),
     #app .next-event-editor input:is([type="date"],[type="time"],[type="datetime-local"]){width:-webkit-fill-available;max-width:-webkit-fill-available}
-    #app #page6 :is(.poll-form,.poll-deadline-controls,.confirm-event-grid) .field,
+    #app #page6 :is(.poll-form,.poll-deadline-controls,.confirm-event-grid) .field:not(.location-field),
     #app .next-event-edit-grid .field{overflow:hidden}
   }
 }

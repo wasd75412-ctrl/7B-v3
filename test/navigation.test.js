@@ -189,6 +189,9 @@ test('next-event venue fields stay separated and support reusable venue choices'
   assert.doesNotMatch(html,/<datalist|list="favoriteVenueOptions"/);
   for(const id of ['pollVenueOptions','confirmVenueOptions','editVenueOptions'])assert.match(html,new RegExp(`id="${id}" class="venue-options hidden"`));
   assert.match(styles,/\.venue-options\{[^}]*position:absolute[^}]*top:calc\(100% \+ 6px\)[^}]*left:0[^}]*right:0/);
+  assert.match(styles,/\.location-field\{[^}]*overflow:visible!important/);
+  assert.match(styles,/\.poll-flow-section:has\(\.venue-options:not\(\.hidden\)\)[^}]*z-index:100[^}]*overflow:visible/);
+  assert.match(styles,/\.field:not\(\.location-field\),[\s\S]*?\.next-event-edit-grid \.field\{overflow:hidden\}/);
   assert.match(styles,/@media\(min-width:701px\) and \(max-width:1367px\)[\s\S]*?\.confirm-event-grid\{grid-template-columns:repeat\(2,minmax\(0,1fr\)\)[\s\S]*?\.confirm-event-grid \.location-field\{grid-column:1\/-1/);
   assert.match(styles,/#app #page6 :is\(input:not\(\[type="checkbox"\]\):not\(\[type="radio"\]\),select,textarea\),#app \.next-event-editor :is\(input:not\(\[type="checkbox"\]\):not\(\[type="radio"\]\),select,textarea\)\{[^}]*width:100%;min-width:0;max-width:100%;box-sizing:border-box/);
   assert.match(styles,/@media\(min-width:701px\) and \(max-width:1367px\)[\s\S]*?#app \.poll-deadline-controls\{grid-template-columns:repeat\(2,minmax\(0,1fr\)\);align-items:stretch\}[\s\S]*?#app \.poll-deadline-controls \.field\{grid-column:1\/-1;overflow:hidden\}/);
@@ -196,6 +199,9 @@ test('next-event venue fields stay separated and support reusable venue choices'
   assert.match(mainSource,/function saveFavoriteVenue\(inputId\)/);
   assert.match(mainSource,/function bindVenuePicker\(inputId,panelId\)/);
   assert.match(mainSource,/localStorage\.setItem\(FAVORITE_VENUES_KEY/);
+  assert.match(mainSource,/favoriteModifiedAt=Number\(r\.favoriteModifiedAt\)\|\|\(favorite\?modifiedAt:0\)/);
+  assert.match(mainSource,/favoriteSource=room\.favoriteModifiedAt>=old\.favoriteModifiedAt\?room:old/);
+  assert.match(mainSource,/favoritePatch=Object\.prototype\.hasOwnProperty\.call\(patch,'favorite'\)\?\{favoriteModifiedAt:now\}:\{\}/);
 });
 
 test('removes the next-match announcement button and explanatory feature notes',()=>{
