@@ -1366,7 +1366,7 @@ html.brand-font-fallback .brand-copy .brand-mark h1{
 .score-view[data-score-theme="suisei-2023-09"] .scoreboard::before{
   content:""!important;
   background-image:linear-gradient(rgba(1,8,15,.08),rgba(0,5,12,.42)),url('/assets/score-backgrounds/suisei-2023-09.webp')!important;
-  background-position:center,right center!important;
+  background-position:center,right 100%!important;
   background-repeat:no-repeat!important;
   background-size:100% 100%,auto 132%!important;
 }
