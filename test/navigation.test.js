@@ -67,6 +67,9 @@ test('removes the old score remote from More and provides a no-stats test mode',
   assert.doesNotMatch(moreMenu,/id="scoreRemoteBtn"/);
   assert.match(moreMenu,/id="testModeToggle"/);
   assert.match(html,/id="testModeBanner"/);
+  assert.match(html,/id="scoreTestModeToggle"/);
+  assert.doesNotMatch(mainSource,/confirm\(['"]開啟測試模式/);
+  assert.match(mainSource,/\$\('scoreTestModeToggle'\)\.onclick=toggleTestMode/);
   assert.match(mainSource,/const isTestMatch=!!m\.testMode\|\|!!state\.testMode/);
   assert.match(mainSource,/if\(isTestMatch\)m\.testCompleted=true/);
   assert.match(mainSource,/else state\.history\.push/);
@@ -77,6 +80,13 @@ test('removes the old score remote from More and provides a no-stats test mode',
   assert.match(mainSource,/state\.match\?\.winner===null&&!!state\.match\?\.testMode/);
   assert.match(mainSource,/function currentTestModeEnabled\(\)\{[\s\S]*?!!state\.testMode\|\|!!state\.match\?\.active/);
   assert.match(mainSource,/const enabling=!currentTestModeEnabled\(\)/);
+});
+
+test('provides a direct new event flow without changing the poll',()=>{
+  assert.match(html,/id="directNewEventBtn"[^>]*>＋ 新增球局<\/button>/);
+  const directFlow=mainSource.slice(mainSource.indexOf('function openDirectNextEventCreator()'),mainSource.indexOf('function closeNextEventEditor()'));
+  assert.doesNotMatch(directFlow,/schedulePoll/);
+  assert.match(mainSource,/投票內容未變更/);
 });
 
 test('keeps the Android remote session active after a match finishes so it can undo',()=>{
@@ -146,6 +156,6 @@ test('chat preserves unchanged media elements between sync polls',()=>{
 test('editing the next event updates the announcement without another push',()=>{
   const editFlow=mainSource.slice(mainSource.indexOf('async function saveNextEventEdits()'),mainSource.indexOf('async function confirmNextEvent()'));
   assert.match(html,/id="saveNextEventEdits"[^>]*>儲存公告<\/button>/);
-  assert.match(editFlow,/publishedAt:previous\.publishedAt\|\|new Date\(\)\.toISOString\(\)/);
-  assert.doesNotMatch(editFlow,/nextEventPushMessage/);
+  assert.match(editFlow,/publishedAt=creating\?new Date\(\)\.toISOString\(\):\(previous\?\.publishedAt\|\|new Date\(\)\.toISOString\(\)\)/);
+  assert.match(editFlow,/creating\?await nextEventPushMessage\(publishedAt\):''/);
 });

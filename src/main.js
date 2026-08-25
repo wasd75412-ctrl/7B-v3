@@ -479,8 +479,16 @@ function updateNextEventEditFeePreview(){
   if($('editNextEventFeeHint'))$('editNextEventFeeHint').textContent=!rentalTotal?'輸入場租總額後自動計算。':!participantCount?'請輸入預計參與總人數。':`場租 ${formatMoney(rentalTotal)} 元 ÷ ${formatMoney(participantCount)} 人＝每人 ${formatMoney(perPersonFee)} 元`;
   return{rentalTotal,participantCount,perPersonFee};
 }
+let nextEventEditorMode='edit';
+function setNextEventEditorMode(mode='edit'){
+  nextEventEditorMode=mode==='create'?'create':'edit';
+  $('nextEventEditorTitle').textContent=nextEventEditorMode==='create'?'新增球局':'編輯下一次打球公告';
+  $('nextEventEditorDescription').textContent=nextEventEditorMode==='create'?'直接發布球局公告，不會建立、結束或清除任何投票。':'臨時增減人數後，每人費用會依場租重新計算；儲存修改不會再次發送通知。';
+  $('saveNextEventEdits').textContent=nextEventEditorMode==='create'?'新增並發布球局':'儲存公告';
+}
 function openNextEventEditor(){
   if(!isHost||!state.nextEvent?.date)return;
+  setNextEventEditorMode('edit');
   const event=state.nextEvent;
   $('editNextEventDate').value=event.date||'';
   $('editNextEventTime').value=event.time||'';
@@ -492,6 +500,14 @@ function openNextEventEditor(){
   updateNextEventEditFeePreview();
   updateVenueMapPreviews();
   $('nextEventEditModal').classList.remove('hidden');
+}
+function openDirectNextEventCreator(){
+  if(!isHost)return;
+  setNextEventEditorMode('create');
+  const start='01:00';
+  $('editNextEventDate').value='';$('editNextEventTime').value=start;$('editNextEventEndTime').value=suggestedEndTime(start);
+  $('editNextEventLocation').value='';$('editNextEventRentalTotal').value='';$('editNextEventParticipants').value='';$('editNextEventNote').value='';
+  updateNextEventEditFeePreview();updateVenueMapPreviews();$('nextEventEditModal').classList.remove('hidden');
 }
 function closeNextEventEditor(){$('nextEventEditModal').classList.add('hidden')}
 function renderAdminAnnouncement(){
@@ -1116,7 +1132,8 @@ async function nextEventPushMessage(publishedAt){
   }
 }
 async function saveNextEventEdits(){
-  if(!isHost||!state.nextEvent?.date)return alert('目前沒有可編輯的下一次打球公告。');
+  const creating=nextEventEditorMode==='create';
+  if(!isHost||(!creating&&!state.nextEvent?.date))return alert('目前沒有可編輯的下一次打球公告。');
   const date=$('editNextEventDate').value,time=$('editNextEventTime').value,endTime=$('editNextEventEndTime').value,location=$('editNextEventLocation').value.trim(),note=$('editNextEventNote').value.trim();
   if(!date)return alert('請設定打球日期。');
   if(!time)return alert('請設定開始時間。');
@@ -1127,21 +1144,22 @@ async function saveNextEventEdits(){
   if(!rentalTotal)return alert('請填寫場租總額。');
   if(!participantCount)return alert('請填寫預計參與總人數。');
   const summary=`${formatEventDate(date,time,endTime)}\n${location}${note?`\n場地備註：${note}`:''}\n預計 ${participantCount} 人｜每人 ${formatMoney(perPersonFee)} 元`;
-  if(!confirm(`確定更新下一次打球公告？\n\n${summary}`))return;
-  const button=$('saveNextEventEdits'),previous={...state.nextEvent};
+  if(!confirm(`${creating?'確定新增並發布球局？':'確定更新下一次打球公告？'}\n\n${summary}`))return;
+  const button=$('saveNextEventEdits'),previous=state.nextEvent?{...state.nextEvent}:null,publishedAt=creating?new Date().toISOString():(previous?.publishedAt||new Date().toISOString());
   button.disabled=true;button.textContent='正在儲存…';
-  state.nextEvent={...previous,date,time,endTime,location,note,rentalTotal,participantCount,perPersonFee,publishedAt:previous.publishedAt||new Date().toISOString()};
+  state.nextEvent={...(creating?{optionId:''}:previous),date,time,endTime,location,note,rentalTotal,participantCount,perPersonFee,publishedAt};
   renderDashboard();renderPoll();
   try{
     await saveNow();
     closeNextEventEditor();
-    alert(`下一次打球公告已更新，不會再次發送通知。\n預計參與 ${participantCount} 人，每人需繳 ${formatMoney(perPersonFee)} 元。`);
+    const pushMessage=creating?await nextEventPushMessage(publishedAt):'';
+    alert(creating?`球局已直接新增並發布，投票內容未變更。\n每人需繳 ${formatMoney(perPersonFee)} 元。${pushMessage}`:`下一次打球公告已更新，不會再次發送通知。\n預計參與 ${participantCount} 人，每人需繳 ${formatMoney(perPersonFee)} 元。`);
   }catch(error){
     state.nextEvent=previous;
     renderDashboard();renderPoll();
     alert(`公告更新失敗：${formatError(error)}`);
   }finally{
-    button.disabled=false;button.textContent='儲存公告';
+    button.disabled=false;button.textContent=creating?'新增並發布球局':'儲存公告';
   }
 }
 async function confirmNextEvent(){
@@ -2019,15 +2037,15 @@ function currentTestModeEnabled(){
   return !!state.testMode||!!state.match?.active&&state.match?.winner===null&&!!state.match?.testMode;
 }
 function renderTestMode(){
-  const enabled=currentTestModeEnabled(),currentMatchIsTest=!!state.match?.active&&state.match?.winner===null&&!!state.match?.testMode,button=$('testModeToggle'),banner=$('testModeBanner');
+  const enabled=currentTestModeEnabled(),currentMatchIsTest=!!state.match?.active&&state.match?.winner===null&&!!state.match?.testMode,button=$('testModeToggle'),scoreButton=$('scoreTestModeToggle'),banner=$('testModeBanner');
   if(button){button.setAttribute('aria-pressed',enabled?'true':'false');button.textContent=enabled?'🧪 關閉測試模式':'🧪 開啟測試模式';button.classList.toggle('test-mode-on',enabled)}
+  if(scoreButton){scoreButton.setAttribute('aria-pressed',enabled?'true':'false');scoreButton.setAttribute('aria-label',enabled?'關閉測試模式':'開啟測試模式');scoreButton.title=enabled?'關閉測試模式':'開啟測試模式';scoreButton.classList.toggle('test-mode-on',enabled)}
   banner?.classList.toggle('hidden',!enabled&&!currentMatchIsTest);
   if(banner)banner.textContent=enabled?'🧪 測試模式已開啟：完成的比賽不會寫入紀錄或戰績。':'🧪 目前這場仍是測試比賽，不會寫入紀錄或戰績。';
 }
 function toggleTestMode(){
   if(!isHost)return;
   const enabling=!currentTestModeEnabled();
-  if(enabling&&!confirm('開啟測試模式？\n\n開啟後完成的比賽不會加入比賽紀錄，也不會影響任何戰績。'))return;
   state.testMode=enabling;
   if(state.match.active&&state.match.winner===null){
     state.match.testMode=enabling;
@@ -2594,6 +2612,7 @@ $('statsOrder').onchange=renderStats;
 $('savePollDeadline').onclick=savePollDeadline;
 $('clearPollDeadline').onclick=clearPollDeadline;
 $('newPollBtn').onclick=startNewPoll;
+$('directNewEventBtn').onclick=openDirectNextEventCreator;
 $('pollDeadline').onfocus=()=>{$('pollDeadline').min=pollDeadlineInputValue(new Date().toISOString())};
 $('pushNotificationBtn').onclick=setPushNotificationEnabled;
 $('pushTestBtn').onclick=testPushNotification;
@@ -2629,6 +2648,7 @@ document.addEventListener('keyup',handleScoreRemoteKeyboard,true);
 document.addEventListener('click',handleScoreRemoteVirtualClick,true);
 updateScoreRemoteUi();
 $('testModeToggle').onclick=toggleTestMode;
+$('scoreTestModeToggle').onclick=toggleTestMode;
 if(!$('pollTime').value)$('pollTime').value='01:00';
 if(!$('pollEndTime').value)$('pollEndTime').value=suggestedEndTime($('pollTime').value);
 $('pollTime').addEventListener('change',()=>{$('pollEndTime').value=suggestedEndTime($('pollTime').value)});
