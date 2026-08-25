@@ -182,6 +182,15 @@ test('editing the next event updates the announcement without another push',()=>
   assert.match(editFlow,/creating\?await nextEventPushMessage\(publishedAt\):''/);
 });
 
+test('next-event venue fields stay separated and support reusable venue choices',()=>{
+  assert.match(styles,/\.next-event-edit-grid\{[^}]*grid-template-columns:repeat\(2,minmax\(0,1fr\)\)/);
+  assert.match(styles,/\.next-event-edit-grid \.next-event-edit-date,[^}]*grid-column:1\/-1/);
+  assert.match(html,/id="favoriteVenueOptions"><option value="立羽"><\/option>/);
+  for(const id of ['pollNote','confirmLocation','editNextEventLocation'])assert.match(html,new RegExp(`id="${id}"[^>]*list="favoriteVenueOptions"`));
+  assert.match(mainSource,/function saveFavoriteVenue\(inputId\)/);
+  assert.match(mainSource,/localStorage\.setItem\(FAVORITE_VENUES_KEY/);
+});
+
 test('removes the next-match announcement button and explanatory feature notes',()=>{
   assert.doesNotMatch(html,/<button[^>]*id="announceBtn"/);
   for(const note of [
