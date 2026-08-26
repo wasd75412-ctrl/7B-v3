@@ -8,8 +8,14 @@ test('builds next week Monday through Sunday in Taipei with Saturday noon deadli
   assert.equal(schedule.cycle,'2026-08-10');
   assert.equal(schedule.opensAt,'2026-08-10T04:00:00.000Z');
   assert.equal(schedule.deadlineAt,'2026-08-15T04:00:00.000Z');
-  assert.deepEqual(schedule.options.map(option=>option.date),['2026-08-17','2026-08-18','2026-08-19','2026-08-20','2026-08-21','2026-08-22','2026-08-23']);
-  assert.ok(schedule.options.every(option=>option.time==='01:00'&&option.endTime==='04:00'&&option.note==='立羽'));
+  assert.equal(schedule.options.length,14);
+  assert.deepEqual([...new Set(schedule.options.map(option=>option.date))],['2026-08-17','2026-08-18','2026-08-19','2026-08-20','2026-08-21','2026-08-22','2026-08-23']);
+  for(const date of [...new Set(schedule.options.map(option=>option.date))]){
+    const slots=schedule.options.filter(option=>option.date===date).map(option=>`${option.time}-${option.endTime}`);
+    assert.deepEqual(slots,['01:00-04:00','11:00-13:00']);
+  }
+  assert.ok(schedule.options.every(option=>option.note==='立羽'));
+  assert.equal(new Set(schedule.options.map(option=>option.id)).size,14);
 });
 
 test('opens once at Monday noon in Taipei during the weekly voting window',()=>{
