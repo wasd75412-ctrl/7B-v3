@@ -40,13 +40,14 @@ test('uses the bundled Dela Gothic One face with a thick black outline and a sol
   assert.match(css,/@font-face\{\s*font-family:"Dela Gothic One";\s*src:url\("\/assets\/fonts\/player\/DelaGothicOne-Regular\.ttf"\) format\("truetype"\);[\s\S]*?font-weight:400;\s*\}/);
   assert.match(css,/\.court-player-name\{[\s\S]*?font-family:"Dela Gothic One","PingFang TC","Noto Sans TC","Microsoft JhengHei UI","Microsoft JhengHei",system-ui,sans-serif!important;[\s\S]*?font-weight:400!important;[\s\S]*?font-synthesis:none;[\s\S]*?-webkit-text-stroke:clamp\(5px,\.58vw,8px\) #000;[\s\S]*?text-shadow:0 3px 2px #000,0 0 clamp\(10px,1\.1vw,18px\) #000;/);
   assert.match(css,/\.court-name\.server\{[\s\S]*?border:0!important;[\s\S]*?background:transparent!important;[\s\S]*?box-shadow:none!important;/);
-  assert.match(css,/\.court-name\.server \.court-player-name\{\s*color:var\(--serve-yellow\)!important;\s*-webkit-text-stroke:clamp\(5px,\.58vw,8px\) #000!important;\s*background:none!important;\s*text-shadow:0 3px 2px #000,0 0 clamp\(10px,1\.1vw,18px\) #000!important;/);
+  assert.match(css,/\.court-name\.server \.court-player-name\{\s*color:#fff200!important;\s*-webkit-text-fill-color:#fff200!important;\s*-webkit-text-stroke:clamp\(5px,\.58vw,8px\) #000!important;\s*background:none!important;\s*text-shadow:0 3px 2px #000,0 0 clamp\(10px,1\.1vw,18px\) #000!important;/);
   assert.doesNotMatch(css,/serve-position|serve-indicator-pulse/);
   assert.doesNotMatch(main,/serve-position|🏸 發球 · /);
 });
 
-test('uses a fixed white fill that contrasts with every artwork',()=>{
-  assert.match(css,/\.score-side\.a \.court-player-name,\s*\.score-side\.b \.court-player-name\{color:#fff\}/);
+test('uses fixed bright fills that cannot inherit dark artwork colors',()=>{
+  assert.match(css,/\.score-side\.a \.court-player-name,\s*\.score-side\.b \.court-player-name\{\s*color:#fff;\s*-webkit-text-fill-color:#fff\s*\}/);
+  assert.match(css,/\.court-name\.server \.court-player-name\{\s*color:#fff200!important;\s*-webkit-text-fill-color:#fff200!important;/);
 });
 
 test('uses the requested iPad name sizes without reducing Yoyo',()=>{

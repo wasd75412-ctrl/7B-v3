@@ -747,6 +747,7 @@ html.brand-font-fallback .brand-copy .brand-mark h1{
   width:100%;
   overflow:visible;
   color:#fff;
+  -webkit-text-fill-color:#fff;
   font-family:"Dela Gothic One","PingFang TC","Noto Sans TC","Microsoft JhengHei UI","Microsoft JhengHei",system-ui,sans-serif!important;
   font-size:clamp(2.8rem,6.3vw,7.6rem);
   font-weight:400!important;
@@ -977,7 +978,8 @@ html.brand-font-fallback .brand-copy .brand-mark h1{
 }
 
 .court-name.server .court-player-name{
-  color:var(--serve-yellow)!important;
+  color:#fff200!important;
+  -webkit-text-fill-color:#fff200!important;
   -webkit-text-stroke:clamp(5px,.58vw,8px) #000!important;
   background:none!important;
   text-shadow:0 3px 2px #000,0 0 clamp(10px,1.1vw,18px) #000!important;
@@ -3360,7 +3362,10 @@ body>.modal .modal-card :is(.profile-panel,.profile-section,.stat-box,.health-bo
 .score-side.a .score-title{color:var(--score-a)}
 .score-side.b .score-title{color:var(--score-b)}
 .score-side.a .court-player-name,
-.score-side.b .court-player-name{color:#fff}
+.score-side.b .court-player-name{
+  color:#fff;
+  -webkit-text-fill-color:#fff
+}
 @media(min-width:761px) and (max-width:1100px){
   .court-player-name{
     --score-name-reduction:0pt;
