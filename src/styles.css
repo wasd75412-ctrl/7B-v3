@@ -757,9 +757,9 @@ html.brand-font-fallback .brand-copy .brand-mark h1{
   overflow-wrap:anywhere;
   word-break:keep-all;
   text-align:left;
-  -webkit-text-stroke:clamp(2px,.28vw,4px) #111;
+  -webkit-text-stroke:clamp(5px,.58vw,8px) #000;
   paint-order:stroke fill;
-  text-shadow:none;
+  text-shadow:0 3px 2px #000,0 0 clamp(10px,1.1vw,18px) #000;
 }
 .score-side.b .court-player-name{text-align:right}
 .court-position{
@@ -978,9 +978,9 @@ html.brand-font-fallback .brand-copy .brand-mark h1{
 
 .court-name.server .court-player-name{
   color:var(--serve-yellow)!important;
-  -webkit-text-stroke:clamp(2px,.28vw,4px) #111!important;
+  -webkit-text-stroke:clamp(5px,.58vw,8px) #000!important;
   background:none!important;
-  text-shadow:none!important;
+  text-shadow:0 3px 2px #000,0 0 clamp(10px,1.1vw,18px) #000!important;
 }
 
 .court-name.server .avatar.score-large{
@@ -3359,8 +3359,27 @@ body>.modal .modal-card :is(.profile-panel,.profile-section,.stat-box,.health-bo
 .score-view:is([data-score-theme="gbc-grass"],[data-score-theme="pudding-pattern"],[data-score-theme="pudding-hug"],[data-score-theme="pudding-collection"],[data-score-theme="sanrio-party"],[data-score-theme="three-eyed-pattern"],[data-score-theme="ocean-view"],[data-score-theme="sky"],[data-score-theme="grassland"],[data-score-theme="flower-sea"],[data-score-theme="cloud-sea"],[data-score-theme="happy-panda"],[data-score-theme="pudding-puppy"],[data-score-theme="bow-kitty"],[data-score-theme="girls-band"],[data-score-theme="girls-band-fashion"],[data-score-theme="jujutsu"],[data-score-theme="blue-stage"],[data-score-theme="the-star"],[data-score-theme="idol-group"],[data-score-theme="tricolor-girls"]) .score-watermark{opacity:.20}
 .score-side.a .score-title{color:var(--score-a)}
 .score-side.b .score-title{color:var(--score-b)}
-.score-side.a .court-player-name{color:var(--score-a)}
-.score-side.b .court-player-name{color:var(--score-b)}
+.score-side.a .court-player-name,
+.score-side.b .court-player-name{color:#fff}
+@media(min-width:761px) and (max-width:1100px){
+  .court-player-name{
+    --score-name-reduction:0pt;
+    display:inline-block;
+    width:max-content;
+    max-width:none;
+    font-size:105px;
+    line-height:.92;
+    white-space:nowrap;
+    overflow-wrap:normal;
+  }
+  .court-name.server .court-player-name{
+    font-size:120px;
+  }
+  .court-player-name.score-name-yoyo{
+    --score-name-reduction:0pt;
+    padding-bottom:12px;
+  }
+}
 .score-side.a .court-position{
   color:#101820;
   background:var(--score-a);
