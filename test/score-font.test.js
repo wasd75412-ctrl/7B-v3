@@ -36,8 +36,9 @@ test('keeps artwork visible behind score digits without a dark panel',()=>{
   assert.match(css,/\.score-center \.score-number\{[\s\S]*?background:transparent!important;[\s\S]*?box-shadow:none!important;[\s\S]*?backdrop-filter:none!important;/);
 });
 
-test('uses a heavy sans-serif face with a thick black outline and a solid name color for the serving player',()=>{
-  assert.match(css,/\.court-player-name\{[\s\S]*?font-family:"PingFang TC","Noto Sans TC","Microsoft JhengHei UI","Microsoft JhengHei",system-ui,sans-serif!important;[\s\S]*?font-weight:900!important;[\s\S]*?font-synthesis:weight;[\s\S]*?-webkit-text-stroke:clamp\(2px,\.28vw,4px\) #111;[\s\S]*?text-shadow:none;/);
+test('uses the bundled Dela Gothic One face with a thick black outline and a solid name color for the serving player',()=>{
+  assert.match(css,/@font-face\{\s*font-family:"Dela Gothic One";\s*src:url\("\/assets\/fonts\/player\/DelaGothicOne-Regular\.ttf"\) format\("truetype"\);[\s\S]*?font-weight:400;\s*\}/);
+  assert.match(css,/\.court-player-name\{[\s\S]*?font-family:"Dela Gothic One","PingFang TC","Noto Sans TC","Microsoft JhengHei UI","Microsoft JhengHei",system-ui,sans-serif!important;[\s\S]*?font-weight:400!important;[\s\S]*?font-synthesis:none;[\s\S]*?-webkit-text-stroke:clamp\(2px,\.28vw,4px\) #111;[\s\S]*?text-shadow:none;/);
   assert.match(css,/\.court-name\.server\{[\s\S]*?border:0!important;[\s\S]*?background:transparent!important;[\s\S]*?box-shadow:none!important;/);
   assert.match(css,/\.court-name\.server \.court-player-name\{\s*color:var\(--serve-yellow\)!important;\s*-webkit-text-stroke:clamp\(2px,\.28vw,4px\) #111!important;\s*background:none!important;\s*text-shadow:none!important;/);
   assert.doesNotMatch(css,/serve-position|serve-indicator-pulse/);
