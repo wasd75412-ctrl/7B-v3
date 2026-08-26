@@ -38,16 +38,20 @@ test('keeps artwork visible behind score digits without a dark panel',()=>{
 
 test('uses the bundled Dela Gothic One face with a thick black outline and a solid name color for the serving player',()=>{
   assert.match(css,/@font-face\{\s*font-family:"Dela Gothic One";\s*src:url\("\/assets\/fonts\/player\/DelaGothicOne-Regular\.ttf"\) format\("truetype"\);[\s\S]*?font-weight:400;\s*\}/);
-  assert.match(css,/\.court-player-name\{[\s\S]*?font-family:"Dela Gothic One","PingFang TC","Noto Sans TC","Microsoft JhengHei UI","Microsoft JhengHei",system-ui,sans-serif!important;[\s\S]*?font-weight:400!important;[\s\S]*?font-synthesis:none;[\s\S]*?-webkit-text-stroke:clamp\(2px,\.28vw,4px\) #111;[\s\S]*?text-shadow:none;/);
+  assert.match(css,/\.court-player-name\{[\s\S]*?font-family:"Dela Gothic One","PingFang TC","Noto Sans TC","Microsoft JhengHei UI","Microsoft JhengHei",system-ui,sans-serif!important;[\s\S]*?font-weight:400!important;[\s\S]*?font-synthesis:none;[\s\S]*?-webkit-text-stroke:clamp\(5px,\.58vw,8px\) #000;[\s\S]*?text-shadow:0 3px 2px #000,0 0 clamp\(10px,1\.1vw,18px\) #000;/);
   assert.match(css,/\.court-name\.server\{[\s\S]*?border:0!important;[\s\S]*?background:transparent!important;[\s\S]*?box-shadow:none!important;/);
-  assert.match(css,/\.court-name\.server \.court-player-name\{\s*color:var\(--serve-yellow\)!important;\s*-webkit-text-stroke:clamp\(2px,\.28vw,4px\) #111!important;\s*background:none!important;\s*text-shadow:none!important;/);
+  assert.match(css,/\.court-name\.server \.court-player-name\{\s*color:#fff200!important;\s*-webkit-text-fill-color:#fff200!important;\s*-webkit-text-stroke:clamp\(5px,\.58vw,8px\) #000!important;\s*background:none!important;\s*text-shadow:0 3px 2px #000,0 0 clamp\(10px,1\.1vw,18px\) #000!important;/);
   assert.doesNotMatch(css,/serve-position|serve-indicator-pulse/);
   assert.doesNotMatch(main,/serve-position|🏸 發球 · /);
 });
 
-test('uses each artwork palette for visible team player names',()=>{
-  assert.match(css,/\.score-side\.a \.court-player-name\{color:var\(--score-a\)\}/);
-  assert.match(css,/\.score-side\.b \.court-player-name\{color:var\(--score-b\)\}/);
+test('uses fixed bright fills that cannot inherit dark artwork colors',()=>{
+  assert.match(css,/\.score-side\.a \.court-player-name,\s*\.score-side\.b \.court-player-name\{\s*color:#fff;\s*-webkit-text-fill-color:#fff\s*\}/);
+  assert.match(css,/\.court-name\.server \.court-player-name\{\s*color:#fff200!important;\s*-webkit-text-fill-color:#fff200!important;/);
+});
+
+test('uses the requested iPad name sizes without reducing Yoyo',()=>{
+  assert.match(css,/@media\(min-width:761px\) and \(max-width:1100px\)\{[\s\S]*?\.court-player-name\{\s*--score-name-reduction:0pt;\s*display:inline-block;\s*width:max-content;\s*max-width:none;\s*font-size:105px;[\s\S]*?white-space:nowrap;\s*overflow-wrap:normal;[\s\S]*?\.court-name\.server \.court-player-name\{\s*font-size:120px;[\s\S]*?\.court-player-name\.score-name-yoyo\{\s*--score-name-reduction:0pt;\s*padding-bottom:12px;/);
 });
 
 test('enlarges only the current serving player name and restores the normal size when serve changes',()=>{
