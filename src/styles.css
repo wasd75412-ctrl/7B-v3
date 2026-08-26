@@ -372,6 +372,13 @@ body.player-modal-open{
   font-weight:400;
   unicode-range:U+7FBD;
 }
+@font-face{
+  font-family:"Dela Gothic One";
+  src:url("/assets/fonts/player/DelaGothicOne-Regular.ttf") format("truetype");
+  font-display:swap;
+  font-style:normal;
+  font-weight:400;
+}
 body,*{font-family:"BCMBrandYu","LXGW WenKai TC","Noto Sans TC",sans-serif!important;}
 @font-face{
   font-family:"JasonHandwriting9";
@@ -740,10 +747,10 @@ html.brand-font-fallback .brand-copy .brand-mark h1{
   width:100%;
   overflow:visible;
   color:#fff;
-  font-family:"PingFang TC","Noto Sans TC","Microsoft JhengHei UI","Microsoft JhengHei",system-ui,sans-serif!important;
+  font-family:"Dela Gothic One","PingFang TC","Noto Sans TC","Microsoft JhengHei UI","Microsoft JhengHei",system-ui,sans-serif!important;
   font-size:clamp(2.8rem,6.3vw,7.6rem);
-  font-weight:900!important;
-  font-synthesis:weight;
+  font-weight:400!important;
+  font-synthesis:none;
   line-height:.88;
   letter-spacing:-.07em;
   white-space:normal;
