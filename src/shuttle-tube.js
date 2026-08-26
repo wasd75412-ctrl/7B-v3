@@ -2,6 +2,16 @@ const cleanText=(value,maxLength)=>String(value||'').trim().slice(0,maxLength);
 const clamp=(value,min,max)=>Math.min(max,Math.max(min,Math.round(Number(value)||0)));
 const validStatus=value=>['pending','active','finished','deleted'].includes(value)?value:'';
 
+export function shuttleUnitPrice(tubePrice=0){
+  return Math.max(0,Number(tubePrice)||0)/12;
+}
+
+export function shuttleShareCost(tubePrice=0,usedShuttles=0,playerCount=0){
+  const players=Math.max(0,Math.round(Number(playerCount)||0));
+  if(!players)return 0;
+  return Math.max(0,Number(usedShuttles)||0)*shuttleUnitPrice(tubePrice)/players;
+}
+
 export function normalizeShuttleTubes(value,maxCount=20){
   const rows=Array.isArray(value)?value:[];
   const normalized=rows.map((tube,index)=>{
@@ -24,6 +34,7 @@ export function normalizeShuttleTubes(value,maxCount=20){
       status:validStatus(tube?.status),
       totalShuttles,
       remainingShuttles:clamp(tube?.remainingShuttles??totalShuttles,0,totalShuttles),
+      sessionUsedShuttles:clamp(tube?.sessionUsedShuttles||0,0,100),
       activatedAt:cleanText(tube?.activatedAt,40),
       activationHistoryCount:Math.max(0,Number(tube?.activationHistoryCount)||0),
       finishedAt:cleanText(tube?.finishedAt,40),
@@ -137,6 +148,15 @@ export function activateShuttleTube(tubes=[],tubeId='',{activatedAt='',historyCo
     if(tube.status==='active')return{...tube,status:'finished',finishedAt:startedAt};
     return tube;
   }));
+}
+
+export function finishShuttleTube(tubes=[],tubeId='',finishedAt=''){
+  const id=String(tubeId||''),endedAt=String(finishedAt||'');
+  return normalizeShuttleTubes(tubes).map(tube=>tube.id===id&&tube.status==='active'?{
+    ...tube,
+    status:'finished',
+    finishedAt:endedAt
+  }:tube);
 }
 
 export function playerPlayedSincePayment(history=[],playerId='',payment=null,tube={}){

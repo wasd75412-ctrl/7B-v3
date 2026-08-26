@@ -125,12 +125,13 @@ test('opens admin shuttle tube management from the more menu',()=>{
   assert.match(html,/id="shuttleTubeModal"/);
 });
 
-test('separates fixed members and guest players while excluding guests from shuttle purchases',()=>{
+test('separates fixed members and guest players while shuttle costs use session attendance',()=>{
   assert.match(html,/id="newPlayerType"[\s\S]*?<option value="member">固定團員<\/option>[\s\S]*?<option value="guest">臨打球友<\/option>/);
   assert.match(html,/id="membershipAdminSection" class="profile-panel host-only"/);
   assert.match(html,/id="editMemberType"/);
   assert.match(mainSource,/splitPlayersByMembership\(rows\)/);
-  assert.match(mainSource,/shuttleEligiblePlayers\(state\.roster\)/);
+  assert.match(mainSource,/function shuttleParticipantCount\(\)/);
+  assert.match(mainSource,/購球者若參與也計入/);
   assert.match(styles,/BCM 2\.4\.42 — fixed members and guest-player sections/);
 });
 
