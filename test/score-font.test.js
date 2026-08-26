@@ -51,7 +51,7 @@ test('uses fixed bright fills that cannot inherit dark artwork colors',()=>{
 });
 
 test('uses larger, spaced iPad names without reducing or clipping Yoyo',()=>{
-  assert.match(css,/@media\(min-width:761px\) and \(max-width:1100px\)\{[\s\S]*?\.court-names\{\s*row-gap:clamp\(56px,8vh,76px\);[\s\S]*?\.court-name \.score-player,[\s\S]*?gap:clamp\(24px,2\.8vw,34px\);[\s\S]*?\.court-player-copy\{\s*min-width:0;[\s\S]*?\.court-player-name\{\s*--score-name-reduction:0pt;\s*display:inline-block;\s*width:max-content;\s*max-width:none;\s*padding:10px 6px 14px;\s*font-size:118px;\s*line-height:1\.06;\s*letter-spacing:\.015em;[\s\S]*?white-space:nowrap;\s*overflow-wrap:normal;[\s\S]*?\.court-name\.server \.court-player-name\{\s*font-size:136px;[\s\S]*?\.court-player-name\.score-name-yoyo\{\s*--score-name-reduction:0pt;\s*padding:10px 10px 20px;\s*line-height:1\.06;\s*letter-spacing:\.015em;/);
+  assert.match(css,/@media\(min-width:761px\) and \(max-width:1400px\)\{[\s\S]*?\.court-names\{\s*row-gap:clamp\(56px,8vh,76px\);[\s\S]*?\.court-name \.score-player,[\s\S]*?gap:clamp\(24px,2\.8vw,34px\);[\s\S]*?\.court-player-copy\{\s*min-width:0;[\s\S]*?\.court-player-name\{\s*--score-name-reduction:0pt;\s*display:inline-block;\s*width:max-content;\s*max-width:none;\s*padding:10px 6px 14px;\s*font-size:118px;\s*line-height:1\.06;\s*letter-spacing:\.015em;[\s\S]*?white-space:nowrap;\s*overflow-wrap:normal;[\s\S]*?\.court-name\.server \.court-player-name\{\s*font-size:136px;[\s\S]*?\.court-player-name\.score-name-yoyo\{\s*--score-name-reduction:0pt;\s*padding:10px 10px 20px;\s*line-height:1\.06;\s*letter-spacing:\.015em;/);
 });
 
 test('enlarges only the current serving player name and restores the normal size when serve changes',()=>{

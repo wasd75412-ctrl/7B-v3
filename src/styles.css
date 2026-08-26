@@ -3366,7 +3366,7 @@ body>.modal .modal-card :is(.profile-panel,.profile-section,.stat-box,.health-bo
   color:#fff;
   -webkit-text-fill-color:#fff
 }
-@media(min-width:761px) and (max-width:1100px){
+@media(min-width:761px) and (max-width:1400px){
   .court-names{
     row-gap:clamp(56px,8vh,76px);
   }
