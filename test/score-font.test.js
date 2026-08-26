@@ -44,6 +44,11 @@ test('uses a heavy sans-serif face with a thick black outline and a solid name c
   assert.doesNotMatch(main,/serve-position|🏸 發球 · /);
 });
 
+test('uses each artwork palette for visible team player names',()=>{
+  assert.match(css,/\.score-side\.a \.court-player-name\{color:var\(--score-a\)\}/);
+  assert.match(css,/\.score-side\.b \.court-player-name\{color:var\(--score-b\)\}/);
+});
+
 test('enlarges only the current serving player name and restores the normal size when serve changes',()=>{
   assert.match(css,/\.court-player-name\{\s*--score-server-boost:0pt;[\s\S]*?var\(--score-server-boost\)[\s\S]*?transition:font-size \.18s ease,color \.18s ease;/);
   assert.match(css,/\.court-name\.server \.court-player-name\{\s*--score-server-boost:clamp\(8pt,1\.8vw,16pt\);[\s\S]*?width:max-content;[\s\S]*?white-space:nowrap;[\s\S]*?overflow-wrap:normal;/);

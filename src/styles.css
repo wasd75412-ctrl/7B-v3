@@ -3352,6 +3352,8 @@ body>.modal .modal-card :is(.profile-panel,.profile-section,.stat-box,.health-bo
 .score-view:is([data-score-theme="gbc-grass"],[data-score-theme="pudding-pattern"],[data-score-theme="pudding-hug"],[data-score-theme="pudding-collection"],[data-score-theme="sanrio-party"],[data-score-theme="three-eyed-pattern"],[data-score-theme="ocean-view"],[data-score-theme="sky"],[data-score-theme="grassland"],[data-score-theme="flower-sea"],[data-score-theme="cloud-sea"],[data-score-theme="happy-panda"],[data-score-theme="pudding-puppy"],[data-score-theme="bow-kitty"],[data-score-theme="girls-band"],[data-score-theme="girls-band-fashion"],[data-score-theme="jujutsu"],[data-score-theme="blue-stage"],[data-score-theme="the-star"],[data-score-theme="idol-group"],[data-score-theme="tricolor-girls"]) .score-watermark{opacity:.20}
 .score-side.a .score-title{color:var(--score-a)}
 .score-side.b .score-title{color:var(--score-b)}
+.score-side.a .court-player-name{color:var(--score-a)}
+.score-side.b .court-player-name{color:var(--score-b)}
 .score-side.a .court-position{
   color:#101820;
   background:var(--score-a);
