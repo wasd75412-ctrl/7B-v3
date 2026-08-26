@@ -37,6 +37,15 @@ test('places the vote submit button after all poll choices',()=>{
   assert.match(styles,/@media\(max-width:700px\)\{\.poll-submit-row \.btn\{width:100%/);
 });
 
+test('groups independently selectable time slots under one date',()=>{
+  assert.match(mainSource,/const groupedOptions=new Map\(\)/);
+  assert.match(mainSource,/class="poll-date-group"/);
+  assert.match(mainSource,/class="poll-time-options"/);
+  assert.match(mainSource,/class="poll-option poll-time-option/);
+  assert.match(styles,/\.poll-time-options\{[^}]*grid-template-columns:repeat\(2,minmax\(0,1fr\)\)/);
+  assert.match(styles,/@media\(max-width:700px\)[^\n]*\.poll-time-options\{grid-template-columns:1fr\}/);
+});
+
 test('lets the admin edit participant count before confirming the next event',()=>{
   assert.match(html,/id="confirmParticipants"[^>]*type="number"[^>]*min="1"/);
   assert.match(mainSource,/participantCount=wholeAmount\(\$\('confirmParticipants'\)\?\.value\)/);
