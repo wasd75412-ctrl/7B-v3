@@ -750,17 +750,17 @@ html.brand-font-fallback .brand-copy .brand-mark h1{
   -webkit-text-fill-color:#fff;
   font-family:"Dela Gothic One","PingFang TC","Noto Sans TC","Microsoft JhengHei UI","Microsoft JhengHei",system-ui,sans-serif!important;
   font-size:clamp(2.8rem,6.3vw,7.6rem);
-  font-weight:900!important;
-  font-synthesis:weight;
+  font-weight:400!important;
+  font-synthesis:none;
   line-height:.96;
   letter-spacing:-.02em;
   white-space:normal;
   overflow-wrap:anywhere;
   word-break:keep-all;
   text-align:left;
-  -webkit-text-stroke:clamp(4px,.58vw,8px) #000;
+  -webkit-text-stroke:clamp(3px,.45vw,6px) #000;
   paint-order:stroke fill;
-  text-shadow:0 3px 0 #000,0 6px 14px rgba(0,0,0,.92);
+  text-shadow:0 2px 0 #000,0 4px 10px rgba(0,0,0,.88);
 }
 .score-side.b .court-player-name{text-align:right}
 .court-position{
@@ -980,14 +980,14 @@ html.brand-font-fallback .brand-copy .brand-mark h1{
 .court-name.server .court-player-name{
   color:#fff200!important;
   -webkit-text-fill-color:#fff200!important;
-  -webkit-text-stroke:clamp(6px,.74vw,10px) #000!important;
+  -webkit-text-stroke:clamp(4px,.6vw,8px) #000!important;
   background:none!important;
-  text-shadow:0 5px 0 #000,0 9px 20px rgba(0,0,0,.98),0 0 12px #fff,0 0 30px rgba(255,226,0,.96)!important;
+  text-shadow:0 3px 0 #000,0 6px 14px rgba(0,0,0,.94),0 0 12px rgba(255,226,0,.78)!important;
 }
 
 .court-name.server .avatar.score-large{
   border-color:#fff200!important;
-  box-shadow:0 0 0 5px #000,0 0 0 9px #fff200,0 0 28px rgba(255,226,0,.94),0 12px 30px rgba(0,0,0,.72)!important;
+  box-shadow:0 0 0 3px #000,0 0 0 6px #fff200,0 0 16px rgba(255,226,0,.72),0 10px 24px rgba(0,0,0,.54)!important;
 }
 
 /* Green court surface */
@@ -3383,24 +3383,34 @@ body>.modal .modal-card :is(.profile-panel,.profile-section,.stat-box,.health-bo
     display:inline-block;
     width:max-content;
     max-width:none;
-    padding:12px 8px 18px;
-    font-size:126px;
-    line-height:1.08;
-    letter-spacing:.02em;
-    -webkit-text-stroke:9px #000;
-    text-shadow:0 4px 0 #000,0 8px 18px rgba(0,0,0,.96);
+    padding:8px 6px 14px;
+    font-size:clamp(105px,9.4vw,126px);
+    line-height:1.02;
+    letter-spacing:0;
+    -webkit-text-stroke:clamp(5px,.55vw,8px) #000;
+    text-shadow:0 3px 0 #000,0 6px 14px rgba(0,0,0,.92);
     white-space:nowrap;
     overflow-wrap:normal;
   }
   .court-name.server .court-player-name{
-    font-size:150px;
-    -webkit-text-stroke:12px #000!important;
+    font-size:clamp(120px,10.6vw,145px);
+    -webkit-text-stroke:clamp(7px,.7vw,10px) #000!important;
   }
   .court-player-name.score-name-yoyo{
     --score-name-reduction:0pt;
-    padding:12px 12px 24px;
-    line-height:1.08;
-    letter-spacing:.02em;
+    padding:8px 8px 18px;
+    line-height:1.04;
+    letter-spacing:0;
+  }
+  .court-player-name.score-name-yuxuan-jr{
+    --score-name-reduction:0pt;
+    padding:8px 4px 14px;
+    font-size:clamp(84px,7.6vw,104px);
+    line-height:1.02;
+    letter-spacing:-.035em;
+  }
+  .court-name.server .court-player-name.score-name-yuxuan-jr{
+    font-size:clamp(98px,8.8vw,120px);
   }
 }
 .score-side.a .court-position{

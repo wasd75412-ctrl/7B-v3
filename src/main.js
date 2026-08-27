@@ -1917,7 +1917,7 @@ function renderScore(){
   const scoreNameClass=name=>{
     const cleanName=String(name||'').trim();
     if(cleanName==='Yoyo')return' score-name-yoyo';
-    if(cleanName==='于瑄Jr.')return' score-name-yuxuan-jr';
+    if(cleanName==='于萱Jr.'||cleanName==='于瑄Jr.')return' score-name-yuxuan-jr';
     return'';
   };
   const renderTeam=(t,box)=>{
