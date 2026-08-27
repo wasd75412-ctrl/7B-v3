@@ -132,6 +132,7 @@ test('separates fixed members and guest players while shuttle costs use session 
   assert.match(mainSource,/splitPlayersByMembership\(rows\)/);
   assert.match(mainSource,/function shuttleParticipantCount\(\)/);
   assert.match(mainSource,/購球者若參與也計入/);
+  assert.match(mainSource,/「\$\{tube\.name\}」剩餘 \$\{tube\.remainingShuttles\} 顆/);
   assert.match(styles,/BCM 2\.4\.42 — fixed members and guest-player sections/);
 });
 

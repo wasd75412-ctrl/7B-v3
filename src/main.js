@@ -2215,12 +2215,11 @@ function shuttleParticipantCount(){
 }
 function syncShuttleCostNotice(tube){
   const used=Math.max(0,Number(tube?.sessionUsedShuttles)||0),players=shuttleParticipantCount(),notices=normalizeAdminNotices(state).filter(notice=>notice.id!=='shuttle-cost');
-  if(!used){setAdminNotices(notices);renderDashboard();return}
+  if(!tube){setAdminNotices(notices);renderDashboard();return}
   const unitPrice=shuttleUnitPrice(tube.price),share=shuttleShareCost(tube.price,used,players);
-  const body=players
-    ?`該場次使用 ${used} 顆球，每顆 ${formatMoney(unitPrice)} 元，該場次共 ${players} 人參與（包含購球者），每人分攤 ${formatMoney(share)} 元。`
-    :`該場次使用 ${used} 顆球，每顆 ${formatMoney(unitPrice)} 元。請先加入該場次的出席名單，才能計算每人分攤。`;
-  setAdminNotices([{id:'shuttle-cost',title:'該場次球費',body,publishedAt:new Date().toISOString()},...notices]);
+  const fee=used&&players?`本場 ${used} 顆、${players} 人，每人 ${formatMoney(share)} 元。`:'本場費用會依用球顆數與出席人數自動計算。';
+  const body=`球費＝本場用球顆數 × 每顆 ${formatMoney(unitPrice)} 元 ÷ 本場人數（購球者也計入）。${fee}「${tube.name}」剩餘 ${tube.remainingShuttles} 顆。`;
+  setAdminNotices([{id:'shuttle-cost',title:'球費與球桶',body,publishedAt:new Date().toISOString()},...notices]);
   renderDashboard();
 }
 function renderShuttleTubeManager(){
@@ -2281,7 +2280,7 @@ function renderShuttleTubeManager(){
     const remaining=Number(input);
     if(!Number.isInteger(remaining)||remaining<0||remaining>tube.totalShuttles)return alert(`請輸入 0～${tube.totalShuttles} 的整數。`);
     state.shuttleTubes=normalizeShuttleTubes(tubes.map(row=>row.id===tubeId?setShuttleRemaining(row,remaining):row));
-    renderShuttleTubeManager();saveSoon();
+    syncShuttleCostNotice(state.shuttleTubes.find(row=>row.id===tubeId));renderShuttleTubeManager();saveSoon();
   });
   all('[data-toggle-shuttle-details]').forEach(button=>button.onclick=()=>{
     expandedShuttleTubeId=expandedShuttleTubeId===button.dataset.toggleShuttleDetails?'':button.dataset.toggleShuttleDetails;
@@ -2303,7 +2302,7 @@ function renderShuttleTubeManager(){
     const remaining=Number(remainingInput);
     if(!Number.isInteger(remaining)||remaining<0||remaining>total)return alert(`目前剩餘球數請輸入 0～${total} 的整數。`);
     state.shuttleTubes=normalizeShuttleTubes(tubes.map(row=>row.id===tubeId?updateShuttleTube(row,{name:name.trim(),price:Math.round(price),totalShuttles:total,remainingShuttles:remaining}):row));
-    renderShuttleTubeManager();saveSoon();
+    syncShuttleCostNotice(state.shuttleTubes.find(row=>row.id===tubeId));renderShuttleTubeManager();saveSoon();
   });
   $('activatePendingShuttleTube')?.addEventListener('click',()=>{
     if(!isHost||!pending)return;
@@ -2313,7 +2312,7 @@ function renderShuttleTubeManager(){
     if(!confirm(message))return;
     state.shuttleLegacyActiveTubeId='';
     state.shuttleTubes=activateShuttleTube(tubes,pending.id,{activatedAt:new Date().toISOString(),historyCount:state.history.length});
-    renderShuttleTubeManager();saveSoon();
+    syncShuttleCostNotice(state.shuttleTubes.find(row=>row.id===pending.id));renderShuttleTubeManager();saveSoon();
   });
   all('[data-delete-shuttle-tube]').forEach(button=>button.onclick=()=>{
     if(!isHost)return;
@@ -2355,7 +2354,7 @@ function createNewShuttleTube(){
   const tube=createShuttleTube({id:randomToken(),name,price,totalShuttles,status:'pending',createdAt:new Date().toISOString()});
   state.shuttleTubes=normalizeShuttleTubes([tube,...state.shuttleTubes]);
   $('shuttleTubeName').value='';$('shuttleTubePrice').value='';$('shuttleTubeCount').value='12';
-  renderShuttleTubeManager();saveSoon();
+  syncShuttleCostNotice(tube);renderShuttleTubeManager();saveSoon();
 }
 let editingAdminNoticeId='';
 function setAdminNoticeFeedback(message='',kind=''){
