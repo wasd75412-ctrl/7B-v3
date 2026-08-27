@@ -7,6 +7,11 @@ const mainSource=readFileSync(new URL('../src/main.js',import.meta.url),'utf8');
 const styles=readFileSync(new URL('../src/styles.css',import.meta.url),'utf8');
 const nav=html.match(/<nav class="tabs">([\s\S]*?)<\/nav>/)?.[1]||'';
 
+test('renders the 7B icon without a white frame',()=>{
+  assert.match(styles,/\.splash-logo,#app \.top \.brand-logo,#landing \.landing-brand img\{border:0!important;outline:0!important\}/);
+  assert.doesNotMatch(styles,/\.splash-logo\{box-shadow:[^}]*0 0 0 8px rgba\(255,255,255/);
+});
+
 test('keeps exactly eight primary navigation tabs',()=>{
   assert.equal((nav.match(/class="tab/g)||[]).length,8);
 });
