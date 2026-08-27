@@ -151,12 +151,13 @@ test('shows refresh without a visible favorite control and keeps low-frequency a
   assert.doesNotMatch(primary,/id="refreshAppMenu"/);
   assert.ok((primary.match(/<button/g)||[]).length<=7);
   assert.match(html,/id="roomMoreAdvanced"[^>]*class="room-more-advanced"/);
-  const settings=html.match(/<details id="roomSettings"[\s\S]*?<\/details>/)?.[0]||'',otherSettings=html.match(/<details id="roomMoreAdvanced"[\s\S]*?<\/details>/)?.[0]||'';
-  assert.match(settings,/<summary>⚙️ 設定<\/summary>/);
-  assert.match(settings,/id="shuttleTubeManagerBtn"/);
-  assert.match(settings,/id="testModeToggle"/);
+  const otherSettings=html.match(/<details id="roomMoreAdvanced"[\s\S]*?<\/details>/)?.[0]||'';
+  assert.doesNotMatch(html,/id="roomSettings"/);
+  assert.match(primary,/id="shuttleTubeManagerBtn"/);
+  assert.match(primary,/id="testModeToggle"/);
   assert.match(otherSettings,/<summary>⚙️ 其他設定<\/summary>/);
   assert.match(otherSettings,/id="leaveBtn"/);
+  assert.doesNotMatch(otherSettings,/id="shuttleTubeManagerBtn"|id="testModeToggle"/);
   assert.doesNotMatch(primary,/id="leaveBtn"/);
 });
 
