@@ -43,9 +43,15 @@
           <button id="wakeLockBtn" class="btn" type="button" aria-pressed="false">☀️ 檢查恆亮狀態…</button>
           <button id="shareBtn" class="btn" type="button">🔗 分享球局</button>
           <button id="adminNoticeManagerBtn" class="btn host-only" type="button">📣 事務公告</button>
-          <button id="leaveBtn" class="btn danger-outline room-leave-btn" type="button">離開房間</button>
           <div id="wakeLockFeedback" class="wake-lock-feedback pending" role="status" aria-live="polite">正在確認螢幕恆亮狀態…</div>
         </div>
+        <details id="roomSettings" class="room-more-advanced">
+          <summary>⚙️ 設定</summary>
+          <div class="room-more-advanced-grid">
+            <button id="shuttleTubeManagerBtn" class="btn host-only" type="button">🏸 球桶管理</button>
+            <button id="testModeToggle" class="btn host-only" type="button" aria-pressed="false">🧪 開啟測試模式</button>
+          </div>
+        </details>
         <details id="roomMoreAdvanced" class="room-more-advanced">
           <summary>⚙️ 其他設定</summary>
           <div class="room-more-advanced-grid">
@@ -55,12 +61,11 @@
             <button id="renameRoomBtn" class="btn" type="button">命名球局</button>
             <button id="qrBtn" class="btn" type="button">QR Code</button>
             <button id="adminLoginBtn" class="btn" type="button">管理員登入</button>
-            <button id="shuttleTubeManagerBtn" class="btn host-only" type="button">🏸 球桶管理</button>
             <button id="backupCenterBtn" class="btn" type="button">☁️ 備份中心</button>
             <button id="pushTestBtn" class="btn" type="button">📳 測試通知</button>
-            <button id="testModeToggle" class="btn host-only" type="button" aria-pressed="false">🧪 開啟測試模式</button>
             <label class="app-theme-control" for="appThemeSelect"><span>🎨 整體背景</span><select id="appThemeSelect" class="viewer-enabled" aria-label="選擇整體背景"><option value="default">雲霧藍</option><option value="court">羽球場綠</option><option value="ocean">海洋藍</option><option value="lavender">薰衣草紫</option><option value="rose">櫻花粉</option><option value="midnight">深夜藍</option><option value="dawn">晨曦金</option><option value="mint">薄荷青</option><option value="peach">蜜桃粉</option><option value="lagoon">湖水綠</option><option value="starlight">星夜紫</option><option value="sand">暖沙杏</option></select></label>
             <button id="randomAppThemeToggle" class="btn" type="button" aria-pressed="false">🎲 隨機背景</button>
+            <button id="leaveBtn" class="btn danger-outline room-leave-btn" type="button">離開房間</button>
           </div>
         </details>
       </div>
