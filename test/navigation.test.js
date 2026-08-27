@@ -74,7 +74,8 @@ test('places chat second and marks court as hidden for viewers',()=>{
 test('removes the old score remote from More and provides a no-stats test mode',()=>{
   const moreMenu=html.match(/id="roomMoreMenu"[\s\S]*?<\/details>\s*<\/div>/)?.[0]||'';
   assert.doesNotMatch(moreMenu,/id="scoreRemoteBtn"/);
-  assert.match(moreMenu,/id="testModeToggle"/);
+  assert.doesNotMatch(moreMenu,/id="testModeToggle"/);
+  assert.match(html,/id="refreshAppMenu"[\s\S]*?id="testModeToggle"[\s\S]*?id="roomMoreBtn"/);
   assert.match(html,/id="testModeBanner"/);
   assert.match(html,/id="scoreTestModeToggle"/);
   assert.doesNotMatch(mainSource,/confirm\(['"]開啟測試模式/);
@@ -143,9 +144,9 @@ test('separates fixed members and guest players while shuttle costs use session 
 });
 
 test('shows refresh without a visible favorite control and keeps low-frequency actions collapsed',()=>{
-  const favoriteIndex=html.indexOf('id="favoriteRoomBtn"'),refreshIndex=html.indexOf('id="refreshAppMenu"'),moreButtonIndex=html.indexOf('id="roomMoreBtn"'),moreIndex=html.indexOf('id="roomMoreMenu"'),advancedIndex=html.indexOf('id="roomMoreAdvanced"',moreIndex);
+  const favoriteIndex=html.indexOf('id="favoriteRoomBtn"'),refreshIndex=html.indexOf('id="refreshAppMenu"'),testModeIndex=html.indexOf('id="testModeToggle"'),moreButtonIndex=html.indexOf('id="roomMoreBtn"'),moreIndex=html.indexOf('id="roomMoreMenu"'),advancedIndex=html.indexOf('id="roomMoreAdvanced"',moreIndex);
   const primary=html.match(/<div class="room-more-primary">([\s\S]*?)<\/div>\s*<\/div>/)?.[1]||'';
-  assert.ok(favoriteIndex>=0&&refreshIndex>favoriteIndex&&moreButtonIndex>refreshIndex&&moreIndex>moreButtonIndex&&advancedIndex>moreIndex);
+  assert.ok(favoriteIndex>=0&&refreshIndex>favoriteIndex&&testModeIndex>refreshIndex&&moreButtonIndex>testModeIndex&&moreIndex>moreButtonIndex&&advancedIndex>moreIndex);
   assert.match(html,/id="favoriteRoomBtn" class="btn hidden"[^>]*aria-hidden="true"/);
   assert.match(html,/id="refreshAppMenu"[^>]*>↻ 重新整理<\/button>/);
   assert.doesNotMatch(primary,/id="refreshAppMenu"/);
@@ -154,7 +155,7 @@ test('shows refresh without a visible favorite control and keeps low-frequency a
   const otherSettings=html.match(/<details id="roomMoreAdvanced"[\s\S]*?<\/details>/)?.[0]||'';
   assert.doesNotMatch(html,/id="roomSettings"/);
   assert.match(primary,/id="shuttleTubeManagerBtn"/);
-  assert.match(primary,/id="testModeToggle"/);
+  assert.doesNotMatch(primary,/id="testModeToggle"/);
   assert.match(otherSettings,/<summary>⚙️ 其他設定<\/summary>/);
   assert.match(otherSettings,/id="leaveBtn"/);
   assert.doesNotMatch(otherSettings,/id="shuttleTubeManagerBtn"|id="testModeToggle"/);

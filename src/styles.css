@@ -116,7 +116,7 @@ body:before{content:"";position:fixed;inset:0;pointer-events:none;opacity:.32;ba
  .brand{width:100%}
  .roombar{width:100%;grid-template-columns:1fr}
  .room-status-row{grid-column:1}
- .room-quick-actions{grid-column:1;display:grid;grid-template-columns:1fr auto;width:100%}
+ .room-quick-actions{grid-column:1;display:grid;grid-template-columns:1fr auto auto;width:100%}
  .room-quick-actions .btn{min-height:52px}
  .room-more-menu{grid-column:1;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px;padding:8px}
  .room-more-menu .btn{min-height:42px;padding:7px 5px;font-size:.76rem}
@@ -2715,7 +2715,7 @@ body>.modal .win-ring:before{background:var(--broadcast-night)}
   #app .room-status-row>span:last-child{min-width:0;text-align:right;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
   #app .room-code{font-size:.86rem;letter-spacing:.08em}
   #app .room-local-name{display:none}
-  #app .room-quick-actions{display:grid;grid-template-columns:1fr auto;gap:7px}
+  #app .room-quick-actions{display:grid;grid-template-columns:1fr auto auto;gap:7px}
   #app .room-quick-actions .btn{min-height:44px;padding:9px 11px;border-radius:13px;font-size:.84rem}
   #app .room-more-menu{
     grid-template-columns:repeat(2,minmax(0,1fr));
@@ -4504,7 +4504,7 @@ html.chat-keyboard-open .chat-autocomplete{
   #app .admin-announcement::before{top:8px;right:10px;font-size:.56rem}
   #app .admin-announcement h3{padding-right:70px;font-size:1.14rem}
 }
-.test-mode-banner{margin-bottom:12px;border:2px solid #f0b429;border-radius:14px;padding:12px;background:#fff3cd;color:#6e4b00;font-weight:1000;text-align:center}.room-more-menu #testModeToggle.test-mode-on,.score-head #scoreTestModeToggle.test-mode-on{border-color:#f0b429;background:#fff3cd;color:#6e4b00}
+.test-mode-banner{margin-bottom:12px;border:2px solid #f0b429;border-radius:14px;padding:12px;background:#fff3cd;color:#6e4b00;font-weight:1000;text-align:center}#testModeToggle.test-mode-on,.score-head #scoreTestModeToggle.test-mode-on{border-color:#f0b429;background:#fff3cd;color:#6e4b00}
 .score-view .score-foot{display:none}
 .history-item.test-record{border-color:#d49b21;background:rgba(255,195,66,.10)}.test-record-badge{display:inline-block;border-radius:999px;padding:3px 7px;background:#f0b429;color:#352300;font-size:.72rem;font-weight:1000;vertical-align:.1em}
 #resultModal>.modal-card>.sub{display:none}
