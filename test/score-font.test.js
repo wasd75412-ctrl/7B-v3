@@ -51,6 +51,13 @@ test('uses fixed bright fills that cannot inherit dark artwork colors',()=>{
   assert.match(css,/\.court-name\.server \.court-player-name\{\s*color:#fff200!important;\s*-webkit-text-fill-color:#fff200!important;/);
 });
 
+test('uses cyan serving names and avatar rings on every yellow Pompompurin background',()=>{
+  const puddingThemes='[data-score-theme="pudding-puppy"],[data-score-theme="pudding-pattern"],[data-score-theme="pudding-hug"],[data-score-theme="pudding-collection"]';
+  assert.ok(css.includes(`.score-view:is(${puddingThemes}) .court-name.server .court-player-name{`));
+  assert.match(css,/pudding-collection"\]\) \.court-name\.server \.court-player-name\{\s*color:#00f0ff!important;\s*-webkit-text-fill-color:#00f0ff!important;[\s\S]*?0 0 14px rgba\(0,240,255,\.9\)!important;/);
+  assert.match(css,/pudding-collection"\]\) \.court-name\.server \.avatar\.score-large\{\s*border-color:#00f0ff!important;[\s\S]*?0 0 0 6px #00f0ff/);
+});
+
 test('uses larger, spaced iPad names without reducing or clipping Yoyo',()=>{
   assert.match(css,/@media\(min-width:761px\) and \(max-width:1400px\)\{[\s\S]*?\.court-names\{\s*row-gap:clamp\(56px,8vh,76px\);[\s\S]*?\.court-name \.score-player,[\s\S]*?gap:clamp\(24px,2\.8vw,34px\);[\s\S]*?\.court-player-copy\{\s*min-width:0;[\s\S]*?\.court-player-name\{\s*--score-name-reduction:0pt;\s*display:inline-block;\s*width:max-content;\s*max-width:none;\s*padding:8px 6px 14px;\s*font-size:clamp\(105px,9\.4vw,126px\);\s*line-height:1\.02;\s*letter-spacing:0;\s*-webkit-text-stroke:clamp\(5px,\.55vw,8px\) #000;\s*text-shadow:0 3px 0 #000,0 6px 14px rgba\(0,0,0,\.92\);[\s\S]*?white-space:nowrap;\s*overflow-wrap:normal;[\s\S]*?\.court-name\.server \.court-player-name\{\s*font-size:clamp\(120px,10\.6vw,145px\);\s*-webkit-text-stroke:clamp\(7px,\.7vw,10px\) #000!important;[\s\S]*?\.court-player-name\.score-name-yoyo\{\s*--score-name-reduction:0pt;\s*padding:8px 8px 18px;\s*line-height:1\.04;\s*letter-spacing:0;/);
   assert.match(css,/\.court-player-name\.score-name-yuxuan-jr\{\s*--score-name-reduction:0pt;\s*padding:8px 4px 14px;\s*font-size:clamp\(84px,7\.6vw,104px\);\s*line-height:1\.02;\s*letter-spacing:-\.035em;[\s\S]*?\.court-name\.server \.court-player-name\.score-name-yuxuan-jr\{\s*font-size:clamp\(98px,8\.8vw,120px\);/);
