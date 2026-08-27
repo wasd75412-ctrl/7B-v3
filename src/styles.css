@@ -379,6 +379,13 @@ body.player-modal-open{
   font-style:normal;
   font-weight:400;
 }
+@font-face{
+  font-family:"Noto Sans TC Score";
+  src:url("/assets/fonts/player/NotoSansTC-Variable.ttf?v=20260827") format("truetype");
+  font-display:swap;
+  font-style:normal;
+  font-weight:100 900;
+}
 body,*{font-family:"BCMBrandYu","LXGW WenKai TC","Noto Sans TC",sans-serif!important;}
 @font-face{
   font-family:"JasonHandwriting9";
@@ -748,9 +755,9 @@ html.brand-font-fallback .brand-copy .brand-mark h1{
   overflow:visible;
   color:#fff;
   -webkit-text-fill-color:#fff;
-  font-family:"Dela Gothic One","PingFang TC","Noto Sans TC","Microsoft JhengHei UI","Microsoft JhengHei",system-ui,sans-serif!important;
+  font-family:"Noto Sans TC Score","PingFang TC","Noto Sans TC","Microsoft JhengHei UI","Microsoft JhengHei",system-ui,sans-serif!important;
   font-size:clamp(2.8rem,6.3vw,7.6rem);
-  font-weight:400!important;
+  font-weight:800!important;
   font-synthesis:none;
   line-height:.96;
   letter-spacing:-.02em;
