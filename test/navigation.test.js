@@ -91,6 +91,12 @@ test('removes the old score remote from More and provides a no-stats test mode',
   assert.match(mainSource,/state\.match\?\.winner===null&&!!state\.match\?\.testMode/);
   assert.match(mainSource,/function currentTestModeEnabled\(\)\{[\s\S]*?!!state\.testMode\|\|!!state\.match\?\.active/);
   assert.match(mainSource,/const enabling=!currentTestModeEnabled\(\)/);
+  assert.match(mainSource,/function selectablePlayerIds\(\)\{return currentTestModeEnabled\(\)\?state\.roster\.map\(p=>p\.id\):state\.attendance\}/);
+  assert.match(mainSource,/if\(enabling&&!\(state\.match\.active&&state\.match\.winner===null\)\)\{[\s\S]*?renderAll\(\);page\(3\)/);
+  assert.match(mainSource,/function options\(selected=''\).*selectablePlayerIds\(\)\.map/);
+  assert.match(mainSource,/function renderWaiting\(\).*eligible=selectablePlayerIds\(\)/);
+  assert.match(mainSource,/attendance:selectablePlayerIds\(\)/);
+  assert.match(mainSource,/shuffle\(selectablePlayerIds\(\)\)\.slice\(0,4\)/);
 });
 
 test('keeps only the requested controls in normal score mode',()=>{
