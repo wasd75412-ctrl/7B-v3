@@ -36,11 +36,12 @@ test('keeps artwork visible behind score digits without a dark panel',()=>{
   assert.match(css,/\.score-center \.score-number\{[\s\S]*?background:transparent!important;[\s\S]*?box-shadow:none!important;[\s\S]*?backdrop-filter:none!important;/);
 });
 
-test('uses the bundled Dela Gothic One face with a thick black outline and a solid name color for the serving player',()=>{
+test('uses a synthesized heavy Dela Gothic face with broadcast-safe outlines and a vivid serving player',()=>{
   assert.match(css,/@font-face\{\s*font-family:"Dela Gothic One";\s*src:url\("\/assets\/fonts\/player\/DelaGothicOne-Regular\.ttf"\) format\("truetype"\);[\s\S]*?font-weight:400;\s*\}/);
-  assert.match(css,/\.court-player-name\{[\s\S]*?font-family:"Dela Gothic One","PingFang TC","Noto Sans TC","Microsoft JhengHei UI","Microsoft JhengHei",system-ui,sans-serif!important;[\s\S]*?font-weight:400!important;[\s\S]*?font-synthesis:none;[\s\S]*?-webkit-text-stroke:clamp\(5px,\.58vw,8px\) #000;[\s\S]*?text-shadow:0 3px 2px #000,0 0 clamp\(10px,1\.1vw,18px\) #000;/);
+  assert.match(css,/\.court-player-name\{[\s\S]*?font-family:"Dela Gothic One","PingFang TC","Noto Sans TC","Microsoft JhengHei UI","Microsoft JhengHei",system-ui,sans-serif!important;[\s\S]*?font-weight:900!important;[\s\S]*?font-synthesis:weight;[\s\S]*?-webkit-text-stroke:clamp\(4px,\.58vw,8px\) #000;[\s\S]*?text-shadow:0 3px 0 #000,0 6px 14px rgba\(0,0,0,\.92\);/);
   assert.match(css,/\.court-name\.server\{[\s\S]*?border:0!important;[\s\S]*?background:transparent!important;[\s\S]*?box-shadow:none!important;/);
-  assert.match(css,/\.court-name\.server \.court-player-name\{\s*color:#fff200!important;\s*-webkit-text-fill-color:#fff200!important;\s*-webkit-text-stroke:clamp\(5px,\.58vw,8px\) #000!important;\s*background:none!important;\s*text-shadow:0 3px 2px #000,0 0 clamp\(10px,1\.1vw,18px\) #000!important;/);
+  assert.match(css,/\.court-name\.server \.court-player-name\{\s*color:#fff200!important;\s*-webkit-text-fill-color:#fff200!important;\s*-webkit-text-stroke:clamp\(6px,\.74vw,10px\) #000!important;\s*background:none!important;\s*text-shadow:0 5px 0 #000,0 9px 20px rgba\(0,0,0,\.98\),0 0 12px #fff,0 0 30px rgba\(255,226,0,\.96\)!important;/);
+  assert.match(css,/\.court-name\.server \.avatar\.score-large\{\s*border-color:#fff200!important;\s*box-shadow:0 0 0 5px #000,0 0 0 9px #fff200,0 0 28px rgba\(255,226,0,\.94\),0 12px 30px rgba\(0,0,0,\.72\)!important;/);
   assert.doesNotMatch(css,/serve-position|serve-indicator-pulse/);
   assert.doesNotMatch(main,/serve-position|🏸 發球 · /);
 });
@@ -51,7 +52,7 @@ test('uses fixed bright fills that cannot inherit dark artwork colors',()=>{
 });
 
 test('uses larger, spaced iPad names without reducing or clipping Yoyo',()=>{
-  assert.match(css,/@media\(min-width:761px\) and \(max-width:1400px\)\{[\s\S]*?\.court-names\{\s*row-gap:clamp\(56px,8vh,76px\);[\s\S]*?\.court-name \.score-player,[\s\S]*?gap:clamp\(24px,2\.8vw,34px\);[\s\S]*?\.court-player-copy\{\s*min-width:0;[\s\S]*?\.court-player-name\{\s*--score-name-reduction:0pt;\s*display:inline-block;\s*width:max-content;\s*max-width:none;\s*padding:10px 6px 14px;\s*font-size:118px;\s*line-height:1\.06;\s*letter-spacing:\.015em;[\s\S]*?white-space:nowrap;\s*overflow-wrap:normal;[\s\S]*?\.court-name\.server \.court-player-name\{\s*font-size:136px;[\s\S]*?\.court-player-name\.score-name-yoyo\{\s*--score-name-reduction:0pt;\s*padding:10px 10px 20px;\s*line-height:1\.06;\s*letter-spacing:\.015em;/);
+  assert.match(css,/@media\(min-width:761px\) and \(max-width:1400px\)\{[\s\S]*?\.court-names\{\s*row-gap:clamp\(56px,8vh,76px\);[\s\S]*?\.court-name \.score-player,[\s\S]*?gap:clamp\(24px,2\.8vw,34px\);[\s\S]*?\.court-player-copy\{\s*min-width:0;[\s\S]*?\.court-player-name\{\s*--score-name-reduction:0pt;\s*display:inline-block;\s*width:max-content;\s*max-width:none;\s*padding:12px 8px 18px;\s*font-size:126px;\s*line-height:1\.08;\s*letter-spacing:\.02em;\s*-webkit-text-stroke:9px #000;\s*text-shadow:0 4px 0 #000,0 8px 18px rgba\(0,0,0,\.96\);[\s\S]*?white-space:nowrap;\s*overflow-wrap:normal;[\s\S]*?\.court-name\.server \.court-player-name\{\s*font-size:150px;\s*-webkit-text-stroke:12px #000!important;[\s\S]*?\.court-player-name\.score-name-yoyo\{\s*--score-name-reduction:0pt;\s*padding:12px 12px 24px;\s*line-height:1\.08;\s*letter-spacing:\.02em;/);
 });
 
 test('enlarges only the current serving player name and restores the normal size when serve changes',()=>{
