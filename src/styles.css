@@ -2010,7 +2010,7 @@ body:before{
 }
 .splash-logo{
   border-color:rgba(41,174,207,.28);
-  box-shadow:0 0 0 8px rgba(255,255,255,.52),0 22px 58px rgba(24,76,105,.18),0 0 34px rgba(41,216,242,.14)
+  box-shadow:0 22px 58px rgba(24,76,105,.18),0 0 34px rgba(41,216,242,.14)
 }
 .splash h1{color:#0b2e4a;text-shadow:none}
 .splash p{color:#40758b}
@@ -4508,3 +4508,7 @@ html.chat-keyboard-open .chat-autocomplete{
 .score-view .score-foot{display:none}
 .history-item.test-record{border-color:#d49b21;background:rgba(255,195,66,.10)}.test-record-badge{display:inline-block;border-radius:999px;padding:3px 7px;background:#f0b429;color:#352300;font-size:.72rem;font-weight:1000;vertical-align:.1em}
 #resultModal>.modal-card>.sub{display:none}
+
+/* BCM 2.6.30 — keep the 7B artwork edge clean without a white icon frame. */
+.splash-logo,#app .top .brand-logo,#landing .landing-brand img{border:0!important;outline:0!important}
+.splash-logo{box-shadow:0 24px 70px rgba(0,11,24,.35),0 0 44px rgba(41,216,242,.14)!important}
