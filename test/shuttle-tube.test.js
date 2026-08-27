@@ -4,15 +4,33 @@ import {
   activateShuttleTube,
   createShuttleTube,
   enforceLegacyActiveShuttleTube,
+  finishShuttleTube,
   normalizeShuttleTubes,
   restoreShuttleTube,
   setShuttlePaymentStatus,
   setShuttlePayment,
   setShuttleRemaining,
+  shuttleShareCost,
+  shuttleUnitPrice,
   softDeleteShuttleTube,
   shuttlePaymentStatus,
   updateShuttleTube
 } from '../src/shuttle-tube.js';
+
+test('calculates a 12-shuttle unit price and includes the buyer in the split',()=>{
+  assert.equal(shuttleUnitPrice(960),80);
+  assert.equal(shuttleShareCost(960,5,10),40);
+  assert.equal(shuttleShareCost(950,3,8),29.6875);
+  assert.equal(shuttleShareCost(950,3,0),0);
+});
+
+test('finishes an active tube without deleting its inventory record',()=>{
+  const tube=createShuttleTube({id:'tube',name:'AS-30',price:960,status:'active'});
+  const finished=finishShuttleTube([tube],'tube','2026-08-27T12:00:00.000Z')[0];
+  assert.equal(finished.status,'finished');
+  assert.equal(finished.finishedAt,'2026-08-27T12:00:00.000Z');
+  assert.equal(finished.price,960);
+});
 
 test('tracks paid players separately from unpaid players',()=>{
   const tube=createShuttleTube({id:'tube-1',name:'AS-30',price:950,createdAt:'2026-07-24T01:00:00.000Z'});

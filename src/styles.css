@@ -3993,7 +3993,7 @@ html.chat-keyboard-open .chat-autocomplete{
 .shuttle-tube-head h2,.shuttle-current-head h3{margin:3px 0 5px}
 .shuttle-tube-create{
   display:grid;
-  grid-template-columns:minmax(0,1.35fr) minmax(130px,.55fr) minmax(110px,.45fr) auto;
+  grid-template-columns:minmax(0,1.35fr) minmax(130px,.55fr) auto;
   gap:12px;
   align-items:end;
   margin:18px 0;
@@ -4003,6 +4003,9 @@ html.chat-keyboard-open .chat-autocomplete{
   background:rgba(var(--sport-tint-rgb),.06)
 }
 .shuttle-tube-list{display:grid;gap:14px}
+.shuttle-cost-panel{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:9px;margin:14px 0}
+.shuttle-cost-panel>div{display:grid;gap:4px;padding:11px;border:1px solid rgba(var(--sport-tint-rgb),.2);border-radius:14px;background:rgba(2,20,34,.5)}
+.shuttle-cost-panel span{color:var(--sport-muted);font-size:.73rem;font-weight:900}.shuttle-cost-panel strong{color:var(--sport-ink);font-size:1rem}.shuttle-cost-panel small{color:var(--sport-muted);font-size:.68rem;font-weight:800}.shuttle-cost-panel .shuttle-share-total{border-color:rgba(58,210,143,.38);background:rgba(58,210,143,.12)}.shuttle-cost-panel .shuttle-share-total strong{color:#83efbd;font-size:1.18rem}
 .shuttle-tube-empty{
   display:grid;
   gap:6px;
@@ -4179,6 +4182,8 @@ html.chat-keyboard-open .chat-autocomplete{
 @media(max-width:700px){
   .shuttle-tube-head,.shuttle-current-head{align-items:stretch;flex-direction:column}
   .shuttle-tube-create{grid-template-columns:1fr}
+  .shuttle-cost-panel{grid-template-columns:1fr 1fr}
+  .shuttle-cost-panel .shuttle-share-total{grid-column:1/-1}
   .shuttle-tube-create .btn,.shuttle-current-head .btn{width:100%}
   .shuttle-head-actions{display:grid;grid-template-columns:1fr}
   .shuttle-stock{align-items:stretch;flex-direction:column}
