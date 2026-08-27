@@ -36,9 +36,9 @@ test('keeps artwork visible behind score digits without a dark panel',()=>{
   assert.match(css,/\.score-center \.score-number\{[\s\S]*?background:transparent!important;[\s\S]*?box-shadow:none!important;[\s\S]*?backdrop-filter:none!important;/);
 });
 
-test('uses the original Dela Gothic weight with clean outlines and a vivid serving player',()=>{
-  assert.match(css,/@font-face\{\s*font-family:"Dela Gothic One";\s*src:url\("\/assets\/fonts\/player\/DelaGothicOne-Regular\.ttf"\) format\("truetype"\);[\s\S]*?font-weight:400;\s*\}/);
-  assert.match(css,/\.court-player-name\{[\s\S]*?font-family:"Dela Gothic One","PingFang TC","Noto Sans TC","Microsoft JhengHei UI","Microsoft JhengHei",system-ui,sans-serif!important;[\s\S]*?font-weight:400!important;[\s\S]*?font-synthesis:none;[\s\S]*?-webkit-text-stroke:clamp\(3px,\.45vw,6px\) #000;[\s\S]*?text-shadow:0 2px 0 #000,0 4px 10px rgba\(0,0,0,\.88\);/);
+test('uses bundled Noto Sans TC ExtraBold with clean outlines and a vivid serving player',()=>{
+  assert.match(css,/@font-face\{\s*font-family:"Noto Sans TC Score";\s*src:url\("\/assets\/fonts\/player\/NotoSansTC-Variable\.ttf\?v=20260827"\) format\("truetype"\);[\s\S]*?font-weight:100 900;\s*\}/);
+  assert.match(css,/\.court-player-name\{[\s\S]*?font-family:"Noto Sans TC Score","PingFang TC","Noto Sans TC","Microsoft JhengHei UI","Microsoft JhengHei",system-ui,sans-serif!important;[\s\S]*?font-weight:800!important;[\s\S]*?font-synthesis:none;[\s\S]*?-webkit-text-stroke:clamp\(3px,\.45vw,6px\) #000;[\s\S]*?text-shadow:0 2px 0 #000,0 4px 10px rgba\(0,0,0,\.88\);/);
   assert.match(css,/\.court-name\.server\{[\s\S]*?border:0!important;[\s\S]*?background:transparent!important;[\s\S]*?box-shadow:none!important;/);
   assert.match(css,/\.court-name\.server \.court-player-name\{\s*color:#fff200!important;\s*-webkit-text-fill-color:#fff200!important;\s*-webkit-text-stroke:clamp\(4px,\.6vw,8px\) #000!important;\s*background:none!important;\s*text-shadow:0 3px 0 #000,0 6px 14px rgba\(0,0,0,\.94\),0 0 12px rgba\(255,226,0,\.78\)!important;/);
   assert.match(css,/\.court-name\.server \.avatar\.score-large\{\s*border-color:#fff200!important;\s*box-shadow:0 0 0 3px #000,0 0 0 6px #fff200,0 0 16px rgba\(255,226,0,\.72\),0 10px 24px rgba\(0,0,0,\.54\)!important;/);
