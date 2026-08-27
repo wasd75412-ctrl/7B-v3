@@ -3555,7 +3555,7 @@ body>.modal .modal-card :is(.profile-panel,.profile-section,.stat-box,.health-bo
 .score-view:is([data-score-theme="flower-sea"],[data-score-theme="vspo-hbl"],[data-score-theme="vspo"]){--score-a:#ffcf70;--score-b:#ff9ed2}
 .score-view[data-score-theme="vspo-snut"]{--score-a:#ffe080;--score-b:#ff9fcf}
 .score-view[data-score-theme="cloud-sea"]{--score-a:#f9d96c;--score-b:#b8a7ff}
-.score-view:is([data-score-theme="pudding-puppy"],[data-score-theme="pudding-pattern"],[data-score-theme="pudding-hug"],[data-score-theme="pudding-collection"]){--score-a:#f5a623;--score-b:#8b633f}
+.score-view:is([data-score-theme="pudding-puppy"],[data-score-theme="pudding-pattern"],[data-score-theme="pudding-hug"],[data-score-theme="pudding-collection"]){--score-a:#f5a623;--score-b:#3468ff}
 .score-view:is([data-score-theme="pudding-puppy"],[data-score-theme="pudding-pattern"],[data-score-theme="pudding-hug"],[data-score-theme="pudding-collection"]) .court-name.server .court-player-name{
   color:#00f0ff!important;
   -webkit-text-fill-color:#00f0ff!important;
