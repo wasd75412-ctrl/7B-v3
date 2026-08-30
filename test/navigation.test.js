@@ -58,6 +58,10 @@ test('non-chat pages return to the top instead of preserving a stale scroll posi
   assert.match(pageFlow,/requestAnimationFrame\(\(\)=>window\.scrollTo\(0,0\)\)/);
 });
 
+test('missing-vote reminders exclude guest players',()=>{
+  assert.match(mainSource,/state\.roster\.filter\(player=>!isGuestPlayer\(player\)\)\.map\(player=>player\.id\)/);
+});
+
 test('lets the admin edit participant count before confirming the next event',()=>{
   assert.match(html,/id="confirmParticipants"[^>]*type="number"[^>]*min="1"/);
   assert.match(mainSource,/participantCount=wholeAmount\(\$\('confirmParticipants'\)\?\.value\)/);

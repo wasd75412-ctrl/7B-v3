@@ -633,7 +633,7 @@ function recruitingOwnOptionIds(poll=state.schedulePoll){
 }
 function renderRecruitingDialog(){
   const ownOptions=recruitingOwnOptionIds(),message=recruitingMessage(state.schedulePoll,ownOptions),slots=recruitingSlots(state.schedulePoll,ownOptions),textarea=$('recruitingMessageText'),summary=$('recruitingMessageSummary');
-  const missingIds=nonVoterPlayerIds(state.schedulePoll,state.roster.map(player=>player.id)),missingNames=missingIds.map(pname),missing=$('recruitingMissingVoters');
+  const fixedMemberIds=state.roster.filter(player=>!isGuestPlayer(player)).map(player=>player.id),missingIds=nonVoterPlayerIds(state.schedulePoll,fixedMemberIds),missingNames=missingIds.map(pname),missing=$('recruitingMissingVoters');
   if(textarea)textarea.value=message;
   if(summary)summary.textContent=slots.length?`已鎖定你有投票的 ${slots.length} 個 3–4 人時段，可編輯後複製傳送。`:'你投票的日期中，目前沒有恰好 3–4 人的時段。';
   if(missing)missing.innerHTML=missingNames.length?`<strong>尚未投票（${missingNames.length} 人）</strong><span>${esc(missingNames.join('、'))}</span>`:'<strong>所有球員都已投票</strong>';
