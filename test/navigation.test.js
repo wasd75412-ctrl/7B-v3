@@ -93,6 +93,10 @@ test('lets the admin add players after voting closes and edit them later',()=>{
   assert.match(mainSource,/renderEventPlayerChoices\('editNextEventPlayers',event\.participantIds/);
   assert.match(mainSource,/finalEvent=\{[^}]*participantIds/);
   assert.match(styles,/\.event-player-choices\{[^}]*display:grid/);
+  assert.match(mainSource,/deadlineExpired&&isHost\?`<div class="poll-manual-controls">/);
+  assert.match(mainSource,/data-add-manual-player/);
+  assert.match(mainSource,/function addManualPollParticipant\(optionId\)/);
+  assert.match(mainSource,/manualParticipants:cleanManualPollParticipants/);
 });
 
 test('club announcements blend into the dashboard with a visible accent',()=>{
