@@ -1,5 +1,6 @@
 export const TAIPEI_OFFSET_MS=8*60*60*1000;
-export const WEEKLY_POLL_LOCATION='立羽';
+export const WEEKLY_POLL_LOCATION='立羽會館';
+export const WEEKLY_POLL_NOON_LOCATION='飛颺';
 export const WEEKLY_POLL_START='01:00';
 export const WEEKLY_POLL_END='04:00';
 export const WEEKLY_POLL_NOON_START='11:00';
@@ -22,7 +23,7 @@ export function taipeiWeekSchedule(now=Date.now()){
     const date=dateKeyFromUtcDate(new Date(nextMonday.getTime()+index*86400000)),day=index+1;
     return[
       {id:`weekly-${cycle}-${day}`,date,time:WEEKLY_POLL_START,endTime:WEEKLY_POLL_END,note:WEEKLY_POLL_LOCATION},
-      {id:`weekly-${cycle}-${day}-noon`,date,time:WEEKLY_POLL_NOON_START,endTime:WEEKLY_POLL_NOON_END,note:WEEKLY_POLL_LOCATION}
+      {id:`weekly-${cycle}-${day}-noon`,date,time:WEEKLY_POLL_NOON_START,endTime:WEEKLY_POLL_NOON_END,note:WEEKLY_POLL_NOON_LOCATION}
     ]
   }).flat();
   return{cycle,mondayLocalMs:monday.getTime(),opensAt,deadlineAt,options};
