@@ -9,7 +9,7 @@ function compactDate(value=''){
   return match?`${Number(match[1])}/${Number(match[2])}`:String(value||'');
 }
 
-export function recruitingSlots(poll={}){
+export function recruitingSlots(poll={},requiredOptionIds=null){
   const counts={};
   for(const option of Array.isArray(poll.options)?poll.options:[])counts[option.id]=new Set();
   for(const [deviceHash,value] of Object.entries(poll.votes||{})){
@@ -18,14 +18,24 @@ export function recruitingSlots(poll={}){
   }
   return (Array.isArray(poll.options)?poll.options:[])
     .map(option=>({...option,participantCount:counts[option.id]?.size||0}))
-    .filter(option=>option.participantCount===3||option.participantCount===4)
+    .filter(option=>(option.participantCount===3||option.participantCount===4)&&(!requiredOptionIds||requiredOptionIds.has(option.id)))
     .sort((a,b)=>(a.date+a.time).localeCompare(b.date+b.time));
 }
 
-export function recruitingMessage(poll={}){
-  return recruitingSlots(poll).map((slot,index)=>{
+export function recruitingMessage(poll={},requiredOptionIds=null){
+  return recruitingSlots(poll,requiredOptionIds).map((slot,index)=>{
     const date=compactDate(slot.date),time=`${compactTime(slot.time)}–${compactTime(slot.endTime)}`;
     if(index===0)return `哈囉～${date} ${time}我們有約羽球，目前${slot.participantCount}個人，你要不要一起來打🏸`;
     return `${date} ${time}也有一場，目前${slot.participantCount}個人，有空也可以一起來～`;
   }).join('\n');
+}
+
+export function nonVoterPlayerIds(poll={},playerIds=[]){
+  const voted=new Set();
+  for(const [deviceHash,value] of Object.entries(poll.votes||{})){
+    if(!String(value||'').split('|').filter(Boolean).length)continue;
+    const playerId=poll.voterPlayers?.[deviceHash];
+    if(playerId)voted.add(playerId);
+  }
+  return [...new Set(playerIds.filter(Boolean))].filter(playerId=>!voted.has(playerId));
 }

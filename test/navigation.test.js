@@ -53,6 +53,11 @@ test('groups independently selectable time slots under one date',()=>{
   assert.match(styles,/@media\(max-width:700px\)[^\n]*\.poll-time-options\{grid-template-columns:1fr\}/);
 });
 
+test('non-chat pages return to the top instead of preserving a stale scroll position',()=>{
+  const pageFlow=mainSource.slice(mainSource.indexOf('function page(n)'),mainSource.indexOf('function renderRoster()'));
+  assert.match(pageFlow,/requestAnimationFrame\(\(\)=>window\.scrollTo\(0,0\)\)/);
+});
+
 test('lets the admin edit participant count before confirming the next event',()=>{
   assert.match(html,/id="confirmParticipants"[^>]*type="number"[^>]*min="1"/);
   assert.match(mainSource,/participantCount=wholeAmount\(\$\('confirmParticipants'\)\?\.value\)/);
