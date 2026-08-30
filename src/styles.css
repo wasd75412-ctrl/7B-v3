@@ -1694,6 +1694,7 @@ html.brand-font-fallback .brand-copy .brand-mark h1{
 .next-event-edit-grid .field{min-width:0}
 .next-event-edit-grid .field>span{display:block;margin-bottom:6px;color:var(--muted);font-size:.82rem;font-weight:900}
 .next-event-edit-grid .next-event-edit-date,.next-event-edit-grid .location-field,.next-event-edit-note{grid-column:1/-1}
+.event-player-field{grid-column:1/-1}.event-player-choices{display:grid;grid-template-columns:repeat(auto-fit,minmax(145px,1fr));gap:8px;padding:10px;border:1px solid var(--line);border-radius:14px;background:#f7fafc}.event-player-choice{display:flex!important;align-items:center;gap:8px;padding:8px 10px;border:1px solid #dce4ea;border-radius:12px;background:#fff;cursor:pointer}.event-player-choice input{width:18px!important;flex:0 0 18px}.event-player-choice>span{display:flex;align-items:center;gap:7px;min-width:0;font-weight:900}.next-event-player-list{margin-top:12px;padding:11px 13px;border-radius:14px;background:rgba(255,255,255,.11);line-height:1.55}.next-event-player-list strong{margin-right:9px}
 .next-event-editor .confirm-fee-hint{margin-top:14px}
 .next-event-editor-actions{display:flex;justify-content:flex-end;gap:9px;margin-top:18px}
 .push-prompt-card{width:min(440px,100%);text-align:center;padding:28px}
