@@ -528,7 +528,6 @@ function openNextEventEditor(){
   $('editNextEventLocation').value=event.location||'';
   $('editNextEventRentalTotal').value=wholeAmount(event.rentalTotal)||'';
   $('editNextEventParticipants').value=wholeAmount(event.participantCount)||'';
-  renderEventPlayerChoices('editNextEventPlayers',event.participantIds,()=>syncParticipantCountFromChoices('editNextEventPlayers','editNextEventParticipants',updateNextEventEditFeePreview));
   const transferDetails=cleanTransferDetails(event);$('editNextEventTransferBankCode').value=transferDetails.transferBankCode;$('editNextEventTransferAccount').value=transferDetails.transferAccount;
   $('editNextEventNote').value=event.note||'';
   updateNextEventEditFeePreview();
@@ -540,7 +539,7 @@ function openDirectNextEventCreator(){
   setNextEventEditorMode('create');
   const start='01:00';
   $('editNextEventDate').value='';$('editNextEventTime').value=start;$('editNextEventEndTime').value=suggestedEndTime(start);
-  $('editNextEventLocation').value='';$('editNextEventRentalTotal').value='';$('editNextEventParticipants').value='';$('editNextEventTransferBankCode').value='';$('editNextEventTransferAccount').value='';$('editNextEventNote').value='';renderEventPlayerChoices('editNextEventPlayers',[],()=>syncParticipantCountFromChoices('editNextEventPlayers','editNextEventParticipants',updateNextEventEditFeePreview));applyFavoriteTransferDetails('editNextEventTransferBankCode','editNextEventTransferAccount');
+  $('editNextEventLocation').value='';$('editNextEventRentalTotal').value='';$('editNextEventParticipants').value='';$('editNextEventTransferBankCode').value='';$('editNextEventTransferAccount').value='';$('editNextEventNote').value='';applyFavoriteTransferDetails('editNextEventTransferBankCode','editNextEventTransferAccount');
   updateNextEventEditFeePreview();updateVenueMapPreviews();$('nextEventEditModal').classList.remove('hidden');
 }
 function closeNextEventEditor(){$('nextEventEditModal').classList.add('hidden')}
@@ -1153,7 +1152,7 @@ function updateConfirmFeePreview(){
 function updateConfirmParticipantDefault(){
   const optionId=$('confirmPollOption')?.value||'',input=$('confirmParticipants');
   if(!input)return;
-  if(input.dataset.optionId!==optionId){const isCurrent=state.nextEvent?.optionId===optionId,participantIds=optionId?(isCurrent?state.nextEvent.participantIds:pollParticipantIds(optionId)):[];input.value=optionId?(isCurrent?wholeAmount(state.nextEvent.participantCount):pollParticipantCount(optionId))||'':'';input.dataset.optionId=optionId;renderEventPlayerChoices('confirmEventPlayers',participantIds,()=>syncParticipantCountFromChoices('confirmEventPlayers','confirmParticipants',updateConfirmFeePreview))}
+  if(input.dataset.optionId!==optionId){const isCurrent=state.nextEvent?.optionId===optionId;input.value=optionId?(isCurrent?wholeAmount(state.nextEvent.participantCount):pollParticipantCount(optionId))||'':'';input.dataset.optionId=optionId}
 }
 function suggestedEndTime(time){const match=String(time||'').match(/^(\d{2}):(\d{2})$/);if(!match)return'';const minutes=(+match[1]*60+ +match[2]+180)%(24*60);return `${String(Math.floor(minutes/60)).padStart(2,'0')}:${String(minutes%60).padStart(2,'0')}`}
 function updateConfirmOptionDetails(){
@@ -1227,7 +1226,7 @@ async function saveNextEventEdits(){
   if(!endTime)return alert('請設定結束時間。');
   if(endTime<=time)return alert('結束時間必須晚於開始時間。');
   if(!location)return alert('請填寫場地。');
-  const participantIds=eventPlayerChoiceIds('editNextEventPlayers');if(participantIds.length)$('editNextEventParticipants').value=participantIds.length;
+  const participantIds=creating?[]:cleanEventParticipantIds(previous?.participantIds);
   const {rentalTotal,participantCount,perPersonFee}=updateNextEventEditFeePreview();
   if(!rentalTotal)return alert('請填寫場租總額。');
   if(!participantCount)return alert('請填寫預計參與總人數。');
@@ -1257,7 +1256,7 @@ async function confirmNextEvent(){
   if(!endTime)return alert('請設定結束時間。');
   if(endTime<=option.time)return alert('結束時間必須晚於開始時間。');
   if(!location)return alert('請填寫已預約的場地。');
-  const participantIds=eventPlayerChoiceIds('confirmEventPlayers');if(participantIds.length)$('confirmParticipants').value=participantIds.length;
+  const participantIds=pollParticipantIds(optionId);if(participantIds.length)$('confirmParticipants').value=participantIds.length;
   const {rentalTotal,participantCount,perPersonFee}=updateConfirmFeePreview();
   if(!rentalTotal)return alert('請填寫場租總金額。');
   if(!participantCount)return alert('請填寫預計參與人數。');
@@ -1291,7 +1290,7 @@ async function confirmNextEvent(){
   alert(`已結束投票並發布球局。\n每人需繳 ${formatMoney(finalFee)} 元。${pushMessage}`);
 }
 function clearNextEvent(){if(!state.nextEvent)return;if(!confirm('確定取消總覽中的下一次打球公告？'))return;state.nextEvent=null;closeNextEventEditor();renderDashboard();renderPoll();saveSoon()}
-async function startNewPoll(){if(!confirm('建立新投票？目前的球局公告會保留在總覽。'))return;state.schedulePoll={status:'open',createdAt:new Date().toISOString(),deadlineAt:'',options:[],votes:{},voterPlayers:{}};['confirmPollOption','confirmEndTime','confirmLocation','confirmParticipants','confirmRentalTotal','confirmPerPersonFee','confirmTransferBankCode','confirmTransferAccount','confirmEventNote'].forEach(id=>{const input=$(id);if(input){input.value='';delete input.dataset.optionId}});renderEventPlayerChoices('confirmEventPlayers',[],()=>syncParticipantCountFromChoices('confirmEventPlayers','confirmParticipants',updateConfirmFeePreview));applyFavoriteTransferDetails('confirmTransferBankCode','confirmTransferAccount');renderPoll();renderDashboard();try{await saveNow();alert('新投票已建立，現在可以新增候選日期。')}catch(error){saveSoon();alert(`新投票已建立，但雲端同步尚未完成：${formatError(error)}`)}}
+async function startNewPoll(){if(!confirm('建立新投票？目前的球局公告會保留在總覽。'))return;state.schedulePoll={status:'open',createdAt:new Date().toISOString(),deadlineAt:'',options:[],votes:{},voterPlayers:{}};['confirmPollOption','confirmEndTime','confirmLocation','confirmParticipants','confirmRentalTotal','confirmPerPersonFee','confirmTransferBankCode','confirmTransferAccount','confirmEventNote'].forEach(id=>{const input=$(id);if(input){input.value='';delete input.dataset.optionId}});applyFavoriteTransferDetails('confirmTransferBankCode','confirmTransferAccount');renderPoll();renderDashboard();try{await saveNow();alert('新投票已建立，現在可以新增候選日期。')}catch(error){saveSoon();alert(`新投票已建立，但雲端同步尚未完成：${formatError(error)}`)}}
 async function submitPollVote(){
   if(isPollClosed(state.schedulePoll))return alert('投票已截止。');
   const voterId=$('pollVoter').value;
