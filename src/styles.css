@@ -98,6 +98,15 @@ body:before{content:"";position:fixed;inset:0;pointer-events:none;opacity:.32;ba
  .person-note{width:calc(100% + 18px);max-width:calc(100% + 18px);margin-left:-9px!important;margin-right:-9px!important;font-size:.83rem!important}
 }
 
+/* BCM 2.6.31 — admin recruiting copy after poll close */
+.recruiting-message-dialog{max-width:680px}
+.recruiting-message-head{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;margin-bottom:18px}
+.recruiting-message-head h2{margin:3px 0 5px}
+.recruiting-message-dialog .field>span{display:block;margin-bottom:7px;font-weight:950}
+#recruitingMessageText{min-height:180px;resize:vertical;line-height:1.7}
+.recruiting-message-feedback{min-height:1.3em;margin:9px 0;color:var(--sport-success,#24a86a);font-size:.82rem;font-weight:900}
+@media(max-width:680px){.recruiting-message-head{align-items:stretch;flex-direction:column}.recruiting-message-head .btn{align-self:flex-end}}
+
 /* Compact expandable room actions */
 .roombar{position:relative;display:grid;grid-template-columns:1fr auto;gap:10px 14px;align-items:center;flex:1;min-width:min(100%,320px)}
 .room-status-row{display:flex;align-items:center;gap:8px;flex-wrap:wrap;min-width:0}

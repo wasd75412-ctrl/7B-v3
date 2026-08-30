@@ -14,6 +14,7 @@ import { CHAT_MEDIA_MAX_BYTES, CHAT_MEDIA_TYPES, CHAT_MENTION_ALL_ID, CHAT_MESSA
 import { adminRoleButtonState, claimedAdminPlayerId, resolveAdminSessionToken } from './admin-role.js';
 import { updateAttendanceState } from './attendance.js';
 import { pollWasFinalized } from './poll.js';
+import { recruitingMessage, recruitingSlots } from './poll-recruiting.js';
 import { activateShuttleTube, createShuttleTube, enforceLegacyActiveShuttleTube, finishShuttleTube, normalizeShuttleTubes, restoreShuttleTube, setShuttleRemaining, shuttleShareCost, shuttleUnitPrice, softDeleteShuttleTube, updateShuttleTube } from './shuttle-tube.js';
 import { careerAchievementBadges } from './player-achievements.js';
 import { PLAYER_TYPE_GUEST, isGuestPlayer, normalizePlayerType, splitPlayersByMembership } from './player-membership.js';
@@ -622,6 +623,31 @@ let pollDeadlineTimer=null;
 function pollDeadlineMs(poll=state.schedulePoll){const ms=Date.parse(poll?.deadlineAt||'');return Number.isFinite(ms)?ms:0}
 function isPollDeadlinePassed(poll=state.schedulePoll,now=Date.now()){const ms=pollDeadlineMs(poll);return !!ms&&ms<=now}
 function isPollClosed(poll=state.schedulePoll,now=Date.now()){return poll?.status==='closed'||isPollDeadlinePassed(poll,now)}
+function recruitingDialogKey(poll=state.schedulePoll){return `bcmRecruitingDialogV1:${roomId}:${poll.createdAt||poll.deadlineAt||pollSignature()}`}
+function renderRecruitingDialog(){
+  const message=recruitingMessage(state.schedulePoll),slots=recruitingSlots(state.schedulePoll),textarea=$('recruitingMessageText'),summary=$('recruitingMessageSummary');
+  if(textarea)textarea.value=message;
+  if(summary)summary.textContent=slots.length?`已鎖定 ${slots.length} 個 3–4 人時段，可編輯後複製傳送。`:'目前沒有恰好 3–4 人的時段。';
+  if($('copyRecruitingMessage'))$('copyRecruitingMessage').disabled=!message;
+  return message;
+}
+function openRecruitingDialog({automatic=false}={}){
+  if(!isHost)return alert('只有管理員可以查看揪人訊息。');
+  if(!isPollClosed(state.schedulePoll))return alert('投票截止後才會鎖定 3–4 人球局並產生訊息。');
+  const message=renderRecruitingDialog();
+  if(!message&&!automatic)$('recruitingMessageModal').classList.remove('hidden');
+  if(message)$('recruitingMessageModal').classList.remove('hidden');
+  if(automatic)localStorage.setItem(recruitingDialogKey(),'1');
+}
+function maybeOpenRecruitingDialog(poll=state.schedulePoll){
+  if(!isHost||!isPollClosed(poll)||!recruitingMessage(poll)||localStorage.getItem(recruitingDialogKey(poll))==='1')return;
+  setTimeout(()=>openRecruitingDialog({automatic:true}),0);
+}
+async function copyRecruitingMessage(){
+  const text=$('recruitingMessageText').value.trim();if(!text)return;
+  try{await navigator.clipboard.writeText(text);$('recruitingMessageFeedback').textContent='訊息已複製，可以貼到聊天室傳送。'}
+  catch{prompt('複製這篇揪人訊息：',text)}
+}
 function formatPollDeadline(value){const d=new Date(value);if(isNaN(d.getTime()))return String(value||'');return d.toLocaleString('zh-TW',{timeZone:'Asia/Taipei',month:'long',day:'numeric',weekday:'short',hour:'2-digit',minute:'2-digit',hourCycle:'h23'})}
 function pollDeadlineInputValue(value){const d=new Date(value);if(isNaN(d.getTime()))return'';return new Date(d.getTime()-d.getTimezoneOffset()*60000).toISOString().slice(0,16)}
 function schedulePollDeadlineTimer(poll=state.schedulePoll){clearTimeout(pollDeadlineTimer);pollDeadlineTimer=null;const ms=pollDeadlineMs(poll),remaining=ms-Date.now();if(!ms||remaining<=0)return;pollDeadlineTimer=setTimeout(()=>{if(isPollDeadlinePassed(state.schedulePoll)){if(state.schedulePoll.status!=='closed')state.schedulePoll.status='closed';renderDashboard();renderPoll();if(isHost&&roomRef)saveSoon()}else schedulePollDeadlineTimer()},Math.min(remaining+250,2147483000))}
@@ -1136,7 +1162,7 @@ function renderPoll(){
     $('editNextEventFromPoll').disabled=!state.nextEvent?.date;
     updateConfirmFeePreview();
   }
-  updateVenueMapPreviews();schedulePollDeadlineTimer(poll);renderPollNotice();
+  updateVenueMapPreviews();schedulePollDeadlineTimer(poll);renderPollNotice();maybeOpenRecruitingDialog(poll);
 }
 async function addPollOption(){const date=$('pollDate').value,time=$('pollTime').value,endTime=$('pollEndTime').value,note=$('pollNote').value.trim(),button=$('addPollOption');if(isPollClosed(state.schedulePoll))return alert('請先建立新投票。');if(!date)return alert('請先選擇候選日期。');if(!time)return alert('請設定開始時間。');if(!endTime)return alert('請設定結束時間。');if(endTime<=time)return alert('結束時間必須晚於開始時間。');if(state.schedulePoll.options.some(o=>o.date===date&&o.time===time&&o.endTime===endTime))return alert('這個日期與時間已經存在。');state.schedulePoll.createdAt=state.schedulePoll.createdAt||new Date().toISOString();state.schedulePoll.options.push({id:randomToken(),date,time,endTime,note});state.schedulePoll.options.sort((a,b)=>(a.date+a.time).localeCompare(b.date+b.time));$('pollNote').value='';renderPoll();renderDashboard();button.disabled=true;try{await saveNow()}catch(error){alert(`候選日期已保留在這台裝置，但暫時無法同步：${formatError(error)}`);saveSoon()}finally{button.disabled=false}}
 function deletePollOption(id){if(!confirm('刪除這個候選日期？相關票數也會移除。'))return;state.schedulePoll.options=state.schedulePoll.options.filter(o=>o.id!==id);for(const key of Object.keys(state.schedulePoll.votes||{}))state.schedulePoll.votes[key]=pollSelectionList(state.schedulePoll.votes[key]).filter(x=>x!==id).join('|');renderPoll();saveSoon()}
@@ -2562,6 +2588,9 @@ $('deviceSyncBtn').onclick=()=>setupDeviceSync().catch(error=>alert(formatError(
 $('landingDeviceSyncBtn').onclick=()=>setupDeviceSync().catch(error=>showRoomCreationError(formatError(error)));
 $('copyDeviceSyncBtn').onclick=copyDeviceSyncCode;
 $('adminNoticeManagerBtn').onclick=()=>openAdminNoticeManager();
+$('recruitingMessageBtn').onclick=()=>openRecruitingDialog();
+$('closeRecruitingMessage').onclick=()=>$('recruitingMessageModal').classList.add('hidden');
+$('copyRecruitingMessage').onclick=copyRecruitingMessage;
 $('shuttleTubeManagerBtn').onclick=openShuttleTubeManager;
 $('closeShuttleTubeManager').onclick=()=>$('shuttleTubeModal').classList.add('hidden');
 $('createShuttleTube').onclick=createNewShuttleTube;
