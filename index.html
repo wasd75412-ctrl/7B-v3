@@ -172,7 +172,8 @@
         <label class="field"><span>預計參與人數</span><input id="confirmParticipants" class="input" type="number" min="1" step="1" inputmode="numeric" placeholder="依投票人數帶入"></label>
         <label class="field"><span>場租總額（元）</span><input id="confirmRentalTotal" class="input" type="number" min="1" step="1" inputmode="numeric" placeholder="例如：2400"></label>
         <label class="field"><span>每人需繳</span><input id="confirmPerPersonFee" class="input" type="text" readonly placeholder="自動計算"></label>
-        <label class="field"><span>轉帳帳號（選填）</span><input id="confirmTransferAccount" class="input" type="text" maxlength="80" autocomplete="off" placeholder="例如：銀行代碼 000｜帳號 123456789"></label>
+        <label class="field"><span>銀行代碼（選填）</span><input id="confirmTransferBankCode" class="input" type="text" maxlength="3" inputmode="numeric" autocomplete="off" placeholder="例如：000"></label>
+        <label class="field"><span>轉帳帳號（選填）</span><input id="confirmTransferAccount" class="input" type="text" maxlength="40" inputmode="numeric" autocomplete="off" placeholder="例如：123456789"></label>
         <label class="field"><span>場地／場號備註（選填）</span><input id="confirmEventNote" class="input" maxlength="120" placeholder="例如：3、4 號場；請提前 10 分鐘到"></label>
         <div id="confirmFeeHint" class="confirm-fee-hint">預設帶入選定日期的投票人數，可自行修改。</div>
       </div>
@@ -329,7 +330,8 @@
     <label class="field"><span>場租總額（元）</span><input id="editNextEventRentalTotal" class="input" type="number" min="1" step="1" inputmode="numeric"></label>
     <label class="field"><span>預計參與總人數</span><input id="editNextEventParticipants" class="input" type="number" min="1" step="1" inputmode="numeric"></label>
     <label class="field"><span>每人需繳</span><input id="editNextEventPerPersonFee" class="input" type="text" readonly></label>
-    <label class="field"><span>轉帳帳號（選填）</span><input id="editNextEventTransferAccount" class="input" type="text" maxlength="80" autocomplete="off" placeholder="例如：銀行代碼 000｜帳號 123456789"></label>
+    <label class="field"><span>銀行代碼（選填）</span><input id="editNextEventTransferBankCode" class="input" type="text" maxlength="3" inputmode="numeric" autocomplete="off" placeholder="例如：000"></label>
+    <label class="field"><span>轉帳帳號（選填）</span><input id="editNextEventTransferAccount" class="input" type="text" maxlength="40" inputmode="numeric" autocomplete="off" placeholder="例如：123456789"></label>
     <label class="field next-event-edit-note"><span>場地／場號備註（選填）</span><input id="editNextEventNote" class="input" maxlength="120" placeholder="例如：3、4 號場；請提前 10 分鐘到"></label>
   </div>
   <div id="editNextEventFeeHint" class="confirm-fee-hint"></div>

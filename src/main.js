@@ -291,7 +291,7 @@ function encodeState(src){
       votes:src.schedulePoll?.votes&&typeof src.schedulePoll.votes==='object'?src.schedulePoll.votes:{},
       voterPlayers:src.schedulePoll?.voterPlayers&&typeof src.schedulePoll.voterPlayers==='object'?src.schedulePoll.voterPlayers:{}
     },
-    nextEvent:src.nextEvent?{optionId:src.nextEvent.optionId||'',date:src.nextEvent.date||'',time:src.nextEvent.time||'',endTime:src.nextEvent.endTime||'',location:src.nextEvent.location||'',note:src.nextEvent.note||'',transferAccount:cleanTransferAccount(src.nextEvent.transferAccount),rentalTotal:wholeAmount(src.nextEvent.rentalTotal),participantCount:wholeAmount(src.nextEvent.participantCount),perPersonFee:wholeAmount(src.nextEvent.perPersonFee),publishedAt:src.nextEvent.publishedAt||''}:null,
+    nextEvent:src.nextEvent?{optionId:src.nextEvent.optionId||'',date:src.nextEvent.date||'',time:src.nextEvent.time||'',endTime:src.nextEvent.endTime||'',location:src.nextEvent.location||'',note:src.nextEvent.note||'',...cleanTransferDetails(src.nextEvent),rentalTotal:wholeAmount(src.nextEvent.rentalTotal),participantCount:wholeAmount(src.nextEvent.participantCount),perPersonFee:wholeAmount(src.nextEvent.perPersonFee),publishedAt:src.nextEvent.publishedAt||''}:null,
     adminNotice:notices[0]||null,
     adminNotices:notices,
     shuttleTubes:enforceLegacyActiveShuttleTube(src.shuttleTubes,legacyActiveTubeId),
@@ -368,7 +368,7 @@ function decodeState(d){
       votes:d.schedulePoll?.votes&&typeof d.schedulePoll.votes==='object'?d.schedulePoll.votes:{},
       voterPlayers:d.schedulePoll?.voterPlayers&&typeof d.schedulePoll.voterPlayers==='object'?d.schedulePoll.voterPlayers:{}
     },
-    nextEvent:d.nextEvent&&typeof d.nextEvent==='object'?{...d.nextEvent,transferAccount:cleanTransferAccount(d.nextEvent.transferAccount),rentalTotal:wholeAmount(d.nextEvent.rentalTotal),participantCount:wholeAmount(d.nextEvent.participantCount),perPersonFee:wholeAmount(d.nextEvent.perPersonFee)}:null,
+    nextEvent:d.nextEvent&&typeof d.nextEvent==='object'?{...d.nextEvent,...cleanTransferDetails(d.nextEvent),rentalTotal:wholeAmount(d.nextEvent.rentalTotal),participantCount:wholeAmount(d.nextEvent.participantCount),perPersonFee:wholeAmount(d.nextEvent.perPersonFee)}:null,
     adminNotice:normalizeAdminNotices(d)[0]||null,
     adminNotices:normalizeAdminNotices(d),
     shuttleTubes:enforceLegacyActiveShuttleTube(d.shuttleTubes,legacyActiveTubeId),
@@ -459,7 +459,13 @@ function updateVoiceButton(){
 }
 function formatEventDate(date,time,endTime=''){if(!date)return'';const d=new Date(`${date}T${time||'00:00'}`);if(isNaN(d.getTime()))return `${date}${time?' '+time:''}${endTime?`-${endTime}`:''}`;const dateText=d.toLocaleDateString('zh-TW',{month:'long',day:'numeric',weekday:'short'});return `${dateText}${time?` ${time}${endTime?`-${endTime}`:''}`:''}`}
 function formatMoney(value){return new Intl.NumberFormat('zh-TW',{maximumFractionDigits:0}).format(wholeAmount(value))}
-function cleanTransferAccount(value){return String(value||'').replace(/[\u0000-\u001f\u007f]/g,' ').trim().slice(0,80)}
+function cleanTransferAccount(value){return String(value||'').replace(/[\u0000-\u001f\u007f]/g,' ').trim().slice(0,40)}
+function cleanTransferBankCode(value){return String(value||'').replace(/\D/g,'').slice(0,3)}
+function cleanTransferDetails(source={}){let transferBankCode=cleanTransferBankCode(source.transferBankCode),transferAccount=cleanTransferAccount(source.transferAccount);if(!transferBankCode&&/銀行代碼\s*\d{3}/.test(transferAccount)){transferBankCode=cleanTransferBankCode(transferAccount.match(/銀行代碼\s*(\d{3})/)?.[1]);transferAccount=cleanTransferAccount(transferAccount.replace(/.*?帳號\s*/,'').replace(/[｜|]\s*$/,''))}return{transferBankCode,transferAccount}}
+const TRANSFER_DETAILS_KEY='bdVFavoriteTransferDetails';
+function favoriteTransferDetails(){try{return cleanTransferDetails(JSON.parse(localStorage.getItem(TRANSFER_DETAILS_KEY)||'{}'))}catch{return{transferBankCode:'',transferAccount:''}}}
+function saveFavoriteTransferDetails(transferBankCode,transferAccount,{cloud=true}={}){const details=cleanTransferDetails({transferBankCode,transferAccount});if(!details.transferBankCode&&!details.transferAccount)return details;localStorage.setItem(TRANSFER_DETAILS_KEY,JSON.stringify(details));if(cloud)queueDeviceProfileSave();return details}
+function applyFavoriteTransferDetails(bankCodeId,accountId){const bankCode=$(bankCodeId),account=$(accountId),details=favoriteTransferDetails();if(bankCode&&!bankCode.value)bankCode.value=details.transferBankCode;if(account&&!account.value)account.value=details.transferAccount}
 function googleMapsUrl(place){const query=String(place||'').trim();return query?`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(query)}`:''}
 function googleMapsLink(place,label='Google Maps'){const href=googleMapsUrl(place);return href?`<a class="map-link" href="${esc(href)}" target="_blank" rel="noopener noreferrer" aria-label="在 Google Maps 查看 ${esc(place)}">📍 ${esc(label)}</a>`:''}
 const FAVORITE_VENUES_KEY='bdVFavoriteVenues';
@@ -480,13 +486,13 @@ function renderNextEventAnnouncement(){
   const visible=shouldShowNextEventAnnouncement(e?.date,localDateKey());
   box.classList.toggle('hidden',!visible);
   if(!visible){box.innerHTML='';return}
-  const participantCount=wholeAmount(e.participantCount),perPersonFee=wholeAmount(e.perPersonFee),transferAccount=cleanTransferAccount(e.transferAccount),participantText=participantCount?`預計參與 ${formatMoney(participantCount)} 人`:'預計參與人數待確認',payment=perPersonFee?`<div class="next-event-payment">每人需繳 ${formatMoney(perPersonFee)} 元</div>`:'',transfer=transferAccount?`<div class="next-event-transfer"><span><strong>轉帳帳號</strong>${esc(transferAccount)}</span><button id="copyNextEventTransferAccount" class="btn" type="button">複製帳號</button></div>`:'';
+  const participantCount=wholeAmount(e.participantCount),perPersonFee=wholeAmount(e.perPersonFee),{transferBankCode,transferAccount}=cleanTransferDetails(e),participantText=participantCount?`預計參與 ${formatMoney(participantCount)} 人`:'預計參與人數待確認',payment=perPersonFee?`<div class="next-event-payment">每人需繳 ${formatMoney(perPersonFee)} 元</div>`:'',transfer=transferAccount?`<div class="next-event-transfer"><span>${transferBankCode?`<span><strong>銀行代碼</strong>${esc(transferBankCode)}</span>`:''}<span><strong>轉帳帳號</strong>${esc(transferAccount)}</span></span><button id="copyNextEventTransferAccount" class="btn" type="button">只複製帳號</button></div>`:'';
   const editButton=isHost?'<button id="editNextEventAnnouncement" class="btn next-event-edit-btn" type="button">✏️ 編輯公告</button>':'';
   box.innerHTML=`<div class="next-event-card-head"><h3>📣 下一次打球</h3>${editButton}</div><div class="next-event-main">${esc(formatEventDate(e.date,e.time,e.endTime))}</div><div class="next-event-place"><span>📍 ${esc(e.location||'場地待公告')}</span>${e.location?googleMapsLink(e.location,'開啟地圖'):''}</div>${e.note?`<div class="next-event-note"><strong>🏸 場地備註：</strong>${esc(e.note)}</div>`:''}<div class="next-event-facts"><div class="next-event-participants">👥 ${participantText}</div>${payment}</div>${transfer}`;
   $('editNextEventAnnouncement')?.addEventListener('click',openNextEventEditor);
   $('copyNextEventTransferAccount')?.addEventListener('click',copyNextEventTransferAccount);
 }
-async function copyNextEventTransferAccount(){const account=cleanTransferAccount(state.nextEvent?.transferAccount);if(!account)return;try{await navigator.clipboard.writeText(account);alert('轉帳帳號已複製。')}catch{prompt('請複製轉帳帳號：',account)}}
+async function copyNextEventTransferAccount(){const account=cleanTransferDetails(state.nextEvent).transferAccount;if(!account)return;try{await navigator.clipboard.writeText(account);alert('已複製帳號，不包含銀行代碼。')}catch{prompt('請複製帳號（不包含銀行代碼）：',account)}}
 function updateNextEventEditFeePreview(){
   const rentalTotal=wholeAmount($('editNextEventRentalTotal')?.value),participantCount=wholeAmount($('editNextEventParticipants')?.value),perPersonFee=calculatePerPersonFee(rentalTotal,participantCount);
   if($('editNextEventPerPersonFee'))$('editNextEventPerPersonFee').value=perPersonFee?`${formatMoney(perPersonFee)} 元`:'';
@@ -509,7 +515,7 @@ function openNextEventEditor(){
   $('editNextEventLocation').value=event.location||'';
   $('editNextEventRentalTotal').value=wholeAmount(event.rentalTotal)||'';
   $('editNextEventParticipants').value=wholeAmount(event.participantCount)||'';
-  $('editNextEventTransferAccount').value=cleanTransferAccount(event.transferAccount);
+  const transferDetails=cleanTransferDetails(event);$('editNextEventTransferBankCode').value=transferDetails.transferBankCode;$('editNextEventTransferAccount').value=transferDetails.transferAccount;
   $('editNextEventNote').value=event.note||'';
   updateNextEventEditFeePreview();
   updateVenueMapPreviews();
@@ -520,7 +526,7 @@ function openDirectNextEventCreator(){
   setNextEventEditorMode('create');
   const start='01:00';
   $('editNextEventDate').value='';$('editNextEventTime').value=start;$('editNextEventEndTime').value=suggestedEndTime(start);
-  $('editNextEventLocation').value='';$('editNextEventRentalTotal').value='';$('editNextEventParticipants').value='';$('editNextEventTransferAccount').value='';$('editNextEventNote').value='';
+  $('editNextEventLocation').value='';$('editNextEventRentalTotal').value='';$('editNextEventParticipants').value='';$('editNextEventTransferBankCode').value='';$('editNextEventTransferAccount').value='';$('editNextEventNote').value='';applyFavoriteTransferDetails('editNextEventTransferBankCode','editNextEventTransferAccount');
   updateNextEventEditFeePreview();updateVenueMapPreviews();$('nextEventEditModal').classList.remove('hidden');
 }
 function closeNextEventEditor(){$('nextEventEditModal').classList.add('hidden')}
@@ -1171,7 +1177,7 @@ function renderPoll(){
     const hasCurrentEventOption=options.some(o=>o.id===state.nextEvent?.optionId),current=cp.value||(hasCurrentEventOption?state.nextEvent.optionId:'');
     cp.innerHTML='<option value="">請選擇已確定的日期</option>'+options.map(o=>`<option value="${o.id}">${esc(pollOptionLabel(o))}</option>`).join('');
     cp.value=options.some(o=>o.id===current)?current:'';
-    if(hasCurrentEventOption){$('confirmLocation').value=state.nextEvent.location||'';$('confirmLocation').dataset.autoVenue='0';$('confirmEventNote').value=state.nextEvent.note||'';$('confirmRentalTotal').value=state.nextEvent.rentalTotal||'';$('confirmTransferAccount').value=cleanTransferAccount(state.nextEvent.transferAccount);$('confirmEndTime').value=state.nextEvent.endTime||''}
+    if(hasCurrentEventOption){const transferDetails=cleanTransferDetails(state.nextEvent);$('confirmLocation').value=state.nextEvent.location||'';$('confirmLocation').dataset.autoVenue='0';$('confirmEventNote').value=state.nextEvent.note||'';$('confirmRentalTotal').value=state.nextEvent.rentalTotal||'';$('confirmTransferBankCode').value=transferDetails.transferBankCode;$('confirmTransferAccount').value=transferDetails.transferAccount;$('confirmEndTime').value=state.nextEvent.endTime||''}else applyFavoriteTransferDetails('confirmTransferBankCode','confirmTransferAccount');
     updateConfirmParticipantDefault();
     $('clearNextEvent').disabled=!state.nextEvent?.date;
     $('editNextEventFromPoll').disabled=!state.nextEvent?.date;
@@ -1195,7 +1201,7 @@ async function nextEventPushMessage(publishedAt){
 async function saveNextEventEdits(){
   const creating=nextEventEditorMode==='create';
   if(!isHost||(!creating&&!state.nextEvent?.date))return alert('目前沒有可編輯的下一次打球公告。');
-  const date=$('editNextEventDate').value,time=$('editNextEventTime').value,endTime=$('editNextEventEndTime').value,location=$('editNextEventLocation').value.trim(),note=$('editNextEventNote').value.trim(),transferAccount=cleanTransferAccount($('editNextEventTransferAccount').value);
+  const date=$('editNextEventDate').value,time=$('editNextEventTime').value,endTime=$('editNextEventEndTime').value,location=$('editNextEventLocation').value.trim(),note=$('editNextEventNote').value.trim(),transferBankCode=cleanTransferBankCode($('editNextEventTransferBankCode').value),transferAccount=cleanTransferAccount($('editNextEventTransferAccount').value);
   if(!date)return alert('請設定打球日期。');
   if(!time)return alert('請設定開始時間。');
   if(!endTime)return alert('請設定結束時間。');
@@ -1204,11 +1210,11 @@ async function saveNextEventEdits(){
   const {rentalTotal,participantCount,perPersonFee}=updateNextEventEditFeePreview();
   if(!rentalTotal)return alert('請填寫場租總額。');
   if(!participantCount)return alert('請填寫預計參與總人數。');
-  const summary=`${formatEventDate(date,time,endTime)}\n${location}${note?`\n場地備註：${note}`:''}\n預計 ${participantCount} 人｜每人 ${formatMoney(perPersonFee)} 元${transferAccount?`\n轉帳帳號：${transferAccount}`:''}`;
+  const summary=`${formatEventDate(date,time,endTime)}\n${location}${note?`\n場地備註：${note}`:''}\n預計 ${participantCount} 人｜每人 ${formatMoney(perPersonFee)} 元${transferAccount?`\n銀行代碼：${transferBankCode||'未填'}｜帳號：${transferAccount}`:''}`;
   if(!confirm(`${creating?'確定新增並發布球局？':'確定更新下一次打球公告？'}\n\n${summary}`))return;
   const button=$('saveNextEventEdits'),previous=state.nextEvent?{...state.nextEvent}:null,publishedAt=creating?new Date().toISOString():(previous?.publishedAt||new Date().toISOString());
   button.disabled=true;button.textContent='正在儲存…';
-  state.nextEvent={...(creating?{optionId:''}:previous),date,time,endTime,location,note,transferAccount,rentalTotal,participantCount,perPersonFee,publishedAt};
+  state.nextEvent={...(creating?{optionId:''}:previous),date,time,endTime,location,note,transferBankCode,transferAccount,rentalTotal,participantCount,perPersonFee,publishedAt};saveFavoriteTransferDetails(transferBankCode,transferAccount);
   renderDashboard();renderPoll();
   try{
     await saveNow();
@@ -1225,7 +1231,7 @@ async function saveNextEventEdits(){
 }
 async function confirmNextEvent(){
   if(!isHost)return alert('只有管理員可以結束投票。');
-  const optionId=$('confirmPollOption').value,option=(state.schedulePoll.options||[]).find(o=>o.id===optionId),endTime=$('confirmEndTime').value,location=$('confirmLocation').value.trim(),note=$('confirmEventNote').value.trim(),transferAccount=cleanTransferAccount($('confirmTransferAccount').value);
+  const optionId=$('confirmPollOption').value,option=(state.schedulePoll.options||[]).find(o=>o.id===optionId),endTime=$('confirmEndTime').value,location=$('confirmLocation').value.trim(),note=$('confirmEventNote').value.trim(),transferBankCode=cleanTransferBankCode($('confirmTransferBankCode').value),transferAccount=cleanTransferAccount($('confirmTransferAccount').value);
   if(!option)return alert('請先選擇已確定的日期與開始時間。');
   if(!endTime)return alert('請設定結束時間。');
   if(endTime<=option.time)return alert('結束時間必須晚於開始時間。');
@@ -1233,7 +1239,7 @@ async function confirmNextEvent(){
   const {rentalTotal,participantCount,perPersonFee}=updateConfirmFeePreview();
   if(!rentalTotal)return alert('請填寫場租總金額。');
   if(!participantCount)return alert('請填寫預計參與人數。');
-  const summary=`${formatEventDate(option.date,option.time,endTime)}\n${location}${note?`\n場地備註：${note}`:''}\n場租 ${formatMoney(rentalTotal)} 元｜每人 ${formatMoney(perPersonFee)} 元${transferAccount?`\n轉帳帳號：${transferAccount}`:''}\n\n結束後會刪除全部候選日期與票數。`;
+  const summary=`${formatEventDate(option.date,option.time,endTime)}\n${location}${note?`\n場地備註：${note}`:''}\n場租 ${formatMoney(rentalTotal)} 元｜每人 ${formatMoney(perPersonFee)} 元${transferAccount?`\n銀行代碼：${transferBankCode||'未填'}｜帳號：${transferAccount}`:''}\n\n結束後會刪除全部候選日期與票數。`;
   if(!confirm(`確定發布球局並結束投票？\n\n${summary}`))return;
   const button=$('confirmNextEvent'),publishedAt=new Date().toISOString();
   button.disabled=true;button.textContent='發布球局中…';
@@ -1247,10 +1253,10 @@ async function confirmNextEvent(){
       const remoteOption=(Array.isArray(poll.options)?poll.options:[]).find(item=>item.id===optionId);
       if(!remoteOption)throw new Error('候選日期已變更，請重新確認。');
       finalFee=calculatePerPersonFee(rentalTotal,participantCount);
-      finalEvent={optionId:remoteOption.id,date:remoteOption.date,time:remoteOption.time||'',endTime,location,note,transferAccount,rentalTotal,participantCount,perPersonFee:finalFee,publishedAt};
+      finalEvent={optionId:remoteOption.id,date:remoteOption.date,time:remoteOption.time||'',endTime,location,note,transferBankCode,transferAccount,rentalTotal,participantCount,perPersonFee:finalFee,publishedAt};
       tx.update(roomRef,{nextEvent:finalEvent,schedulePoll:{status:'closed',createdAt:poll.createdAt||'',deadlineAt:'',options:[],votes:{},voterPlayers:{}},updatedAt:serverTimestamp()});
     });
-    state.nextEvent=finalEvent;
+    state.nextEvent=finalEvent;saveFavoriteTransferDetails(transferBankCode,transferAccount);
     state.schedulePoll={status:'closed',createdAt:state.schedulePoll.createdAt||'',deadlineAt:'',options:[],votes:{},voterPlayers:{}};
     renderDashboard();renderPoll();setSync('已同步','online');
   }catch(error){
@@ -1263,7 +1269,7 @@ async function confirmNextEvent(){
   alert(`已結束投票並發布球局。\n每人需繳 ${formatMoney(finalFee)} 元。${pushMessage}`);
 }
 function clearNextEvent(){if(!state.nextEvent)return;if(!confirm('確定取消總覽中的下一次打球公告？'))return;state.nextEvent=null;closeNextEventEditor();renderDashboard();renderPoll();saveSoon()}
-async function startNewPoll(){if(!confirm('建立新投票？目前的球局公告會保留在總覽。'))return;state.schedulePoll={status:'open',createdAt:new Date().toISOString(),deadlineAt:'',options:[],votes:{},voterPlayers:{}};['confirmPollOption','confirmEndTime','confirmLocation','confirmParticipants','confirmRentalTotal','confirmPerPersonFee','confirmTransferAccount','confirmEventNote'].forEach(id=>{const input=$(id);if(input){input.value='';delete input.dataset.optionId}});renderPoll();renderDashboard();try{await saveNow();alert('新投票已建立，現在可以新增候選日期。')}catch(error){saveSoon();alert(`新投票已建立，但雲端同步尚未完成：${formatError(error)}`)}}
+async function startNewPoll(){if(!confirm('建立新投票？目前的球局公告會保留在總覽。'))return;state.schedulePoll={status:'open',createdAt:new Date().toISOString(),deadlineAt:'',options:[],votes:{},voterPlayers:{}};['confirmPollOption','confirmEndTime','confirmLocation','confirmParticipants','confirmRentalTotal','confirmPerPersonFee','confirmTransferBankCode','confirmTransferAccount','confirmEventNote'].forEach(id=>{const input=$(id);if(input){input.value='';delete input.dataset.optionId}});applyFavoriteTransferDetails('confirmTransferBankCode','confirmTransferAccount');renderPoll();renderDashboard();try{await saveNow();alert('新投票已建立，現在可以新增候選日期。')}catch(error){saveSoon();alert(`新投票已建立，但雲端同步尚未完成：${formatError(error)}`)}}
 async function submitPollVote(){
   if(isPollClosed(state.schedulePoll))return alert('投票已截止。');
   const voterId=$('pollVoter').value;
@@ -1342,10 +1348,11 @@ function deviceProfileRef(code=deviceSyncCode()){return code?doc(db,'badmintonRo
 function updateDeviceSyncControls(){const code=deviceSyncCode(),name=localStorage.getItem(DEVICE_SYNC_NAME_KEY)||'';for(const id of['deviceSyncBtn','landingDeviceSyncBtn']){const button=$(id);if(!button)continue;button.classList.toggle('synced',!!code);button.textContent=code?`👤 ${name||'已同步'}`:id==='landingDeviceSyncBtn'?'👤 同步我的其他裝置':'👤 裝置同步'}if($('copyDeviceSyncBtn'))$('copyDeviceSyncBtn').classList.toggle('hidden',!code)}
 function queueDeviceProfileSave(){if(deviceProfileApplying||!deviceSyncCode()||!navigator.onLine)return;clearTimeout(deviceProfileSaveTimer);deviceProfileSaveTimer=setTimeout(()=>syncDeviceProfileNow().catch(error=>console.warn('Device profile sync failed',error)),260)}
 function saveRoomLibrary(rows,{cloud=true}={}){const clean=cleanRoomRows(rows);localStorage.setItem(ROOM_LIBRARY_KEY,JSON.stringify(clean));if(cloud)queueDeviceProfileSave();return clean}
-async function syncDeviceProfileNow(){const code=deviceSyncCode(),identityToken=localStorage.getItem(DEVICE_SYNC_TOKEN_KEY)||'',ref=deviceProfileRef(code);if(!ref||!identityToken)return;clearTimeout(deviceProfileSaveTimer);deviceProfileSaveTimer=null;let merged=roomLibrary(),mergedVenues=favoriteVenues();await runTransaction(db,async tx=>{const snapshot=await tx.get(ref),profile=snapshot.exists()?snapshot.data():{};if(profile.identityToken&&profile.identityToken!==identityToken)throw new Error('裝置同步身分不一致。');merged=mergeRoomLibraries(merged,profile.rooms);mergedVenues=mergeFavoriteVenues(mergedVenues,profile.favoriteVenues);const displayName=localStorage.getItem(DEVICE_SYNC_NAME_KEY)||profile.displayName||'潘建昱',playerName=localStorage.getItem(DEVICE_SYNC_PLAYER_KEY)||profile.playerName||displayName;tx.set(ref,{displayName,playerName,identityToken,rooms:merged,favoriteVenues:mergedVenues,updatedAt:serverTimestamp()},{merge:true})});applyCloudRoomLibrary(merged);applyCloudFavoriteVenues(mergedVenues)}
+async function syncDeviceProfileNow(){const code=deviceSyncCode(),identityToken=localStorage.getItem(DEVICE_SYNC_TOKEN_KEY)||'',ref=deviceProfileRef(code);if(!ref||!identityToken)return;clearTimeout(deviceProfileSaveTimer);deviceProfileSaveTimer=null;let merged=roomLibrary(),mergedVenues=favoriteVenues(),mergedTransfer=favoriteTransferDetails();await runTransaction(db,async tx=>{const snapshot=await tx.get(ref),profile=snapshot.exists()?snapshot.data():{};if(profile.identityToken&&profile.identityToken!==identityToken)throw new Error('裝置同步身分不一致。');merged=mergeRoomLibraries(merged,profile.rooms);mergedVenues=mergeFavoriteVenues(mergedVenues,profile.favoriteVenues);mergedTransfer=mergedTransfer.transferAccount?mergedTransfer:cleanTransferDetails(profile.favoriteTransferDetails);const displayName=localStorage.getItem(DEVICE_SYNC_NAME_KEY)||profile.displayName||'潘建昱',playerName=localStorage.getItem(DEVICE_SYNC_PLAYER_KEY)||profile.playerName||displayName;tx.set(ref,{displayName,playerName,identityToken,rooms:merged,favoriteVenues:mergedVenues,favoriteTransferDetails:mergedTransfer,updatedAt:serverTimestamp()},{merge:true})});applyCloudRoomLibrary(merged);applyCloudFavoriteVenues(mergedVenues);applyCloudFavoriteTransferDetails(mergedTransfer)}
 function applyCloudRoomLibrary(rows){deviceProfileApplying=true;const cloud=cleanRoomRows(rows),clean=mergeRoomLibraries(roomLibrary(),cloud);saveRoomLibrary(clean,{cloud:false});for(const room of clean)if(room.hostToken)localStorage.setItem(hostKey(room.id),room.hostToken);const latest=[...clean].sort((a,b)=>b.lastUsed-a.lastUsed)[0];if(latest)localStorage.setItem('bcmLastRoomV1',latest.id);renderRoomLibrary();updateCurrentRoomControls();deviceProfileApplying=false;if(JSON.stringify(clean)!==JSON.stringify(cloud))queueDeviceProfileSave()}
 function applyCloudFavoriteVenues(rows){const cloud=cleanFavoriteVenues(rows),merged=mergeFavoriteVenues(favoriteVenues(),cloud);localStorage.setItem(FAVORITE_VENUES_KEY,JSON.stringify(merged));renderFavoriteVenues();if(JSON.stringify(merged)!==JSON.stringify(cloud))queueDeviceProfileSave()}
-async function initializeDeviceProfileSync(){updateDeviceSyncControls();const code=deviceSyncCode(),token=localStorage.getItem(DEVICE_SYNC_TOKEN_KEY)||'',ref=deviceProfileRef(code);if(!ref||!token)return;deviceProfileUnsubscribe?.();deviceProfileUnsubscribe=onSnapshot(ref,snapshot=>{if(!snapshot.exists())return;const profile=snapshot.data();if(profile.identityToken!==token)return;if(profile.displayName)localStorage.setItem(DEVICE_SYNC_NAME_KEY,profile.displayName);if(profile.playerName)localStorage.setItem(DEVICE_SYNC_PLAYER_KEY,profile.playerName);applyCloudRoomLibrary(profile.rooms);applyCloudFavoriteVenues(profile.favoriteVenues);updateDeviceSyncControls();ensureSyncedPlayerIdentity().catch(error=>console.warn('Player identity sync failed',error))},error=>console.warn('Device profile listener failed',error))}
+function applyCloudFavoriteTransferDetails(details){const cloud=cleanTransferDetails(details),local=favoriteTransferDetails(),merged=local.transferAccount?local:cloud;saveFavoriteTransferDetails(merged.transferBankCode,merged.transferAccount,{cloud:false});applyFavoriteTransferDetails('confirmTransferBankCode','confirmTransferAccount');if(JSON.stringify(merged)!==JSON.stringify(cloud))queueDeviceProfileSave()}
+async function initializeDeviceProfileSync(){updateDeviceSyncControls();const code=deviceSyncCode(),token=localStorage.getItem(DEVICE_SYNC_TOKEN_KEY)||'',ref=deviceProfileRef(code);if(!ref||!token)return;deviceProfileUnsubscribe?.();deviceProfileUnsubscribe=onSnapshot(ref,snapshot=>{if(!snapshot.exists())return;const profile=snapshot.data();if(profile.identityToken!==token)return;if(profile.displayName)localStorage.setItem(DEVICE_SYNC_NAME_KEY,profile.displayName);if(profile.playerName)localStorage.setItem(DEVICE_SYNC_PLAYER_KEY,profile.playerName);applyCloudRoomLibrary(profile.rooms);applyCloudFavoriteVenues(profile.favoriteVenues);applyCloudFavoriteTransferDetails(profile.favoriteTransferDetails);updateDeviceSyncControls();ensureSyncedPlayerIdentity().catch(error=>console.warn('Player identity sync failed',error))},error=>console.warn('Device profile listener failed',error))}
 async function setupDeviceSync(){
   const current=deviceSyncCode();
   let input=prompt(current?'目前的裝置同步碼如下。若要改連其他使用者，請輸入新的同步碼：':'若其他裝置已建立同步，請輸入同步碼；這是第一台請直接留白建立：',current);
@@ -1358,7 +1365,7 @@ async function setupDeviceSync(){
     const profile=snapshot.data();
     if(!profile.identityToken)return alert('同步資料不完整，請在第一台裝置重新建立。');
     localStorage.setItem(DEVICE_SYNC_CODE_KEY,input);localStorage.setItem(DEVICE_SYNC_TOKEN_KEY,profile.identityToken);localStorage.setItem(DEVICE_SYNC_NAME_KEY,profile.displayName||'潘建昱');localStorage.setItem(DEVICE_SYNC_PLAYER_KEY,profile.playerName||profile.displayName||'潘建昱');localStorage.setItem(ROOM_AUTO_KEY,'1');
-    applyCloudRoomLibrary(profile.rooms);applyCloudFavoriteVenues(profile.favoriteVenues);
+    applyCloudRoomLibrary(profile.rooms);applyCloudFavoriteVenues(profile.favoriteVenues);applyCloudFavoriteTransferDetails(profile.favoriteTransferDetails);
     await syncDeviceProfileNow();
     alert(`已連結「${profile.displayName||'潘建昱'}」。重新開啟後會套用相同身分與球局清單。`);
     return location.reload();
@@ -1366,7 +1373,7 @@ async function setupDeviceSync(){
   const owned=ownedPlayerId(),defaultName=localStorage.getItem(DEVICE_SYNC_NAME_KEY)||(owned?pname(owned):'潘建昱'),name=(prompt('請輸入三台裝置共同使用的球員姓名：',defaultName)||'').trim();
   if(!name)return;
   const code=randomSyncCode(),identityToken=randomToken(),ref=deviceProfileRef(code);
-  await setDoc(ref,{displayName:name,playerName:name,identityToken,rooms:roomLibrary(),favoriteVenues:favoriteVenues(),createdAt:serverTimestamp(),updatedAt:serverTimestamp()});
+  await setDoc(ref,{displayName:name,playerName:name,identityToken,rooms:roomLibrary(),favoriteVenues:favoriteVenues(),favoriteTransferDetails:favoriteTransferDetails(),createdAt:serverTimestamp(),updatedAt:serverTimestamp()});
   localStorage.setItem(DEVICE_SYNC_CODE_KEY,code);localStorage.setItem(DEVICE_SYNC_TOKEN_KEY,identityToken);localStorage.setItem(DEVICE_SYNC_NAME_KEY,name);localStorage.setItem(DEVICE_SYNC_PLAYER_KEY,name);localStorage.setItem(ROOM_AUTO_KEY,'1');
   try{await navigator.clipboard.writeText(code)}catch{}
   alert(`已建立「${name}」裝置同步。\n\n同步碼：${code}\n\n同步碼已複製；請在另外兩台裝置的「更多 → 裝置同步」輸入一次。`);
