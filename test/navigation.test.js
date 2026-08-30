@@ -214,6 +214,16 @@ test('shows refresh without a visible favorite control and keeps low-frequency a
   assert.doesNotMatch(primary,/id="leaveBtn"/);
 });
 
+test('automatically returns infrequent visitors to their last successful room',()=>{
+  assert.doesNotMatch(html,/開啟 App 時自動回到上次球局/);
+  assert.match(html,/id="autoReturnRoom" hidden aria-hidden="true"/);
+  assert.match(mainSource,/if\(localStorage\.getItem\(ROOM_STAY_LOGGED_OUT_KEY\)!=='1'\)localStorage\.setItem\(ROOM_AUTO_KEY,'1'\)/);
+  assert.match(mainSource,/rememberLastRoomId\(id\);localStorage\.setItem\(ROOM_AUTO_KEY,'1'\);localStorage\.removeItem\(ROOM_STAY_LOGGED_OUT_KEY\);navigator\.storage\?\.persist/);
+  assert.match(mainSource,/document\.cookie=`\$\{LAST_ROOM_KEY\}=\$\{encodeURIComponent\(id\)\}; Max-Age=34560000/);
+  assert.match(mainSource,/\$\('leaveBtn'\)\.addEventListener\('click',\(\)=>\{localStorage\.setItem\(ROOM_STAY_LOGGED_OUT_KEY,'1'\);localStorage\.setItem\(ROOM_AUTO_KEY,'0'\)/);
+  assert.match(mainSource,/else if\(!skipAutoOnce&&localStorage\.getItem\(ROOM_AUTO_KEY\)==='1'\)\{const lastId=lastRoomId\(\);if\(lastId\)setTimeout\(\(\)=>openSavedRoom\(lastId\),180\)\}/);
+});
+
 test('chat identity is claimed and cannot be selected from a player list',()=>{
   assert.match(html,/id="chatIdentity"/);
   assert.match(html,/id="chatClaimHelp"/);
