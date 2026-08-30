@@ -68,6 +68,14 @@ test('lets the admin edit participant count before confirming the next event',()
   assert.match(mainSource,/finalEvent=\{[^}]*participantCount,perPersonFee:finalFee/);
 });
 
+test('lets the admin publish a transfer account and members copy it',()=>{
+  assert.match(html,/id="confirmTransferAccount"[^>]*maxlength="80"/);
+  assert.match(html,/id="editNextEventTransferAccount"[^>]*maxlength="80"/);
+  assert.match(mainSource,/transferAccount:cleanTransferAccount\(src\.nextEvent\.transferAccount\)/);
+  assert.match(mainSource,/id="copyNextEventTransferAccount"/);
+  assert.match(mainSource,/navigator\.clipboard\.writeText\(account\)/);
+});
+
 test('club announcements blend into the dashboard with a visible accent',()=>{
   assert.match(styles,/BCM 2\.4\.49 — unmistakable integrated club notice/);
   assert.match(styles,/#app \.admin-announcement\{[\s\S]*?border-left:6px solid #ffc84d[\s\S]*?rgba\(8,43,65,\.30\)/);
