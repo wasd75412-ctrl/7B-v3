@@ -170,6 +170,7 @@
         <label class="field"><span>結束時間</span><input id="confirmEndTime" class="input" type="time"></label>
         <div class="field location-field"><label for="confirmLocation">場地</label><div class="venue-picker"><input id="confirmLocation" class="input" autocomplete="off" placeholder="例如：立羽"><div id="confirmVenueOptions" class="venue-options hidden" role="listbox" aria-label="常用場地"></div></div><div class="venue-tools"><a id="confirmLocationMap" class="map-preview-link hidden" href="#" target="_blank" rel="noopener noreferrer">📍 在 Google Maps 查看</a><button id="saveConfirmVenue" class="venue-save-btn" type="button">＋ 常用</button></div></div>
         <label class="field"><span>預計參與人數</span><input id="confirmParticipants" class="input" type="number" min="1" step="1" inputmode="numeric" placeholder="依投票人數帶入"></label>
+        <div class="field event-player-field"><span>參與球員（可於截止後補加入）</span><div id="confirmEventPlayers" class="event-player-choices"></div></div>
         <label class="field"><span>場租總額（元）</span><input id="confirmRentalTotal" class="input" type="number" min="1" step="1" inputmode="numeric" placeholder="例如：2400"></label>
         <label class="field"><span>每人需繳</span><input id="confirmPerPersonFee" class="input" type="text" readonly placeholder="自動計算"></label>
         <label class="field"><span>銀行代碼（選填）</span><input id="confirmTransferBankCode" class="input" type="text" maxlength="3" inputmode="numeric" autocomplete="off" placeholder="例如：000"></label>
@@ -329,6 +330,7 @@
     <div class="field location-field"><label for="editNextEventLocation">場地</label><div class="venue-picker"><input id="editNextEventLocation" class="input" autocomplete="off" placeholder="例如：立羽"><div id="editVenueOptions" class="venue-options hidden" role="listbox" aria-label="常用場地"></div></div><div class="venue-tools"><a id="editNextEventLocationMap" class="map-preview-link hidden" href="#" target="_blank" rel="noopener noreferrer">📍 在 Google Maps 查看</a><button id="saveEditVenue" class="venue-save-btn" type="button">＋ 常用</button></div></div>
     <label class="field"><span>場租總額（元）</span><input id="editNextEventRentalTotal" class="input" type="number" min="1" step="1" inputmode="numeric"></label>
     <label class="field"><span>預計參與總人數</span><input id="editNextEventParticipants" class="input" type="number" min="1" step="1" inputmode="numeric"></label>
+    <div class="field event-player-field"><span>參與球員（可補加入或移除）</span><div id="editNextEventPlayers" class="event-player-choices"></div></div>
     <label class="field"><span>每人需繳</span><input id="editNextEventPerPersonFee" class="input" type="text" readonly></label>
     <label class="field"><span>銀行代碼（選填）</span><input id="editNextEventTransferBankCode" class="input" type="text" maxlength="3" inputmode="numeric" autocomplete="off" placeholder="例如：000"></label>
     <label class="field"><span>轉帳帳號（選填）</span><input id="editNextEventTransferAccount" class="input" type="text" maxlength="40" inputmode="numeric" autocomplete="off" placeholder="例如：123456789"></label>

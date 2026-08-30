@@ -81,6 +81,16 @@ test('lets the admin publish a transfer account and members copy it',()=>{
   assert.match(mainSource,/已複製帳號，不包含銀行代碼/);
 });
 
+test('lets the admin add players after voting closes and edit them later',()=>{
+  assert.match(html,/id="confirmEventPlayers" class="event-player-choices"/);
+  assert.match(html,/id="editNextEventPlayers" class="event-player-choices"/);
+  assert.match(mainSource,/function pollParticipantIds\(optionId\)/);
+  assert.match(mainSource,/participantIds:cleanEventParticipantIds\(src\.nextEvent\.participantIds\)/);
+  assert.match(mainSource,/renderEventPlayerChoices\('editNextEventPlayers',event\.participantIds/);
+  assert.match(mainSource,/finalEvent=\{[^}]*participantIds/);
+  assert.match(styles,/\.event-player-choices\{[^}]*display:grid/);
+});
+
 test('club announcements blend into the dashboard with a visible accent',()=>{
   assert.match(styles,/BCM 2\.4\.49 — unmistakable integrated club notice/);
   assert.match(styles,/#app \.admin-announcement\{[\s\S]*?border-left:6px solid #ffc84d[\s\S]*?rgba\(8,43,65,\.30\)/);
