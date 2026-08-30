@@ -1,7 +1,7 @@
 {
   "name": "7b-v3-recovered",
   "private": true,
-  "version": "2.6.35",
+  "version": "2.6.36",
   "type": "module",
   "scripts": {
     "dev": "vite",

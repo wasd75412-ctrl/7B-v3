@@ -69,11 +69,16 @@ test('lets the admin edit participant count before confirming the next event',()
 });
 
 test('lets the admin publish a transfer account and members copy it',()=>{
-  assert.match(html,/id="confirmTransferAccount"[^>]*maxlength="80"/);
-  assert.match(html,/id="editNextEventTransferAccount"[^>]*maxlength="80"/);
-  assert.match(mainSource,/transferAccount:cleanTransferAccount\(src\.nextEvent\.transferAccount\)/);
+  assert.match(html,/id="confirmTransferBankCode"[^>]*maxlength="3"/);
+  assert.match(html,/id="confirmTransferAccount"[^>]*maxlength="40"/);
+  assert.match(html,/id="editNextEventTransferBankCode"[^>]*maxlength="3"/);
+  assert.match(html,/id="editNextEventTransferAccount"[^>]*maxlength="40"/);
+  assert.match(mainSource,/\.\.\.cleanTransferDetails\(src\.nextEvent\)/);
   assert.match(mainSource,/id="copyNextEventTransferAccount"/);
   assert.match(mainSource,/navigator\.clipboard\.writeText\(account\)/);
+  assert.match(mainSource,/favoriteTransferDetails:mergedTransfer/);
+  assert.match(mainSource,/applyFavoriteTransferDetails\('editNextEventTransferBankCode','editNextEventTransferAccount'\)/);
+  assert.match(mainSource,/已複製帳號，不包含銀行代碼/);
 });
 
 test('club announcements blend into the dashboard with a visible accent',()=>{

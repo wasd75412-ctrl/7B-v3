@@ -1685,7 +1685,7 @@ html.brand-font-fallback .brand-copy .brand-mark h1{
 #app .next-event-edit-btn:hover{background:rgba(255,255,255,.24)!important}
 .next-event-facts{display:flex;align-items:center;gap:9px;flex-wrap:wrap;margin-top:13px}
 .next-event-participants,.next-event-facts .next-event-payment{display:inline-flex;margin:0;padding:9px 13px;border:1px solid rgba(255,255,255,.28);border-radius:999px;background:rgba(255,255,255,.14);font-size:1rem;font-weight:1000}
-.next-event-transfer{display:flex;align-items:center;justify-content:space-between;gap:14px;margin-top:13px;padding:12px 14px;border:1px solid rgba(255,255,255,.28);border-radius:14px;background:rgba(255,255,255,.12)}.next-event-transfer span{display:flex;gap:9px;flex-wrap:wrap;overflow-wrap:anywhere}.next-event-transfer strong{color:inherit}.next-event-transfer .btn{flex:0 0 auto;padding:8px 12px}
+.next-event-transfer{display:flex;align-items:center;justify-content:space-between;gap:14px;margin-top:13px;padding:12px 14px;border:1px solid rgba(255,255,255,.28);border-radius:14px;background:rgba(255,255,255,.12)}.next-event-transfer>span{display:flex;gap:14px;flex-wrap:wrap;overflow-wrap:anywhere}.next-event-transfer>span>span{display:inline-flex;gap:7px}.next-event-transfer strong{color:inherit}.next-event-transfer .btn{flex:0 0 auto;padding:8px 12px}
 .next-event-editor{width:min(820px,100%)}
 .next-event-editor-head{display:flex;align-items:flex-start;justify-content:space-between;gap:14px}
 .next-event-editor-head h2{margin:0 0 5px}
