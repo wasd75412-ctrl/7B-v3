@@ -466,6 +466,7 @@ function cleanEventParticipantIds(ids){return[...new Set((Array.isArray(ids)?ids
 const TRANSFER_DETAILS_KEY='bdVFavoriteTransferDetails';
 function favoriteTransferDetails(){try{return cleanTransferDetails(JSON.parse(localStorage.getItem(TRANSFER_DETAILS_KEY)||'{}'))}catch{return{transferBankCode:'',transferAccount:''}}}
 function saveFavoriteTransferDetails(transferBankCode,transferAccount,{cloud=true}={}){const details=cleanTransferDetails({transferBankCode,transferAccount});if(!details.transferBankCode&&!details.transferAccount)return details;localStorage.setItem(TRANSFER_DETAILS_KEY,JSON.stringify(details));if(cloud)queueDeviceProfileSave();return details}
+function saveFavoriteTransferDetailsFromInputs(bankCodeId,accountId){const transferBankCode=cleanTransferBankCode($(bankCodeId)?.value),transferAccount=cleanTransferAccount($(accountId)?.value);if(!transferAccount)return alert('請先輸入轉帳帳號。');if(transferBankCode.length!==3)return alert('銀行代碼請輸入 3 碼。');saveFavoriteTransferDetails(transferBankCode,transferAccount);alert(`已加入常用轉帳資料：${transferBankCode}｜${transferAccount}`)}
 function applyFavoriteTransferDetails(bankCodeId,accountId){const bankCode=$(bankCodeId),account=$(accountId),details=favoriteTransferDetails();if(bankCode&&!bankCode.value)bankCode.value=details.transferBankCode;if(account&&!account.value)account.value=details.transferAccount}
 function googleMapsUrl(place){const query=String(place||'').trim();return query?`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(query)}`:''}
 function googleMapsLink(place,label='Google Maps'){const href=googleMapsUrl(place);return href?`<a class="map-link" href="${esc(href)}" target="_blank" rel="noopener noreferrer" aria-label="在 Google Maps 查看 ${esc(place)}">📍 ${esc(label)}</a>`:''}
@@ -2642,6 +2643,8 @@ $('editNextEventLocation').addEventListener('input',()=>updateMapPreview('editNe
 $('savePollVenue').onclick=()=>saveFavoriteVenue('pollNote');
 $('saveConfirmVenue').onclick=()=>saveFavoriteVenue('confirmLocation');
 $('saveEditVenue').onclick=()=>saveFavoriteVenue('editNextEventLocation');
+$('saveConfirmTransferDetails').onclick=()=>saveFavoriteTransferDetailsFromInputs('confirmTransferBankCode','confirmTransferAccount');
+$('saveEditTransferDetails').onclick=()=>saveFavoriteTransferDetailsFromInputs('editNextEventTransferBankCode','editNextEventTransferAccount');
 renderFavoriteVenues();
 for(const[inputId,panelId]of VENUE_PICKERS)bindVenuePicker(inputId,panelId);
 document.addEventListener('click',event=>{if(!event.target.closest('.venue-picker'))closeVenueOptions()});

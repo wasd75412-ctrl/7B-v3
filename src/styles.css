@@ -1533,6 +1533,7 @@ html.brand-font-fallback .brand-copy .brand-mark h1{
 #app .venue-option,body>.modal .venue-option{background:#0b2b43;color:#eefaff!important}
 #app .venue-option:hover,#app .venue-option:focus,body>.modal .venue-option:hover,body>.modal .venue-option:focus{background:#164e70;color:#fff6a8!important}
 .venue-tools{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-top:6px;min-height:27px}
+.transfer-tools .sub{font-size:.76rem}.transfer-account-field>label{display:block;margin-bottom:5px;color:var(--muted);font-size:.82rem;font-weight:900}
 .venue-save-btn{border:0;background:transparent;color:var(--primary);font:inherit;font-size:.78rem;font-weight:1000;cursor:pointer;padding:4px 2px;white-space:nowrap}
 .venue-save-btn:hover{filter:brightness(.82)}
 #app #page6 :is(input:not([type="checkbox"]):not([type="radio"]),select,textarea),#app .next-event-editor :is(input:not([type="checkbox"]):not([type="radio"]),select,textarea){display:block;width:100%;min-width:0;max-width:100%;box-sizing:border-box}

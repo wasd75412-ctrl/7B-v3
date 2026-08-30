@@ -79,6 +79,10 @@ test('lets the admin publish a transfer account and members copy it',()=>{
   assert.match(mainSource,/favoriteTransferDetails:mergedTransfer/);
   assert.match(mainSource,/applyFavoriteTransferDetails\('editNextEventTransferBankCode','editNextEventTransferAccount'\)/);
   assert.match(mainSource,/已複製帳號，不包含銀行代碼/);
+  assert.match(html,/id="saveConfirmTransferDetails"[^>]*>＋ 常用</);
+  assert.match(html,/id="saveEditTransferDetails"[^>]*>＋ 常用</);
+  assert.match(mainSource,/function saveFavoriteTransferDetailsFromInputs\(bankCodeId,accountId\)/);
+  assert.match(mainSource,/saveConfirmTransferDetails'\)\.onclick/);
 });
 
 test('lets the admin add players after voting closes and edit them later',()=>{
