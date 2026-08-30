@@ -47,6 +47,8 @@ test('groups independently selectable time slots under one date',()=>{
   assert.match(mainSource,/class="poll-date-group"/);
   assert.match(mainSource,/class="poll-time-options"/);
   assert.match(mainSource,/class="poll-option poll-time-option/);
+  assert.match(mainSource,/class="poll-slot-venue"/);
+  assert.match(mainSource,/googleMapsLink\(o\.note,'查看場地'\)/);
   assert.match(styles,/\.poll-time-options\{[^}]*grid-template-columns:repeat\(2,minmax\(0,1fr\)\)/);
   assert.match(styles,/@media\(max-width:700px\)[^\n]*\.poll-time-options\{grid-template-columns:1fr\}/);
 });

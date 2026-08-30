@@ -14,7 +14,8 @@ test('builds next week Monday through Sunday in Taipei with Saturday noon deadli
     const slots=schedule.options.filter(option=>option.date===date).map(option=>`${option.time}-${option.endTime}`);
     assert.deepEqual(slots,['01:00-04:00','11:00-13:00']);
   }
-  assert.ok(schedule.options.every(option=>option.note==='立羽'));
+  assert.ok(schedule.options.filter(option=>option.time==='01:00').every(option=>option.note==='立羽會館'));
+  assert.ok(schedule.options.filter(option=>option.time==='11:00').every(option=>option.note==='飛颺'));
   assert.equal(new Set(schedule.options.map(option=>option.id)).size,14);
 });
 
