@@ -14,7 +14,7 @@ import { CHAT_MEDIA_MAX_BYTES, CHAT_MEDIA_TYPES, CHAT_MENTION_ALL_ID, CHAT_MESSA
 import { adminRoleButtonState, claimedAdminPlayerId, resolveAdminSessionToken } from './admin-role.js';
 import { updateAttendanceState } from './attendance.js';
 import { pollWasFinalized } from './poll.js';
-import { recruitingMessage, recruitingSlots } from './poll-recruiting.js';
+import { nonVoterPlayerIds, recruitingMessage, recruitingSlots } from './poll-recruiting.js';
 import { activateShuttleTube, createShuttleTube, enforceLegacyActiveShuttleTube, finishShuttleTube, normalizeShuttleTubes, restoreShuttleTube, setShuttleRemaining, shuttleShareCost, shuttleUnitPrice, softDeleteShuttleTube, updateShuttleTube } from './shuttle-tube.js';
 import { careerAchievementBadges } from './player-achievements.js';
 import { PLAYER_TYPE_GUEST, isGuestPlayer, normalizePlayerType, splitPlayersByMembership } from './player-membership.js';
@@ -623,26 +623,37 @@ let pollDeadlineTimer=null;
 function pollDeadlineMs(poll=state.schedulePoll){const ms=Date.parse(poll?.deadlineAt||'');return Number.isFinite(ms)?ms:0}
 function isPollDeadlinePassed(poll=state.schedulePoll,now=Date.now()){const ms=pollDeadlineMs(poll);return !!ms&&ms<=now}
 function isPollClosed(poll=state.schedulePoll,now=Date.now()){return poll?.status==='closed'||isPollDeadlinePassed(poll,now)}
-function recruitingDialogKey(poll=state.schedulePoll){return `bcmRecruitingDialogV1:${roomId}:${poll.createdAt||poll.deadlineAt||pollSignature()}`}
+let recruitingDialogScrollY=0;
+function recruitingDialogKey(poll=state.schedulePoll){return `bcmRecruitingDialogV2:${roomId}:${poll.createdAt||poll.deadlineAt||pollSignature()}`}
+function recruitingOwnOptionIds(poll=state.schedulePoll){
+  const own=ownedPlayerId(),values=[];
+  if(own){for(const [deviceHash,playerId] of Object.entries(poll.voterPlayers||{}))if(playerId===own)values.push(poll.votes?.[deviceHash])}
+  else values.push(poll.votes?.[selfHash]);
+  return new Set(values.flatMap(pollSelectionList));
+}
 function renderRecruitingDialog(){
-  const message=recruitingMessage(state.schedulePoll),slots=recruitingSlots(state.schedulePoll),textarea=$('recruitingMessageText'),summary=$('recruitingMessageSummary');
+  const ownOptions=recruitingOwnOptionIds(),message=recruitingMessage(state.schedulePoll,ownOptions),slots=recruitingSlots(state.schedulePoll,ownOptions),textarea=$('recruitingMessageText'),summary=$('recruitingMessageSummary');
+  const missingIds=nonVoterPlayerIds(state.schedulePoll,state.roster.map(player=>player.id)),missingNames=missingIds.map(pname),missing=$('recruitingMissingVoters');
   if(textarea)textarea.value=message;
-  if(summary)summary.textContent=slots.length?`已鎖定 ${slots.length} 個 3–4 人時段，可編輯後複製傳送。`:'目前沒有恰好 3–4 人的時段。';
+  if(summary)summary.textContent=slots.length?`已鎖定你有投票的 ${slots.length} 個 3–4 人時段，可編輯後複製傳送。`:'你投票的日期中，目前沒有恰好 3–4 人的時段。';
+  if(missing)missing.innerHTML=missingNames.length?`<strong>尚未投票（${missingNames.length} 人）</strong><span>${esc(missingNames.join('、'))}</span>`:'<strong>所有球員都已投票</strong>';
   if($('copyRecruitingMessage'))$('copyRecruitingMessage').disabled=!message;
   return message;
 }
 function openRecruitingDialog({automatic=false}={}){
   if(!isHost)return alert('只有管理員可以查看揪人訊息。');
   if(!isPollClosed(state.schedulePoll))return alert('投票截止後才會鎖定 3–4 人球局並產生訊息。');
-  const message=renderRecruitingDialog();
-  if(!message&&!automatic)$('recruitingMessageModal').classList.remove('hidden');
-  if(message)$('recruitingMessageModal').classList.remove('hidden');
-  if(automatic)localStorage.setItem(recruitingDialogKey(),'1');
+  recruitingDialogScrollY=window.scrollY||document.documentElement.scrollTop||0;
+  renderRecruitingDialog();$('recruitingMessageModal').classList.remove('hidden');
+  requestAnimationFrame(()=>window.scrollTo(0,recruitingDialogScrollY));
 }
 function maybeOpenRecruitingDialog(poll=state.schedulePoll){
-  if(!isHost||!isPollClosed(poll)||!recruitingMessage(poll)||localStorage.getItem(recruitingDialogKey(poll))==='1')return;
+  const key=recruitingDialogKey(poll);
+  if(!isHost||!isPollClosed(poll)||!(poll.options||[]).length||localStorage.getItem(key)==='1')return;
+  localStorage.setItem(key,'1');
   setTimeout(()=>openRecruitingDialog({automatic:true}),0);
 }
+function closeRecruitingDialog(){$('recruitingMessageModal').classList.add('hidden');requestAnimationFrame(()=>window.scrollTo(0,recruitingDialogScrollY))}
 async function copyRecruitingMessage(){
   const text=$('recruitingMessageText').value.trim();if(!text)return;
   try{await navigator.clipboard.writeText(text);$('recruitingMessageFeedback').textContent='訊息已複製，可以貼到聊天室傳送。'}
@@ -1714,7 +1725,7 @@ function page(n){
   if(n===8){
     renderChat();markChatSeen();
     syncChatKeyboardViewport();scrollChatToLatest();
-  }else syncChatKeyboardViewport();
+  }else{syncChatKeyboardViewport();requestAnimationFrame(()=>window.scrollTo(0,0))}
 }
 function renderRoster(){
   const box=$('roster'),q=($('playerSearch')?.value||'').trim().toLowerCase(),sort=$('playerSort')?.value||'favorite';
@@ -2589,7 +2600,7 @@ $('landingDeviceSyncBtn').onclick=()=>setupDeviceSync().catch(error=>showRoomCre
 $('copyDeviceSyncBtn').onclick=copyDeviceSyncCode;
 $('adminNoticeManagerBtn').onclick=()=>openAdminNoticeManager();
 $('recruitingMessageBtn').onclick=()=>openRecruitingDialog();
-$('closeRecruitingMessage').onclick=()=>$('recruitingMessageModal').classList.add('hidden');
+$('closeRecruitingMessage').onclick=closeRecruitingDialog;
 $('copyRecruitingMessage').onclick=copyRecruitingMessage;
 $('shuttleTubeManagerBtn').onclick=openShuttleTubeManager;
 $('closeShuttleTubeManager').onclick=()=>$('shuttleTubeModal').classList.add('hidden');

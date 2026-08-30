@@ -105,6 +105,7 @@ body:before{content:"";position:fixed;inset:0;pointer-events:none;opacity:.32;ba
 .recruiting-message-head h2{margin:3px 0 5px}
 .recruiting-message-dialog .field>span{display:block;margin-bottom:7px;font-weight:950}
 #recruitingMessageText{min-height:180px;resize:vertical;line-height:1.7}
+.recruiting-missing-voters{display:grid;gap:5px;margin-top:12px;padding:12px 14px;border:1px solid rgba(245,189,73,.28);border-radius:14px;background:rgba(245,189,73,.08)}.recruiting-missing-voters strong{color:#ffdc82}.recruiting-missing-voters span{color:var(--sport-ink);line-height:1.55}
 .recruiting-message-feedback{min-height:1.3em;margin:9px 0;color:var(--sport-success,#24a86a);font-size:.82rem;font-weight:900}
 @media(max-width:680px){.recruiting-message-head{align-items:stretch;flex-direction:column}.recruiting-message-head .btn{align-self:flex-end}}
 

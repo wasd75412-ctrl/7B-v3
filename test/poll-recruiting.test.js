@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { recruitingMessage, recruitingSlots } from '../src/poll-recruiting.js';
+import { nonVoterPlayerIds, recruitingMessage, recruitingSlots } from '../src/poll-recruiting.js';
 
 const poll={
   options:[
@@ -22,4 +22,13 @@ test('creates the requested conversational recruiting copy',()=>{
 
 test('does not create a message without a three-to-four-player slot',()=>{
   assert.equal(recruitingMessage({options:poll.options,votes:{a:'sep6'},voterPlayers:{a:'p1'}}),'');
+});
+
+test('includes only qualifying slots selected by the admin',()=>{
+  assert.equal(recruitingMessage(poll,new Set(['sep5'])),'哈囉～9/5 01–04我們有約羽球，目前3個人，你要不要一起來打🏸');
+  assert.equal(recruitingMessage(poll,new Set(['sep6'])),'');
+});
+
+test('lists roster players who did not submit a selection',()=>{
+  assert.deepEqual(nonVoterPlayerIds({...poll,votes:{...poll.votes,f:''},voterPlayers:{...poll.voterPlayers,f:'p6'}},['p1','p2','p3','p4','p5','p6','p7']),['p6','p7']);
 });
