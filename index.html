@@ -43,6 +43,7 @@
           <button id="wakeLockBtn" class="btn" type="button" aria-pressed="false">☀️ 檢查恆亮狀態…</button>
           <button id="shareBtn" class="btn" type="button">🔗 分享球局</button>
           <button id="adminNoticeManagerBtn" class="btn host-only" type="button">📣 事務公告</button>
+          <button id="recruitingMessageBtn" class="btn host-only" type="button">💬 揪人訊息</button>
           <button id="shuttleTubeManagerBtn" class="btn host-only" type="button">🏸 球桶管理</button>
           <div id="wakeLockFeedback" class="wake-lock-feedback pending" role="status" aria-live="polite">正在確認螢幕恆亮狀態…</div>
         </div>
@@ -307,6 +308,13 @@
     <div id="adminNoticeFeedback" class="admin-notice-feedback hidden" role="status" aria-live="polite"></div>
     <div class="admin-notice-actions"><button id="saveAdminNotice" class="btn primary" type="button">發布公告</button><button id="cancelAdminNoticeEdit" class="btn hidden" type="button">取消編輯</button></div>
   </section>
+</div></div>
+
+<div id="recruitingMessageModal" class="modal hidden"><div class="modal-card recruiting-message-dialog">
+  <div class="recruiting-message-head"><div><span class="club-kicker">RECRUIT PLAYERS</span><h2>💬 3–4 人球局揪人訊息</h2><p id="recruitingMessageSummary" class="sub"></p></div><button id="closeRecruitingMessage" class="btn" type="button">關閉</button></div>
+  <label class="field"><span>訊息內容</span><textarea id="recruitingMessageText" class="input" rows="7" maxlength="1000"></textarea></label>
+  <p id="recruitingMessageFeedback" class="recruiting-message-feedback" aria-live="polite"></p>
+  <button id="copyRecruitingMessage" class="btn primary wide" type="button">複製訊息</button>
 </div></div>
 
 <div id="nextEventEditModal" class="modal hidden"><div class="modal-card next-event-editor">
