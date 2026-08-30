@@ -91,11 +91,11 @@ test('lets the admin publish a transfer account and members copy it',()=>{
 });
 
 test('lets the admin add players after voting closes and edit them later',()=>{
-  assert.match(html,/id="confirmEventPlayers" class="event-player-choices"/);
-  assert.match(html,/id="editNextEventPlayers" class="event-player-choices"/);
+  assert.doesNotMatch(html,/id="confirmEventPlayers"/);
+  assert.doesNotMatch(html,/id="editNextEventPlayers"/);
   assert.match(mainSource,/function pollParticipantIds\(optionId\)/);
   assert.match(mainSource,/participantIds:cleanEventParticipantIds\(src\.nextEvent\.participantIds\)/);
-  assert.match(mainSource,/renderEventPlayerChoices\('editNextEventPlayers',event\.participantIds/);
+  assert.match(mainSource,/const participantIds=pollParticipantIds\(optionId\)/);
   assert.match(mainSource,/finalEvent=\{[^}]*participantIds/);
   assert.match(styles,/\.event-player-choices\{[^}]*display:grid/);
   assert.match(mainSource,/deadlineExpired&&isHost\?`<div class="poll-manual-controls">/);
