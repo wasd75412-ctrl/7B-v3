@@ -83,6 +83,11 @@ test('lets the admin publish a transfer account and members copy it',()=>{
   assert.match(html,/id="saveEditTransferDetails"[^>]*>＋ 常用</);
   assert.match(mainSource,/function saveFavoriteTransferDetailsFromInputs\(bankCodeId,accountId\)/);
   assert.match(mainSource,/saveConfirmTransferDetails'\)\.onclick/);
+  assert.match(html,/id="confirmTransferOptions" class="venue-options hidden"/);
+  assert.match(html,/id="editTransferOptions" class="venue-options hidden"/);
+  assert.match(mainSource,/function favoriteTransferAccounts\(\)/);
+  assert.match(mainSource,/function renderTransferOptions\(bankCodeId,accountId,panelId,open=false\)/);
+  assert.match(mainSource,/for\(const\[bankCodeId,accountId,panelId\]of TRANSFER_PICKERS\)bindTransferPicker/);
 });
 
 test('lets the admin add players after voting closes and edit them later',()=>{

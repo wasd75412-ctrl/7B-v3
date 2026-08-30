@@ -465,10 +465,17 @@ function cleanTransferDetails(source={}){let transferBankCode=cleanTransferBankC
 function cleanEventParticipantIds(ids){return[...new Set((Array.isArray(ids)?ids:[]).map(id=>String(id||'').trim()).filter(Boolean))].slice(0,60)}
 function cleanManualPollParticipants(rows){if(!rows||typeof rows!=='object'||Array.isArray(rows))return{};return Object.fromEntries(Object.entries(rows).map(([optionId,ids])=>[String(optionId||'').trim(),cleanEventParticipantIds(ids)]).filter(([optionId,ids])=>optionId&&ids.length).slice(0,80))}
 const TRANSFER_DETAILS_KEY='bdVFavoriteTransferDetails';
-function favoriteTransferDetails(){try{return cleanTransferDetails(JSON.parse(localStorage.getItem(TRANSFER_DETAILS_KEY)||'{}'))}catch{return{transferBankCode:'',transferAccount:''}}}
-function saveFavoriteTransferDetails(transferBankCode,transferAccount,{cloud=true}={}){const details=cleanTransferDetails({transferBankCode,transferAccount});if(!details.transferBankCode&&!details.transferAccount)return details;localStorage.setItem(TRANSFER_DETAILS_KEY,JSON.stringify(details));if(cloud)queueDeviceProfileSave();return details}
+const TRANSFER_PICKERS=[['confirmTransferBankCode','confirmTransferAccount','confirmTransferOptions'],['editNextEventTransferBankCode','editNextEventTransferAccount','editTransferOptions']];
+function cleanFavoriteTransferAccounts(rows){const source=Array.isArray(rows)?rows:rows&&typeof rows==='object'?[rows]:[];const seen=new Set();return source.map(cleanTransferDetails).filter(row=>{const key=`${row.transferBankCode}|${row.transferAccount}`;if(!row.transferAccount||seen.has(key))return false;seen.add(key);return true}).slice(0,12)}
+function favoriteTransferAccounts(){try{return cleanFavoriteTransferAccounts(JSON.parse(localStorage.getItem(TRANSFER_DETAILS_KEY)||'[]'))}catch{return[]}}
+function favoriteTransferDetails(){return favoriteTransferAccounts()[0]||{transferBankCode:'',transferAccount:''}}
+function saveFavoriteTransferDetails(transferBankCode,transferAccount,{cloud=true}={}){const details=cleanTransferDetails({transferBankCode,transferAccount});if(!details.transferAccount)return details;const rows=cleanFavoriteTransferAccounts([details,...favoriteTransferAccounts()]);localStorage.setItem(TRANSFER_DETAILS_KEY,JSON.stringify(rows));renderFavoriteTransferOptions();if(cloud)queueDeviceProfileSave();return details}
 function saveFavoriteTransferDetailsFromInputs(bankCodeId,accountId){const transferBankCode=cleanTransferBankCode($(bankCodeId)?.value),transferAccount=cleanTransferAccount($(accountId)?.value);if(!transferAccount)return alert('請先輸入轉帳帳號。');if(transferBankCode.length!==3)return alert('銀行代碼請輸入 3 碼。');saveFavoriteTransferDetails(transferBankCode,transferAccount);alert(`已加入常用轉帳資料：${transferBankCode}｜${transferAccount}`)}
 function applyFavoriteTransferDetails(bankCodeId,accountId){const bankCode=$(bankCodeId),account=$(accountId),details=favoriteTransferDetails();if(bankCode&&!bankCode.value)bankCode.value=details.transferBankCode;if(account&&!account.value)account.value=details.transferAccount}
+function closeTransferOptions(exceptId=''){for(const[,,panelId]of TRANSFER_PICKERS)if(panelId!==exceptId)$(panelId)?.classList.add('hidden')}
+function renderTransferOptions(bankCodeId,accountId,panelId,open=false){const account=$(accountId),panel=$(panelId);if(!account||!panel)return;const query=account.value.trim(),rows=favoriteTransferAccounts().filter(row=>!query||row.transferAccount.includes(query));panel.innerHTML=rows.map(row=>`<button class="venue-option transfer-option" type="button" role="option" data-bank-code="${esc(row.transferBankCode)}" data-transfer-account="${esc(row.transferAccount)}"><strong>${esc(row.transferBankCode)}</strong><span>${esc(row.transferAccount)}</span></button>`).join('');panel.classList.toggle('hidden',!open||!rows.length);panel.querySelectorAll('[data-transfer-account]').forEach(button=>button.onclick=()=>{$(bankCodeId).value=button.dataset.bankCode;account.value=button.dataset.transferAccount;panel.classList.add('hidden')})}
+function renderFavoriteTransferOptions(){for(const[bankCodeId,accountId,panelId]of TRANSFER_PICKERS)renderTransferOptions(bankCodeId,accountId,panelId,false)}
+function bindTransferPicker(bankCodeId,accountId,panelId){const input=$(accountId);if(!input)return;const open=()=>{closeTransferOptions(panelId);renderTransferOptions(bankCodeId,accountId,panelId,true)};input.addEventListener('focus',open);input.addEventListener('click',open);input.addEventListener('input',open)}
 function googleMapsUrl(place){const query=String(place||'').trim();return query?`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(query)}`:''}
 function googleMapsLink(place,label='Google Maps'){const href=googleMapsUrl(place);return href?`<a class="map-link" href="${esc(href)}" target="_blank" rel="noopener noreferrer" aria-label="在 Google Maps 查看 ${esc(place)}">📍 ${esc(label)}</a>`:''}
 const FAVORITE_VENUES_KEY='bdVFavoriteVenues';
@@ -2653,7 +2660,9 @@ $('saveConfirmTransferDetails').onclick=()=>saveFavoriteTransferDetailsFromInput
 $('saveEditTransferDetails').onclick=()=>saveFavoriteTransferDetailsFromInputs('editNextEventTransferBankCode','editNextEventTransferAccount');
 renderFavoriteVenues();
 for(const[inputId,panelId]of VENUE_PICKERS)bindVenuePicker(inputId,panelId);
-document.addEventListener('click',event=>{if(!event.target.closest('.venue-picker'))closeVenueOptions()});
+renderFavoriteTransferOptions();
+for(const[bankCodeId,accountId,panelId]of TRANSFER_PICKERS)bindTransferPicker(bankCodeId,accountId,panelId);
+document.addEventListener('click',event=>{if(!event.target.closest('.venue-picker'))closeVenueOptions();if(!event.target.closest('.transfer-picker'))closeTransferOptions()});
 $('enablePushPrompt').onclick=enablePushFromPrompt;
 $('dismissPushPrompt').onclick=()=>closePushPrompt();
 const originalAdminLoginHandler=$('adminLoginBtn').onclick;
