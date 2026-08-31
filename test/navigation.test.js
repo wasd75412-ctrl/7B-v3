@@ -65,7 +65,7 @@ test('missing-vote reminders exclude guest players',()=>{
 test('lets the admin edit participant count before confirming the next event',()=>{
   assert.match(html,/id="confirmParticipants"[^>]*type="number"[^>]*min="1"/);
   assert.match(mainSource,/participantCount=wholeAmount\(\$\('confirmParticipants'\)\?\.value\)/);
-  assert.match(mainSource,/finalEvent=\{[^}]*participantCount,perPersonFee:finalFee/);
+  assert.match(mainSource,/finalEvent=cleanNextEvent\(\{[^}]*participantCount,perPersonFee:finalFee/);
 });
 
 test('lets the admin publish a transfer account and members copy it',()=>{
@@ -73,8 +73,8 @@ test('lets the admin publish a transfer account and members copy it',()=>{
   assert.match(html,/id="confirmTransferAccount"[^>]*maxlength="40"/);
   assert.match(html,/id="editNextEventTransferBankCode"[^>]*maxlength="3"/);
   assert.match(html,/id="editNextEventTransferAccount"[^>]*maxlength="40"/);
-  assert.match(mainSource,/\.\.\.cleanTransferDetails\(src\.nextEvent\)/);
-  assert.match(mainSource,/id="copyNextEventTransferAccount"/);
+  assert.match(mainSource,/\.\.\.cleanTransferDetails\(event\)/);
+  assert.match(mainSource,/data-copy-next-event/);
   assert.match(mainSource,/navigator\.clipboard\.writeText\(account\)/);
   assert.match(mainSource,/favoriteTransferDetails:mergedTransfer/);
   assert.match(mainSource,/applyFavoriteTransferDetails\('editNextEventTransferBankCode','editNextEventTransferAccount'\)/);
@@ -94,14 +94,23 @@ test('lets the admin add players after voting closes and edit them later',()=>{
   assert.doesNotMatch(html,/id="confirmEventPlayers"/);
   assert.doesNotMatch(html,/id="editNextEventPlayers"/);
   assert.match(mainSource,/function pollParticipantIds\(optionId\)/);
-  assert.match(mainSource,/participantIds:cleanEventParticipantIds\(src\.nextEvent\.participantIds\)/);
+  assert.match(mainSource,/participantIds:cleanEventParticipantIds\(event\.participantIds\)/);
   assert.match(mainSource,/const participantIds=pollParticipantIds\(optionId\)/);
-  assert.match(mainSource,/finalEvent=\{[^}]*participantIds/);
+  assert.match(mainSource,/finalEvent=cleanNextEvent\(\{[^}]*participantIds/);
   assert.match(styles,/\.event-player-choices\{[^}]*display:grid/);
   assert.match(mainSource,/deadlineExpired&&isHost\?`<div class="poll-manual-controls">/);
   assert.match(mainSource,/data-add-manual-player/);
   assert.match(mainSource,/function addManualPollParticipant\(optionId\)/);
   assert.match(mainSource,/manualParticipants:cleanManualPollParticipants/);
+});
+
+test('keeps and renders multiple upcoming events without overwriting older announcements',()=>{
+  assert.match(mainSource,/nextEvent:null,nextEvents:\[\]/);
+  assert.match(mainSource,/function normalizeNextEvents\(source=\{\}\)/);
+  assert.match(mainSource,/events\.map\(e=>/);
+  assert.match(mainSource,/state\.nextEvents=upsertNextEvent\(previousEvents,updatedEvent\)/);
+  assert.match(mainSource,/tx\.update\(roomRef,\{nextEvent:finalEvent,nextEvents/);
+  assert.match(mainSource,/state\.nextEvents=events\.filter\(event=>event\.id!==target\.id\)/);
 });
 
 test('club announcements blend into the dashboard with a visible accent',()=>{
