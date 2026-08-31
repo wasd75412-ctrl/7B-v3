@@ -1,7 +1,7 @@
 import { getStore } from '@netlify/blobs';
 import webpush from 'web-push';
 import { PUSH_STORE, jsonResponse, validRoomId, validSubscription } from './lib/push-shared.mjs';
-import { shouldOpenWeeklyPoll, taipeiWeekSchedule, weeklyPollFirestoreValue, weeklyPollPushPayload } from './lib/weekly-poll.mjs';
+import { archivePollHistoryFirestoreValue, shouldOpenWeeklyPoll, taipeiWeekSchedule, weeklyPollFirestoreValue, weeklyPollPushPayload } from './lib/weekly-poll.mjs';
 
 const FIREBASE_PROJECT='badminton-7a1c3';
 const FIREBASE_API_KEY='AIzaSyBrakbTPK7UqEChPBI6pM8-i03IcLq0IvM';
@@ -24,10 +24,10 @@ async function listRooms(){
   return rooms;
 }
 
-async function openPoll(roomId,now){
+async function openPoll(roomId,document,now){
   const cycle=taipeiWeekSchedule(now).cycle;
-  const url=`${firestoreUrl(`badmintonRooms/${encodeURIComponent(roomId)}`)}&updateMask.fieldPaths=schedulePoll&updateMask.fieldPaths=weeklyPollCycle&updateMask.fieldPaths=updatedAt`;
-  const response=await fetch(url,{method:'PATCH',headers:{'content-type':'application/json'},body:JSON.stringify({fields:{schedulePoll:weeklyPollFirestoreValue(now),weeklyPollCycle:{stringValue:cycle},updatedAt:{timestampValue:new Date(now).toISOString()}}})});
+  const url=`${firestoreUrl(`badmintonRooms/${encodeURIComponent(roomId)}`)}&updateMask.fieldPaths=schedulePoll&updateMask.fieldPaths=pollHistory&updateMask.fieldPaths=weeklyPollCycle&updateMask.fieldPaths=updatedAt`;
+  const response=await fetch(url,{method:'PATCH',headers:{'content-type':'application/json'},body:JSON.stringify({fields:{schedulePoll:weeklyPollFirestoreValue(now),pollHistory:archivePollHistoryFirestoreValue(document,now),weeklyPollCycle:{stringValue:cycle},updatedAt:{timestampValue:new Date(now).toISOString()}}})});
   if(!response.ok)throw new Error(`Firestore ${roomId}: ${response.status}`);
 }
 
@@ -50,8 +50,8 @@ export default async()=>{
   if(publicKey&&privateKey&&siteUrl)webpush.setVapidDetails(process.env.VAPID_SUBJECT||siteUrl,publicKey,privateKey);
   const {store,result:byRoom}=await subscriptionsByRoom();
   let opened=0,sent=0,removed=0,failed=0;
-  for(const {id} of due){
-    try{await openPoll(id,now);opened++}catch(error){console.error(error);failed++;continue}
+  for(const {id,document} of due){
+    try{await openPoll(id,document,now);opened++}catch(error){console.error(error);failed++;continue}
     if(!publicKey||!privateKey||!siteUrl)continue;
     const payload=JSON.stringify(weeklyPollPushPayload({siteUrl,roomId:id,cycle:schedule.cycle}));
     for(const item of byRoom.get(id)||[]){

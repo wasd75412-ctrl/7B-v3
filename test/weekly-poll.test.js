@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { shouldOpenWeeklyPoll, taipeiWeekSchedule, weeklyPollFirestoreValue, weeklyPollPushPayload } from '../netlify/functions/lib/weekly-poll.mjs';
+import { archivePollHistoryFirestoreValue, shouldOpenWeeklyPoll, taipeiWeekSchedule, weeklyPollFirestoreValue, weeklyPollPushPayload } from '../netlify/functions/lib/weekly-poll.mjs';
 
 test('builds next week Monday through Sunday in Taipei with Saturday noon deadline',()=>{
   const now=Date.parse('2026-08-09T16:00:00.000Z'); // Monday 00:00 in Taipei
@@ -35,4 +35,12 @@ test('announces the new weekly poll and links directly to voting',()=>{
   assert.equal(payload.body,'下週球局投票已開放，請前往投票。');
   assert.equal(payload.url,'https://example.com/?room=7B%20room&page=poll');
   assert.equal(payload.tag,'7b-weekly-poll-7B room-2026-08-10');
+});
+
+test('archives the previous poll before a new weekly poll overwrites it',()=>{
+  const oldPoll={mapValue:{fields:{createdAt:{stringValue:'2026-08-24T04:00:00.000Z'},autoCycle:{stringValue:'2026-08-24'},options:{arrayValue:{values:[{mapValue:{fields:{id:{stringValue:'old-slot'}}}}]}},votes:{mapValue:{fields:{device:{stringValue:'old-slot'}}}}}}};
+  const result=archivePollHistoryFirestoreValue({fields:{schedulePoll:oldPoll}},Date.parse('2026-08-31T04:00:00.000Z'));
+  assert.equal(result.arrayValue.values.length,1);
+  assert.equal(result.arrayValue.values[0].mapValue.fields.id.stringValue,'2026-08-24');
+  assert.equal(result.arrayValue.values[0].mapValue.fields.votes.mapValue.fields.device.stringValue,'old-slot');
 });

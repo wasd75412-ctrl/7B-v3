@@ -166,6 +166,7 @@
     <div id="confirmEventPanel" class="poll-flow-section poll-finalize-panel host-only">
       <h3>確認球局並結束投票</h3>
       <div class="confirm-event-grid">
+        <label class="field"><span>投票輪次</span><select id="confirmPollRound" class="input"></select></label>
         <label class="field"><span>確定日期與開始時間</span><select id="confirmPollOption" class="input"></select></label>
         <label class="field"><span>結束時間</span><input id="confirmEndTime" class="input" type="time"></label>
         <div class="field location-field"><label for="confirmLocation">場地</label><div class="venue-picker"><input id="confirmLocation" class="input" autocomplete="off" placeholder="例如：立羽"><div id="confirmVenueOptions" class="venue-options hidden" role="listbox" aria-label="常用場地"></div></div><div class="venue-tools"><a id="confirmLocationMap" class="map-preview-link hidden" href="#" target="_blank" rel="noopener noreferrer">📍 在 Google Maps 查看</a><button id="saveConfirmVenue" class="venue-save-btn" type="button">＋ 常用</button></div></div>
