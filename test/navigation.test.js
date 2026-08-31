@@ -93,15 +93,24 @@ test('lets the admin publish a transfer account and members copy it',()=>{
 test('lets the admin add players after voting closes and edit them later',()=>{
   assert.doesNotMatch(html,/id="confirmEventPlayers"/);
   assert.doesNotMatch(html,/id="editNextEventPlayers"/);
-  assert.match(mainSource,/function pollParticipantIds\(optionId\)/);
+  assert.match(mainSource,/function pollParticipantIds\(optionId,poll=state\.schedulePoll\)/);
   assert.match(mainSource,/participantIds:cleanEventParticipantIds\(event\.participantIds\)/);
-  assert.match(mainSource,/const participantIds=pollParticipantIds\(optionId\)/);
+  assert.match(mainSource,/const participantIds=pollParticipantIds\(optionId,sourcePoll\)/);
   assert.match(mainSource,/finalEvent=cleanNextEvent\(\{[^}]*participantIds/);
   assert.match(styles,/\.event-player-choices\{[^}]*display:grid/);
   assert.match(mainSource,/deadlineExpired&&isHost\?`<div class="poll-manual-controls">/);
   assert.match(mainSource,/data-add-manual-player/);
   assert.match(mainSource,/function addManualPollParticipant\(optionId\)/);
   assert.match(mainSource,/manualParticipants:cleanManualPollParticipants/);
+});
+
+test('keeps previous poll results available after a new round starts',()=>{
+  assert.match(html,/id="confirmPollRound"/);
+  assert.match(mainSource,/pollHistory:cleanPollHistory\(src\.pollHistory\)/);
+  assert.match(mainSource,/function archiveCurrentPoll\(\)/);
+  assert.match(mainSource,/archiveCurrentPoll\(\);state\.schedulePoll=/);
+  assert.match(mainSource,/fromHistory\?cleanPollHistory\(remote\.pollHistory\)/);
+  assert.match(mainSource,/將從歷史投票發布，目前的新投票不受影響/);
 });
 
 test('keeps and renders multiple upcoming events without overwriting older announcements',()=>{

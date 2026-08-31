@@ -54,7 +54,7 @@ function normalizeAdminNotices(source){
   }).filter(notice=>{if(seen.has(notice.id))return false;seen.add(notice.id);return true}).sort((a,b)=>(Date.parse(b.publishedAt)||0)-(Date.parse(a.publishedAt)||0)).slice(0,20);
 }
 function setAdminNotices(rows){state.adminNotices=normalizeAdminNotices({adminNotices:rows});state.adminNotice=state.adminNotices[0]||null}
-const initialState=()=>({version:9.8,testMode:false,roster:[],retiredPlayers:[],adminPlayerIds:[],attendance:[],court:[],waitingQueue:[],queueDraftChosen:[],priority:null,lastLoserReplayPlayerId:null,match:{active:false,players:[[],[]],scores:[0,0],rallies:[],serving:0,positions:[[0,1],[0,1]],winner:null,startedAt:''},matchRollback:null,rules:{target:11,cap:15,deuce:true},history:[],matchReplayPlaylistTitle:'',matchReplayPlaylistUrl:'',nextCall:null,schedulePoll:{status:'open',createdAt:'',deadlineAt:'',autoCycle:'',options:[],votes:{},voterPlayers:{},manualParticipants:{}},nextEvent:null,nextEvents:[],adminNotice:null,adminNotices:[],shuttleTubes:[],shuttleLegacyActiveTubeId:'',shuttleNoTrackingTubeIds:[],updatedAt:null});
+const initialState=()=>({version:9.8,testMode:false,roster:[],retiredPlayers:[],adminPlayerIds:[],attendance:[],court:[],waitingQueue:[],queueDraftChosen:[],priority:null,lastLoserReplayPlayerId:null,match:{active:false,players:[[],[]],scores:[0,0],rallies:[],serving:0,positions:[[0,1],[0,1]],winner:null,startedAt:''},matchRollback:null,rules:{target:11,cap:15,deuce:true},history:[],matchReplayPlaylistTitle:'',matchReplayPlaylistUrl:'',nextCall:null,schedulePoll:{status:'open',createdAt:'',deadlineAt:'',autoCycle:'',options:[],votes:{},voterPlayers:{},manualParticipants:{}},pollHistory:[],nextEvent:null,nextEvents:[],adminNotice:null,adminNotices:[],shuttleTubes:[],shuttleLegacyActiveTubeId:'',shuttleNoTrackingTubeIds:[],updatedAt:null});
 const DEVICE_SYNC_CODE_KEY='bcmDeviceSyncCodeV1',DEVICE_SYNC_TOKEN_KEY='bcmDeviceSyncTokenV1',DEVICE_SYNC_NAME_KEY='bcmDeviceSyncNameV1',DEVICE_SYNC_PLAYER_KEY='bcmDeviceSyncPlayerV1';
 let state=initialState(), roomId='', roomRef=null, liveScoreRef=null, remoteControlRef=null, chatCollectionRef=null, isHost=false, hostToken='', adminPinHash='', unsubscribe=null, liveScoreUnsubscribe=null, remoteControlUnsubscribe=null, chatUnsubscribe=null, applying=false, saveTimer=null, liveScoreSaveTimer=null, matchAutoBackupTimer=null, editId=null;const expandedPlayerNotes=new Set();let profileOriginal=null,profileDirty={name:false,memberType:false,voiceName:false,racket:false,racketTension:false,racketString:false,backupRacket:false,backupTension:false,backupString:false,note:false};let voiceEnabled=localStorage.getItem('bdV76Voice')!=='0';let dismissedResultKey='';const selfToken=localStorage.getItem(DEVICE_SYNC_TOKEN_KEY)||localStorage.getItem('bdV73SelfToken')||randomToken();localStorage.setItem('bdV73SelfToken',selfToken);let selfHash='',scoreViewRequested=false,expandedShuttleTubeId='';
 let deviceProfileUnsubscribe=null,deviceProfileApplying=false,deviceProfileSaveTimer=null,identitySyncing=false,roomConnectInProgress=false;
@@ -291,6 +291,7 @@ function encodeState(src){
       votes:src.schedulePoll?.votes&&typeof src.schedulePoll.votes==='object'?src.schedulePoll.votes:{},
       voterPlayers:src.schedulePoll?.voterPlayers&&typeof src.schedulePoll.voterPlayers==='object'?src.schedulePoll.voterPlayers:{},manualParticipants:cleanManualPollParticipants(src.schedulePoll?.manualParticipants)
     },
+    pollHistory:cleanPollHistory(src.pollHistory),
     nextEvent:cleanNextEvent(src.nextEvent),
     nextEvents:normalizeNextEvents(src),
     adminNotice:notices[0]||null,
@@ -369,6 +370,7 @@ function decodeState(d){
       votes:d.schedulePoll?.votes&&typeof d.schedulePoll.votes==='object'?d.schedulePoll.votes:{},
       voterPlayers:d.schedulePoll?.voterPlayers&&typeof d.schedulePoll.voterPlayers==='object'?d.schedulePoll.voterPlayers:{},manualParticipants:cleanManualPollParticipants(d.schedulePoll?.manualParticipants)
     },
+    pollHistory:cleanPollHistory(d.pollHistory),
     nextEvent:cleanNextEvent(d.nextEvent),
     nextEvents:normalizeNextEvents(d),
     adminNotice:normalizeAdminNotices(d)[0]||null,
@@ -470,6 +472,9 @@ function cleanNextEvent(event){if(!event||typeof event!=='object'||!event.date)r
 function normalizeNextEvents(source={}){const rows=[...(Array.isArray(source.nextEvents)?source.nextEvents:[]),source.nextEvent].map(cleanNextEvent).filter(Boolean),seen=new Set();return rows.filter(event=>{const key=nextEventIdentity(event);if(seen.has(key))return false;seen.add(key);return true}).sort((a,b)=>(a.date+a.time).localeCompare(b.date+b.time)).slice(0,30)}
 function upsertNextEvent(rows,event){const clean=cleanNextEvent(event);if(!clean)return normalizeNextEvents({nextEvents:rows});return normalizeNextEvents({nextEvents:[...(Array.isArray(rows)?rows:[]).filter(row=>nextEventIdentity(row)!==clean.id),clean]})}
 function cleanManualPollParticipants(rows){if(!rows||typeof rows!=='object'||Array.isArray(rows))return{};return Object.fromEntries(Object.entries(rows).map(([optionId,ids])=>[String(optionId||'').trim(),cleanEventParticipantIds(ids)]).filter(([optionId,ids])=>optionId&&ids.length).slice(0,80))}
+function cleanPollHistory(rows){return(Array.isArray(rows)?rows:[]).filter(row=>row&&Array.isArray(row.options)&&row.options.length).map(row=>({id:String(row.id||row.autoCycle||row.createdAt||randomToken()),archivedAt:row.archivedAt||'',status:'closed',createdAt:row.createdAt||'',deadlineAt:row.deadlineAt||'',autoCycle:row.autoCycle||'',options:row.options.slice(0,40),votes:row.votes&&typeof row.votes==='object'?row.votes:{},voterPlayers:row.voterPlayers&&typeof row.voterPlayers==='object'?row.voterPlayers:{},manualParticipants:cleanManualPollParticipants(row.manualParticipants)})).slice(-8)}
+function archiveCurrentPoll(){const poll=state.schedulePoll;if(!poll?.options?.length)return;const snapshot={...poll,id:poll.autoCycle||poll.createdAt||randomToken(),archivedAt:new Date().toISOString(),status:'closed'};state.pollHistory=cleanPollHistory([...state.pollHistory.filter(row=>row.id!==snapshot.id),snapshot])}
+function confirmationPoll(){const id=$('confirmPollRound')?.value;return state.pollHistory.find(row=>row.id===id)||state.schedulePoll}
 const TRANSFER_DETAILS_KEY='bdVFavoriteTransferDetails';
 const TRANSFER_PICKERS=[['confirmTransferBankCode','confirmTransferAccount','confirmTransferOptions'],['editNextEventTransferBankCode','editNextEventTransferAccount','editTransferOptions']];
 function cleanFavoriteTransferAccounts(rows){const source=Array.isArray(rows)?rows:rows&&typeof rows==='object'?[rows]:[];const seen=new Set();return source.map(cleanTransferDetails).filter(row=>{const key=`${row.transferBankCode}|${row.transferAccount}`;if(!row.transferAccount||seen.has(key))return false;seen.add(key);return true}).slice(0,12)}
@@ -1135,18 +1140,18 @@ async function sendChatMessage(){
   }finally{chatSendRunning=false;updateChatSendButton();syncChatKeyboardViewport()}
 }
 function pollCounts(){const counts={};for(const o of state.schedulePoll.options||[])counts[o.id]=pollParticipantCount(o.id);return counts}
-function pollParticipantCount(optionId){
+function pollParticipantCount(optionId,poll=state.schedulePoll){
   if(!optionId)return 0;
   const participants=new Set();
-  for(const [deviceHash,value] of Object.entries(state.schedulePoll.votes||{})){
+  for(const [deviceHash,value] of Object.entries(poll.votes||{})){
     if(!pollSelectionList(value).includes(optionId))continue;
-    const playerId=state.schedulePoll.voterPlayers?.[deviceHash];
+    const playerId=poll.voterPlayers?.[deviceHash];
     participants.add(playerId?`player:${playerId}`:`device:${deviceHash}`);
   }
-  for(const playerId of cleanEventParticipantIds(state.schedulePoll.manualParticipants?.[optionId]))participants.add(`player:${playerId}`);
+  for(const playerId of cleanEventParticipantIds(poll.manualParticipants?.[optionId]))participants.add(`player:${playerId}`);
   return participants.size;
 }
-function pollParticipantIds(optionId){const ids=[];for(const [deviceHash,value] of Object.entries(state.schedulePoll.votes||{})){if(!pollSelectionList(value).includes(optionId))continue;const playerId=state.schedulePoll.voterPlayers?.[deviceHash];if(playerId)ids.push(playerId)}return cleanEventParticipantIds([...ids,...cleanEventParticipantIds(state.schedulePoll.manualParticipants?.[optionId])])}
+function pollParticipantIds(optionId,poll=state.schedulePoll){const ids=[];for(const [deviceHash,value] of Object.entries(poll.votes||{})){if(!pollSelectionList(value).includes(optionId))continue;const playerId=poll.voterPlayers?.[deviceHash];if(playerId)ids.push(playerId)}return cleanEventParticipantIds([...ids,...cleanEventParticipantIds(poll.manualParticipants?.[optionId])])}
 function addManualPollParticipant(optionId){if(!isHost||!isPollDeadlinePassed(state.schedulePoll))return alert('投票截止後才能新增球員。');const select=document.querySelector(`[data-manual-player="${CSS.escape(optionId)}"]`),playerId=select?.value;if(!playerId)return alert('請選擇要加入的球員。');const rows=cleanManualPollParticipants(state.schedulePoll.manualParticipants);rows[optionId]=cleanEventParticipantIds([...(rows[optionId]||[]),playerId]);state.schedulePoll.manualParticipants=rows;renderPoll();saveSoon()}
 function removeManualPollParticipant(optionId,playerId){const rows=cleanManualPollParticipants(state.schedulePoll.manualParticipants),next=(rows[optionId]||[]).filter(id=>id!==playerId);if(next.length)rows[optionId]=next;else delete rows[optionId];state.schedulePoll.manualParticipants=rows;renderPoll();saveSoon()}
 function pollOptionLabel(o){if(!o?.date)return '未設定日期';const d=new Date(`${o.date}T${o.time||'00:00'}`);const date=isNaN(d)?o.date:d.toLocaleDateString('zh-TW',{month:'long',day:'numeric',weekday:'short'}),time=o.time?` ${o.time}${o.endTime?`-${o.endTime}`:''}`:'';return `${date}${time}${o.note?` · ${o.note}`:''}`}
@@ -1160,11 +1165,12 @@ function updateConfirmFeePreview(){
 function updateConfirmParticipantDefault(){
   const optionId=$('confirmPollOption')?.value||'',input=$('confirmParticipants');
   if(!input)return;
-  if(input.dataset.optionId!==optionId){const isCurrent=state.nextEvent?.optionId===optionId;input.value=optionId?(isCurrent?wholeAmount(state.nextEvent.participantCount):pollParticipantCount(optionId))||'':'';input.dataset.optionId=optionId}
+  const poll=confirmationPoll(),key=`${poll.id||'current'}:${optionId}`;
+  if(input.dataset.optionId!==key){const isCurrent=state.nextEvent?.optionId===optionId;input.value=optionId?(isCurrent?wholeAmount(state.nextEvent.participantCount):pollParticipantCount(optionId,poll))||'':'';input.dataset.optionId=key}
 }
 function suggestedEndTime(time){const match=String(time||'').match(/^(\d{2}):(\d{2})$/);if(!match)return'';const minutes=(+match[1]*60+ +match[2]+180)%(24*60);return `${String(Math.floor(minutes/60)).padStart(2,'0')}:${String(minutes%60).padStart(2,'0')}`}
 function updateConfirmOptionDetails(){
-  const option=(state.schedulePoll.options||[]).find(item=>item.id===$('confirmPollOption')?.value),endInput=$('confirmEndTime'),locationInput=$('confirmLocation');
+  const option=(confirmationPoll().options||[]).find(item=>item.id===$('confirmPollOption')?.value),endInput=$('confirmEndTime'),locationInput=$('confirmLocation');
   if(endInput&&option?.time)endInput.value=option.endTime||suggestedEndTime(option.time);
   if(locationInput){
     if(option?.note&&(!locationInput.value.trim()||locationInput.dataset.autoVenue==='1')){locationInput.value=option.note;locationInput.dataset.autoVenue='1'}
@@ -1201,9 +1207,10 @@ function renderPoll(){
   all('[data-remove-manual-player]').forEach(button=>button.onclick=event=>{event.preventDefault();event.stopPropagation();removeManualPollParticipant(button.dataset.removeManualOption,button.dataset.removeManualPlayer)});
   const cp=$('confirmPollOption');
   if(cp){
-    const hasCurrentEventOption=options.some(o=>o.id===state.nextEvent?.optionId),current=cp.value||(hasCurrentEventOption?state.nextEvent.optionId:'');
-    cp.innerHTML='<option value="">請選擇已確定的日期</option>'+options.map(o=>`<option value="${o.id}">${esc(pollOptionLabel(o))}</option>`).join('');
-    cp.value=options.some(o=>o.id===current)?current:'';
+    const round=$('confirmPollRound'),previousRound=round.value,rounds=[{id:'',label:'目前這一輪'},...state.pollHistory.slice().reverse().map(row=>({id:row.id,label:`歷史：${row.options[0]?.date||row.createdAt.slice(0,10)} 起`}))];round.innerHTML=rounds.map(row=>`<option value="${esc(row.id)}">${esc(row.label)}</option>`).join('');round.value=rounds.some(row=>row.id===previousRound)?previousRound:'';
+    const selectedOptions=confirmationPoll().options||[],hasCurrentEventOption=selectedOptions.some(o=>o.id===state.nextEvent?.optionId),current=cp.value||(hasCurrentEventOption?state.nextEvent.optionId:'');
+    cp.innerHTML='<option value="">請選擇已確定的日期</option>'+selectedOptions.map(o=>`<option value="${o.id}">${esc(pollOptionLabel(o))}</option>`).join('');
+    cp.value=selectedOptions.some(o=>o.id===current)?current:'';
     if(hasCurrentEventOption){const transferDetails=cleanTransferDetails(state.nextEvent);$('confirmLocation').value=state.nextEvent.location||'';$('confirmLocation').dataset.autoVenue='0';$('confirmEventNote').value=state.nextEvent.note||'';$('confirmRentalTotal').value=state.nextEvent.rentalTotal||'';$('confirmTransferBankCode').value=transferDetails.transferBankCode;$('confirmTransferAccount').value=transferDetails.transferAccount;$('confirmEndTime').value=state.nextEvent.endTime||''}else applyFavoriteTransferDetails('confirmTransferBankCode','confirmTransferAccount');
     updateConfirmParticipantDefault();
     $('clearNextEvent').disabled=!state.nextEvent?.date;
@@ -1261,16 +1268,16 @@ async function saveNextEventEdits(){
 }
 async function confirmNextEvent(){
   if(!isHost)return alert('只有管理員可以結束投票。');
-  const optionId=$('confirmPollOption').value,option=(state.schedulePoll.options||[]).find(o=>o.id===optionId),endTime=$('confirmEndTime').value,location=$('confirmLocation').value.trim(),note=$('confirmEventNote').value.trim(),transferBankCode=cleanTransferBankCode($('confirmTransferBankCode').value),transferAccount=cleanTransferAccount($('confirmTransferAccount').value);
+  const selectedRoundId=$('confirmPollRound').value,sourcePoll=confirmationPoll(),fromHistory=!!selectedRoundId,optionId=$('confirmPollOption').value,option=(sourcePoll.options||[]).find(o=>o.id===optionId),endTime=$('confirmEndTime').value,location=$('confirmLocation').value.trim(),note=$('confirmEventNote').value.trim(),transferBankCode=cleanTransferBankCode($('confirmTransferBankCode').value),transferAccount=cleanTransferAccount($('confirmTransferAccount').value);
   if(!option)return alert('請先選擇已確定的日期與開始時間。');
   if(!endTime)return alert('請設定結束時間。');
   if(endTime<=option.time)return alert('結束時間必須晚於開始時間。');
   if(!location)return alert('請填寫已預約的場地。');
-  const participantIds=pollParticipantIds(optionId);if(participantIds.length)$('confirmParticipants').value=participantIds.length;
+  const participantIds=pollParticipantIds(optionId,sourcePoll);if(participantIds.length)$('confirmParticipants').value=participantIds.length;
   const {rentalTotal,participantCount,perPersonFee}=updateConfirmFeePreview();
   if(!rentalTotal)return alert('請填寫場租總金額。');
   if(!participantCount)return alert('請填寫預計參與人數。');
-  const summary=`${formatEventDate(option.date,option.time,endTime)}\n${location}${note?`\n場地備註：${note}`:''}\n場租 ${formatMoney(rentalTotal)} 元｜每人 ${formatMoney(perPersonFee)} 元${transferAccount?`\n銀行代碼：${transferBankCode||'未填'}｜帳號：${transferAccount}`:''}\n\n結束後會刪除全部候選日期與票數。`;
+  const summary=`${formatEventDate(option.date,option.time,endTime)}\n${location}${note?`\n場地備註：${note}`:''}\n場租 ${formatMoney(rentalTotal)} 元｜每人 ${formatMoney(perPersonFee)} 元${transferAccount?`\n銀行代碼：${transferBankCode||'未填'}｜帳號：${transferAccount}`:''}${fromHistory?'\n\n將從歷史投票發布，目前的新投票不受影響。':'\n\n本輪投票會封存後結束。'}`;
   if(!confirm(`確定發布球局並結束投票？\n\n${summary}`))return;
   const button=$('confirmNextEvent'),publishedAt=new Date().toISOString();
   button.disabled=true;button.textContent='發布球局中…';
@@ -1279,17 +1286,18 @@ async function confirmNextEvent(){
     await runTransaction(db,async tx=>{
       const snapshot=await tx.get(roomRef);
       if(!snapshot.exists())throw new Error('球局不存在。');
-      const remote=snapshot.data(),poll=remote.schedulePoll||{};
-      if(pollWasFinalized(poll))throw new Error('這次投票已由另一台裝置發布完成。');
+      const remote=snapshot.data(),poll=fromHistory?cleanPollHistory(remote.pollHistory).find(row=>row.id===selectedRoundId):remote.schedulePoll||{};
+      if(!poll)throw new Error('找不到這一輪歷史投票，請重新整理。');
+      if(!fromHistory&&pollWasFinalized(poll))throw new Error('這次投票已由另一台裝置發布完成。');
       const remoteOption=(Array.isArray(poll.options)?poll.options:[]).find(item=>item.id===optionId);
       if(!remoteOption)throw new Error('候選日期已變更，請重新確認。');
       finalFee=calculatePerPersonFee(rentalTotal,participantCount);
       finalEvent=cleanNextEvent({id:randomToken(),optionId:remoteOption.id,date:remoteOption.date,time:remoteOption.time||'',endTime,location,note,participantIds,transferBankCode,transferAccount,rentalTotal,participantCount,perPersonFee:finalFee,publishedAt});
       const nextEvents=upsertNextEvent(normalizeNextEvents(remote),finalEvent);
-      tx.update(roomRef,{nextEvent:finalEvent,nextEvents,schedulePoll:{status:'closed',createdAt:poll.createdAt||'',deadlineAt:'',options:[],votes:{},voterPlayers:{}},updatedAt:serverTimestamp()});
+      if(fromHistory)tx.update(roomRef,{nextEvent:finalEvent,nextEvents,updatedAt:serverTimestamp()});else{const history=cleanPollHistory([...(remote.pollHistory||[]),{...poll,id:poll.autoCycle||poll.createdAt||randomToken(),archivedAt:publishedAt,status:'closed'}]);tx.update(roomRef,{nextEvent:finalEvent,nextEvents,pollHistory:history,schedulePoll:{status:'closed',createdAt:poll.createdAt||'',deadlineAt:'',options:[],votes:{},voterPlayers:{}},updatedAt:serverTimestamp()})}
     });
     state.nextEvents=upsertNextEvent(normalizeNextEvents(state),finalEvent);state.nextEvent=finalEvent;saveFavoriteTransferDetails(transferBankCode,transferAccount);
-    state.schedulePoll={status:'closed',createdAt:state.schedulePoll.createdAt||'',deadlineAt:'',options:[],votes:{},voterPlayers:{}};
+    if(!fromHistory){archiveCurrentPoll();state.schedulePoll={status:'closed',createdAt:state.schedulePoll.createdAt||'',deadlineAt:'',options:[],votes:{},voterPlayers:{}}}
     renderDashboard();renderPoll();setSync('已同步','online');
   }catch(error){
     button.disabled=false;button.textContent='確認並結束投票';
@@ -1300,8 +1308,8 @@ async function confirmNextEvent(){
   button.disabled=false;button.textContent='確認並結束投票';
   alert(`已結束投票並發布球局。\n每人需繳 ${formatMoney(finalFee)} 元。${pushMessage}`);
 }
+async function startNewPoll(){if(!confirm('建立新投票？目前的球局公告會保留在總覽。'))return;archiveCurrentPoll();state.schedulePoll={status:'open',createdAt:new Date().toISOString(),deadlineAt:'',options:[],votes:{},voterPlayers:{},manualParticipants:{}};['confirmPollOption','confirmEndTime','confirmLocation','confirmParticipants','confirmRentalTotal','confirmPerPersonFee','confirmTransferBankCode','confirmTransferAccount','confirmEventNote'].forEach(id=>{const input=$(id);if(input){input.value='';delete input.dataset.optionId}});applyFavoriteTransferDetails('confirmTransferBankCode','confirmTransferAccount');renderPoll();renderDashboard();try{await saveNow();alert('新投票已建立，上一輪結果已保留。')}catch(error){saveSoon();alert(`新投票已建立，但雲端同步尚未完成：${formatError(error)}`)}}
 function clearNextEvent(input=''){const eventId=typeof input==='string'?input:(state.nextEvent?.id||nextEventIdentity(state.nextEvent)),events=normalizeNextEvents(state),target=events.find(event=>event.id===eventId)||cleanNextEvent(state.nextEvent);if(!target)return;if(!confirm(`確定刪除這筆球局公告？\n\n${formatEventDate(target.date,target.time,target.endTime)}`))return;state.nextEvents=events.filter(event=>event.id!==target.id);state.nextEvent=state.nextEvents[0]||null;closeNextEventEditor();renderDashboard();renderPoll();saveSoon()}
-async function startNewPoll(){if(!confirm('建立新投票？目前的球局公告會保留在總覽。'))return;state.schedulePoll={status:'open',createdAt:new Date().toISOString(),deadlineAt:'',options:[],votes:{},voterPlayers:{}};['confirmPollOption','confirmEndTime','confirmLocation','confirmParticipants','confirmRentalTotal','confirmPerPersonFee','confirmTransferBankCode','confirmTransferAccount','confirmEventNote'].forEach(id=>{const input=$(id);if(input){input.value='';delete input.dataset.optionId}});applyFavoriteTransferDetails('confirmTransferBankCode','confirmTransferAccount');renderPoll();renderDashboard();try{await saveNow();alert('新投票已建立，現在可以新增候選日期。')}catch(error){saveSoon();alert(`新投票已建立，但雲端同步尚未完成：${formatError(error)}`)}}
 async function submitPollVote(){
   if(isPollClosed(state.schedulePoll))return alert('投票已截止。');
   const voterId=$('pollVoter').value;
@@ -2699,6 +2707,7 @@ $('adminLoginBtn').onclick=async()=>{
   }
 };
 $('confirmPollOption').addEventListener('change',updateConfirmOptionDetails);
+$('confirmPollRound').addEventListener('change',()=>{delete $('confirmParticipants').dataset.optionId;$('confirmPollOption').value='';renderPoll();updateConfirmOptionDetails()});
 $('confirmRentalTotal').addEventListener('input',updateConfirmFeePreview);
 $('confirmParticipants').addEventListener('input',updateConfirmFeePreview);
 $('pollNote').addEventListener('input',()=>updateMapPreview('pollNote','pollLocationMap'));
