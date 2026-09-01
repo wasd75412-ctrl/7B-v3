@@ -3609,11 +3609,17 @@ body>.modal .modal-card :is(.profile-panel,.profile-section,.stat-box,.health-bo
   box-shadow:0 4px 12px rgba(255,73,103,.35)
 }
 .chat-page{
+  display:flex;
+  flex-direction:column;
+  height:calc(100dvh - 152px);
+  min-height:540px;
   overflow:hidden;
   background:
     radial-gradient(circle at 92% 0,rgba(var(--sport-tint-rgb),.16),transparent 35%),
     linear-gradient(145deg,rgba(var(--sport-tint-rgb),.075),rgba(2,20,34,.82))!important
 }
+.chat-page.hidden{display:none!important}
+.chat-page>.history-head{flex:0 0 auto}
 .chat-connection{
   display:inline-flex;
   align-items:center;
@@ -3729,10 +3735,14 @@ body>.modal .modal-card :is(.profile-panel,.profile-section,.stat-box,.health-bo
 }
 .chat-mention-all{color:#ffe08a}
 .chat-messages{
-  min-height:380px;
-  max-height:min(56vh,620px);
-  overflow:auto;
+  flex:1 1 auto;
+  min-height:0;
+  max-height:none;
+  overflow-y:auto;
+  overflow-x:hidden;
   overscroll-behavior:contain;
+  touch-action:pan-y;
+  -webkit-overflow-scrolling:touch;
   scroll-behavior:smooth;
   padding:18px;
   border:1px solid rgba(var(--sport-tint-rgb),.20);
@@ -3832,9 +3842,9 @@ body>.modal .modal-card :is(.profile-panel,.profile-section,.stat-box,.health-bo
 .chat-empty strong{color:var(--sport-ink);font-size:1.05rem}
 .chat-empty span{font-weight:750}
 .chat-composer{
-  position:sticky;
-  bottom:0;
-  z-index:2;
+  position:relative;
+  flex:0 0 auto;
+  z-index:5;
   margin-top:12px;
   padding:12px;
   border:1px solid rgba(var(--sport-tint-rgb),.22);
@@ -3925,10 +3935,19 @@ body>.modal .modal-card :is(.profile-panel,.profile-section,.stat-box,.health-bo
   cursor:pointer
 }
 .chat-autocomplete{
+  position:absolute;
+  right:9px;
+  bottom:calc(100% - 4px);
+  left:9px;
   display:grid;
   grid-template-columns:repeat(2,minmax(0,1fr));
   gap:7px;
-  margin-top:8px;
+  max-height:min(42dvh,320px);
+  margin:0;
+  overflow-y:auto;
+  overscroll-behavior:contain;
+  touch-action:pan-y;
+  -webkit-overflow-scrolling:touch;
   padding:9px;
   border:1px solid rgba(var(--sport-tint-rgb),.28);
   border-radius:15px;
@@ -3992,9 +4011,6 @@ body>.modal .modal-card :is(.profile-panel,.profile-section,.stat-box,.health-bo
 .chat-status.error{color:#ff91a5}
 .chat-status.pending{color:rgb(var(--sport-tint-rgb))}
 
-html.chat-keyboard-open .chat-page{
-  padding-bottom:var(--chat-composer-height,180px)!important
-}
 html.chat-keyboard-open .chat-composer{
   position:fixed;
   right:max(8px,env(safe-area-inset-right));
@@ -4006,7 +4022,6 @@ html.chat-keyboard-open .chat-composer{
   box-shadow:0 -12px 38px rgba(0,7,16,.38)
 }
 html.chat-keyboard-open .chat-autocomplete{
-  position:absolute;
   right:8px;
   bottom:calc(100% - 5px);
   left:8px;
@@ -4248,10 +4263,10 @@ html.chat-keyboard-open .chat-autocomplete{
 }
 .chat-composer-foot .btn{min-width:96px}
 @media(max-width:680px){
-  .chat-page{padding:15px}
+  .chat-page{height:calc(100dvh - 128px);min-height:460px;padding:15px}
   .chat-identity-row{grid-template-columns:1fr}
   .chat-identity-row>.btn{width:100%}
-  .chat-messages{min-height:52vh;max-height:58vh;padding:13px}
+  .chat-messages{min-height:0;max-height:none;padding:13px}
   .chat-message{width:92%}
   .chat-composer{padding:9px}
   .chat-attach-btn{width:46px;min-width:46px}

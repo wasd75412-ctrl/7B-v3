@@ -1054,7 +1054,7 @@ function renderChat(){
   claimButton?.classList.toggle('hidden',!!claimedPlayer);
   if(composer){
     composer.disabled=!claimedPlayer;
-    composer.placeholder=claimedPlayer?'輸入 @ 標記球友，或輸入 @All 通知所有人':'請先認領自己的球員資料';
+    composer.placeholder=claimedPlayer?'輸入訊息；輸入 @ 可標記球友':'請先到球員頁認領自己的資料';
   }
   setChatAttachDisabled(!claimedPlayer||chatSendRunning);
   if(mentionButton)mentionButton.disabled=!claimedPlayer;
@@ -1108,8 +1108,15 @@ function startChatSync(){
     }finally{chatRequestRunning=false}
   };
   void load();
-  const timer=setInterval(load,2800);
-  chatUnsubscribe=()=>clearInterval(timer);
+  const timer=setInterval(load,1200);
+  const refresh=()=>{if(chatPageVisible())void load()};
+  document.addEventListener('visibilitychange',refresh);
+  window.addEventListener('focus',refresh);
+  chatUnsubscribe=()=>{
+    clearInterval(timer);
+    document.removeEventListener('visibilitychange',refresh);
+    window.removeEventListener('focus',refresh);
+  };
 }
 async function sendChatMessage(){
   const button=$('sendChat'),composer=$('chatComposer'),senderId=selectedChatPlayerId(),sender=player(senderId),text=cleanChatText(composer.value,CHAT_MESSAGE_MAX_LENGTH);

@@ -245,7 +245,19 @@ test('automatically returns infrequent visitors to their last successful room',(
 test('chat identity is claimed and cannot be selected from a player list',()=>{
   assert.match(html,/id="chatIdentity"/);
   assert.match(html,/id="chatClaimHelp"/);
+  assert.match(html,/class="chat-identity-row hidden" aria-hidden="true"/);
   assert.doesNotMatch(html,/id="chatPlayer"/);
+});
+
+test('chat uses a fixed conversation layout with a contained mention picker',()=>{
+  assert.match(styles,/\.chat-page\{[\s\S]*display:flex;[\s\S]*height:calc\(100dvh - 152px\)/);
+  assert.match(styles,/\.chat-messages\{[\s\S]*flex:1 1 auto;[\s\S]*overscroll-behavior:contain/);
+  assert.match(styles,/\.chat-autocomplete\{[\s\S]*position:absolute;[\s\S]*overflow-y:auto;[\s\S]*overscroll-behavior:contain/);
+});
+
+test('chat checks for incoming messages with lower delay',()=>{
+  assert.match(mainSource,/setInterval\(load,1200\)/);
+  assert.match(mainSource,/document\.addEventListener\('visibilitychange',refresh\)/);
 });
 
 test('chat supports image, GIF and short-video attachments',()=>{
