@@ -3619,6 +3619,7 @@ body>.modal .modal-card :is(.profile-panel,.profile-section,.stat-box,.health-bo
     linear-gradient(145deg,rgba(var(--sport-tint-rgb),.075),rgba(2,20,34,.82))!important
 }
 .chat-page.hidden{display:none!important}
+#app:has(> .chat-page:not(.hidden)){padding-bottom:0}
 .chat-page>.history-head{flex:0 0 auto}
 .chat-connection{
   display:inline-flex;
@@ -4268,7 +4269,7 @@ html.chat-keyboard-open .chat-autocomplete{
   .chat-identity-row>.btn{width:100%}
   .chat-messages{min-height:0;max-height:none;padding:13px}
   .chat-message{width:92%}
-  .chat-composer{padding:9px}
+  .chat-composer{padding:9px 9px max(9px,env(safe-area-inset-bottom))}
   .chat-attach-btn{width:46px;min-width:46px}
   .chat-media{max-height:48vh}
   .chat-autocomplete{grid-template-columns:1fr}

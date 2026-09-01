@@ -251,8 +251,10 @@ test('chat identity is claimed and cannot be selected from a player list',()=>{
 
 test('chat uses a fixed conversation layout with a contained mention picker',()=>{
   assert.match(styles,/\.chat-page\{[\s\S]*display:flex;[\s\S]*height:calc\(100dvh - 152px\)/);
+  assert.match(styles,/#app:has\(> \.chat-page:not\(\.hidden\)\)\{padding-bottom:0\}/);
   assert.match(styles,/\.chat-messages\{[\s\S]*flex:1 1 auto;[\s\S]*overscroll-behavior:contain/);
   assert.match(styles,/\.chat-autocomplete\{[\s\S]*position:absolute;[\s\S]*overflow-y:auto;[\s\S]*overscroll-behavior:contain/);
+  assert.match(styles,/\.chat-composer\{padding:9px 9px max\(9px,env\(safe-area-inset-bottom\)\)\}/);
 });
 
 test('chat checks for incoming messages with lower delay',()=>{
