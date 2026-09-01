@@ -201,7 +201,7 @@
 
   <section id="page8" class="card page chat-page hidden">
     <div class="history-head"><div><h2 style="margin:0">💬 球員聊天室</h2></div><span id="chatConnection" class="chat-connection">連線中</span></div>
-    <div class="chat-identity-row">
+    <div class="chat-identity-row hidden" aria-hidden="true">
       <div id="chatIdentity" class="chat-identity-card" role="status" aria-live="polite"><span class="avatar tiny">?</span><span><small>讀取認領身分</small><strong>請稍候</strong></span></div>
       <button id="chatClaimHelp" class="btn hidden" type="button">前往認領球員</button>
       <button id="chatMentionToggle" class="btn" type="button" aria-expanded="false" aria-controls="chatMentionPanel">@ 標記球友</button>
@@ -219,7 +219,7 @@
           <span aria-hidden="true">📎</span>
           <input id="chatMediaFile" class="chat-media-file" type="file" accept="image/jpeg,image/png,image/webp,image/gif,video/mp4,video/webm,video/quicktime">
         </label>
-        <textarea id="chatComposer" class="input viewer-enabled" rows="2" maxlength="500" enterkeyhint="send" placeholder="輸入 @ 標記球友，或輸入 @All 通知所有人"></textarea>
+        <textarea id="chatComposer" class="input viewer-enabled" rows="1" maxlength="500" enterkeyhint="send" placeholder="輸入訊息；輸入 @ 可標記球友"></textarea>
       </div>
       <div id="chatAutocomplete" class="chat-autocomplete hidden" role="listbox" aria-label="可標記的球員"></div>
       <div class="chat-composer-foot"><span id="chatStatus" class="chat-status" role="status" aria-live="polite">確認認領身分後即可聊天</span><button id="sendChat" class="btn primary" type="button">傳送</button></div>
