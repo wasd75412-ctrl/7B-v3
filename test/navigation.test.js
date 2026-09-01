@@ -113,6 +113,11 @@ test('keeps previous poll results available after a new round starts',()=>{
   assert.match(mainSource,/將從歷史投票發布，目前的新投票不受影響/);
 });
 
+test('the page stops at its bottom without exposing overscroll whitespace',()=>{
+  assert.match(styles,/html\{overscroll-behavior:none\}/);
+  assert.match(styles,/body\{min-height:100dvh;overscroll-behavior-y:none\}/);
+});
+
 test('keeps and renders multiple upcoming events without overwriting older announcements',()=>{
   assert.match(mainSource,/nextEvent:null,nextEvents:\[\]/);
   assert.match(mainSource,/function normalizeNextEvents\(source=\{\}\)/);
