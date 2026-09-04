@@ -591,7 +591,7 @@ function renderDashboard() {
         recordedGames=scoredHistory(),
         monthGames = recordedGames.filter(h => historyDate(h).startsWith(month)),
         monthPlayers = new Set(monthGames.flatMap(h => (h.teams || []).flat()).filter(Boolean));
-    if($('endSessionBtn'))$('endSessionBtn').disabled=!hasCurrentMatch&&!state.nextCall&&!state.attendance.length;
+    for(const id of['endSessionBtn','resultEndSessionBtn'])if($(id))$(id).disabled=!hasCurrentMatch&&!state.nextCall&&!state.attendance.length;
 
     $('clubMetrics').innerHTML = `
         <div class="club-metric"><span class="club-metric-icon">🏸</span><span><strong>${monthGames.length}</strong><small>本月比賽</small></span></div>
@@ -2548,10 +2548,10 @@ async function deleteAdminNotice(id=''){
     setAdminNoticeFeedback(`刪除失敗，公告已保留：${formatError(error)}`,'error');
   }
 }
-async function endTodaySession(){
+async function endTodaySession(triggerButton=null){
   if(!isHost)return;
   if(!confirm('確定結束今日球局？\n\n系統會先同步並建立完整備份，再清除目前比分、下一場叫號、出席與候場；已完成的比賽紀錄會保留。'))return;
-  const button=$('endSessionBtn'),originalText=button?.textContent||'結束今日球局',beforeEnd=structuredClone(state);
+  const button=triggerButton||$('endSessionBtn'),originalText=button?.textContent||'結束今日球局',beforeEnd=structuredClone(state);
   let backupCreated=false;
   if(button){button.disabled=true;button.textContent='同步與備份中…'}
   try{
@@ -2673,7 +2673,8 @@ $('saveAdminNotice').onclick=publishAdminNotice;
 $('cancelAdminNoticeEdit').onclick=()=>resetAdminNoticeEditor(true);
 $('closeAdminNotice').onclick=closeAdminNoticeManager;
 $('adminNoticeBody').addEventListener('keydown',event=>{if((event.ctrlKey||event.metaKey)&&event.key==='Enter')publishAdminNotice()});
-$('endSessionBtn').onclick=endTodaySession;
+$('endSessionBtn').onclick=()=>endTodaySession($('endSessionBtn'));
+$('resultEndSessionBtn').onclick=()=>endTodaySession($('resultEndSessionBtn'));
 if($('editNextEventFromPoll'))$('editNextEventFromPoll').onclick=openNextEventEditor;
 $('closeNextEventEditor').onclick=closeNextEventEditor;
 $('cancelNextEventEdits').onclick=closeNextEventEditor;
