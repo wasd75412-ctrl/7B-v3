@@ -165,11 +165,9 @@ function renderAndroidRemote(){
   $('androidRemoteRecordingToggle').setAttribute('aria-pressed',recordingModeEnabled?'true':'false');
   $('androidRemoteRecordingToggle').disabled=!keyAccessEnabled||!isHost;
   $('androidRemoteOpenCamera').disabled=!keyAccessEnabled||!isHost;
-  $('androidRemoteRecordingHint').textContent=!keyAccessEnabled?'請先開啟按鍵存取權限。':!isHost?'請先完成管理員登入。':recordingModeEnabled?'錄影計分已開啟；切到相機後遙控器仍會控制比分。':'按「開啟相機錄影」後會先連接即時比分，再切到相機。';
   $('androidRemotePermission').classList.toggle('hidden',isHost);
   $('androidRemoteIdle').classList.toggle('hidden',isHost&&match.active&&match.winner===null);
   $('androidRemoteIdle').querySelector('strong').textContent=!isHost?'🔒 尚未取得管理員權限':match.winner!==null?'🏁 本場比賽結束':'🏸 等待比賽開始';
-  $('androidRemoteIdle').querySelector('span').textContent=!isHost?'請點上方按鈕輸入管理員 PIN。':match.winner!==null?'請在 iPad 安排並開始下一場。':'請先在 iPad 安排球員並開始比賽。';
   $('androidRemoteMatch').classList.toggle('hidden',!isHost||!match.active);
   $('androidRemoteScoreA').textContent=match.scores?.[0]??0;$('androidRemoteScoreB').textContent=match.scores?.[1]??0;
   $('androidRemoteNamesA').textContent=(match.players?.[0]||[]).map(pname).join('／')||'—';$('androidRemoteNamesB').textContent=(match.players?.[1]||[]).map(pname).join('／')||'—';
@@ -1054,7 +1052,7 @@ function renderChat(){
   claimButton?.classList.toggle('hidden',!!claimedPlayer);
   if(composer){
     composer.disabled=!claimedPlayer;
-    composer.placeholder=claimedPlayer?'輸入訊息；輸入 @ 可標記球友':'請先到球員頁認領自己的資料';
+    composer.placeholder=claimedPlayer?'輸入訊息':'請先認領球員';
   }
   setChatAttachDisabled(!claimedPlayer||chatSendRunning);
   if(mentionButton)mentionButton.disabled=!claimedPlayer;
@@ -1511,7 +1509,7 @@ async function connectRoom(id){
     updateCurrentRoomControls();
     $('roleBadge').textContent=isHost?'管理員':'觀看者';
     $('roleBadge').className='pill '+(isHost?'host':'');
-    $('viewerNote').classList.toggle('hidden',isHost);
+    $('viewerNote')?.classList.toggle('hidden',isHost);
     applyRole();
     renderAndroidRemote();
     updatePushNotificationButton();
@@ -1531,7 +1529,7 @@ async function connectRoom(id){
         rememberRoom(id,true);
         $('roleBadge').textContent='管理員';
         $('roleBadge').className='pill host';
-        $('viewerNote').classList.add('hidden');
+        $('viewerNote')?.classList.add('hidden');
         applyRole();
         renderAndroidRemote();
         if(navigator.onLine)setTimeout(ensureGenesisAndDaily,900);
@@ -2336,7 +2334,7 @@ function renderShuttleTubeManager(){
   const finished=tubes.filter(tube=>tube.status==='finished');
   const deleted=tubes.filter(tube=>tube.status==='deleted');
   if(!tubes.length){
-    list.innerHTML='<div class="shuttle-tube-empty"><strong>尚未建立球桶</strong><span>輸入用球名稱與一桶 12 顆的價格後，即可開始記錄。</span></div>';
+    list.innerHTML='<div class="shuttle-tube-empty"><strong>尚未建立球桶</strong></div>';
     return;
   }
   const costPanel=tube=>{
@@ -2703,7 +2701,7 @@ $('adminLoginBtn').onclick=async()=>{
     isHost=false;
     $('roleBadge').textContent='觀看者';
     $('roleBadge').className='pill';
-    $('viewerNote').classList.remove('hidden');
+    $('viewerNote')?.classList.remove('hidden');
     renderAll();
     alert('已登出管理員。此裝置目前為一般使用者模式，可隨時使用 PIN 再登入。');
     return;
