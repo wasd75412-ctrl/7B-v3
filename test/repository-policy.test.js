@@ -18,3 +18,10 @@ test('runs the shared policy workflow for every pushed branch and pull request',
   assert.match(workflow,/run: npm test/);
   assert.match(workflow,/run: npm run build/);
 });
+
+test('keeps interface copy concise across current and future branches',()=>{
+  assert.match(agents,/介面文字保持簡潔/);
+  assert.match(agents,/不得自行新增教學式、重複式、宣傳式或長篇功能備註/);
+  assert.match(agents,/危險操作確認及實際結果/);
+  assert.match(agents,/新增功能應優先以清楚命名與版面呈現，不以額外備註補救/);
+});
