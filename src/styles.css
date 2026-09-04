@@ -4545,6 +4545,8 @@ html.chat-keyboard-open .chat-autocomplete{
 .score-view .score-foot{display:none}
 .history-item.test-record{border-color:#d49b21;background:rgba(255,195,66,.10)}.test-record-badge{display:inline-block;border-radius:999px;padding:3px 7px;background:#f0b429;color:#352300;font-size:.72rem;font-weight:1000;vertical-align:.1em}
 #resultModal>.modal-card>.sub{display:none}
+#resultModal .result-footer{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-top:10px}
+#resultModal #resultEndSessionBtn{margin-left:auto}
 
 /* BCM 2.6.30 — keep the 7B artwork edge clean without a white icon frame. */
 .splash-logo,#app .top .brand-logo,#landing .landing-brand img{border:0!important;outline:0!important}
