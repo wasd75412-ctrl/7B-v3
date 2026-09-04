@@ -4551,3 +4551,6 @@ html.chat-keyboard-open .chat-autocomplete{
 /* BCM 2.6.30 — keep the 7B artwork edge clean without a white icon frame. */
 .splash-logo,#app .top .brand-logo,#landing .landing-brand img{border:0!important;outline:0!important}
 .splash-logo{box-shadow:0 24px 70px rgba(0,11,24,.35),0 0 44px rgba(41,216,242,.14)!important}
+
+/* BCM 2.6.49 — keep secondary UI copy concise. */
+#viewerNote,#backupList .backup-loading,#backupList .poll-empty,.shuttle-tube-empty span{display:none!important}

@@ -45,7 +45,7 @@
           <button id="adminNoticeManagerBtn" class="btn host-only" type="button">📣 事務公告</button>
           <button id="recruitingMessageBtn" class="btn host-only" type="button">💬 揪人訊息</button>
           <button id="shuttleTubeManagerBtn" class="btn host-only" type="button">🏸 球桶管理</button>
-          <div id="wakeLockFeedback" class="wake-lock-feedback pending" role="status" aria-live="polite">正在確認螢幕恆亮狀態…</div>
+          <div id="wakeLockFeedback" class="hidden" aria-hidden="true"></div>
         </div>
         <details id="roomMoreAdvanced" class="room-more-advanced">
           <summary>⚙️ 其他設定</summary>
@@ -66,8 +66,7 @@
       </div>
     </div>
   </header>
-  <div id="testModeBanner" class="test-mode-banner hidden" role="status">🧪 測試模式已開啟：完成的比賽不會寫入紀錄或戰績。</div>
-  <div id="viewerNote" class="viewer-note hidden">你目前是觀看模式；可認領並修改自己的球員資料，也能在「出席」切換自己的到場狀態。</div><div id="selfNote" class="self-note hidden"></div>
+  <div id="testModeBanner" class="hidden" aria-hidden="true"></div><div id="viewerNote" class="hidden" aria-hidden="true"></div><div id="selfNote" class="self-note hidden"></div>
   <div id="pollReminder" class="hidden"><button id="openPollReminder" class="hidden" type="button" aria-hidden="true" tabindex="-1"></button></div>
   <div id="cloudError" class="error-box hidden"></div>
   <nav class="tabs"><button class="tab active" data-page="0">總覽</button><button class="tab" data-page="8">聊天<span id="chatTabBadge" class="chat-tab-badge hidden" aria-label="未讀聊天室訊息"></span></button><button class="tab" data-page="1">球員</button><button class="tab" data-page="2">出席</button><button class="tab viewer-hidden-tab" data-page="3">場上</button><button class="tab" data-page="4">戰績</button><button class="tab" data-page="5">紀錄</button><button class="tab" data-page="6">下次球局<span id="pollTabDot" class="poll-dot hidden" aria-label="有新的下次球局投票"></span></button></nav>
@@ -91,7 +90,7 @@
     </div>
     <a id="homeReplayCard" class="home-replay-card hidden" href="#" target="_blank" rel="noopener noreferrer">
       <span class="home-replay-icon" aria-hidden="true">▶</span>
-      <span class="home-replay-copy"><span class="club-kicker">MATCH REPLAY</span><strong id="homeReplayTitle">比賽影片回放</strong><small>前往 YouTube 播放清單觀看球局影片</small></span>
+      <span class="home-replay-copy"><span class="club-kicker">MATCH REPLAY</span><strong id="homeReplayTitle">比賽影片回放</strong></span>
       <span class="home-replay-action">立即觀看</span>
     </a>
   </section>
@@ -174,9 +173,8 @@
         <label class="field"><span>場租總額（元）</span><input id="confirmRentalTotal" class="input" type="number" min="1" step="1" inputmode="numeric" placeholder="例如：2400"></label>
         <label class="field"><span>每人需繳</span><input id="confirmPerPersonFee" class="input" type="text" readonly placeholder="自動計算"></label>
         <label class="field"><span>銀行代碼（選填）</span><input id="confirmTransferBankCode" class="input" type="text" maxlength="3" inputmode="numeric" autocomplete="off" placeholder="例如：000"></label>
-        <div class="field transfer-account-field"><label for="confirmTransferAccount">轉帳帳號（選填）</label><div class="transfer-picker"><input id="confirmTransferAccount" class="input" type="text" maxlength="40" inputmode="numeric" autocomplete="off" placeholder="點選可套用常用帳號"><div id="confirmTransferOptions" class="venue-options hidden" role="listbox" aria-label="常用轉帳帳號"></div></div><div class="venue-tools transfer-tools"><span class="sub">連同銀行代碼儲存</span><button id="saveConfirmTransferDetails" class="venue-save-btn" type="button">＋ 常用</button></div></div>
+        <div class="field transfer-account-field"><label for="confirmTransferAccount">轉帳帳號（選填）</label><div class="transfer-picker"><input id="confirmTransferAccount" class="input" type="text" maxlength="40" inputmode="numeric" autocomplete="off" placeholder="點選可套用常用帳號"><div id="confirmTransferOptions" class="venue-options hidden" role="listbox" aria-label="常用轉帳帳號"></div></div><div class="venue-tools transfer-tools"><button id="saveConfirmTransferDetails" class="venue-save-btn" type="button">＋ 常用</button></div></div>
         <label class="field"><span>場地／場號備註（選填）</span><input id="confirmEventNote" class="input" maxlength="120" placeholder="例如：3、4 號場；請提前 10 分鐘到"></label>
-        <div id="confirmFeeHint" class="confirm-fee-hint">預設帶入選定日期的投票人數，可自行修改。</div>
       </div>
       <button id="confirmNextEvent" class="btn red wide poll-finish-btn">確認並結束投票</button>
     </div>
@@ -196,7 +194,7 @@
       <button id="backupImportBtn" class="btn">📥 匯入 JSON</button>
       <input id="backupImportFile" type="file" accept=".json,application/json" hidden>
     </div>
-    <div id="backupList" class="backup-list"><div class="backup-loading">進入房間後載入備份紀錄。</div></div>
+    <div id="backupList" class="backup-list"></div>
   </section>
 
   <section id="page8" class="card page chat-page hidden">
@@ -209,7 +207,6 @@
     <div id="chatMentionPanel" class="chat-mention-panel hidden">
       <strong>選擇要標記的球友</strong>
       <div id="chatMentionList" class="chat-mention-list"></div>
-      <small>最多可同時標記 8 位；使用 @All 可通知所有已開啟通知的球友。</small>
     </div>
     <div id="chatMessages" class="chat-messages" aria-live="polite"><div class="chat-empty">聊天室連線中…</div></div>
     <div class="chat-composer">
@@ -219,7 +216,7 @@
           <span aria-hidden="true">📎</span>
           <input id="chatMediaFile" class="chat-media-file" type="file" accept="image/jpeg,image/png,image/webp,image/gif,video/mp4,video/webm,video/quicktime">
         </label>
-        <textarea id="chatComposer" class="input viewer-enabled" rows="1" maxlength="500" enterkeyhint="send" placeholder="輸入訊息；輸入 @ 可標記球友"></textarea>
+        <textarea id="chatComposer" class="input viewer-enabled" rows="1" maxlength="500" enterkeyhint="send" placeholder="輸入訊息"></textarea>
       </div>
       <div id="chatAutocomplete" class="chat-autocomplete hidden" role="listbox" aria-label="可標記的球員"></div>
       <div class="chat-composer-foot"><span id="chatStatus" class="chat-status" role="status" aria-live="polite">確認認領身分後即可聊天</span><button id="sendChat" class="btn primary" type="button">傳送</button></div>
@@ -260,30 +257,26 @@
   <div class="android-remote-roombar"><span>房號 <strong id="androidRemoteRoom">—</strong></span><span id="androidRemoteConnection" class="android-remote-connection">連線中</span></div>
   <div id="androidRemoteKeyAccess" class="android-remote-key-access hidden">
     <strong>需要開啟按鍵存取權限</strong>
-    <span>快門被手機當成音量鍵。開啟一次後，App 才能在音量改變前攔截並用來計分。</span>
     <button id="androidRemoteKeyAccessBtn" class="btn primary" type="button">前往開啟按鍵權限</button>
-    <small>請在設定中選擇「7B 比分遙控器按鍵存取」，再開啟允許。</small>
   </div>
   <div id="androidRemoteRecording" class="android-remote-recording hidden">
-    <div class="android-remote-recording-copy"><strong>🎥 錄影計分模式</strong><span>開啟後切到相機錄影，遙控器仍會在背景控制比分，不會調整音量或中斷錄影。</span></div>
+    <div class="android-remote-recording-copy"><strong>🎥 錄影計分模式</strong></div>
     <div class="android-remote-recording-actions"><button id="androidRemoteRecordingToggle" class="btn" type="button" aria-pressed="false">開啟錄影計分</button><button id="androidRemoteOpenCamera" class="btn primary" type="button">開啟相機錄影</button></div>
-    <small id="androidRemoteRecordingHint">錄影結束回到此頁後，可以關閉錄影計分模式。</small>
   </div>
   <div id="androidRemotePermission" class="android-remote-permission hidden">
-    <strong>需要管理員權限</strong><span>首次使用請輸入這個球局的管理員 PIN。</span><button id="androidRemoteLogin" class="btn primary" type="button">管理員登入</button>
+    <strong>需要管理員權限</strong><button id="androidRemoteLogin" class="btn primary" type="button">管理員登入</button>
   </div>
-  <div id="androidRemoteIdle" class="android-remote-idle"><strong>🏸 等待比賽開始</strong><span>請先在 iPad 安排球員並開始比賽。</span></div>
+  <div id="androidRemoteIdle" class="android-remote-idle"><strong>🏸 等待比賽開始</strong></div>
   <div id="androidRemoteMatch" class="android-remote-match hidden">
     <div class="android-remote-team team-a"><span>A隊 · 音量＋</span><strong id="androidRemoteScoreA">0</strong><small id="androidRemoteNamesA">—</small><button id="androidRemoteAPlus" type="button">A隊 ＋1</button></div>
     <div class="android-remote-team team-b"><span>B隊 · 音量－</span><strong id="androidRemoteScoreB">0</strong><small id="androidRemoteNamesB">—</small><button id="androidRemoteBPlus" type="button">B隊 ＋1</button></div>
   </div>
   <button id="androidRemoteUndo" class="android-remote-undo" type="button">↶ 撤銷上一分</button>
   <div id="androidRemoteFeedback" class="android-remote-feedback" role="status" aria-live="polite">等待快門遙控器按鍵</div>
-  <div class="android-remote-guide"><span><b>短按音量＋</b>A隊加分</span><span><b>短按音量－</b>B隊加分</span><span><b>按住任一鍵</b>撤銷上一分</span><span><b>同一鍵按兩下</b>切換全螢幕</span></div>
 </section>
 
 <div id="scoreRemoteModal" class="modal hidden"><div class="modal-card score-remote-card">
-  <div class="score-remote-head"><div><h2>🎮 藍牙比分遙控器</h2><p><strong>App 內不會直接配對藍牙。</strong>請先在 iPad「設定 → 藍牙」完成連接，再回來學習每顆按鍵。</p></div><button id="closeScoreRemote" class="btn" type="button" aria-label="關閉比分遙控器設定" title="關閉">✕</button></div>
+  <div class="score-remote-head"><div><h2>🎮 藍牙比分遙控器</h2></div><button id="closeScoreRemote" class="btn" type="button" aria-label="關閉比分遙控器設定" title="關閉">✕</button></div>
   <div class="score-remote-enable"><div><strong>遙控計分</strong><span id="scoreRemoteStatus">目前未啟用</span></div><button id="scoreRemoteToggle" class="btn primary" type="button" aria-pressed="false">開啟</button></div>
   <div class="score-remote-bindings" aria-label="比分遙控器按鍵設定">
     <div class="score-remote-row"><span class="score-remote-action">進入／退出全螢幕</span><kbd>同一按鍵按兩下</kbd><span class="score-remote-fixed">固定功能</span></div>
@@ -296,7 +289,7 @@
   <div class="score-remote-footer"><button id="resetScoreRemote" class="btn" type="button">恢復預設按鍵</button></div>
 </div></div>
 
-<div id="audioHelpModal" class="modal hidden"><div class="modal-card" style="max-width:620px"><h2>藍牙喇叭輸出</h2><p><strong>網頁無法直接替你選擇藍牙喇叭。</strong>請先在 iPad／手機的系統藍牙設定完成連線，聲音才會由系統送到喇叭。</p><ol style="line-height:1.8;padding-left:1.4em"><li>先到系統「設定 → 藍牙」連接喇叭。</li><li>回到本頁，按「📢 喇叭測試」。</li><li>若仍從裝置播放，開啟控制中心，點音訊輸出圖示並選擇藍牙喇叭。</li><li>把裝置音量與喇叭音量都調高。</li></ol><p class="viewer-note">比分播報音量已設為瀏覽器允許的最大值。實際音量仍由裝置與藍牙喇叭控制。</p><button id="closeAudioHelp" class="btn primary wide">知道了</button></div></div>
+<div id="audioHelpModal" class="hidden" hidden aria-hidden="true"><button id="closeAudioHelp" type="button"></button></div>
 
 <div id="adminNoticeModal" class="modal hidden"><div class="modal-card admin-notice-manager">
   <div class="admin-notice-manager-head"><div><h2>📣 事務公告</h2></div><button id="closeAdminNotice" class="btn admin-notice-close" type="button" aria-label="關閉事務公告" title="關閉">✕</button></div>
@@ -314,7 +307,7 @@
 </div></div>
 
 <div id="recruitingMessageModal" class="modal hidden"><div class="modal-card recruiting-message-dialog">
-  <div class="recruiting-message-head"><div><span class="club-kicker">RECRUIT PLAYERS</span><h2>💬 3–4 人球局揪人訊息</h2><p id="recruitingMessageSummary" class="sub"></p></div><button id="closeRecruitingMessage" class="btn" type="button">關閉</button></div>
+  <div class="recruiting-message-head"><div><span class="club-kicker">RECRUIT PLAYERS</span><h2>💬 3–4 人球局揪人訊息</h2></div><button id="closeRecruitingMessage" class="btn" type="button">關閉</button></div>
   <label class="field"><span>訊息內容</span><textarea id="recruitingMessageText" class="input" rows="7" maxlength="1000"></textarea></label>
   <div id="recruitingMissingVoters" class="recruiting-missing-voters"></div>
   <p id="recruitingMessageFeedback" class="recruiting-message-feedback" aria-live="polite"></p>
@@ -332,10 +325,9 @@
     <label class="field"><span>預計參與總人數</span><input id="editNextEventParticipants" class="input" type="number" min="1" step="1" inputmode="numeric"></label>
     <label class="field"><span>每人需繳</span><input id="editNextEventPerPersonFee" class="input" type="text" readonly></label>
     <label class="field"><span>銀行代碼（選填）</span><input id="editNextEventTransferBankCode" class="input" type="text" maxlength="3" inputmode="numeric" autocomplete="off" placeholder="例如：000"></label>
-    <div class="field transfer-account-field"><label for="editNextEventTransferAccount">轉帳帳號（選填）</label><div class="transfer-picker"><input id="editNextEventTransferAccount" class="input" type="text" maxlength="40" inputmode="numeric" autocomplete="off" placeholder="點選可套用常用帳號"><div id="editTransferOptions" class="venue-options hidden" role="listbox" aria-label="常用轉帳帳號"></div></div><div class="venue-tools transfer-tools"><span class="sub">連同銀行代碼儲存</span><button id="saveEditTransferDetails" class="venue-save-btn" type="button">＋ 常用</button></div></div>
+    <div class="field transfer-account-field"><label for="editNextEventTransferAccount">轉帳帳號（選填）</label><div class="transfer-picker"><input id="editNextEventTransferAccount" class="input" type="text" maxlength="40" inputmode="numeric" autocomplete="off" placeholder="點選可套用常用帳號"><div id="editTransferOptions" class="venue-options hidden" role="listbox" aria-label="常用轉帳帳號"></div></div><div class="venue-tools transfer-tools"><button id="saveEditTransferDetails" class="venue-save-btn" type="button">＋ 常用</button></div></div>
     <label class="field next-event-edit-note"><span>場地／場號備註（選填）</span><input id="editNextEventNote" class="input" maxlength="120" placeholder="例如：3、4 號場；請提前 10 分鐘到"></label>
   </div>
-  <div id="editNextEventFeeHint" class="confirm-fee-hint"></div>
   <div class="next-event-editor-actions"><button id="saveNextEventEdits" class="btn primary" type="button">儲存公告</button><button id="cancelNextEventEdits" class="btn" type="button">取消</button></div>
 </div></div>
 
@@ -347,7 +339,7 @@
 </div></div>
 
 <div id="shuttleTubeModal" class="modal hidden"><div class="modal-card shuttle-tube-manager">
-  <div class="shuttle-tube-head"><div><span class="club-kicker">SHUTTLE FUND</span><h2>🏸 球桶管理</h2><p class="sub">每顆單價＝球桶價格 ÷ 12；每人球費＝本次用球顆數 × 每顆單價 ÷ 總人數（包含購球者）。</p></div><button id="closeShuttleTubeManager" class="btn" type="button">關閉</button></div>
+  <div class="shuttle-tube-head"><div><span class="club-kicker">SHUTTLE FUND</span><h2>🏸 球桶管理</h2></div><button id="closeShuttleTubeManager" class="btn" type="button">關閉</button></div>
   <div class="shuttle-tube-create">
     <label class="field"><span>購買用球</span><input id="shuttleTubeName" class="input" maxlength="60" placeholder="例如：YONEX AS-30"></label>
     <label class="field"><span>價格（元）</span><input id="shuttleTubePrice" class="input" type="number" min="1" step="1" inputmode="numeric" placeholder="例如：950"></label>
@@ -387,7 +379,7 @@
   <div class="profile-rackets"><div class="profile-racket-box"><strong>🏸 主球拍</strong><div id="profileMainRacket" class="sub">尚未填寫</div></div><div class="profile-racket-box"><strong>🏸 備用球拍</strong><div id="profileBackupRacket" class="sub">尚未填寫</div></div></div>
   <div class="field" style="margin-top:10px"><label>主球拍</label><div class="field-grid-3"><input id="editRacket" class="input" placeholder="例如：100ZZ"><input id="editRacketTension" class="input" placeholder="磅數"><input id="editRacketString" class="input" placeholder="線種"></div></div>
   <div class="field" style="margin-top:10px"><label>備用球拍</label><div class="field-grid-3"><input id="editBackupRacket" class="input" placeholder="例如：88D Pro"><input id="editBackupTension" class="input" placeholder="磅數"><input id="editBackupString" class="input" placeholder="線種"></div></div>
-  <div class="field" style="margin-top:10px"><label>備註（會直接顯示在球員卡）</label><textarea id="editNote" class="input" rows="3" maxlength="120" placeholder="例如：今天九點先走、避免連打"></textarea></div>
+  <div class="field" style="margin-top:10px"><label>備註</label><textarea id="editNote" class="input" rows="3" maxlength="120" placeholder="例如：今天九點先走、避免連打"></textarea></div>
   <div id="profileEditFields" class="photo-actions" style="margin-top:12px"><label class="btn" for="editPhoto">選擇照片</label><input id="editPhoto" type="file" accept="image/*" hidden><button id="removePhoto" class="btn" type="button">移除照片</button></div>
   <div class="toolbar" style="margin-top:14px"><button id="claimPlayer" class="btn blue hidden">這是我／認領資料</button><button id="saveEdit" class="btn primary">儲存球員資料</button><button id="deletePlayer" class="btn red host-only">刪除</button><button id="closeEdit" class="btn">關閉</button></div>
 </div></div>
