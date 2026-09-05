@@ -66,7 +66,7 @@
       </div>
     </div>
   </header>
-  <div id="testModeBanner" class="hidden" aria-hidden="true"></div><div id="viewerNote" class="hidden" aria-hidden="true"></div><div id="selfNote" class="self-note hidden"></div>
+  <div id="viewerNote" class="hidden" aria-hidden="true"></div><div id="selfNote" class="self-note hidden"></div>
   <div id="pollReminder" class="hidden"><button id="openPollReminder" class="hidden" type="button" aria-hidden="true" tabindex="-1"></button></div>
   <div id="cloudError" class="error-box hidden"></div>
   <nav class="tabs"><button class="tab active" data-page="0">總覽</button><button class="tab" data-page="8">聊天<span id="chatTabBadge" class="chat-tab-badge hidden" aria-label="未讀聊天室訊息"></span></button><button class="tab" data-page="1">球員</button><button class="tab" data-page="2">出席</button><button class="tab viewer-hidden-tab" data-page="3">場上</button><button class="tab" data-page="4">戰績</button><button class="tab" data-page="5">紀錄</button><button class="tab" data-page="6">下次球局<span id="pollTabDot" class="poll-dot hidden" aria-label="有新的下次球局投票"></span></button></nav>
@@ -354,7 +354,7 @@
 <div id="resultModal" class="modal hidden"><div class="modal-card result-card">
   <div class="result-topbar">
     <div class="result-heading"><h2 id="winnerTitle">比賽結束</h2><p id="finalScore"></p></div>
-    <div class="result-tools"><button id="closeResult" class="btn" aria-label="回到場上" title="回到場上">✕</button><button id="shuffleNext" class="btn host-only" aria-label="再次完全隨機" title="再次完全隨機">🎲</button><button id="resultReturnShuttle" class="btn host-only" aria-label="加回一顆球" title="加回一顆球">+1</button><button id="resultUseShuttle" class="btn host-only" aria-label="使用一顆球" title="使用一顆球">−1</button></div>
+    <div class="result-tools"><button id="shuffleNext" class="btn host-only" aria-label="再次完全隨機" title="再次完全隨機">🎲</button><button id="resultReturnShuttle" class="btn host-only" aria-label="加回一顆球" title="加回一顆球">+1</button><button id="resultUseShuttle" class="btn host-only" aria-label="使用一顆球" title="使用一顆球">−1</button><button id="closeResult" class="btn" aria-label="回到場上" title="回到場上">✕</button></div>
   </div>
   <div class="next-grid"><div class="next-team a"><h3>A隊</h3><div class="slot"><select id="n0"></select></div><div class="slot"><select id="n1"></select></div></div><div class="next-team b"><h3>B隊</h3><div class="slot"><select id="n2"></select></div><div class="slot"><select id="n3"></select></div></div></div>
   <div class="result-main-actions host-only"><button id="undoFinishedMatch" class="btn danger-outline">撤銷上一分</button><button id="startNext" class="btn primary">下一場</button></div>

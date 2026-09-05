@@ -156,7 +156,7 @@ test('removes the old score remote from More and provides a no-stats test mode',
   assert.doesNotMatch(moreMenu,/id="scoreRemoteBtn"/);
   assert.doesNotMatch(moreMenu,/id="testModeToggle"/);
   assert.match(html,/id="refreshAppMenu"[\s\S]*?id="testModeToggle"[\s\S]*?id="roomMoreBtn"/);
-  assert.match(html,/id="testModeBanner"/);
+  assert.doesNotMatch(html,/id="testModeBanner"/);
   assert.match(html,/id="scoreTestModeToggle"/);
   assert.doesNotMatch(mainSource,/confirm\(['"]開啟測試模式/);
   assert.match(mainSource,/\$\('scoreTestModeToggle'\)\.onclick=toggleTestMode/);
@@ -242,7 +242,7 @@ test('offers ending today session at the bottom right of the finished match page
 });
 
 test('lays out finished-match primary actions below teams and returns close to court',()=>{
-  assert.match(html,/class="result-tools"><button id="closeResult"[\s\S]*?id="shuffleNext"[\s\S]*?id="resultReturnShuttle"[\s\S]*?id="resultUseShuttle"/);
+  assert.match(html,/class="result-tools"><button id="shuffleNext"[\s\S]*?id="resultReturnShuttle"[\s\S]*?id="resultUseShuttle"[\s\S]*?id="closeResult"/);
   assert.match(html,/class="next-grid"[\s\S]*?class="result-main-actions host-only"><button id="undoFinishedMatch"[^>]*>撤銷上一分<\/button><button id="startNext"[^>]*>下一場<\/button>/);
   assert.match(styles,/#resultModal \.result-main-actions \.btn\{[^}]*min-height:72px[^}]*font-size:1\.3rem/);
   assert.match(styles,/#resultModal \.result-tools \.btn\{[^}]*min-width:58px[^}]*min-height:54px/);
