@@ -212,6 +212,16 @@ test('removes the bottom server-selection bar from score mode',()=>{
   assert.match(styles,/\.score-view \.score-foot\s*\{display:none\}/);
 });
 
+test('turns a short touch into one immediate button click without breaking scroll gestures',()=>{
+  assert.match(mainSource,/function fastTapButton\(target\)/);
+  assert.match(mainSource,/\['touch','pen'\]\.includes\(event\.pointerType\)/);
+  assert.match(mainSource,/performance\.now\(\)-tap\.at>650/);
+  assert.match(mainSource,/Math\.hypot\(event\.clientX-tap\.x,event\.clientY-tap\.y\)>12/);
+  assert.match(mainSource,/suppressNativeClick=\{button:tap\.button,until:performance\.now\(\)\+700\}/);
+  assert.match(mainSource,/function handleScoreRemoteVirtualClick\(event\)\{\s*if\(fastTapDispatching\)return;/);
+  assert.match(mainSource,/event\.preventDefault\(\);event\.stopImmediatePropagation\(\)/);
+});
+
 test('provides a direct new event flow without changing the poll',()=>{
   assert.match(html,/id="directNewEventBtn"[^>]*>＋ 新增球局<\/button>/);
   const directFlow=mainSource.slice(mainSource.indexOf('function openDirectNextEventCreator()'),mainSource.indexOf('function closeNextEventEditor()'));
