@@ -30,5 +30,6 @@ test('routes exactly three short presses to shuttle use with a quiet-window and 
   assert.match(activity,/bcmAndroidRemoteUseShuttle/);
   assert.match(service,/useOneShuttle/);
   assert.match(controller,/command\.put\("action","useShuttle"\)/);
+  assert.match(controller,/private synchronized void processNext\(\).*transaction\.get\(liveScore\).*command\.put\("matchId", String\.valueOf\(matchId\)\).*transaction\.set\(remoteControl/s);
   assert.match(main,/\['teamAPlus','teamBPlus','undo','useShuttle'\]/);
 });
