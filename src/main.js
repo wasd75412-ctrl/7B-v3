@@ -1887,7 +1887,9 @@ function renderRoster(){
 function uniqueIds(ids){return [...new Set((ids||[]).filter(Boolean))]}
 function currentCourtIds(){const live=state.match?.active?state.match.players?.flat?.()||[]:state.court||[];return uniqueIds(live)}
 function selectablePlayerIds(){return currentTestModeEnabled()?state.roster.map(p=>p.id):state.attendance}
+function randomTestLineup(){return shuffle(state.roster.map(player=>player.id)).slice(0,4)}
 function reconcileWaitingQueue(excludeIds=currentCourtIds()){
+  if(currentTestModeEnabled()){state.waitingQueue=[];state.queueDraftChosen=[];state.priority=null;return}
   const exclude=new Set(excludeIds||[]),eligible=selectablePlayerIds().filter(id=>!exclude.has(id));
   const preferred=eligible.includes(state.priority)?[state.priority]:[];
   const kept=uniqueIds([...preferred,...state.waitingQueue]).filter(id=>eligible.includes(id));
@@ -1896,6 +1898,7 @@ function reconcileWaitingQueue(excludeIds=currentCourtIds()){
   state.priority=state.waitingQueue[0]||null;
 }
 function projectedQueueForLineup(vals){
+  if(currentTestModeEnabled())return[];
   const selected=new Set((vals||[]).filter(Boolean));
   const eligible=selectablePlayerIds();
   const ordered=uniqueIds([...(state.queueDraftChosen||[]),state.priority,...(state.waitingQueue||[])]).filter(id=>eligible.includes(id)&&!selected.has(id));
@@ -1949,7 +1952,7 @@ function renderAttendance(){
 }
 function options(selected=''){return `<option value="">請選擇</option>`+selectablePlayerIds().map(id=>`<option value="${id}" ${id===selected?'selected':''}>${esc(pname(id))}</option>`).join('')}
 function renderCourt(){for(let i=0;i<4;i++){const s=$('p'+i);s.innerHTML=options(state.court[i]||'');s.value=state.court[i]||'';s.onchange=()=>{if(!isHost)return;state.court[i]=s.value;reconcileWaitingQueue(state.court.filter(Boolean));renderWaiting();saveSoon()}}$('target').value=state.rules.target;$('cap').value=state.rules.cap;$('deuce').value=state.rules.deuce?'1':'0';renderWaiting()}
-function renderWaiting(){const scheduled=state.match?.active&&state.match.winner!==null&&state.nextCall?.players?.length===4?state.nextCall.players:state.court,used=scheduled.filter(Boolean),eligible=selectablePlayerIds().filter(id=>!used.includes(id)),preferred=eligible.includes(state.priority)?[state.priority]:[];const ordered=uniqueIds([...preferred,...state.waitingQueue]).filter(id=>eligible.includes(id));for(const id of eligible)if(!ordered.includes(id))ordered.push(id);state.waitingQueue=ordered;state.priority=ordered[0]||null;$('waiting').innerHTML=ordered.map((id,i)=>`<span class="chip ${i===0?'priority':''}">${esc(queueLabel(i,ordered.length))} · ${esc(pname(id))}</span>`).join('')||'<span class="sub">目前沒有候場球員</span>'}
+function renderWaiting(){if(currentTestModeEnabled()){state.waitingQueue=[];state.queueDraftChosen=[];state.priority=null;$('waiting').innerHTML='';return}const scheduled=state.match?.active&&state.match.winner!==null&&state.nextCall?.players?.length===4?state.nextCall.players:state.court,used=scheduled.filter(Boolean),eligible=selectablePlayerIds().filter(id=>!used.includes(id)),preferred=eligible.includes(state.priority)?[state.priority]:[];const ordered=uniqueIds([...preferred,...state.waitingQueue]).filter(id=>eligible.includes(id));for(const id of eligible)if(!ordered.includes(id))ordered.push(id);state.waitingQueue=ordered;state.priority=ordered[0]||null;$('waiting').innerHTML=ordered.map((id,i)=>`<span class="chip ${i===0?'priority':''}">${esc(queueLabel(i,ordered.length))} · ${esc(pname(id))}</span>`).join('')||'<span class="sub">目前沒有候場球員</span>'}
 function winFor(sc){const {target,cap,deuce}=state.rules;for(let t=0;t<2;t++){const o=1-t;if(!deuce&&sc[t]>=target)return t;if(deuce&&sc[t]>=target&&sc[t]-sc[o]>=2)return t;if(deuce&&sc[t]>=cap)return t}return null}
 function reopenRecordedMatch(){
   const matchId=state.match?.matchId,result=reopenFinishedMatchState(state,matchId);
@@ -2239,8 +2242,8 @@ function toggleTestMode(){
     saveLiveScoreSoon();
   }
   if(enabling&&!(state.match.active&&state.match.winner===null)){
-    state.court=shuffle(state.roster.map(player=>player.id)).slice(0,4);
-    reconcileWaitingQueue(state.court);renderAll();page(3);
+    state.court=randomTestLineup();state.waitingQueue=[];state.queueDraftChosen=[];state.priority=null;state.nextCall=null;
+    renderAll();page(3);
   }else renderAll();
   saveSoon();
 }
@@ -2263,16 +2266,20 @@ function finishMatch(){
   if(firstCompletion){
     const now=new Date();
     newlyRecorded=true;state.matchRollback=createFinishedMatchRollback(state,m.matchId);
-    if(isTestMatch)m.testCompleted=true;
-    else state.history.push({matchId:m.matchId,time:now.toLocaleString('zh-TW'),endedAt:now.toISOString(),dateKey:localDateKey(now),monthKey:localMonthKey(now),teams:structuredClone(m.players),scores:[...m.scores],winner:m.winner});
-    const winners=[...m.players[m.winner]],losers=[...m.players[1-m.winner]],previousCourt=m.players.flat();
-    reconcileWaitingQueue(previousCourt);
-    const randomValue=crypto.getRandomValues(new Uint32Array(1))[0],rotation=rotateAfterMatch({winners,losers,waitingQueue:state.waitingQueue,attendance:selectablePlayerIds(),lastLoserReplayPlayerId:state.lastLoserReplayPlayerId,randomValue}),chosen=rotation.chosen;
-    state.waitingQueue=rotation.waitingQueue;
-    state.queueDraftChosen=[...chosen];
-    state.priority=rotation.priority;
-    state.lastLoserReplayPlayerId=rotation.lastLoserReplayPlayerId;
-    four=teammateSafeLineup([...winners,...chosen],{randomize:true});
+    if(isTestMatch){
+      m.testCompleted=true;state.waitingQueue=[];state.queueDraftChosen=[];state.priority=null;state.lastLoserReplayPlayerId=null;
+      four=randomTestLineup();
+    }else{
+      state.history.push({matchId:m.matchId,time:now.toLocaleString('zh-TW'),endedAt:now.toISOString(),dateKey:localDateKey(now),monthKey:localMonthKey(now),teams:structuredClone(m.players),scores:[...m.scores],winner:m.winner});
+      const winners=[...m.players[m.winner]],losers=[...m.players[1-m.winner]],previousCourt=m.players.flat();
+      reconcileWaitingQueue(previousCourt);
+      const randomValue=crypto.getRandomValues(new Uint32Array(1))[0],rotation=rotateAfterMatch({winners,losers,waitingQueue:state.waitingQueue,attendance:selectablePlayerIds(),lastLoserReplayPlayerId:state.lastLoserReplayPlayerId,randomValue}),chosen=rotation.chosen;
+      state.waitingQueue=rotation.waitingQueue;
+      state.queueDraftChosen=[...chosen];
+      state.priority=rotation.priority;
+      state.lastLoserReplayPlayerId=rotation.lastLoserReplayPlayerId;
+      four=teammateSafeLineup([...winners,...chosen],{randomize:true});
+    }
     state.nextCall={players:[...four],createdAt:new Date().toISOString()};
   }else{
     four=state.nextCall?.players?.length===4?[...state.nextCall.players]:m.players.flat();
@@ -2301,7 +2308,7 @@ function startNext(){
   if(!state.match.active||state.match.winner===null)return alert('本場比分尚未結束，請先完成比賽。');
   if(selected.some(x=>!x)||new Set(selected).size!==4)return alert('下一場需要四位不同球員。');
   const vals=teammateSafeLineup(selected);
-  const winners=state.match.players[state.match.winner];if(!winners.every(id=>vals.includes(id)))return alert('勝方兩位必須留場。');
+  const winners=state.match.players[state.match.winner];if(!currentTestModeEnabled()&&!winners.every(id=>vals.includes(id)))return alert('勝方兩位必須留場。');
   const finalCall=calloutText(vals);
   state.waitingQueue=projectedQueueForLineup(vals);state.queueDraftChosen=[];state.priority=state.waitingQueue[0]||null;
   state.court=[...vals];state.nextCall=null;state.matchRollback=null;
