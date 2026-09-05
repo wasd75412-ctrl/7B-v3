@@ -18,6 +18,7 @@ public final class RemoteKeyAccessibilityService extends AccessibilityService {
     private static final long ACTION_DEBOUNCE_MS = 300L;
     private static final long UNDO_DEBOUNCE_MS = 600L;
     private static final long DOUBLE_PRESS_MS = 400L;
+    private static final long SHUTTLE_PRESS_COOLDOWN_MS = 2000L;
 
     private final VolumeKeyInterpreter backgroundKeys = new VolumeKeyInterpreter();
     private final Handler keyHandler = new Handler(Looper.getMainLooper());
@@ -27,6 +28,7 @@ public final class RemoteKeyAccessibilityService extends AccessibilityService {
     private Runnable pendingShortPress;
     private int pendingShortPressKey = KeyEvent.KEYCODE_UNKNOWN;
     private long pendingShortPressAt;
+    private long lastShuttleActionAt;
     private int pendingShortPressCount;
     private VolumeKeyInterpreter.Action pendingShortPressAction = VolumeKeyInterpreter.Action.NONE;
     private long lastPointActionAt;
@@ -120,11 +122,13 @@ public final class RemoteKeyAccessibilityService extends AccessibilityService {
         }
         pendingShortPressCount++;pendingShortPressAt = eventTime;
         if (pendingShortPress != null) keyHandler.removeCallbacks(pendingShortPress);
-        if (pendingShortPressCount == 5) { cancelPendingShortPress();sendBackgroundUseShuttle();return; }
         pendingShortPress = () -> {
             int count=pendingShortPressCount;VolumeKeyInterpreter.Action resolved=pendingShortPressAction;
             cancelPendingShortPress();
-            if(count==1)sendBackgroundAction(resolved);else if(count==2)sendBackgroundFullscreenCommand();
+            if(count==1)sendBackgroundAction(resolved);else if(count==2)sendBackgroundFullscreenCommand();else if(count==3){
+                long now=SystemClock.uptimeMillis();
+                if(now-lastShuttleActionAt>=SHUTTLE_PRESS_COOLDOWN_MS){lastShuttleActionAt=now;sendBackgroundUseShuttle();}
+            }
         };
         keyHandler.postDelayed(pendingShortPress, DOUBLE_PRESS_MS);
     }

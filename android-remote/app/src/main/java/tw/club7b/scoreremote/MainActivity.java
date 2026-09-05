@@ -40,6 +40,7 @@ public final class MainActivity extends Activity {
     private static final long ACTION_DEBOUNCE_MS = 300L;
     private static final long UNDO_DEBOUNCE_MS = 600L;
     private static final long DOUBLE_PRESS_MS = 400L;
+    private static final long SHUTTLE_PRESS_COOLDOWN_MS = 2000L;
     private static final long CAMERA_PRECONNECT_TIMEOUT_MS = 5000L;
 
     private final VolumeKeyInterpreter volumeKeys = new VolumeKeyInterpreter();
@@ -51,6 +52,7 @@ public final class MainActivity extends Activity {
     private Runnable pendingShortPress;
     private int pendingShortPressKey = KeyEvent.KEYCODE_UNKNOWN;
     private long pendingShortPressAt;
+    private long lastShuttleActionAt;
     private int pendingShortPressCount;
     private VolumeKeyInterpreter.Action pendingShortPressAction = VolumeKeyInterpreter.Action.NONE;
     private long lastPointActionAt;
@@ -87,7 +89,7 @@ public final class MainActivity extends Activity {
         settings.setDisplayZoomControls(false);
         settings.setMediaPlaybackRequiresUserGesture(false);
         settings.setMixedContentMode(WebSettings.MIXED_CONTENT_NEVER_ALLOW);
-        settings.setUserAgentString(settings.getUserAgentString() + " 7BAndroidRemote/1.3.13");
+        settings.setUserAgentString(settings.getUserAgentString() + " 7BAndroidRemote/1.3.14");
         CookieManager.getInstance().setAcceptCookie(true);
         CookieManager.getInstance().setAcceptThirdPartyCookies(view, true);
         view.setRendererPriorityPolicy(WebView.RENDERER_PRIORITY_IMPORTANT, true);
@@ -240,11 +242,13 @@ public final class MainActivity extends Activity {
         }
         pendingShortPressCount++;pendingShortPressAt = eventTime;
         if (pendingShortPress != null) keyHandler.removeCallbacks(pendingShortPress);
-        if (pendingShortPressCount == 5) { cancelPendingShortPress();sendRemoteUseShuttleCommand();return; }
         pendingShortPress = () -> {
             int count=pendingShortPressCount;VolumeKeyInterpreter.Action resolved=pendingShortPressAction;
             cancelPendingShortPress();
-            if(count==1)sendRemoteAction(resolved);else if(count==2)sendRemoteFullscreenCommand();
+            if(count==1)sendRemoteAction(resolved);else if(count==2)sendRemoteFullscreenCommand();else if(count==3){
+                long now=SystemClock.uptimeMillis();
+                if(now-lastShuttleActionAt>=SHUTTLE_PRESS_COOLDOWN_MS){lastShuttleActionAt=now;sendRemoteUseShuttleCommand();}
+            }
         };
         keyHandler.postDelayed(pendingShortPress, DOUBLE_PRESS_MS);
     }
