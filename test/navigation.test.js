@@ -127,6 +127,7 @@ test('keeps and renders multiple upcoming events without overwriting older annou
   assert.match(mainSource,/state\.nextEvents=events\.filter\(event=>event\.id!==target\.id\)/);
   assert.match(mainSource,/events\.map\(e=>\{const participantIds=[\s\S]*?costs=sessionCombinedCosts\(e\)[\s\S]*?perPersonFee=costs\.applies\?costs\.share:wholeAmount\(e\.perPersonFee\),\{transferBankCode,transferAccount\}=cleanTransferDetails\(e\)/);
   assert.match(mainSource,/shuttleUsage=costs\.applies\?`<div class="next-event-shuttle-usage">🏸 本場使用 \$\{formatMoney\(costs\.used\)\} 顆<\/div>`:''/);
+  assert.match(mainSource,/payment=perPersonFee\?`<div class="next-event-payment">場租及球費 \$\{formatMoney\(perPersonFee\)\} 元<\/div>`:''/);
   assert.match(mainSource,/data-copy-next-event="\$\{esc\(e\.id\)\}">複製帳號<\/button>/);
   assert.doesNotMatch(mainSource,/>只複製帳號<\/button>/);
 });

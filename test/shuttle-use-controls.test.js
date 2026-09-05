@@ -26,7 +26,7 @@ test('shows one-shuttle controls in scoring and next-match result views plus das
   assert.match(main,/title:'球費與球桶'/);
   assert.match(main,/球費＝本場用球顆數/);
   assert.match(main,/sessionCombinedCosts\(e\)/);
-  assert.match(main,/場租及球費：.*每人需繳/s);
+  assert.match(main,/next-event-payment">場租及球費 \$\{formatMoney\(perPersonFee\)\} 元/);
   assert.doesNotMatch(html,/勝方兩人保留，候場隊首兩人上場/);
   assert.doesNotMatch(html,/id="priorityText"/);
   assert.doesNotMatch(main,/\$\('priorityText'\)/);
