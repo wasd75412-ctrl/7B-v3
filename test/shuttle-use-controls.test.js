@@ -11,10 +11,15 @@ const controller=readFileSync(new URL('../android-remote/app/src/main/java/tw/cl
 
 test('shows one-shuttle controls in scoring and next-match result views plus dashboard summary',()=>{
   for(const id of ['homeShuttleSummary','scoreUseShuttle','resultUseShuttle','resultReturnShuttle'])assert.match(html,new RegExp(`id="${id}"`));
+  assert.match(html,/id="resultUseShuttle"[^>]*>−1<\/button>/);
+  assert.match(html,/id="resultReturnShuttle"[^>]*>\+1<\/button>/);
+  assert.doesNotMatch(html,/id="result(?:Use|Return)Shuttle"[^>]*>[^<]*🏸/);
   assert.match(main,/function useOneShuttle\(/);
   assert.match(main,/sessionUsedShuttles:currentSessionShuttleUsage\(row\)\+1,sessionUsageKey:shuttleUsageSessionKey\(\)/);
   assert.match(main,/sessionUsedShuttles:Math\.max\(0,currentSessionShuttleUsage\(tube\)-delta\),sessionUsageKey:shuttleUsageSessionKey\(\)/);
   assert.match(main,/function returnOneShuttle\(/);
+  assert.match(main,/data-shuttle-delta="-1"[^>]*>−1<\/button>/);
+  assert.match(main,/data-shuttle-delta="1"[^\n]*?>\+1<\/button>/);
   assert.match(main,/已加回 1 顆球｜剩餘/);
   assert.match(main,/setShuttleRemaining\(row,row\.remainingShuttles-1\)/);
   assert.match(main,/showScoreRemoteIndicator\(`已使用 1 顆球｜剩餘 \$\{updated\.remainingShuttles\} 顆`,\{duration:2000,icon:'🏸'\}\)/);
