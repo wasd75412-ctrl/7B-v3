@@ -4550,6 +4550,8 @@ html.chat-keyboard-open .chat-autocomplete{
 #resultModal>.modal-card>.sub{display:none}
 #resultModal .result-footer{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-top:10px}
 #resultModal #resultEndSessionBtn{margin-left:auto}
+#resultModal .result-actions{gap:7px}
+#resultModal .result-actions .btn{min-width:52px;padding:10px 12px}
 #resultModal .next-team{color:#102f49}
 #resultModal .next-team h3{color:#102f49}
 #resultModal .next-team.a{border-color:#74afe5;background:#dcebfa}

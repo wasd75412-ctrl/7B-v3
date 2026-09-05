@@ -34,6 +34,14 @@ final class BackgroundScoreController {
     }
 
     void useOneShuttle(FullscreenCallback callback) {
+        sendShuttleCommand("useShuttle", "已使用 1 顆球", callback);
+    }
+
+    void returnOneShuttle(FullscreenCallback callback) {
+        sendShuttleCommand("returnShuttle", "已加回 1 顆球", callback);
+    }
+
+    private void sendShuttleCommand(String action, String successMessage, FullscreenCallback callback) {
         RemoteSessionStore.Session session=RemoteSessionStore.getSession(context);
         if(!session.isReady()){callback.onComplete(false,"請先連接球局並開始比賽");return;}
         DocumentReference liveScore=liveScoreReference(session),remoteControl=remoteControlReference(session);
@@ -41,11 +49,11 @@ final class BackgroundScoreController {
             DocumentSnapshot snapshot=transaction.get(liveScore);
             if(!snapshot.exists())throw new IllegalStateException("找不到即時比分");
             Map<String,Object> match=mapValue(snapshot.get("match")),command=new HashMap<>(),updates=new HashMap<>();
-            command.put("id",java.util.UUID.randomUUID().toString());command.put("action","useShuttle");
+            command.put("id",java.util.UUID.randomUUID().toString());command.put("action",action);
             Object matchId=match.get("matchId");command.put("matchId",matchId == null ? "" : String.valueOf(matchId));command.put("createdAt",FieldValue.serverTimestamp());
             updates.put("remoteActionCommand",command);updates.put("updatedAt",FieldValue.serverTimestamp());
             transaction.set(remoteControl,updates,SetOptions.merge());return true;
-        }).addOnSuccessListener(done->callback.onComplete(true,"已使用 1 顆球"))
+        }).addOnSuccessListener(done->callback.onComplete(true,successMessage))
           .addOnFailureListener(error->callback.onComplete(false,errorMessage(error)));
     }
 
