@@ -104,10 +104,10 @@ function completeScoreRemoteLearning(action,code,event){
   event?.preventDefault();event?.stopPropagation();clearScoreRemoteLearningTimer();
   scoreRemoteBindings=assignRemoteBinding(scoreRemoteBindings,action,code);saveScoreRemoteBindings();scoreRemoteLearningAction='';scoreRemoteLastInputAt=performance.now();scoreRemoteStatusKind='';scoreRemoteStatusMessage=`已設定「${SCORE_REMOTE_ACTION_LABELS[action]}」為 ${scoreRemoteKeyLabel(code)}`;updateScoreRemoteUi();
 }
-function showScoreRemoteIndicator(message){
+function showScoreRemoteIndicator(message,{duration=900,icon='🎮'}={}){
   const indicator=$('scoreRemoteIndicator');if(!indicator)return;
-  clearTimeout(scoreRemoteIndicatorTimer);indicator.textContent=`🎮 ${message}`;indicator.classList.remove('hidden');
-  scoreRemoteIndicatorTimer=setTimeout(()=>indicator.classList.add('hidden'),900);
+  clearTimeout(scoreRemoteIndicatorTimer);indicator.textContent=`${icon} ${message}`;indicator.classList.remove('hidden');
+  scoreRemoteIndicatorTimer=setTimeout(()=>indicator.classList.add('hidden'),duration);
 }
 function performScoreRemoteAction(action,{announce=true}={}){
   const match=state.match;
@@ -2431,7 +2431,7 @@ function useOneShuttle({source='button'}={}){
   }:row));
   const updated=activeShuttleTube();
   syncShuttleCostNotice(updated);updateUseShuttleButtons();renderShuttleTubeManager();saveSoon();
-  if(source==='remote')showScoreRemoteIndicator(`已使用 1 顆｜剩餘 ${updated.remainingShuttles} 顆`);
+  showScoreRemoteIndicator(`已使用 1 顆球｜剩餘 ${updated.remainingShuttles} 顆`,{duration:2000,icon:'🏸'});
   return true;
 }
 function syncShuttleCostNotice(tube){

@@ -13,6 +13,8 @@ test('shows one-shuttle controls in scoring and next-match result views plus das
   assert.match(main,/function useOneShuttle\(/);
   assert.match(main,/sessionUsedShuttles:\(Number\(row\.sessionUsedShuttles\)\|\|0\)\+1/);
   assert.match(main,/setShuttleRemaining\(row,row\.remainingShuttles-1\)/);
+  assert.match(main,/showScoreRemoteIndicator\(`已使用 1 顆球｜剩餘 \$\{updated\.remainingShuttles\} 顆`,\{duration:2000,icon:'🏸'\}\)/);
+  assert.doesNotMatch(main,/if\(source==='remote'\)showScoreRemoteIndicator\(`已使用 1 顆/);
   assert.match(main,/每人 \$\{formatMoney\(share\)\} 元/);
   assert.doesNotMatch(html,/勝方兩人保留，候場隊首兩人上場/);
 });
