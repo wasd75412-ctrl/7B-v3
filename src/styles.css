@@ -900,6 +900,9 @@ html.brand-font-fallback .brand-copy .brand-mark h1{
   font-weight:1000;
   animation:scorePulse .7s infinite alternate;
 }
+.home-shuttle-summary{display:flex;align-items:center;justify-content:space-between;gap:12px;margin:14px 0;padding:14px 16px;border:1px solid rgba(255,255,255,.12);border-radius:16px;background:rgba(255,255,255,.06)}
+.home-shuttle-summary strong,.home-shuttle-summary span{display:block}.home-shuttle-summary small{color:var(--muted)}
+.home-shuttle-summary.empty{color:var(--muted)}
 @keyframes scorePulse{to{transform:translateX(-50%) scale(1.06)}}
 
 @media(max-width:980px){

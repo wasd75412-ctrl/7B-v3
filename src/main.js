@@ -1,11 +1,12 @@
 import { initializeApp } from 'firebase/app';
-import { initializeFirestore, persistentLocalCache, persistentMultipleTabManager, doc, getDoc, onSnapshot, setDoc, serverTimestamp, runTransaction, collection, getDocs, deleteDoc, query, orderBy, limit } from 'firebase/firestore';
+import { initializeFirestore, memoryLocalCache, persistentLocalCache, persistentMultipleTabManager, doc, getDoc, getDocFromServer, onSnapshot, setDoc, writeBatch, serverTimestamp, runTransaction, collection, getDocs, deleteDoc, query, orderBy, limit } from 'firebase/firestore';
 import appPackage from '../package.json';
 import { calculatePerPersonFee, shouldShowNextEventAnnouncement } from './next-event.js';
 import { shouldShowNotificationPrompt } from './notifications.js';
 import { normalizeMatchReplayTitle, normalizeYouTubePlaylistUrl } from './youtube.js';
 import { DEFAULT_SCORE_REMOTE_BINDINGS, VIRTUAL_REMOTE_CLICK_CODE, advanceRemotePressState, assignRemoteBinding, isEditableRemoteTarget, normalizeRemoteBindings, remoteActionForCode, remoteEventCode, shouldHandleRemoteInput } from './score-remote.js';
-import { createLiveScoreData, decodeLiveMatch, generalRoomStateWithoutMatch, liveMatchKey, shouldAnnounceSyncedLiveScore, shouldApplyIncomingLiveMatch, shouldKeepLatestLiveMatch, shouldShowScoreView } from './live-score.js';
+import { createLiveScoreData, createMatchCheckpointData, decodeLiveMatch, generalRoomStateWithoutMatch, liveMatchKey, nextMatchEpoch, shouldAnnounceSyncedLiveScore, shouldApplyIncomingLiveMatch, shouldShowScoreView } from './live-score.js';
+import { shouldAcceptRemoteCommand } from './remote-command.js';
 import { canAutoSyncPlayerIdentity } from './device-sync.js';
 import { shouldRequestNativeWakeLock, wakeLockButtonIntent, wakeLockControlIsActive } from './wake-lock.js';
 import { chooseScoreTheme } from './score-theme-preference.js';
@@ -25,7 +26,7 @@ import { normalizeScoreFont, randomScoreFont } from './score-font.js';
 
 const firebaseConfig={apiKey:'AIzaSyBrakbTPK7UqEChPBI6pM8-i03IcLq0IvM',authDomain:'badminton-7a1c3.firebaseapp.com',projectId:'badminton-7a1c3',storageBucket:'badminton-7a1c3.firebasestorage.app',messagingSenderId:'883534015507',appId:'1:883534015507:web:a7f6fb318151b6d07563e6',measurementId:'G-C97B98H7YW'};
 const fbApp=initializeApp(firebaseConfig);
-const db=initializeFirestore(fbApp,{localCache:persistentLocalCache({tabManager:persistentMultipleTabManager()})});
+const db=initializeFirestore(fbApp,{localCache:new URLSearchParams(location.search).get('androidRemote')==='1'?memoryLocalCache():persistentLocalCache({tabManager:persistentMultipleTabManager()})});
 const wait=ms=>new Promise(resolve=>setTimeout(resolve,ms));
 const BCM_VERSION=appPackage.version;
 const brandFontRequest=document.fonts?Promise.all([
@@ -177,26 +178,27 @@ function handleAndroidRemoteAction(action){
   if(!requestedAndroidRemote)return false;
   if(!isHost){setAndroidRemoteFeedback('請先完成管理員登入','error');return false}
   if(!remoteControlRef){setAndroidRemoteFeedback('尚未連接遙控通道','error');return false}
-  const remoteActionCommand={id:randomToken(),action,createdAt:new Date().toISOString()};
+  const remoteActionCommand={id:randomToken(),action,matchId:state.match.matchId||'',createdAt:new Date().toISOString()};
   setDoc(remoteControlRef,{remoteActionCommand,updatedAt:serverTimestamp()},{merge:true}).then(()=>setAndroidRemoteFeedback('已送出遙控器指令','success')).catch(()=>setAndroidRemoteFeedback('遙控器指令傳送失敗','error'));
   return true;
 }
 function sendRemoteStartMatchCommand(){
   if(!remoteControlRef||!isHost){setAndroidRemoteFeedback('目前無法開始比賽','error');return false}
-  const startMatchCommand={id:randomToken(),createdAt:new Date().toISOString()};
+  const startMatchCommand={id:randomToken(),matchId:state.match.matchId||'',createdAt:new Date().toISOString()};
   setDoc(remoteControlRef,{startMatchCommand,updatedAt:serverTimestamp()},{merge:true}).then(()=>setAndroidRemoteFeedback('已送出開始比賽','success')).catch(()=>setAndroidRemoteFeedback('開始比賽指令傳送失敗','error'));
   return true;
 }
 function sendRemoteNextMatchCommand(){
   if(!remoteControlRef||!isHost||state.match.winner===null){setAndroidRemoteFeedback('目前無法開始下一場','error');return false}
-  const nextMatchCommand={id:randomToken(),createdAt:new Date().toISOString()};
+  const nextMatchCommand={id:randomToken(),matchId:state.match.matchId||'',createdAt:new Date().toISOString()};
   setDoc(remoteControlRef,{nextMatchCommand,updatedAt:serverTimestamp()},{merge:true}).then(()=>setAndroidRemoteFeedback('已送出開始下一場','success')).catch(()=>setAndroidRemoteFeedback('開始下一場指令傳送失敗','error'));
   return true;
 }
 window.bcmAndroidRemoteInput=action=>handleAndroidRemoteAction(String(action||''));
+window.bcmAndroidRemoteUseShuttle=()=>handleAndroidRemoteAction('useShuttle');
 window.bcmAndroidRemoteFullscreen=()=>{
   if(!requestedAndroidRemote||!isHost||!state.match.active||!remoteControlRef){setAndroidRemoteFeedback('目前無法切換計分模式全螢幕','error');return false}
-  const command={id:randomToken(),createdAt:new Date().toISOString()},finished=state.match.winner!==null;
+  const command={id:randomToken(),matchId:state.match.matchId||'',createdAt:new Date().toISOString()},finished=state.match.winner!==null;
   setDoc(remoteControlRef,{[finished?'undoFinishedCommand':'fullscreenCommand']:command,updatedAt:serverTimestamp()},{merge:true}).then(()=>setAndroidRemoteFeedback(finished?'已送出撤回誤觸結束':'已送出計分模式全螢幕切換','success')).catch(()=>setAndroidRemoteFeedback('遙控器指令傳送失敗','error'));
   return true;
 };
@@ -268,6 +270,7 @@ function encodeState(src){
       posB:Array.isArray(m.positions?.[1])?m.positions[1]:[0,1],
       winner:m.winner===0||m.winner===1?m.winner:null,
       matchId:m.matchId||null,
+      ...(Number(m.syncEpoch)>0?{syncEpoch:Number(m.syncEpoch)}:{}),
       testMode:!!m.testMode,
       testCompleted:!!m.testCompleted,
       startedAt:m.startedAt||''
@@ -597,6 +600,14 @@ function renderDashboard() {
         <div class="club-metric"><span class="club-metric-icon">🙌</span><span><strong>${monthPlayers.size}</strong><small>本月出賽球友</small></span></div>
         <div class="club-metric"><span class="club-metric-icon">👥</span><span><strong>${state.roster.length}</strong><small>球友人數</small></span></div>
     `;
+    const activeTube=activeShuttleTube(),shuttleSummary=$('homeShuttleSummary');
+    if(activeTube){
+      const used=Math.max(0,Number(activeTube.sessionUsedShuttles)||0),players=shuttleParticipantCount(),share=shuttleShareCost(activeTube.price,used,players);
+      shuttleSummary.className='home-shuttle-summary';
+      shuttleSummary.innerHTML=`<span><strong>🏸 ${esc(activeTube.name)}</strong><small>已使用 ${used} 顆 · 剩餘 ${activeTube.remainingShuttles} 顆</small></span><strong>${players?`每人 ${formatMoney(share)} 元`:'等待出席名單'}</strong>`;
+    }else{
+      shuttleSummary.className='home-shuttle-summary empty';shuttleSummary.textContent='🏸 目前沒有正在使用的球桶';
+    }
 
     const recent = state.history.slice(-3).reverse();
     $('homeRecentMatches').innerHTML = recent.map(h => {
@@ -1475,6 +1486,7 @@ async function connectRoom(id){
   scoreSnapshotReady=false;
   scoreViewRequested=false;
   roomId=id;
+  state=initialState();
   roomRef=doc(db,'badmintonRooms',id);
   liveScoreRef=doc(db,'badmintonRooms',id,'liveScore','current');
   remoteControlRef=doc(db,'badmintonRooms',id,'remoteControl','current');
@@ -1484,7 +1496,15 @@ async function connectRoom(id){
   selfHash=await sha256(selfToken);
   setSync(navigator.onLine?'連線中':'讀取離線資料','pending');
   try{
-    const snap=await getDoc(roomRef);
+    const readInitial=async ref=>{
+      if(navigator.onLine){try{return await getDocFromServer(ref)}catch{}}
+      return getDoc(ref);
+    };
+    const [roomInitial,liveInitial]=await Promise.allSettled([readInitial(roomRef),readInitial(liveScoreRef)]);
+    if(roomInitial.status==='rejected')throw roomInitial.reason;
+    const snap=roomInitial.value;
+    let roomServerReady=!snap.metadata.fromCache;
+    let liveServerReady=liveInitial.status==='fulfilled'&&!liveInitial.value.metadata.fromCache;
     if(!snap.exists())throw Object.assign(new Error('找不到此房間'),{code:'not-found'});
     roomSnapshotFromCache=!!snap.metadata?.fromCache;
     snapshotHasPendingWrites=!!snap.metadata?.hasPendingWrites;
@@ -1502,6 +1522,9 @@ async function connectRoom(id){
     if(isHost)localStorage.setItem(hostKey(id),hostToken);
     rememberRoom(id,isHost);
     applyState(data);
+    if(liveInitial.status==='fulfilled'&&liveInitial.value.exists()){
+      applyLiveScoreState(liveInitial.value.data(),{announce:false});
+    }
     $('landing').classList.add('hidden');
     $('app').classList.toggle('hidden',requestedAndroidRemote);
     $('roomCode').textContent=id;
@@ -1520,6 +1543,8 @@ async function connectRoom(id){
     if(requestedPage==='chat')page(8);
     unsubscribe=onSnapshot(roomRef,{includeMetadataChanges:true},s=>{
       if(!s.exists())return;
+      if(s.metadata.fromCache&&(roomServerReady||requestedAndroidRemote))return;
+      if(!s.metadata.fromCache)roomServerReady=true;
       lastRoomSnapshotData=s.data();
       roomSnapshotFromCache=!!s.metadata.fromCache;
       snapshotHasPendingWrites=!!s.metadata.hasPendingWrites;
@@ -1542,9 +1567,11 @@ async function connectRoom(id){
       liveScoreConnecting=false;
       liveScoreSnapshotFromCache=!!snapshot.metadata.fromCache;
       liveScoreHasPendingWrites=!!snapshot.metadata.hasPendingWrites;
+      if(liveScoreSnapshotFromCache&&(liveServerReady||requestedAndroidRemote)){updateSyncBadge();return}
+      if(!liveScoreSnapshotFromCache)liveServerReady=true;
       if(!snapshot.exists()){
-        liveScoreReady=false;latestLiveMatch=null;
-        if(isHost&&!snapshot.metadata.fromCache&&!liveScoreMigrationStarted)void initializeLiveScoreDocument();
+        liveScoreReady=false;
+        if(isHost&&!requestedAndroidRemote&&!snapshot.metadata.fromCache&&!liveScoreMigrationStarted)void initializeLiveScoreDocument();
         updateSyncBadge();
         return;
       }
@@ -1553,12 +1580,14 @@ async function connectRoom(id){
       liveScoreInitialSnapshot=false;
       updateSyncBadge();
     },error=>{
-      liveScoreConnecting=false;liveScoreAvailable=false;liveScoreReady=false;latestLiveMatch=null;
+      liveScoreConnecting=false;liveScoreAvailable=false;liveScoreReady=false;
       if(lastRoomSnapshotData)applyState(lastRoomSnapshotData);
       updateSyncBadge();
       console.warn('獨立即時比分無法連線，已切回完整房間同步',error);
     });
     remoteControlUnsubscribe=onSnapshot(remoteControlRef,{includeMetadataChanges:true},snapshot=>{
+      // Cache events cannot establish the command baseline. The first server event is skipped too.
+      if(snapshot.metadata.fromCache||snapshot.metadata.hasPendingWrites)return;
       if(!snapshot.exists()){remoteControlInitialSnapshot=false;return}
       const commandData=snapshot.data(),initial=remoteControlInitialSnapshot;
       handleRemoteFullscreenCommand(commandData,{initial});
@@ -1606,36 +1635,62 @@ function applyRole(){
 function cleanState(d){return decodeState(d)}
 function matchScoreSignature(source=state){const match=source?.match||{};return `${!!match.active}|${(match.rallies||[]).join('')}|${match.winner??''}`}
 function announceSyncedScore(before,announce=true){const changed=before!==matchScoreSignature(),scoreVisible=!$('scoreView')?.classList.contains('hidden');if(shouldAnnounceSyncedLiveScore({announce,snapshotReady:scoreSnapshotReady,changed,scoreVisible,androidRemote:requestedAndroidRemote,matchActive:state.match.active,voiceEnabled}))setTimeout(announceScore,120);scoreSnapshotReady=true}
-function applyState(data){const before=matchScoreSignature(),next=cleanState(data),legacyMatchChanged=!!data.liveScoreEnabled&&!!data.liveScoreMatchKey&&data.liveScoreMatchKey!==liveMatchKey(data.match),keepLiveMatch=shouldKeepLatestLiveMatch({liveScoreReady,hasLatestLiveMatch:!!latestLiveMatch});if(keepLiveMatch)next.match=structuredClone(latestLiveMatch);else if(legacyMatchChanged)latestLiveMatch=structuredClone(next.match);applying=true;state=next;renderAll();applying=false;announceSyncedScore(before);if(!keepLiveMatch&&legacyMatchChanged&&isHost&&liveScoreAvailable)saveLiveScoreSoon()}
-function applyLiveScoreState(data,{announce=true}={}){const before=matchScoreSignature(),beforeWinner=state.match?.winner,match=decodeLiveMatch(data,state.match),writePending=liveScoreWriteScheduled||pendingLiveScoreWrites>0;if(!shouldApplyIncomingLiveMatch({isHost,writePending,currentMatchId:state.match?.matchId,incomingMatchId:match.matchId}))return false;const shouldFinish=beforeWinner===null&&match.winner!==null&&isHost&&!requestedAndroidRemote&&scoreViewRequested;liveScoreReady=true;latestLiveMatch=structuredClone(match);applying=true;state.match=match;renderScore();renderDashboard();renderAndroidRemote();applying=false;announceSyncedScore(before,announce);if(shouldFinish)finishMatch();return true}
+function canApplyMatch(match){
+  return shouldApplyIncomingLiveMatch({isHost,writePending:liveScoreWriteScheduled||pendingLiveScoreWrites>0,currentMatch:state.match,incomingMatch:match});
+}
+function applyState(data){
+  const before=matchScoreSignature(),next=cleanState(data);
+  if(!canApplyMatch(next.match)){
+    next.match=structuredClone(state.match);
+    for(const key of['court','nextCall','matchRollback','waitingQueue','queueDraftChosen','priority','lastLoserReplayPlayerId'])next[key]=structuredClone(state[key]);
+  }else if(liveScoreAvailable&&liveScoreReady&&latestLiveMatch&&next.match.matchId===latestLiveMatch.matchId&&Number(next.match.syncEpoch||0)<=Number(latestLiveMatch.syncEpoch||0)){
+    next.match=structuredClone(latestLiveMatch);
+  }
+  applying=true;state=next;renderAll();applying=false;announceSyncedScore(before);
+  // Receiving a room snapshot must never publish its fallback match back into liveScore.
+}
+function applyLiveScoreState(data,{announce=true}={}){
+  const before=matchScoreSignature(),beforeMatch=state.match,match=decodeLiveMatch(data,state.match);
+  if(!canApplyMatch(match))return false;
+  const shouldFinish=beforeMatch.matchId===match.matchId&&beforeMatch.winner===null&&match.winner!==null&&isHost&&!requestedAndroidRemote&&scoreViewRequested;
+  liveScoreReady=true;latestLiveMatch=structuredClone(match);
+  applying=true;state.match=match;renderScore();renderDashboard();renderAndroidRemote();applying=false;
+  announceSyncedScore(before,announce);if(shouldFinish)finishMatch();return true;
+}
 function handleRemoteFullscreenCommand(data,{initial=false}={}){
   const id=String(data?.fullscreenCommand?.id||'');if(!id||id===lastRemoteFullscreenCommandId)return false;
   lastRemoteFullscreenCommandId=id;
+  if(!shouldAcceptRemoteCommand({command:data.fullscreenCommand,currentMatch:state.match,initial}))return false;
   if(initial||requestedAndroidRemote||!isHost||!state.match.active||$('scoreView').classList.contains('hidden'))return false;
   toggleScoreFullscreen();showScoreRemoteIndicator('遙控器切換全螢幕');return true;
 }
 function handleRemoteNextMatchCommand(data,{initial=false}={}){
   const id=String(data?.nextMatchCommand?.id||'');if(!id||id===lastRemoteNextMatchCommandId)return false;
   lastRemoteNextMatchCommandId=id;
+  if(!shouldAcceptRemoteCommand({command:data.nextMatchCommand,currentMatch:state.match,initial}))return false;
   if(initial||requestedAndroidRemote||!isHost||!state.match.active||state.match.winner===null)return false;
   startNext();showScoreRemoteIndicator('遙控器開始下一場');return true;
 }
 function handleRemoteUndoFinishedCommand(data,{initial=false}={}){
   const id=String(data?.undoFinishedCommand?.id||'');if(!id||id===lastRemoteUndoFinishedCommandId)return false;
   lastRemoteUndoFinishedCommandId=id;
+  if(!shouldAcceptRemoteCommand({command:data.undoFinishedCommand,currentMatch:state.match,initial}))return false;
   if(initial||requestedAndroidRemote||!isHost||!state.match.active||state.match.winner===null)return false;
   if(performScoreRemoteAction('undo',{announce:false})){showScoreRemoteIndicator('撤回誤觸結束');return true}return false;
 }
 function handleRemoteStartMatchCommand(data,{initial=false}={}){
   const id=String(data?.startMatchCommand?.id||'');if(!id||id===lastRemoteStartMatchCommandId)return false;
   lastRemoteStartMatchCommandId=id;
+  if(!shouldAcceptRemoteCommand({command:data.startMatchCommand,currentMatch:state.match,initial}))return false;
   if(initial||requestedAndroidRemote||!isHost||state.match.active)return false;
   startMatch();showScoreRemoteIndicator('遙控器開始比賽');return true;
 }
 function handleRemoteActionCommand(data,{initial=false}={}){
   const command=data?.remoteActionCommand||{},id=String(command.id||''),action=String(command.action||'');
   if(!id||id===lastRemoteActionCommandId)return false;lastRemoteActionCommandId=id;
-  if(initial||requestedAndroidRemote||!isHost||!['teamAPlus','teamBPlus','undo'].includes(action))return false;
+  if(!shouldAcceptRemoteCommand({command,currentMatch:state.match,initial}))return false;
+  if(initial||requestedAndroidRemote||!isHost||!['teamAPlus','teamBPlus','undo','useShuttle'].includes(action))return false;
+  if(action==='useShuttle')return useOneShuttle({source:'remote'});
   const scoreHidden=$('scoreView').classList.contains('hidden'),resultHidden=$('resultModal').classList.contains('hidden'),courtVisible=!$('page3').classList.contains('hidden');
   if(scoreHidden&&resultHidden){
     if(courtVisible&&action!=='undo'){startMatch();showScoreRemoteIndicator('遙控器開始新比賽')}
@@ -1653,7 +1708,7 @@ function liveScorePayload(){return {...createLiveScoreData(state.match),updatedA
 function liveScoreFallbackPayload(){const encoded=encodeState(state);return{match:encoded.match,liveScoreEnabled:true,liveScoreMatchKey:liveMatchKey(state.match),updatedAt:serverTimestamp()}}
 function rememberLatestLiveMatch(){latestLiveMatch=structuredClone(state.match)}
 async function initializeLiveScoreDocument(){
-  if(!isHost||!roomRef||!liveScoreRef||liveScoreMigrationStarted)return;
+  if(requestedAndroidRemote||!isHost||!roomRef||!liveScoreRef||liveScoreMigrationStarted)return;
   liveScoreMigrationStarted=true;pendingLiveScoreWrites++;updateSyncBadge();rememberLatestLiveMatch();
   try{
     await Promise.all([
@@ -1662,13 +1717,14 @@ async function initializeLiveScoreDocument(){
     ]);
     liveScoreAvailable=true;
   }catch(error){
-    liveScoreAvailable=false;liveScoreReady=false;latestLiveMatch=null;
+    liveScoreAvailable=false;liveScoreReady=false;
     console.warn('即時比分初始化失敗，將繼續使用完整房間同步',error);
   }finally{
     pendingLiveScoreWrites=Math.max(0,pendingLiveScoreWrites-1);updateSyncBadge();
   }
 }
 async function persistFullState(){
+  if(requestedAndroidRemote)return;
   await setDoc(roomRef,payload(),{merge:true});
 }
 function completedMatchSyncPayload(){
@@ -1688,7 +1744,7 @@ function completedMatchSyncPayload(){
   }
 }
 async function saveCompletedMatchStatsNow(){
-  if(!isHost||applying||!roomRef)return false;
+  if(requestedAndroidRemote||!isHost||applying||!roomRef)return false;
   clearTimeout(saveTimer);saveTimer=null;roomWriteScheduled=false;
   clearTimeout(liveScoreSaveTimer);liveScoreSaveTimer=null;liveScoreWriteScheduled=false;
   rememberLatestLiveMatch();liveScoreReady=true;
@@ -1699,7 +1755,7 @@ async function saveCompletedMatchStatsNow(){
     const [roomResult,liveResult]=await Promise.allSettled([roomWrite,liveWrite]);
     if(roomResult.status==='rejected')throw roomResult.reason;
     if(liveResult.status==='rejected'){
-      liveScoreAvailable=false;liveScoreReady=false;latestLiveMatch=null;
+      liveScoreAvailable=false;liveScoreReady=false;
       console.warn('賽後即時比分同步失敗，完整房間資料仍會接續同步',liveResult.reason);
     }
     return true;
@@ -1731,7 +1787,7 @@ function saveSoon(delay=120){
   },delay);
 }
 function saveLiveScoreSoon(){
-  if(!isHost||applying||!roomRef)return;
+  if(requestedAndroidRemote||!isHost||applying||!roomRef)return;
   clearTimeout(liveScoreSaveTimer);
   rememberLatestLiveMatch();liveScoreReady=true;liveScoreWriteScheduled=true;updateSyncBadge();
   liveScoreSaveTimer=setTimeout(async()=>{
@@ -1743,15 +1799,38 @@ function saveLiveScoreSoon(){
   },35);
 }
 async function persistLiveScoreState(){
+  if(requestedAndroidRemote)return;
   rememberLatestLiveMatch();liveScoreReady=true;
+  const livePayload=liveScorePayload(),fallbackPayload=liveScoreFallbackPayload();
   try{
-    if(!liveScoreRef||!liveScoreAvailable)await setDoc(roomRef,liveScoreFallbackPayload(),{merge:true});
-    else await setDoc(liveScoreRef,liveScorePayload(),{merge:true});
+    if(!liveScoreRef||!liveScoreAvailable)await setDoc(roomRef,fallbackPayload,{merge:true});
+    else await setDoc(liveScoreRef,livePayload,{merge:true});
   }catch(error){
-    liveScoreAvailable=false;liveScoreReady=false;latestLiveMatch=null;
+    if(state.match.matchId!==livePayload.match.matchId)return;
+    liveScoreAvailable=false;
     console.warn('即時比分寫入失敗，改用相容比分同步',error);
-    await setDoc(roomRef,liveScoreFallbackPayload(),{merge:true});
+    await setDoc(roomRef,fallbackPayload,{merge:true});
   }
+}
+async function saveNewMatchCheckpointNow(){
+  if(requestedAndroidRemote||!isHost||!roomRef||!liveScoreRef)return;
+  clearTimeout(saveTimer);saveTimer=null;roomWriteScheduled=false;
+  clearTimeout(liveScoreSaveTimer);liveScoreSaveTimer=null;liveScoreWriteScheduled=false;
+  rememberLatestLiveMatch();liveScoreReady=true;
+  const checkpoint=createMatchCheckpointData(state.match),batch=writeBatch(db);
+  batch.set(liveScoreRef,{...checkpoint.liveScore,updatedAt:serverTimestamp()},{merge:true});
+  batch.set(roomRef,{...payload(),...checkpoint.room},{merge:true});
+  pendingLiveScoreWrites++;updateSyncBadge();
+  try{await batch.commit()}
+  catch(error){setSync('比分同步失敗','error');setError(formatError(error));throw error}
+  finally{pendingLiveScoreWrites=Math.max(0,pendingLiveScoreWrites-1);updateSyncBadge()}
+}
+function checkpointNewMatch(){void saveNewMatchCheckpointNow().catch(error=>console.warn('比賽切換同步失敗',error))}
+function adoptRestoredState(data){
+  const nextEpoch=nextMatchEpoch(state.match);
+  state=cleanState(data);
+  state.match.syncEpoch=Math.max(nextEpoch,nextMatchEpoch(state.match));
+  rememberLatestLiveMatch();liveScoreReady=true;
 }
 async function saveLiveScoreNow(){
   if(!isHost||applying||!roomRef)return;
@@ -2000,6 +2079,20 @@ setInterval(()=>{
   if(shouldRetryNative)void syncAppWakeLock();
 },5000);
 void syncAppWakeLock();
+function renderFinishedMatchResult(){
+  const m=state.match;
+  const hasCurrentCall=!!m.matchId&&(state.matchRollback?.matchId===m.matchId||lastRoomSnapshotData?.match?.matchId===m.matchId);
+  const four=hasCurrentCall&&state.nextCall?.players?.length===4?state.nextCall.players:m.players.flat();
+  for(let i=0;i<4;i++){
+    const select=$('n'+i);select.innerHTML=options(four[i]||'');select.value=four[i]||'';select.onchange=updatePriority;
+  }
+  const projected=projectedQueueForLineup(four);
+  $('priorityText').classList.toggle('hidden',!projected.length);
+  $('priorityText').textContent=projected.length?`候場順序：${projected.map((id,i)=>`${queueLabel(i,projected.length)} ${pname(id)}`).join(' → ')}`:'';
+  $('winnerTitle').textContent=`${m.winner===0?'A隊':'B隊'}獲勝${m.testMode||state.testMode?'（測試，不計戰績）':''}`;
+  $('finalScore').textContent=`${m.scores[0]}：${m.scores[1]}`;
+  updateUseShuttleButtons();
+}
 function renderScore(){
   const m=state.match;
   $('scoreView').dataset.scoreFont=normalizeScoreFont(m.scoreFont);
@@ -2054,10 +2147,12 @@ function renderScore(){
   const scoreVisible=shouldShowScoreView({matchActive:m.active,isHost,androidRemote:requestedAndroidRemote,requested:scoreViewRequested});
   $('scoreView').classList.toggle('hidden',!scoreVisible);
   $('resumeScore')?.classList.toggle('hidden',!m.active||!isHost||requestedAndroidRemote||scoreVisible);
+  updateUseShuttleButtons();
   const resultKey=currentResultKey();
   if(!isHost||requestedAndroidRemote||!scoreViewRequested){
     $('resultModal').classList.add('hidden');
   }else if(m.active&&m.winner!==null&&resultKey&&resultKey!==dismissedResultKey){
+    renderFinishedMatchResult();
     $('resultModal').classList.remove('hidden');
   }else if(m.winner===null){
     $('resultModal').classList.add('hidden');
@@ -2148,7 +2243,7 @@ function toggleTestMode(){
   }else renderAll();
   saveSoon();
 }
-function startMatch(){dismissedResultKey='';const selected=state.court.filter(Boolean);if(selected.length!==4||new Set(selected).size!==4)return alert('請選擇四位不同球員。');const ids=teammateSafeLineup(selected);state.court=[...ids];reconcileWaitingQueue(ids);state.queueDraftChosen=[];state.lastLoserReplayPlayerId=null;state.matchRollback=null;randomizeScoreThemeAtMatchStart(ids);state.match={active:true,players:[[ids[0],ids[1]],[ids[2],ids[3]]],scores:[0,0],rallies:[],serving:0,positions:[[0,1],[0,1]],winner:null,matchId:randomToken(),scoreFont:randomScoreFont(state.match?.scoreFont),testMode:!!state.testMode,startedAt:new Date().toISOString()};scoreViewRequested=true;saveLiveScoreSoon();saveSoon();renderScore();renderDashboard();renderTestMode()}
+function startMatch(){dismissedResultKey='';const selected=state.court.filter(Boolean);if(selected.length!==4||new Set(selected).size!==4)return alert('請選擇四位不同球員。');const ids=teammateSafeLineup(selected);state.court=[...ids];reconcileWaitingQueue(ids);state.queueDraftChosen=[];state.lastLoserReplayPlayerId=null;state.matchRollback=null;randomizeScoreThemeAtMatchStart(ids);state.match={active:true,players:[[ids[0],ids[1]],[ids[2],ids[3]]],scores:[0,0],rallies:[],serving:0,positions:[[0,1],[0,1]],winner:null,matchId:randomToken(),syncEpoch:nextMatchEpoch(state.match),scoreFont:randomScoreFont(state.match?.scoreFont),testMode:!!state.testMode,startedAt:new Date().toISOString()};scoreViewRequested=true;checkpointNewMatch();renderScore();renderDashboard();renderTestMode()}
 function finishMatch(){
   const m=state.match;if(!m.active||m.winner===null)return;
   m.matchId=m.matchId||randomToken();let newlyRecorded=false,four=[];
@@ -2203,8 +2298,8 @@ function startNext(){
   state.waitingQueue=projectedQueueForLineup(vals);state.queueDraftChosen=[];state.priority=state.waitingQueue[0]||null;
   state.court=[...vals];state.nextCall=null;state.matchRollback=null;
   randomizeScoreThemeAtMatchStart(vals);
-  state.match={active:true,players:[[vals[0],vals[1]],[vals[2],vals[3]]],scores:[0,0],rallies:[],serving:0,positions:[[0,1],[0,1]],winner:null,matchId:randomToken(),scoreFont:randomScoreFont(state.match?.scoreFont),testMode:!!state.testMode,startedAt:new Date().toISOString()};
-  scoreViewRequested=true;$('resultModal').classList.add('hidden');renderAll();saveLiveScoreSoon();saveSoon();if(isHost&&voiceEnabled&&finalCall)setTimeout(()=>speak(finalCall),180)
+  state.match={active:true,players:[[vals[0],vals[1]],[vals[2],vals[3]]],scores:[0,0],rallies:[],serving:0,positions:[[0,1],[0,1]],winner:null,matchId:randomToken(),syncEpoch:nextMatchEpoch(state.match),scoreFont:randomScoreFont(state.match?.scoreFont),testMode:!!state.testMode,startedAt:new Date().toISOString()};
+  scoreViewRequested=true;$('resultModal').classList.add('hidden');checkpointNewMatch();renderAll();if(isHost&&voiceEnabled&&finalCall)setTimeout(()=>speak(finalCall),180)
 }
 
 function backupsRef(){return collection(db,'badmintonRooms',roomId,'backups')}
@@ -2224,7 +2319,7 @@ async function loadBackups(){const box=$('backupList'),health=$('backupHealth');
 function renderBackupCenter(){const rows=backupRows,genesis=rows.find(x=>x.id==='genesis'),last=rows[0],autoCount=rows.filter(x=>['auto','daily'].includes(x.type)).length,manualCount=rows.filter(x=>x.type==='manual').length;$('backupHealth').innerHTML=`<div class="health-box"><span class="sub">最後備份</span><strong>${last?esc(formatBackupTime(last.createdAt)):'尚未建立'}</strong></div><div class="health-box"><span class="sub">Genesis</span><strong>${genesis?'存在 ✅':'尚未建立'}</strong></div><div class="health-box"><span class="sub">自動／每日</span><strong>${autoCount} 份</strong></div><div class="health-box"><span class="sub">資料完整度</span><strong>${backupCompleteness()}%</strong></div>`;$('backupList').innerHTML=rows.length?rows.map(b=>`<div class="backup-row"><div><div class="backup-title"><span class="backup-type ${esc(b.type)}">${esc(backupTypeName(b.type))}</span>${esc(b.label||b.id)}</div><div class="backup-meta">${esc(formatBackupTime(b.createdAt))} · BCM ${esc(b.appVersion||'—')} · 球員 ${b.counts?.players??0} · 紀錄 ${b.counts?.history??0} · 完整度 ${b.completeness??'—'}%</div></div><div class="backup-row-actions"><button class="btn" data-backup-export="${esc(b.id)}">匯出</button>${isHost?`<button class="btn blue" data-backup-restore="${esc(b.id)}">還原</button>${b.id!=='genesis'?`<button class="btn danger-outline" data-backup-delete="${esc(b.id)}">刪除</button>`:''}`:''}</div></div>`).join(''):'<div class="poll-empty">尚無雲端備份。管理員可建立第一份備份。</div>';all('[data-backup-export]').forEach(b=>b.onclick=()=>exportCloudBackup(b.dataset.backupExport));all('[data-backup-restore]').forEach(b=>b.onclick=()=>restoreCloudBackup(b.dataset.backupRestore));all('[data-backup-delete]').forEach(b=>b.onclick=()=>deleteCloudBackup(b.dataset.backupDelete))}
 async function exportCloudBackup(id){try{const snap=await getDoc(backupDocRef(id));if(!snap.exists())throw new Error('找不到備份');downloadJson(snap.data(),`BCM_Cloud_${roomId}_${id}.json`)}catch(e){alert(formatError(e))}}
 function downloadJson(obj,name){const blob=new Blob([JSON.stringify(obj,null,2)],{type:'application/json'}),a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000)}
-async function restoreCloudBackup(id){if(!isHost)return alert('只有管理員可以還原。');const row=backupRows.find(x=>x.id===id);if(!row)return alert('找不到備份。');if(!confirm(`確定還原「${row.label||id}」？\n\n球員 ${row.counts?.players??0} 人\n紀錄 ${row.counts?.history??0} 場\n時間 ${formatBackupTime(row.createdAt)}\n\n系統會先建立目前資料的保護備份。`))return;const typed=prompt('為避免誤操作，請輸入「還原」：','');if(typed!=='還原')return alert('已取消還原。');try{setSync('建立保護備份');await createCloudBackup('emergency',{silent:true});const snap=await getDoc(backupDocRef(id));if(!snap.exists())throw new Error('備份不存在');const b=snap.data();if(!b.data)throw new Error('備份資料不完整');state=cleanState(b.data);await saveNow();await saveLiveScoreNow();renderAll();setSync('還原完成','online');alert('還原成功，所有裝置會即時同步。');await loadBackups()}catch(e){setSync('還原失敗','error');alert(formatError(e))}}
+async function restoreCloudBackup(id){if(!isHost)return alert('只有管理員可以還原。');const row=backupRows.find(x=>x.id===id);if(!row)return alert('找不到備份。');if(!confirm(`確定還原「${row.label||id}」？\n\n球員 ${row.counts?.players??0} 人\n紀錄 ${row.counts?.history??0} 場\n時間 ${formatBackupTime(row.createdAt)}\n\n系統會先建立目前資料的保護備份。`))return;const typed=prompt('為避免誤操作，請輸入「還原」：','');if(typed!=='還原')return alert('已取消還原。');try{setSync('建立保護備份');await createCloudBackup('emergency',{silent:true});const snap=await getDoc(backupDocRef(id));if(!snap.exists())throw new Error('備份不存在');const b=snap.data();if(!b.data)throw new Error('備份資料不完整');adoptRestoredState(b.data);await saveNewMatchCheckpointNow();renderAll();setSync('還原完成','online');alert('還原成功，所有裝置會即時同步。');await loadBackups()}catch(e){setSync('還原失敗','error');alert(formatError(e))}}
 async function deleteCloudBackup(id){if(id==='genesis')return alert('Genesis Backup 不可刪除。');if(!confirm('確定刪除這份雲端備份？'))return;try{await deleteDoc(backupDocRef(id));await loadBackups()}catch(e){alert(formatError(e))}}
 
 let pendingAvatar=null;function refreshProfilePreview(){const p=player(editId),src=pendingAvatar!==null?pendingAvatar:(p?.avatar||'');$('editAvatarPreview').innerHTML=src?`<img src="${src}" alt="">`:esc(initials(p?.name));$('profileTitle').textContent=p?.name||'球員資料';const st=playerStats(editId),td=scopedStats(editId,'today'),mo=scopedStats(editId,'month'),status=playerStatus(editId),rel=relationshipStats(editId),membership=isGuestPlayer(p)?'臨打球友':'固定團員';$('statGames').textContent=st.games;$('statWins').textContent=st.wins;$('statRate').textContent=st.rate+'%';$('ringRate').textContent=st.rate+'%';$('profileWinRing').style.setProperty('--rate',st.rate);$('profileSummary').textContent=`${membership} · ${p?.racket?`🏸 ${p.racket}`:'尚未填寫球拍資料'}`;$('profileMainRacket').textContent=[p?.racket,p?.racketTension,p?.racketString].filter(Boolean).join(' · ')||'尚未填寫';$('profileBackupRacket').textContent=[p?.backupRacket,p?.backupTension,p?.backupString].filter(Boolean).join(' · ')||'尚未填寫';$('profileStatus').textContent=status.label;const streak=td.kind==='W'&&td.streak>=2?`🔥 ${td.streak}連勝`:'—';$('profileToday').textContent=`${td.wins}勝 ${td.losses}敗`;$('profileMonth').textContent=`${mo.wins}勝 ${mo.losses}敗`;$('profileStreak').textContent=streak;$('profileBadges').innerHTML=careerBadges(editId).map(([icon,label,on])=>`<span class="career-badge ${on?'':'locked'}">${icon} ${label}</span>`).join('');$('profilePartnerRanking').innerHTML=relationRows(rel.partners,'尚無搭檔紀錄');$('profileOpponent').innerHTML=relationRows(rel.opponents,'尚無對戰紀錄');$('profileRecent').innerHTML='<h3>最近比賽</h3>'+((td.list.slice().reverse().slice(0,5).map(x=>`<div class="recent-game">${x.won?'✅ 勝':'❌ 敗'} · ${esc(x.h.scores[0]+'：'+x.h.scores[1])} · ${esc(x.h.time||'')}</div>`).join(''))||'<div class="sub">今日尚無比賽。</div>')}
@@ -2315,6 +2410,29 @@ function shuttleTubeTime(value){
 }
 function shuttleParticipantCount(){
   return new Set((state.attendance||[]).filter(Boolean)).size;
+}
+function activeShuttleTube(){return normalizeShuttleTubes(state.shuttleTubes).find(tube=>tube.status==='active')||null}
+function updateUseShuttleButtons(){
+  const tube=activeShuttleTube(),disabled=!isHost||!tube||tube.remainingShuttles<=0;
+  for(const id of['scoreUseShuttle','resultUseShuttle'])if($(id)){
+    $(id).disabled=disabled;
+    $(id).title=tube?`${tube.name}｜剩餘 ${tube.remainingShuttles} 顆`:'請先啟用球桶';
+  }
+}
+function useOneShuttle({source='button'}={}){
+  if(!isHost)return false;
+  const tube=activeShuttleTube();
+  if(!tube||tube.remainingShuttles<=0){
+    if(source==='remote')showScoreRemoteIndicator(tube?'目前球桶已用完':'請先啟用球桶');
+    return false;
+  }
+  state.shuttleTubes=normalizeShuttleTubes(state.shuttleTubes.map(row=>row.id===tube.id?{
+    ...setShuttleRemaining(row,row.remainingShuttles-1),sessionUsedShuttles:(Number(row.sessionUsedShuttles)||0)+1
+  }:row));
+  const updated=activeShuttleTube();
+  syncShuttleCostNotice(updated);updateUseShuttleButtons();renderShuttleTubeManager();saveSoon();
+  if(source==='remote')showScoreRemoteIndicator(`已使用 1 顆｜剩餘 ${updated.remainingShuttles} 顆`);
+  return true;
 }
 function syncShuttleCostNotice(tube){
   const used=Math.max(0,Number(tube?.sessionUsedShuttles)||0),players=shuttleParticipantCount(),notices=normalizeAdminNotices(state).filter(notice=>notice.id!=='shuttle-cost');
@@ -2557,7 +2675,7 @@ async function endTodaySession(triggerButton=null){
     await saveNow();
     await createCloudBackup('session',{silent:true,system:true});
     backupCreated=true;
-    state.match={...initialState().match};
+    state.match={...initialState().match,syncEpoch:nextMatchEpoch(state.match)};
     state.matchRollback=null;
     state.nextCall=null;
     state.attendance=[];
@@ -2568,13 +2686,13 @@ async function endTodaySession(triggerButton=null){
     state.lastLoserReplayPlayerId=null;
     $('resultModal').classList.add('hidden');
     renderAll();
-    await saveNow();
-    await saveLiveScoreNow();
+    await saveNewMatchCheckpointNow();
     setSync('已結束並備份','online');
     await loadBackups().catch(()=>{});
     alert('今日球局已結束並完成同步備份，總覽已顯示目前沒有比賽。');
   }catch(error){
     state=beforeEnd;
+    rememberLatestLiveMatch();
     renderAll();
     setSync('結束球局失敗','error');
     alert(`結束球局未完成，今日資料仍完整保留。${backupCreated?'備份已建立，但清除同步失敗。':'同步或備份失敗。'}\n\n${formatError(error)}`);
@@ -2662,6 +2780,8 @@ $('recruitingMessageBtn').onclick=()=>openRecruitingDialog();
 $('closeRecruitingMessage').onclick=closeRecruitingDialog;
 $('copyRecruitingMessage').onclick=copyRecruitingMessage;
 $('shuttleTubeManagerBtn').onclick=openShuttleTubeManager;
+$('scoreUseShuttle').onclick=()=>useOneShuttle();
+$('resultUseShuttle').onclick=()=>useOneShuttle();
 $('closeShuttleTubeManager').onclick=()=>$('shuttleTubeModal').classList.add('hidden');
 $('createShuttleTube').onclick=createNewShuttleTube;
 $('shuttleTubePrice').addEventListener('keydown',event=>{if(event.key==='Enter'){event.preventDefault();createNewShuttleTube()}});
@@ -2795,7 +2915,7 @@ document.addEventListener('keydown',e=>{if(e.key==='Escape')setRoomMoreOpen(fals
 
 const tomorrow=new Date();tomorrow.setDate(tomorrow.getDate()+7);$('pollDate').value=localDateKey(tomorrow);updateVoiceButton();$('backupExportBtn').onclick=exportBackup;$('backupImportBtn').onclick=()=>$('backupImportFile').click();$('backupImportFile').onchange=e=>{if(e.target.files?.[0])importBackup(e.target.files[0]);e.target.value=''};$('createCloudBackup').onclick=()=>createCloudBackup('manual').catch(e=>alert(formatError(e)));$('refreshBackups').onclick=loadBackups;renderRoomLibrary();$('autoReturnRoom').checked=localStorage.getItem(ROOM_AUTO_KEY)==='1';const q=new URLSearchParams(location.search),rid=(q.get('room')||'').toUpperCase().replace(/[^A-Z0-9]/g,'').slice(0,6);const skipAutoOnce=sessionStorage.getItem(ROOM_SKIP_AUTO_ONCE)==='1';if(skipAutoOnce)sessionStorage.removeItem(ROOM_SKIP_AUTO_ONCE);if(rid)connectRoom(rid);else if(!skipAutoOnce&&localStorage.getItem(ROOM_AUTO_KEY)==='1'){const lastId=lastRoomId();if(lastId)setTimeout(()=>openSavedRoom(lastId),180)}
 function exportBackup(){const data={schemaVersion:1,appVersion:BCM_VERSION,createdAt:new Date().toISOString(),roomId,counts:backupCounts(),data:encodeState(state)};downloadJson(data,`BCM_Backup_${roomId||'LOCAL'}_${new Date().toISOString().slice(0,19).replace(/[:T]/g,'-')}.json`)}
-function importBackup(file){const fr=new FileReader();fr.onload=async()=>{try{const b=JSON.parse(fr.result),data=b.data||b;if(!data||!Array.isArray(data.roster)||!Array.isArray(data.history))throw new Error('備份檔缺少球員或歷史資料');if(!roomRef||!isHost)throw new Error('請先以管理員身分進入球局');if(!confirm(`準備還原本機備份：\n球員 ${data.roster.length} 人\n紀錄 ${data.history.length} 場\n\n還原前會先建立 Emergency Backup。`))return;const typed=prompt('請輸入「還原」：','');if(typed!=='還原')return;await createCloudBackup('emergency',{silent:true});state=cleanState(data);await saveNow();await saveLiveScoreNow();renderAll();alert('本機備份還原成功。');await loadBackups()}catch(e){alert('無法還原：'+(e.message||e))}};fr.readAsText(file)}
+function importBackup(file){const fr=new FileReader();fr.onload=async()=>{try{const b=JSON.parse(fr.result),data=b.data||b;if(!data||!Array.isArray(data.roster)||!Array.isArray(data.history))throw new Error('備份檔缺少球員或歷史資料');if(!roomRef||!isHost)throw new Error('請先以管理員身分進入球局');if(!confirm(`準備還原本機備份：\n球員 ${data.roster.length} 人\n紀錄 ${data.history.length} 場\n\n還原前會先建立 Emergency Backup。`))return;const typed=prompt('請輸入「還原」：','');if(typed!=='還原')return;await createCloudBackup('emergency',{silent:true});adoptRestoredState(data);await saveNewMatchCheckpointNow();renderAll();alert('本機備份還原成功。');await loadBackups()}catch(e){alert('無法還原：'+(e.message||e))}};fr.readAsText(file)}
 const refreshAppButtons=all('[data-refresh-app]');
 refreshAppButtons.forEach(button=>button.onclick=()=>{refreshAppButtons.forEach(item=>{item.disabled=true;item.setAttribute('aria-busy','true');item.textContent=item.id==='refreshApp'?'↻':'↻ 重新載入…'});const url=new URL(location.href);url.searchParams.set('_refresh',Date.now().toString());setTimeout(()=>location.replace(url.toString()),50)});
 
@@ -2865,6 +2985,6 @@ const exitScoreBtn=$('exitScore');if(exitScoreBtn)exitScoreBtn.addEventListener(
 
 window.bcmMarkBooted?.();
 if('serviceWorker'in navigator&&location.protocol.startsWith('http')){
-  const swRevision='20260820-icon-blue-black-426';
+  const swRevision=BCM_VERSION;
   navigator.serviceWorker.register(`./sw.js?v=${swRevision}`,{updateViaCache:'none'}).then(registration=>registration.update()).catch(()=>{});
 }
