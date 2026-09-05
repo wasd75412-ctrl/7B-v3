@@ -171,11 +171,19 @@ test('removes the old score remote from More and provides a no-stats test mode',
   assert.match(mainSource,/function currentTestModeEnabled\(\)\{[\s\S]*?!!state\.testMode\|\|!!state\.match\?\.active/);
   assert.match(mainSource,/const enabling=!currentTestModeEnabled\(\)/);
   assert.match(mainSource,/function selectablePlayerIds\(\)\{return currentTestModeEnabled\(\)\?state\.roster\.map\(p=>p\.id\):state\.attendance\}/);
-  assert.match(mainSource,/if\(enabling&&!\(state\.match\.active&&state\.match\.winner===null\)\)\{[\s\S]*?renderAll\(\);page\(3\)/);
+  assert.match(mainSource,/if\(enabling&&!\(state\.match\.active&&state\.match\.winner===null\)\)\{[\s\S]*?shuffle\(state\.roster\.map\(player=>player\.id\)\)\.slice\(0,4\)[\s\S]*?renderAll\(\);page\(3\)/);
   assert.match(mainSource,/function options\(selected=''\).*selectablePlayerIds\(\)\.map/);
   assert.match(mainSource,/function renderWaiting\(\).*eligible=selectablePlayerIds\(\)/);
   assert.match(mainSource,/attendance:selectablePlayerIds\(\)/);
   assert.match(mainSource,/shuffle\(selectablePlayerIds\(\)\)\.slice\(0,4\)/);
+  assert.match(mainSource,/button\.textContent='🧪 測試模式'/);
+  assert.match(styles,/@keyframes test-mode-glow/);
+  assert.match(html,/id="testQuickWin" class="test-quick-win hidden host-only"/);
+  assert.match(html,/id="testWinA"[^>]*>A隊獲勝<\/button>/);
+  assert.match(html,/id="testWinB"[^>]*>B隊獲勝<\/button>/);
+  assert.match(mainSource,/function finishTestMatch\(team\)/);
+  assert.match(mainSource,/\$\('testQuickWin'\)\?\.classList\.toggle\('hidden',!enabled\|\|!isHost\|\|!state\.match\.active\|\|state\.match\.winner!==null\)/);
+  assert.match(styles,/immersive-mode \.test-quick-win\{display:none\}/);
 });
 
 test('keeps only the requested controls in normal score mode',()=>{

@@ -2224,8 +2224,9 @@ function currentTestModeEnabled(){
 }
 function renderTestMode(){
   const enabled=currentTestModeEnabled(),currentMatchIsTest=!!state.match?.active&&state.match?.winner===null&&!!state.match?.testMode,button=$('testModeToggle'),scoreButton=$('scoreTestModeToggle'),banner=$('testModeBanner');
-  if(button){button.setAttribute('aria-pressed',enabled?'true':'false');button.textContent=enabled?'🧪 關閉測試模式':'🧪 開啟測試模式';button.classList.toggle('test-mode-on',enabled)}
-  if(scoreButton){scoreButton.setAttribute('aria-pressed',enabled?'true':'false');scoreButton.setAttribute('aria-label',enabled?'關閉測試模式':'開啟測試模式');scoreButton.title=enabled?'關閉測試模式':'開啟測試模式';scoreButton.classList.toggle('test-mode-on',enabled)}
+  if(button){button.setAttribute('aria-pressed',enabled?'true':'false');button.setAttribute('aria-label',`測試模式，${enabled?'已啟用':'未啟用'}`);button.textContent='🧪 測試模式';button.classList.toggle('test-mode-on',enabled)}
+  if(scoreButton){scoreButton.setAttribute('aria-pressed',enabled?'true':'false');scoreButton.setAttribute('aria-label',`測試模式，${enabled?'已啟用':'未啟用'}`);scoreButton.title=`測試模式，${enabled?'已啟用':'未啟用'}`;scoreButton.classList.toggle('test-mode-on',enabled)}
+  $('testQuickWin')?.classList.toggle('hidden',!enabled||!isHost||!state.match.active||state.match.winner!==null);
   banner?.classList.toggle('hidden',!enabled&&!currentMatchIsTest);
   if(banner)banner.textContent=enabled?'🧪 測試模式已開啟：可直接選擇球員，完成的比賽不會寫入紀錄或戰績。':'🧪 目前這場仍是測試比賽，不會寫入紀錄或戰績。';
 }
@@ -2238,11 +2239,19 @@ function toggleTestMode(){
     saveLiveScoreSoon();
   }
   if(enabling&&!(state.match.active&&state.match.winner===null)){
-    const eligible=selectablePlayerIds();
-    state.court=uniqueIds(state.court).filter(id=>eligible.includes(id)).slice(0,4);
+    state.court=shuffle(state.roster.map(player=>player.id)).slice(0,4);
     reconcileWaitingQueue(state.court);renderAll();page(3);
   }else renderAll();
   saveSoon();
+}
+function finishTestMatch(team){
+  const m=state.match;
+  if(!isHost||!currentTestModeEnabled()||!m.active||m.winner!==null)return;
+  const winner=team===1?1:0,loser=1-winner,target=Math.max(1,Number(state.rules.target)||11);
+  m.scores[winner]=Math.max(target,m.scores[winner]);
+  m.scores[loser]=Math.min(m.scores[loser],Math.max(0,m.scores[winner]-2));
+  m.winner=winner;
+  finishMatch();
 }
 function startMatch(){dismissedResultKey='';const selected=state.court.filter(Boolean);if(selected.length!==4||new Set(selected).size!==4)return alert('請選擇四位不同球員。');const ids=teammateSafeLineup(selected);state.court=[...ids];reconcileWaitingQueue(ids);state.queueDraftChosen=[];state.lastLoserReplayPlayerId=null;state.matchRollback=null;randomizeScoreThemeAtMatchStart(ids);state.match={active:true,players:[[ids[0],ids[1]],[ids[2],ids[3]]],scores:[0,0],rallies:[],serving:0,positions:[[0,1],[0,1]],winner:null,matchId:randomToken(),syncEpoch:nextMatchEpoch(state.match),scoreFont:randomScoreFont(state.match?.scoreFont),testMode:!!state.testMode,startedAt:new Date().toISOString()};scoreViewRequested=true;checkpointNewMatch();renderScore();renderDashboard();renderTestMode()}
 function finishMatch(){
@@ -2903,6 +2912,8 @@ document.addEventListener('click',handleScoreRemoteVirtualClick,true);
 updateScoreRemoteUi();
 $('testModeToggle').onclick=toggleTestMode;
 $('scoreTestModeToggle').onclick=toggleTestMode;
+$('testWinA').onclick=()=>finishTestMatch(0);
+$('testWinB').onclick=()=>finishTestMatch(1);
 if(!$('pollTime').value)$('pollTime').value='01:00';
 if(!$('pollEndTime').value)$('pollEndTime').value=suggestedEndTime($('pollTime').value);
 $('pollTime').addEventListener('change',()=>{$('pollEndTime').value=suggestedEndTime($('pollTime').value)});
