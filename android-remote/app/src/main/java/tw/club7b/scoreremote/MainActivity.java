@@ -89,7 +89,7 @@ public final class MainActivity extends Activity {
         settings.setDisplayZoomControls(false);
         settings.setMediaPlaybackRequiresUserGesture(false);
         settings.setMixedContentMode(WebSettings.MIXED_CONTENT_NEVER_ALLOW);
-        settings.setUserAgentString(settings.getUserAgentString() + " 7BAndroidRemote/1.3.15");
+        settings.setUserAgentString(settings.getUserAgentString() + " 7BAndroidRemote/1.3.16");
         CookieManager.getInstance().setAcceptCookie(true);
         CookieManager.getInstance().setAcceptThirdPartyCookies(view, true);
         view.setRendererPriorityPolicy(WebView.RENDERER_PRIORITY_IMPORTANT, true);
@@ -248,6 +248,9 @@ public final class MainActivity extends Activity {
             if(count==1)sendRemoteAction(resolved);else if(count==2)sendRemoteFullscreenCommand();else if(count==3){
                 long now=SystemClock.uptimeMillis();
                 if(now-lastShuttleActionAt>=SHUTTLE_PRESS_COOLDOWN_MS){lastShuttleActionAt=now;sendRemoteUseShuttleCommand();}
+            }else if(count==4){
+                long now=SystemClock.uptimeMillis();
+                if(now-lastShuttleActionAt>=SHUTTLE_PRESS_COOLDOWN_MS){lastShuttleActionAt=now;sendRemoteReturnShuttleCommand();}
             }
         };
         keyHandler.postDelayed(pendingShortPress, DOUBLE_PRESS_MS);
@@ -267,6 +270,15 @@ public final class MainActivity extends Activity {
         evaluateJavascript("(function(){return !!(window.bcmAndroidRemoteUseShuttle&&window.bcmAndroidRemoteUseShuttle());})()",result -> {
             boolean accepted = "true".equals(result);
             Toast.makeText(MainActivity.this,accepted ? "已使用 1 顆球" : "請先啟用球桶",Toast.LENGTH_SHORT).show();
+            vibrate(accepted ? 120L : 28L);
+        });
+    }
+
+    private void sendRemoteReturnShuttleCommand() {
+        if (webView == null) return;
+        evaluateJavascript("(function(){return !!(window.bcmAndroidRemoteReturnShuttle&&window.bcmAndroidRemoteReturnShuttle());})()",result -> {
+            boolean accepted = "true".equals(result);
+            Toast.makeText(MainActivity.this,accepted ? "已加回 1 顆球" : "本場沒有可加回的球",Toast.LENGTH_SHORT).show();
             vibrate(accepted ? 120L : 28L);
         });
     }

@@ -202,7 +202,7 @@ test('keeps the Android remote session active after a match finishes so it can u
 });
 
 test('offers ending today session at the bottom right of the finished match page',()=>{
-  assert.match(html,/class="result-footer"><button id="closeResult"[^>]*>關閉<\/button><button id="resultEndSessionBtn"[^>]*>結束今日球局<\/button>/);
+  assert.match(html,/class="result-footer"><button id="closeResult"[^>]*>✕<\/button><button id="resultEndSessionBtn"[^>]*>結束球局<\/button>/);
   assert.match(mainSource,/resultEndSessionBtn'\)\.onclick=\(\)=>endTodaySession\(\$\('resultEndSessionBtn'\)\)/);
   assert.match(styles,/#resultModal \.result-footer\{[^}]*justify-content:space-between/);
   assert.match(styles,/#resultModal #resultEndSessionBtn\{margin-left:auto\}/);

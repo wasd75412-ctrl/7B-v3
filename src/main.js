@@ -198,6 +198,7 @@ function sendRemoteNextMatchCommand(){
 }
 window.bcmAndroidRemoteInput=action=>handleAndroidRemoteAction(String(action||''));
 window.bcmAndroidRemoteUseShuttle=()=>handleAndroidRemoteAction('useShuttle');
+window.bcmAndroidRemoteReturnShuttle=()=>handleAndroidRemoteAction('returnShuttle');
 window.bcmAndroidRemoteFullscreen=()=>{
   if(!requestedAndroidRemote||!isHost||!state.match.active||!remoteControlRef){setAndroidRemoteFeedback('目前無法切換計分模式全螢幕','error');return false}
   const command={id:randomToken(),matchId:state.match.matchId||'',createdAt:new Date().toISOString()},finished=state.match.winner!==null;
@@ -1691,8 +1692,9 @@ function handleRemoteActionCommand(data,{initial=false}={}){
   const command=data?.remoteActionCommand||{},id=String(command.id||''),action=String(command.action||'');
   if(!id||id===lastRemoteActionCommandId)return false;lastRemoteActionCommandId=id;
   if(!shouldAcceptRemoteCommand({command,currentMatch:state.match,initial}))return false;
-  if(initial||requestedAndroidRemote||!isHost||!['teamAPlus','teamBPlus','undo','useShuttle'].includes(action))return false;
+  if(initial||requestedAndroidRemote||!isHost||!['teamAPlus','teamBPlus','undo','useShuttle','returnShuttle'].includes(action))return false;
   if(action==='useShuttle')return useOneShuttle({source:'remote'});
+  if(action==='returnShuttle')return returnOneShuttle({source:'remote'});
   const scoreHidden=$('scoreView').classList.contains('hidden'),resultHidden=$('resultModal').classList.contains('hidden'),courtVisible=!$('page3').classList.contains('hidden');
   if(scoreHidden&&resultHidden){
     if(courtVisible&&action!=='undo'){startMatch();showScoreRemoteIndicator('遙控器開始新比賽')}
@@ -2409,9 +2411,9 @@ function shuttleParticipantCount(){
   return new Set((state.attendance||[]).filter(Boolean)).size;
 }
 function activeShuttleTube(){return normalizeShuttleTubes(state.shuttleTubes).find(tube=>tube.status==='active')||null}
-function currentSessionEvent(){return normalizeNextEvents(state).find(event=>event.date===localDateKey())||null}
 function shuttleUsageSessionKey(){return currentSessionEvent()?.id||`date:${localDateKey()}`}
 function currentSessionShuttleUsage(tube){return sessionShuttleUsage(tube,shuttleUsageSessionKey())}
+function currentSessionEvent(){return normalizeNextEvents(state).find(event=>event.date===localDateKey())||null}
 function sessionCombinedCosts(event=currentSessionEvent()){
   const tube=activeShuttleTube(),applies=!!event&&event.date===localDateKey(),used=currentSessionShuttleUsage(tube),shuttleTotal=used*shuttleUnitPrice(tube?.price),players=shuttleParticipantCount()||wholeAmount(event?.participantCount),rentalTotal=wholeAmount(event?.rentalTotal),share=calculateCombinedPerPersonFee(rentalTotal,shuttleTotal,players);
   return{applies,rentalTotal,shuttleTotal,used,players,share};
@@ -2422,6 +2424,7 @@ function updateUseShuttleButtons(){
     $(id).disabled=disabled;
     $(id).title=tube?`${tube.name}｜剩餘 ${tube.remainingShuttles} 顆`:'請先啟用球桶';
   }
+  if($('resultReturnShuttle'))$('resultReturnShuttle').disabled=!isHost||!tube||currentSessionShuttleUsage(tube)<=0||tube.remainingShuttles>=tube.totalShuttles;
 }
 function useOneShuttle({source='button'}={}){
   if(!isHost)return false;
@@ -2438,12 +2441,28 @@ function useOneShuttle({source='button'}={}){
   showScoreRemoteIndicator(`已使用 1 顆球｜剩餘 ${updated.remainingShuttles} 顆`,{duration:2000,icon:'🏸'});
   return true;
 }
+function returnOneShuttle({source='button'}={}){
+  if(!isHost)return false;
+  const tube=activeShuttleTube(),used=currentSessionShuttleUsage(tube);
+  if(!tube||used<=0||tube.remainingShuttles>=tube.totalShuttles){
+    if(source==='remote')showScoreRemoteIndicator('本場沒有可加回的球',{duration:2000,icon:'🏸'});
+    return false;
+  }
+  state.shuttleTubes=normalizeShuttleTubes(state.shuttleTubes.map(row=>row.id===tube.id?{
+    ...setShuttleRemaining(row,row.remainingShuttles+1),sessionUsedShuttles:Math.max(0,currentSessionShuttleUsage(row)-1),sessionUsageKey:shuttleUsageSessionKey()
+  }:row));
+  const updated=activeShuttleTube();
+  syncShuttleCostNotice(updated);updateUseShuttleButtons();renderShuttleTubeManager();saveSoon();
+  showScoreRemoteIndicator(`已加回 1 顆球｜剩餘 ${updated.remainingShuttles} 顆`,{duration:2000,icon:'↩️🏸'});
+  return true;
+}
 function syncShuttleCostNotice(tube){
-  const used=currentSessionShuttleUsage(tube),notices=normalizeAdminNotices(state).filter(notice=>notice.id!=='shuttle-cost');
+  const used=currentSessionShuttleUsage(tube),players=shuttleParticipantCount(),notices=normalizeAdminNotices(state).filter(notice=>notice.id!=='shuttle-cost');
   if(!tube){setAdminNotices(notices);renderDashboard();return}
-  const unitPrice=shuttleUnitPrice(tube.price),costs=sessionCombinedCosts(),fee=costs.players?`場租 ${formatMoney(costs.rentalTotal)} 元＋球費 ${formatMoney(costs.shuttleTotal)} 元，共 ${costs.players} 人，每人需繳 ${formatMoney(costs.share)} 元。`:'場租及球費會依出席人數自動計算。';
-  const body=`${fee}本場已使用 ${used} 顆（每顆 ${formatMoney(unitPrice)} 元），「${tube.name}」剩餘 ${tube.remainingShuttles} 顆。`;
-  setAdminNotices([{id:'shuttle-cost',title:'場租及球費',body,publishedAt:new Date().toISOString()},...notices]);
+  const unitPrice=shuttleUnitPrice(tube.price),share=shuttleShareCost(tube.price,used,players);
+  const fee=used&&players?`本場 ${used} 顆、${players} 人，每人 ${formatMoney(share)} 元。`:'本場費用會依用球顆數與出席人數自動計算。';
+  const body=`球費＝本場用球顆數 × 每顆 ${formatMoney(unitPrice)} 元 ÷ 本場人數（購球者也計入）。${fee}「${tube.name}」剩餘 ${tube.remainingShuttles} 顆。`;
+  setAdminNotices([{id:'shuttle-cost',title:'球費與球桶',body,publishedAt:new Date().toISOString()},...notices]);
   renderDashboard();
 }
 function renderShuttleTubeManager(){
@@ -2785,6 +2804,7 @@ $('copyRecruitingMessage').onclick=copyRecruitingMessage;
 $('shuttleTubeManagerBtn').onclick=openShuttleTubeManager;
 $('scoreUseShuttle').onclick=()=>useOneShuttle();
 $('resultUseShuttle').onclick=()=>useOneShuttle();
+$('resultReturnShuttle').onclick=()=>returnOneShuttle();
 $('closeShuttleTubeManager').onclick=()=>$('shuttleTubeModal').classList.add('hidden');
 $('createShuttleTube').onclick=createNewShuttleTube;
 $('shuttleTubePrice').addEventListener('keydown',event=>{if(event.key==='Enter'){event.preventDefault();createNewShuttleTube()}});

@@ -128,6 +128,9 @@ public final class RemoteKeyAccessibilityService extends AccessibilityService {
             if(count==1)sendBackgroundAction(resolved);else if(count==2)sendBackgroundFullscreenCommand();else if(count==3){
                 long now=SystemClock.uptimeMillis();
                 if(now-lastShuttleActionAt>=SHUTTLE_PRESS_COOLDOWN_MS){lastShuttleActionAt=now;sendBackgroundUseShuttle();}
+            }else if(count==4){
+                long now=SystemClock.uptimeMillis();
+                if(now-lastShuttleActionAt>=SHUTTLE_PRESS_COOLDOWN_MS){lastShuttleActionAt=now;sendBackgroundReturnShuttle();}
             }
         };
         keyHandler.postDelayed(pendingShortPress, DOUBLE_PRESS_MS);
@@ -162,6 +165,17 @@ public final class RemoteKeyAccessibilityService extends AccessibilityService {
     private void sendBackgroundUseShuttle() {
         try {
             scoreController().useOneShuttle((success,message) -> keyHandler.post(() -> {
+                Toast.makeText(RemoteKeyAccessibilityService.this,message,Toast.LENGTH_SHORT).show();
+                vibrate(success ? 120L : 28L);
+            }));
+        } catch (RuntimeException error) {
+            Toast.makeText(this,"無法連接球桶管理",Toast.LENGTH_SHORT).show();vibrate(28L);
+        }
+    }
+
+    private void sendBackgroundReturnShuttle() {
+        try {
+            scoreController().returnOneShuttle((success,message) -> keyHandler.post(() -> {
                 Toast.makeText(RemoteKeyAccessibilityService.this,message,Toast.LENGTH_SHORT).show();
                 vibrate(success ? 120L : 28L);
             }));
