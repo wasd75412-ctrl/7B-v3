@@ -195,7 +195,8 @@ test('removes the old score remote from More and provides a no-stats test mode',
   assert.match(html,/id="testWinA"[^>]*>A隊獲勝<\/button>/);
   assert.match(html,/id="testWinB"[^>]*>B隊獲勝<\/button>/);
   assert.match(mainSource,/function finishTestMatch\(team\)/);
-  assert.match(mainSource,/\$\('testQuickWin'\)\?\.classList\.toggle\('hidden',!enabled\|\|!isHost\|\|!state\.match\.active\|\|state\.match\.winner!==null\)/);
+  assert.match(mainSource,/\$\('testQuickWin'\)\?\.classList\.toggle\('hidden',!currentMatchIsTest\|\|!isHost\|\|state\.match\.winner!==null\)/);
+  assert.match(mainSource,/function finishTestMatch\(team\)\{[\s\S]*?!m\.testMode\)return;/);
   assert.match(styles,/\.test-quick-win\{position:fixed;z-index:120/);
   assert.doesNotMatch(styles,/immersive-mode \.test-quick-win\{display:none\}/);
 });
