@@ -1,4 +1,4 @@
-const CACHE='7b-bcm-20260820-icon-blue-black-426';
+const CACHE=`7b-bcm-${new URL(self.location.href).searchParams.get('v')||'unversioned'}`;
 const ASSETS=['./manifest.webmanifest','./icons/icon-180.png','./icons/icon-192.png','./icons/icon-512.png','./icons/icon-maskable-512.png','./assets/7b-score-icon.png','./assets/7b-logo-full.png','./assets/fonts/jason-handwriting-9-brand.woff2?v=20260714-277','./assets/fonts/score/audiowide.ttf','./assets/fonts/score/black-ops-one.ttf','./assets/fonts/score/bungee.ttf','./assets/fonts/score/monoton.ttf','./assets/fonts/score/orbitron-900.ttf','./assets/fonts/score/oxanium-800.ttf','./assets/fonts/score/press-start-2p.ttf','./assets/fonts/score/russo-one.ttf'];
 
 async function installAppShell(){

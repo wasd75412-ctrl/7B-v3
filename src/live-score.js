@@ -18,6 +18,7 @@ export function encodeLiveMatch(source={}){
     scoreFont:typeof source.scoreFont==='string'?source.scoreFont:'',
     testMode:!!source.testMode,
     testCompleted:!!source.testCompleted,
+    ...(Number(source.syncEpoch)>0?{syncEpoch:Number(source.syncEpoch)}:{}),
     startedAt:source.startedAt||''
   };
 }
@@ -39,12 +40,27 @@ export function decodeLiveMatch(source={},fallback={}){
     scoreFont:match.scoreFont,
     testMode:match.testMode,
     testCompleted:match.testCompleted,
+    syncEpoch:Number(encoded.syncEpoch)||((encoded.matchId||null)===(base.matchId||null)?Number(base.syncEpoch)||0:0),
     startedAt:match.startedAt
   };
 }
 
 export function createLiveScoreData(match){
   return{schemaVersion:LIVE_SCORE_SCHEMA_VERSION,match:encodeLiveMatch(match)};
+}
+
+// Session order is independent of a document's updatedAt: an old device can write later.
+export function matchSessionEpoch(match={}){
+  return Number(match.syncEpoch)||Date.parse(match.startedAt)||0;
+}
+
+export function nextMatchEpoch(previous={},now=Date.now()){
+  return Math.max(now,matchSessionEpoch(previous)+1);
+}
+
+export function createMatchCheckpointData(match){
+  const liveScore=createLiveScoreData(match);
+  return{liveScore,room:{match:liveScore.match,liveScoreEnabled:true,liveScoreMatchKey:liveMatchKey(match)}};
 }
 
 export function generalRoomStateWithoutMatch(encodedState={}){
@@ -60,9 +76,17 @@ export function liveMatchKey(source={}){
   return JSON.stringify(encodeLiveMatch(source?.match||source));
 }
 
-export function shouldApplyIncomingLiveMatch({isHost=false,writePending=false,currentMatchId='',incomingMatchId=''}={}){
-  const current=String(currentMatchId||''),incoming=String(incomingMatchId||'');
-  return !(isHost&&writePending&&current&&incoming&&current!==incoming);
+export function shouldApplyIncomingLiveMatch({isHost=false,writePending=false,currentMatchId='',incomingMatchId='',currentMatch,incomingMatch}={}){
+  const current=String(currentMatch?.matchId||currentMatchId||''),incoming=String(incomingMatch?.matchId||incomingMatchId||'');
+  const currentEpoch=matchSessionEpoch(currentMatch),incomingEpoch=matchSessionEpoch(incomingMatch);
+  if(current===incoming){
+    return !(currentEpoch&&incomingEpoch&&incomingEpoch<currentEpoch);
+  }
+  if(currentEpoch)return incomingEpoch>currentEpoch;
+  if(isHost&&writePending&&current)return false;
+  // Preserve the legacy ID-only API; real snapshots supply the complete matches.
+  if(currentMatch&&current&&!incomingEpoch)return false;
+  return true;
 }
 
 export function shouldKeepLatestLiveMatch({liveScoreReady=false,hasLatestLiveMatch=false}={}){

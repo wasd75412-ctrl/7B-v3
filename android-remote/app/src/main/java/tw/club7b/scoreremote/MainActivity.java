@@ -16,12 +16,15 @@ import android.os.VibrationEffect;
 import android.os.Vibrator;
 import android.os.VibratorManager;
 import android.provider.Settings;
+import android.util.Log;
 import android.view.KeyEvent;
 import android.view.ViewGroup;
 import android.view.WindowManager;
 import android.view.accessibility.AccessibilityManager;
 import android.webkit.CookieManager;
 import android.webkit.JavascriptInterface;
+import android.webkit.RenderProcessGoneDetail;
+import android.webkit.ValueCallback;
 import android.webkit.WebChromeClient;
 import android.webkit.WebResourceRequest;
 import android.webkit.WebSettings;
@@ -48,9 +51,12 @@ public final class MainActivity extends Activity {
     private Runnable pendingShortPress;
     private int pendingShortPressKey = KeyEvent.KEYCODE_UNKNOWN;
     private long pendingShortPressAt;
+    private int pendingShortPressCount;
+    private VolumeKeyInterpreter.Action pendingShortPressAction = VolumeKeyInterpreter.Action.NONE;
     private long lastPointActionAt;
     private long lastUndoActionAt;
     private volatile boolean activityStarted;
+    private boolean activityResumed;
     private volatile boolean recordingModeEnabled;
     private BackgroundScoreController backgroundScoreController;
 
@@ -60,6 +66,10 @@ public final class MainActivity extends Activity {
         getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
         recordingModeEnabled = RemoteSessionStore.isRecordingEnabled(this);
 
+        createWebView();
+    }
+
+    private void createWebView() {
         webView = new WebView(this);
         webView.setBackgroundColor(Color.rgb(6, 25, 38));
         configureWebView(webView);
@@ -77,13 +87,26 @@ public final class MainActivity extends Activity {
         settings.setDisplayZoomControls(false);
         settings.setMediaPlaybackRequiresUserGesture(false);
         settings.setMixedContentMode(WebSettings.MIXED_CONTENT_NEVER_ALLOW);
-        settings.setUserAgentString(settings.getUserAgentString() + " 7BAndroidRemote/1.3.1");
+        settings.setUserAgentString(settings.getUserAgentString() + " 7BAndroidRemote/1.3.12");
         CookieManager.getInstance().setAcceptCookie(true);
         CookieManager.getInstance().setAcceptThirdPartyCookies(view, true);
         view.setRendererPriorityPolicy(WebView.RENDERER_PRIORITY_IMPORTANT, true);
         view.addJavascriptInterface(new AndroidBridge(), "BcmAndroid");
         view.setWebChromeClient(new WebChromeClient());
         view.setWebViewClient(new WebViewClient() {
+            @Override
+            public boolean onRenderProcessGone(WebView failedView, RenderProcessGoneDetail detail) {
+                Log.w("7BRemote", "WebView renderer stopped; crashed=" + detail.didCrash());
+                if (failedView == webView) webView = null;
+                if (failedView.getParent() instanceof ViewGroup) {
+                    ((ViewGroup) failedView.getParent()).removeView(failedView);
+                }
+                failedView.destroy();
+                // The camera owns its own Activity and can continue without a hidden webpage.
+                if (activityResumed && !isFinishing() && !isDestroyed()) createWebView();
+                return true;
+            }
+
             @Override
             public boolean shouldOverrideUrlLoading(WebView webView, WebResourceRequest request) {
                 Uri uri = request.getUrl();
@@ -111,14 +134,30 @@ public final class MainActivity extends Activity {
     @Override
     protected void onResume() {
         super.onResume();
+        activityResumed = true;
+        if (webView == null) createWebView();
+        if (webView != null) {
+            webView.resumeTimers();
+            webView.onResume();
+        }
         notifyKeyAccessChanged();
+    }
+
+    @Override
+    protected void onPause() {
+        activityResumed = false;
+        if (webView != null) {
+            webView.onPause();
+            webView.pauseTimers();
+        }
+        super.onPause();
     }
 
     @Override
     protected void onStop() {
         activityStarted = false;
-        // A stopped WebView can be suspended while the camera is in front. Release it so the
-        // accessibility service can write the score directly instead of talking to a stale page.
+        // The native camera and Firestore controller keep recording and scoring alive. The hidden
+        // WebView must stay suspended or Samsung may kill the whole app for background CPU usage.
         RemoteKeyRelay.clearListener(remoteKeyListener);
         super.onStop();
     }
@@ -196,18 +235,16 @@ public final class MainActivity extends Activity {
             sendRemoteAction(action);
             return;
         }
-        if (pendingShortPress != null && pendingShortPressKey == keyCode && eventTime - pendingShortPressAt <= DOUBLE_PRESS_MS) {
-            cancelPendingShortPress();
-            sendRemoteFullscreenCommand();
-            return;
+        if (pendingShortPress == null || pendingShortPressKey != keyCode || eventTime - pendingShortPressAt > DOUBLE_PRESS_MS) {
+            cancelPendingShortPress();pendingShortPressKey = keyCode;pendingShortPressCount = 0;pendingShortPressAction = action;
         }
-        cancelPendingShortPress();
-        pendingShortPressKey = keyCode;
-        pendingShortPressAt = eventTime;
+        pendingShortPressCount++;pendingShortPressAt = eventTime;
+        if (pendingShortPress != null) keyHandler.removeCallbacks(pendingShortPress);
+        if (pendingShortPressCount == 5) { cancelPendingShortPress();sendRemoteUseShuttleCommand();return; }
         pendingShortPress = () -> {
-            pendingShortPress = null;
-            pendingShortPressKey = KeyEvent.KEYCODE_UNKNOWN;
-            sendRemoteAction(action);
+            int count=pendingShortPressCount;VolumeKeyInterpreter.Action resolved=pendingShortPressAction;
+            cancelPendingShortPress();
+            if(count==1)sendRemoteAction(resolved);else if(count==2)sendRemoteFullscreenCommand();
         };
         keyHandler.postDelayed(pendingShortPress, DOUBLE_PRESS_MS);
     }
@@ -217,27 +254,38 @@ public final class MainActivity extends Activity {
         pendingShortPress = null;
         pendingShortPressKey = KeyEvent.KEYCODE_UNKNOWN;
         pendingShortPressAt = 0L;
+        pendingShortPressCount = 0;
+        pendingShortPressAction = VolumeKeyInterpreter.Action.NONE;
+    }
+
+    private void sendRemoteUseShuttleCommand() {
+        if (webView == null) return;
+        evaluateJavascript("(function(){return !!(window.bcmAndroidRemoteUseShuttle&&window.bcmAndroidRemoteUseShuttle());})()",result -> {
+            boolean accepted = "true".equals(result);
+            Toast.makeText(MainActivity.this,accepted ? "已使用 1 顆球" : "請先啟用球桶",Toast.LENGTH_SHORT).show();
+            vibrate(accepted ? 120L : 28L);
+        });
     }
 
     private void sendRemoteFullscreenCommand() {
         if (webView == null) return;
-        webView.post(() -> webView.evaluateJavascript(
+        evaluateJavascript(
                 "(function(){return !!(window.bcmAndroidRemoteFullscreen&&window.bcmAndroidRemoteFullscreen());})()",
                 result -> {
                     boolean accepted = "true".equals(result);
                     Toast.makeText(MainActivity.this, accepted ? "已送出遙控器雙按指令" : "目前無法執行雙按功能", Toast.LENGTH_SHORT).show();
                     vibrate(accepted ? 70L : 28L);
                 }
-        ));
+        );
     }
 
     private void notifyKeyDetected(int keyCode) {
         if (webView == null) return;
         String label = VolumeKeyInterpreter.keyLabel(keyCode);
-        webView.post(() -> webView.evaluateJavascript(
+        evaluateJavascript(
                 "window.bcmAndroidRemoteKeyDetected&&window.bcmAndroidRemoteKeyDetected('" + label + "')",
                 null
-        ));
+        );
     }
 
     private void sendRemoteAction(VolumeKeyInterpreter.Action action) {
@@ -268,7 +316,7 @@ public final class MainActivity extends Activity {
             default:
                 return;
         }
-        webView.post(() -> webView.evaluateJavascript(
+        evaluateJavascript(
                 "(function(){return !!(window.bcmAndroidRemoteInput&&window.bcmAndroidRemoteInput('" + command + "'));})()",
                 result -> {
                     boolean accepted = "true".equals(result);
@@ -279,7 +327,7 @@ public final class MainActivity extends Activity {
                     ).show();
                     vibrate(accepted ? (action == VolumeKeyInterpreter.Action.UNDO ? 90L : 45L) : 25L);
                 }
-        ));
+        );
     }
 
     private boolean isRemoteKeyAccessEnabled() {
@@ -303,10 +351,10 @@ public final class MainActivity extends Activity {
 
     private void notifyKeyAccessChanged() {
         if (webView == null) return;
-        webView.post(() -> webView.evaluateJavascript(
+        evaluateJavascript(
                 "window.bcmAndroidKeyAccessChanged&&window.bcmAndroidKeyAccessChanged()",
                 null
-        ));
+        );
     }
 
     private void setRecordingModeEnabled(boolean enabled) {
@@ -319,10 +367,18 @@ public final class MainActivity extends Activity {
 
     private void notifyRecordingModeChanged() {
         if (webView == null) return;
-        webView.post(() -> webView.evaluateJavascript(
+        evaluateJavascript(
                 "window.bcmAndroidRecordingModeChanged&&window.bcmAndroidRecordingModeChanged()",
                 null
-        ));
+        );
+    }
+
+    private void evaluateJavascript(String script, ValueCallback<String> callback) {
+        WebView target = webView;
+        if (target == null) return;
+        target.post(() -> {
+            if (target == webView) target.evaluateJavascript(script, callback);
+        });
     }
 
     private void openVideoCamera() {

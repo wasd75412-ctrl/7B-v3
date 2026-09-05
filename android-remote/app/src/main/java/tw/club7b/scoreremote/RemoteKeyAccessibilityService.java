@@ -27,6 +27,8 @@ public final class RemoteKeyAccessibilityService extends AccessibilityService {
     private Runnable pendingShortPress;
     private int pendingShortPressKey = KeyEvent.KEYCODE_UNKNOWN;
     private long pendingShortPressAt;
+    private int pendingShortPressCount;
+    private VolumeKeyInterpreter.Action pendingShortPressAction = VolumeKeyInterpreter.Action.NONE;
     private long lastPointActionAt;
     private long lastUndoActionAt;
 
@@ -113,18 +115,16 @@ public final class RemoteKeyAccessibilityService extends AccessibilityService {
             sendBackgroundAction(action);
             return;
         }
-        if (pendingShortPress != null && pendingShortPressKey == keyCode && eventTime - pendingShortPressAt <= DOUBLE_PRESS_MS) {
-            cancelPendingShortPress();
-            sendBackgroundFullscreenCommand();
-            return;
+        if (pendingShortPress == null || pendingShortPressKey != keyCode || eventTime - pendingShortPressAt > DOUBLE_PRESS_MS) {
+            cancelPendingShortPress();pendingShortPressKey = keyCode;pendingShortPressCount = 0;pendingShortPressAction = action;
         }
-        cancelPendingShortPress();
-        pendingShortPressKey = keyCode;
-        pendingShortPressAt = eventTime;
+        pendingShortPressCount++;pendingShortPressAt = eventTime;
+        if (pendingShortPress != null) keyHandler.removeCallbacks(pendingShortPress);
+        if (pendingShortPressCount == 5) { cancelPendingShortPress();sendBackgroundUseShuttle();return; }
         pendingShortPress = () -> {
-            pendingShortPress = null;
-            pendingShortPressKey = KeyEvent.KEYCODE_UNKNOWN;
-            sendBackgroundAction(action);
+            int count=pendingShortPressCount;VolumeKeyInterpreter.Action resolved=pendingShortPressAction;
+            cancelPendingShortPress();
+            if(count==1)sendBackgroundAction(resolved);else if(count==2)sendBackgroundFullscreenCommand();
         };
         keyHandler.postDelayed(pendingShortPress, DOUBLE_PRESS_MS);
     }
@@ -134,6 +134,8 @@ public final class RemoteKeyAccessibilityService extends AccessibilityService {
         pendingShortPress = null;
         pendingShortPressKey = KeyEvent.KEYCODE_UNKNOWN;
         pendingShortPressAt = 0L;
+        pendingShortPressCount = 0;
+        pendingShortPressAction = VolumeKeyInterpreter.Action.NONE;
     }
 
     private BackgroundScoreController scoreController() {
@@ -150,6 +152,17 @@ public final class RemoteKeyAccessibilityService extends AccessibilityService {
         } catch (RuntimeException error) {
             Toast.makeText(this, "無法連接計分模式", Toast.LENGTH_SHORT).show();
             vibrate(28L);
+        }
+    }
+
+    private void sendBackgroundUseShuttle() {
+        try {
+            scoreController().useOneShuttle((success,message) -> keyHandler.post(() -> {
+                Toast.makeText(RemoteKeyAccessibilityService.this,message,Toast.LENGTH_SHORT).show();
+                vibrate(success ? 120L : 28L);
+            }));
+        } catch (RuntimeException error) {
+            Toast.makeText(this,"無法連接球桶管理",Toast.LENGTH_SHORT).show();vibrate(28L);
         }
     }
 
