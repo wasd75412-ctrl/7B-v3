@@ -1674,21 +1674,21 @@ function handleRemoteNextMatchCommand(data,{initial=false}={}){
   const id=String(data?.nextMatchCommand?.id||'');if(!id||id===lastRemoteNextMatchCommandId)return false;
   lastRemoteNextMatchCommandId=id;
   if(!shouldAcceptRemoteCommand({command:data.nextMatchCommand,currentMatch:state.match,initial}))return false;
-  if(initial||requestedAndroidRemote||!isHost||!state.match.active||state.match.winner===null)return false;
+  if(initial||requestedAndroidRemote||!isHost||!state.match.active||state.match.winner===null||$('resultModal').classList.contains('hidden'))return false;
   startNext();showScoreRemoteIndicator('遙控器開始下一場');return true;
 }
 function handleRemoteUndoFinishedCommand(data,{initial=false}={}){
   const id=String(data?.undoFinishedCommand?.id||'');if(!id||id===lastRemoteUndoFinishedCommandId)return false;
   lastRemoteUndoFinishedCommandId=id;
   if(!shouldAcceptRemoteCommand({command:data.undoFinishedCommand,currentMatch:state.match,initial}))return false;
-  if(initial||requestedAndroidRemote||!isHost||!state.match.active||state.match.winner===null)return false;
+  if(initial||requestedAndroidRemote||!isHost||!state.match.active||state.match.winner===null||$('resultModal').classList.contains('hidden'))return false;
   if(performScoreRemoteAction('undo',{announce:false})){showScoreRemoteIndicator('撤回誤觸結束');return true}return false;
 }
 function handleRemoteStartMatchCommand(data,{initial=false}={}){
   const id=String(data?.startMatchCommand?.id||'');if(!id||id===lastRemoteStartMatchCommandId)return false;
   lastRemoteStartMatchCommandId=id;
   if(!shouldAcceptRemoteCommand({command:data.startMatchCommand,currentMatch:state.match,initial}))return false;
-  if(initial||requestedAndroidRemote||!isHost||state.match.active)return false;
+  if(initial||requestedAndroidRemote||!isHost||state.match.active||$('page3').classList.contains('hidden'))return false;
   startMatch();showScoreRemoteIndicator('遙控器開始比賽');return true;
 }
 function handleRemoteActionCommand(data,{initial=false}={}){
@@ -1696,17 +1696,19 @@ function handleRemoteActionCommand(data,{initial=false}={}){
   if(!id||id===lastRemoteActionCommandId)return false;lastRemoteActionCommandId=id;
   if(!shouldAcceptRemoteCommand({command,currentMatch:state.match,initial}))return false;
   if(initial||requestedAndroidRemote||!isHost||!['teamAPlus','teamBPlus','undo','useShuttle','returnShuttle'].includes(action))return false;
+  const scoreVisible=!$('scoreView').classList.contains('hidden'),resultVisible=!$('resultModal').classList.contains('hidden'),courtVisible=!$('page3').classList.contains('hidden');
+  if(!scoreVisible&&!resultVisible){
+    if(courtVisible&&['teamAPlus','teamBPlus'].includes(action)){
+      if(state.match.active&&state.match.winner===null){scoreViewRequested=true;renderScore();showScoreRemoteIndicator('進入比分模式')}
+      else{startMatch();showScoreRemoteIndicator('遙控器開始比賽')}
+      return true;
+    }
+    return false;
+  }
   if(action==='useShuttle')return useOneShuttle({source:'remote'});
   if(action==='returnShuttle')return returnOneShuttle({source:'remote'});
-  const scoreHidden=$('scoreView').classList.contains('hidden'),resultHidden=$('resultModal').classList.contains('hidden'),courtVisible=!$('page3').classList.contains('hidden');
-  if(scoreHidden&&resultHidden){
-    if(courtVisible&&action!=='undo'){startMatch();showScoreRemoteIndicator('遙控器開始新比賽')}
-    else if(state.match.active&&state.match.winner===null){scoreViewRequested=true;renderScore();showScoreRemoteIndicator('進入比分模式')}
-    else if(action!=='undo'){startMatch();showScoreRemoteIndicator('遙控器開始比賽')}
-    return true;
-  }
-  if(!state.match.active){if(action!=='undo')startMatch();return true}
-  if(state.match.winner!==null){if(action==='undo')performScoreRemoteAction('undo',{announce:false});else startNext();return true}
+  if(resultVisible){if(action==='undo')performScoreRemoteAction('undo',{announce:false});else startNext();return true}
+  if(!state.match.active||state.match.winner!==null)return false;
   if(performScoreRemoteAction(action))showScoreRemoteIndicator(SCORE_REMOTE_ACTION_LABELS[action]);
   return true;
 }
