@@ -125,7 +125,7 @@ test('keeps and renders multiple upcoming events without overwriting older annou
   assert.match(mainSource,/state\.nextEvents=upsertNextEvent\(previousEvents,updatedEvent\)/);
   assert.match(mainSource,/tx\.update\(roomRef,\{nextEvent:finalEvent,nextEvents/);
   assert.match(mainSource,/state\.nextEvents=events\.filter\(event=>event\.id!==target\.id\)/);
-  assert.match(mainSource,/events\.map\(e=>\{const participantIds=[\s\S]*?perPersonFee=wholeAmount\(e\.perPersonFee\),\{transferBankCode,transferAccount\}=cleanTransferDetails\(e\)/);
+  assert.match(mainSource,/events\.map\(e=>\{const participantIds=[\s\S]*?costs=sessionCombinedCosts\(e\)[\s\S]*?perPersonFee=costs\.applies\?costs\.share:wholeAmount\(e\.perPersonFee\),\{transferBankCode,transferAccount\}=cleanTransferDetails\(e\)/);
   assert.match(mainSource,/data-copy-next-event="\$\{esc\(e\.id\)\}">複製帳號<\/button>/);
   assert.doesNotMatch(mainSource,/>只複製帳號<\/button>/);
 });

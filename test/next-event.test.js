@@ -1,11 +1,17 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { eventAnnouncementBody, roomAnnouncementFromDocument } from '../netlify/functions/event-announcement.mjs';
-import { calculatePerPersonFee, shouldShowNextEventAnnouncement } from '../src/next-event.js';
+import { calculateCombinedPerPersonFee, calculatePerPersonFee, shouldShowNextEventAnnouncement } from '../src/next-event.js';
 
 test('calculates and rounds the per-person fee up',()=>{
   assert.equal(calculatePerPersonFee(2400,12),200);
   assert.equal(calculatePerPersonFee(2400,11),219);
+});
+
+test('combines court rental and shuttle usage before splitting the fee',()=>{
+  assert.equal(calculateCombinedPerPersonFee(2400,200,12),217);
+  assert.equal(calculateCombinedPerPersonFee(2400,0,12),200);
+  assert.equal(calculateCombinedPerPersonFee(2400,200,0),0);
 });
 
 test('does not calculate a fee without valid totals',()=>{
