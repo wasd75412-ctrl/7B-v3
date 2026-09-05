@@ -7,6 +7,7 @@ import {
   finishShuttleTube,
   normalizeShuttleTubes,
   restoreShuttleTube,
+  sessionShuttleUsage,
   setShuttlePaymentStatus,
   setShuttlePayment,
   setShuttleRemaining,
@@ -22,6 +23,13 @@ test('calculates a 12-shuttle unit price and includes the buyer in the split',()
   assert.equal(shuttleShareCost(960,5,10),40);
   assert.equal(shuttleShareCost(950,3,8),29.6875);
   assert.equal(shuttleShareCost(950,3,0),0);
+});
+
+test('counts shuttle usage only for the current session key',()=>{
+  const tube={sessionUsageKey:'event-old',sessionUsedShuttles:2};
+  assert.equal(sessionShuttleUsage(tube,'event-new'),0);
+  assert.equal(sessionShuttleUsage(tube,'event-old'),2);
+  assert.equal(sessionShuttleUsage({sessionUsedShuttles:2},'event-new'),0);
 });
 
 test('finishes an active tube without deleting its inventory record',()=>{

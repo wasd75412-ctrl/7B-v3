@@ -12,7 +12,8 @@ const controller=readFileSync(new URL('../android-remote/app/src/main/java/tw/cl
 test('shows one-shuttle controls in scoring and next-match result views plus dashboard summary',()=>{
   for(const id of ['homeShuttleSummary','scoreUseShuttle','resultUseShuttle'])assert.match(html,new RegExp(`id="${id}"`));
   assert.match(main,/function useOneShuttle\(/);
-  assert.match(main,/sessionUsedShuttles:\(Number\(row\.sessionUsedShuttles\)\|\|0\)\+1/);
+  assert.match(main,/sessionUsedShuttles:currentSessionShuttleUsage\(row\)\+1,sessionUsageKey:shuttleUsageSessionKey\(\)/);
+  assert.match(main,/sessionUsedShuttles:Math\.max\(0,currentSessionShuttleUsage\(tube\)-delta\),sessionUsageKey:shuttleUsageSessionKey\(\)/);
   assert.match(main,/setShuttleRemaining\(row,row\.remainingShuttles-1\)/);
   assert.match(main,/showScoreRemoteIndicator\(`已使用 1 顆球｜剩餘 \$\{updated\.remainingShuttles\} 顆`,\{duration:2000,icon:'🏸'\}\)/);
   assert.match(main,/resultModal&&!resultModal\.classList\.contains\('hidden'\)\?resultModal:\(currentFullscreenElement\(\)\|\|\$\('scoreView'\)\)/);
@@ -26,6 +27,7 @@ test('shows one-shuttle controls in scoring and next-match result views plus das
   assert.doesNotMatch(html,/勝方兩人保留，候場隊首兩人上場/);
   assert.doesNotMatch(html,/id="priorityText"/);
   assert.doesNotMatch(main,/\$\('priorityText'\)/);
+  assert.match(styles,/#resultModal \.next-team/);
 });
 
 test('routes exactly three short presses to shuttle use with a quiet-window and cooldown guard',()=>{

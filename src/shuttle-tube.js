@@ -12,6 +12,11 @@ export function shuttleShareCost(tubePrice=0,usedShuttles=0,playerCount=0){
   return Math.max(0,Number(usedShuttles)||0)*shuttleUnitPrice(tubePrice)/players;
 }
 
+export function sessionShuttleUsage(tube,sessionKey=''){
+  const key=cleanText(sessionKey,180);
+  return key&&cleanText(tube?.sessionUsageKey,180)===key?clamp(tube?.sessionUsedShuttles||0,0,100):0;
+}
+
 export function normalizeShuttleTubes(value,maxCount=20){
   const rows=Array.isArray(value)?value:[];
   const normalized=rows.map((tube,index)=>{
@@ -35,6 +40,7 @@ export function normalizeShuttleTubes(value,maxCount=20){
       totalShuttles,
       remainingShuttles:clamp(tube?.remainingShuttles??totalShuttles,0,totalShuttles),
       sessionUsedShuttles:clamp(tube?.sessionUsedShuttles||0,0,100),
+      sessionUsageKey:cleanText(tube?.sessionUsageKey,180),
       activatedAt:cleanText(tube?.activatedAt,40),
       activationHistoryCount:Math.max(0,Number(tube?.activationHistoryCount)||0),
       finishedAt:cleanText(tube?.finishedAt,40),
