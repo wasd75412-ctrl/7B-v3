@@ -45,6 +45,9 @@ test('routes exactly three short presses to shuttle use with a quiet-window and 
   assert.match(activity,/bcmAndroidRemoteReturnShuttle/);
   assert.match(service,/useOneShuttle/);
   assert.match(service,/returnOneShuttle/);
+  assert.match(activity,/sendRemoteFullscreenCommand\(\).*backgroundScoreController\.toggleScoreFullscreen/s);
+  assert.doesNotMatch(activity,/sendRemoteFullscreenCommand\(\).*bcmAndroidRemoteFullscreen/s);
+  assert.match(controller,/toggleScoreFullscreen\(FullscreenCallback callback\).*transaction\.get\(liveScore\).*command\.put\("matchId", String\.valueOf\(matchId\)\).*transaction\.set\(remoteControl/s);
   assert.match(controller,/sendShuttleCommand\("useShuttle"/);
   assert.match(controller,/sendShuttleCommand\("returnShuttle"/);
   assert.match(controller,/private synchronized void processNext\(\).*transaction\.get\(liveScore\).*command\.put\("matchId", String\.valueOf\(matchId\)\).*transaction\.set\(remoteControl/s);

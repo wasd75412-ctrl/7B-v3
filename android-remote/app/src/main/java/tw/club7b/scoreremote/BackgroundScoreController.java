@@ -112,8 +112,13 @@ final class BackgroundScoreController {
             if (!snapshot.exists()) throw new IllegalStateException("找不到即時比分");
             Map<String, Object> match = mapValue(snapshot.get("match"));
             boolean finished = match.get("winner") != null;
+            Object matchId = match.get("matchId");
+            if (matchId == null || String.valueOf(matchId).isEmpty()) {
+                throw new IllegalStateException("找不到目前比賽");
+            }
             Map<String, Object> command = new HashMap<>();
             command.put("id", java.util.UUID.randomUUID().toString());
+            command.put("matchId", String.valueOf(matchId));
             command.put("createdAt", FieldValue.serverTimestamp());
             Map<String, Object> updates = new HashMap<>();
             updates.put(finished ? "undoFinishedCommand" : "fullscreenCommand", command);
