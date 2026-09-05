@@ -182,7 +182,8 @@ test('removes the old score remote from More and provides a no-stats test mode',
   assert.match(mainSource,/shuffle\(selectablePlayerIds\(\)\)\.slice\(0,4\)/);
   assert.match(mainSource,/button\.textContent='🧪 測試模式'/);
   assert.doesNotMatch(styles,/@keyframes test-mode-glow/);
-  assert.match(styles,/test-mode-on[^}]*border-color:#fff!important;background:#9c2f00!important;color:#fff!important/);
+  assert.match(styles,/#app #testModeToggle\.test-mode-on,\.score-head #scoreTestModeToggle\.test-mode-on\{[^}]*background:#ffd400!important;color:#171100!important/);
+  assert.match(mainSource,/SCORE_REMOTE_DOUBLE_PRESS_MS=700/);
   assert.match(mainSource,/testModeRevision:Math\.max\(0,Number\(src\.testModeRevision\)\|\|0\)/);
   assert.match(mainSource,/if\(Number\(next\.testModeRevision\)<Number\(state\.testModeRevision\)\)\{next\.testMode=state\.testMode;next\.testModeRevision=state\.testModeRevision\}/);
   assert.match(mainSource,/state\.testModeRevision=Math\.max\(Date\.now\(\),Number\(state\.testModeRevision\|\|0\)\+1\)/);

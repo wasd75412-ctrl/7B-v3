@@ -39,7 +39,7 @@ public final class MainActivity extends Activity {
     private static final long MISSING_KEY_UP_DELAY_MS = 575L;
     private static final long ACTION_DEBOUNCE_MS = 300L;
     private static final long UNDO_DEBOUNCE_MS = 600L;
-    private static final long DOUBLE_PRESS_MS = 400L;
+    private static final long DOUBLE_PRESS_MS = 700L;
     private static final long SHUTTLE_PRESS_COOLDOWN_MS = 2000L;
     private static final long CAMERA_PRECONNECT_TIMEOUT_MS = 5000L;
 
