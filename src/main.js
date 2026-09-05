@@ -2832,6 +2832,14 @@ $('shuffleNext').onclick=()=>{
   vals.forEach((value,index)=>{$('n'+index).value=value});
   updatePriority();
 };
+$('closeResult').onclick=async()=>{
+  dismissedResultKey=currentResultKey();
+  $('resultModal').classList.add('hidden');
+  scoreViewRequested=false;
+  await exitScoreFullscreen();
+  renderScore();
+  page(3);
+};
 $('undoFinishedMatch').onclick=()=>{if(state.match.rallies.length)performScoreRemoteAction('undo',{announce:false})};
 $('saveMatchReplay').onclick=saveMatchReplayPlaylist;
 $('clearMatchReplay').onclick=clearMatchReplayPlaylist;

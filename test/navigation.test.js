@@ -235,10 +235,18 @@ test('keeps the Android remote session active after a match finishes so it can u
 });
 
 test('offers ending today session at the bottom right of the finished match page',()=>{
-  assert.match(html,/class="result-footer"><button id="closeResult"[^>]*>✕<\/button><button id="resultEndSessionBtn"[^>]*>結束球局<\/button>/);
+  assert.match(html,/class="result-footer"><button id="resultEndSessionBtn"[^>]*>結束球局<\/button>/);
   assert.match(mainSource,/resultEndSessionBtn'\)\.onclick=\(\)=>endTodaySession\(\$\('resultEndSessionBtn'\)\)/);
-  assert.match(styles,/#resultModal \.result-footer\{[^}]*justify-content:space-between/);
+  assert.match(styles,/#resultModal \.result-footer\{[^}]*justify-content:flex-end/);
   assert.match(styles,/#resultModal #resultEndSessionBtn\{margin-left:auto\}/);
+});
+
+test('lays out finished-match primary actions below teams and returns close to court',()=>{
+  assert.match(html,/class="result-tools"><button id="closeResult"[\s\S]*?id="shuffleNext"[\s\S]*?id="resultReturnShuttle"[\s\S]*?id="resultUseShuttle"/);
+  assert.match(html,/class="next-grid"[\s\S]*?class="result-main-actions host-only"><button id="undoFinishedMatch"[^>]*>撤銷上一分<\/button><button id="startNext"[^>]*>下一場<\/button>/);
+  assert.match(styles,/#resultModal \.result-main-actions \.btn\{[^}]*min-height:72px[^}]*font-size:1\.3rem/);
+  assert.match(styles,/#resultModal \.result-tools \.btn\{[^}]*min-width:58px[^}]*min-height:54px/);
+  assert.match(mainSource,/\$\('closeResult'\)\.onclick=async\(\)=>\{[\s\S]*?scoreViewRequested=false;[\s\S]*?await exitScoreFullscreen\(\);[\s\S]*?renderScore\(\);[\s\S]*?page\(3\)/);
 });
 
 test('opens backup center from the more menu',()=>{
