@@ -4,6 +4,7 @@ import {readFileSync} from 'node:fs';
 
 const html=readFileSync(new URL('../index.html',import.meta.url),'utf8');
 const main=readFileSync(new URL('../src/main.js',import.meta.url),'utf8');
+const styles=readFileSync(new URL('../src/styles.css',import.meta.url),'utf8');
 const activity=readFileSync(new URL('../android-remote/app/src/main/java/tw/club7b/scoreremote/MainActivity.java',import.meta.url),'utf8');
 const service=readFileSync(new URL('../android-remote/app/src/main/java/tw/club7b/scoreremote/RemoteKeyAccessibilityService.java',import.meta.url),'utf8');
 const controller=readFileSync(new URL('../android-remote/app/src/main/java/tw/club7b/scoreremote/BackgroundScoreController.java',import.meta.url),'utf8');
@@ -14,12 +15,17 @@ test('shows one-shuttle controls in scoring and next-match result views plus das
   assert.match(main,/sessionUsedShuttles:\(Number\(row\.sessionUsedShuttles\)\|\|0\)\+1/);
   assert.match(main,/setShuttleRemaining\(row,row\.remainingShuttles-1\)/);
   assert.match(main,/showScoreRemoteIndicator\(`已使用 1 顆球｜剩餘 \$\{updated\.remainingShuttles\} 顆`,\{duration:2000,icon:'🏸'\}\)/);
+  assert.match(main,/resultModal&&!resultModal\.classList\.contains\('hidden'\)\?resultModal:\(currentFullscreenElement\(\)\|\|\$\('scoreView'\)\)/);
+  assert.match(main,/overlayHost\.append\(indicator\)/);
+  assert.match(styles,/\.score-remote-indicator\{[^}]*z-index:1000/);
   assert.doesNotMatch(main,/if\(source==='remote'\)showScoreRemoteIndicator\(`已使用 1 顆/);
   assert.match(main,/每人 \$\{formatMoney\(share\)\} 元/);
   assert.match(main,/title:'場租及球費'/);
   assert.match(main,/場租及球費：.*每人需繳/s);
   assert.match(main,/sessionCombinedCosts\(e\)/);
   assert.doesNotMatch(html,/勝方兩人保留，候場隊首兩人上場/);
+  assert.doesNotMatch(html,/id="priorityText"/);
+  assert.doesNotMatch(main,/\$\('priorityText'\)/);
 });
 
 test('routes exactly three short presses to shuttle use with a quiet-window and cooldown guard',()=>{

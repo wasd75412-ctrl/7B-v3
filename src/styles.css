@@ -1787,7 +1787,7 @@ html.brand-font-fallback .brand-copy .brand-mark h1{
 .score-remote-row .btn.learning{border-color:#de9c17;background:#fff2c8;color:#785100;animation:score-remote-pulse .85s ease-in-out infinite alternate}
 .score-remote-footer{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-top:15px;color:#617080;font-size:.82rem;font-weight:800}
 .score-remote-footer .btn{flex:0 0 auto;padding:9px 12px}
-.score-remote-indicator{position:fixed;z-index:150;top:max(74px,calc(env(safe-area-inset-top) + 64px));left:50%;transform:translateX(-50%);pointer-events:none;border:1px solid rgba(255,255,255,.45);border-radius:999px;padding:10px 18px;background:rgba(5,30,48,.88);color:#fff;font-size:clamp(1rem,2.3vw,1.45rem);font-weight:1000;box-shadow:0 10px 26px rgba(0,0,0,.24);backdrop-filter:blur(8px)}
+.score-remote-indicator{position:fixed;z-index:1000;top:max(74px,calc(env(safe-area-inset-top) + 64px));left:50%;transform:translateX(-50%);pointer-events:none;border:1px solid rgba(255,255,255,.45);border-radius:999px;padding:10px 18px;background:rgba(5,30,48,.94);color:#fff;font-size:clamp(1rem,2.3vw,1.45rem);font-weight:1000;box-shadow:0 10px 26px rgba(0,0,0,.24);backdrop-filter:blur(8px)}
 @keyframes score-remote-pulse{to{transform:scale(1.03);box-shadow:0 0 0 4px rgba(222,156,23,.14)}}
 @media(max-width:560px){
   .score-remote-card{padding:16px}

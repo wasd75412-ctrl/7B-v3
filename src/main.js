@@ -106,8 +106,10 @@ function completeScoreRemoteLearning(action,code,event){
 }
 function showScoreRemoteIndicator(message,{duration=900,icon='🎮'}={}){
   const indicator=$('scoreRemoteIndicator');if(!indicator)return;
+  const resultModal=$('resultModal'),overlayHost=resultModal&&!resultModal.classList.contains('hidden')?resultModal:(currentFullscreenElement()||$('scoreView'));
+  if(overlayHost&&indicator.parentElement!==overlayHost)overlayHost.append(indicator);
   clearTimeout(scoreRemoteIndicatorTimer);indicator.textContent=`${icon} ${message}`;indicator.classList.remove('hidden');
-  scoreRemoteIndicatorTimer=setTimeout(()=>indicator.classList.add('hidden'),duration);
+  scoreRemoteIndicatorTimer=setTimeout(()=>{indicator.classList.add('hidden');if($('scoreView')&&indicator.parentElement!==$('scoreView'))$('scoreView').append(indicator)},duration);
 }
 function performScoreRemoteAction(action,{announce=true}={}){
   const match=state.match;
@@ -2086,9 +2088,6 @@ function renderFinishedMatchResult(){
   for(let i=0;i<4;i++){
     const select=$('n'+i);select.innerHTML=options(four[i]||'');select.value=four[i]||'';select.onchange=updatePriority;
   }
-  const projected=projectedQueueForLineup(four);
-  $('priorityText').classList.toggle('hidden',!projected.length);
-  $('priorityText').textContent=projected.length?`候場順序：${projected.map((id,i)=>`${queueLabel(i,projected.length)} ${pname(id)}`).join(' → ')}`:'';
   $('winnerTitle').textContent=`${m.winner===0?'A隊':'B隊'}獲勝${m.testMode||state.testMode?'（測試，不計戰績）':''}`;
   $('finalScore').textContent=`${m.scores[0]}：${m.scores[1]}`;
   updateUseShuttleButtons();
@@ -2284,8 +2283,6 @@ function updatePriority(){
   const vals=[0,1,2,3].map(i=>$('n'+i).value).filter(Boolean),projected=projectedQueueForLineup(vals);
   state.priority=projected[0]||null;
   if(vals.length===4&&new Set(vals).size===4)state.nextCall={players:[...vals],createdAt:state.nextCall?.createdAt||new Date().toISOString()};
-  $('priorityText').classList.toggle('hidden',!projected.length);
-  $('priorityText').textContent=projected.length?`候場順序：${projected.map((id,i)=>`${queueLabel(i,projected.length)} ${pname(id)}`).join(' → ')}`:'';
   renderDashboard();saveSoon()
 }
 function startNext(){
