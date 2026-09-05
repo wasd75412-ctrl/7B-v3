@@ -4550,10 +4550,16 @@ html.chat-keyboard-open .chat-autocomplete{
 .score-view .score-foot{display:none}
 .history-item.test-record{border-color:#d49b21;background:rgba(255,195,66,.10)}.test-record-badge{display:inline-block;border-radius:999px;padding:3px 7px;background:#f0b429;color:#352300;font-size:.72rem;font-weight:1000;vertical-align:.1em}
 #resultModal>.modal-card>.sub{display:none}
-#resultModal .result-footer{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-top:10px}
+#resultModal .result-card{position:relative;width:min(920px,100%);padding:24px}
+#resultModal .result-topbar{display:flex;align-items:flex-start;justify-content:space-between;gap:18px;margin-bottom:18px}
+#resultModal .result-heading h2{margin:0 0 4px}
+#resultModal #finalScore{margin:0;font-size:2.15rem;font-weight:1000}
+#resultModal .result-tools{display:flex;justify-content:flex-end;gap:9px;flex-wrap:wrap}
+#resultModal .result-tools .btn{min-width:58px;min-height:54px;padding:10px 14px;font-size:1.18rem}
+#resultModal .result-main-actions{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:18px}
+#resultModal .result-main-actions .btn{min-height:72px;padding:16px 22px;font-size:1.3rem}
+#resultModal .result-footer{display:flex;align-items:center;justify-content:flex-end;gap:10px;margin-top:14px}
 #resultModal #resultEndSessionBtn{margin-left:auto}
-#resultModal .result-actions{gap:7px}
-#resultModal .result-actions .btn{min-width:52px;padding:10px 12px}
 #resultModal .next-team{color:#102f49}
 #resultModal .next-team h3{color:#102f49}
 #resultModal .next-team.a{border-color:#74afe5;background:#dcebfa}
@@ -4561,6 +4567,7 @@ html.chat-keyboard-open .chat-autocomplete{
 #resultModal .slot{border-color:#b8c9d8;background:#fff}
 #resultModal .slot select{border-color:#9fb3c5;background:#fff;color:#102f49;-webkit-text-fill-color:#102f49}
 #resultModal .slot option{background:#fff;color:#102f49}
+@media(max-width:680px){#resultModal .result-card{padding:16px}#resultModal .result-topbar{gap:10px;margin-bottom:14px}#resultModal .result-tools{gap:6px}#resultModal .result-tools .btn{min-width:50px;min-height:50px;padding:8px 10px}#resultModal .result-main-actions{grid-template-columns:1fr;gap:10px}#resultModal .result-main-actions .btn{min-height:64px;font-size:1.18rem}}
 
 /* BCM 2.6.30 — keep the 7B artwork edge clean without a white icon frame. */
 .splash-logo,#app .top .brand-logo,#landing .landing-brand img{border:0!important;outline:0!important}
