@@ -2237,7 +2237,7 @@ function renderTestMode(){
   const enabled=currentTestModeEnabled(),currentMatchIsTest=!!state.match?.active&&state.match?.winner===null&&!!state.match?.testMode,button=$('testModeToggle'),scoreButton=$('scoreTestModeToggle'),banner=$('testModeBanner');
   if(button){button.setAttribute('aria-pressed',enabled?'true':'false');button.setAttribute('aria-label',`測試模式，${enabled?'已啟用':'未啟用'}`);button.textContent='🧪 測試模式';button.classList.toggle('test-mode-on',enabled)}
   if(scoreButton){scoreButton.setAttribute('aria-pressed',enabled?'true':'false');scoreButton.setAttribute('aria-label',`測試模式，${enabled?'已啟用':'未啟用'}`);scoreButton.title=`測試模式，${enabled?'已啟用':'未啟用'}`;scoreButton.classList.toggle('test-mode-on',enabled)}
-  $('testQuickWin')?.classList.toggle('hidden',!enabled||!isHost||!state.match.active||state.match.winner!==null);
+  $('testQuickWin')?.classList.toggle('hidden',!currentMatchIsTest||!isHost||state.match.winner!==null);
   banner?.classList.toggle('hidden',!enabled&&!currentMatchIsTest);
   if(banner)banner.textContent=enabled?'🧪 測試模式已開啟：可直接選擇球員，完成的比賽不會寫入紀錄或戰績。':'🧪 目前這場仍是測試比賽，不會寫入紀錄或戰績。';
 }
@@ -2258,7 +2258,7 @@ function toggleTestMode(){
 }
 function finishTestMatch(team){
   const m=state.match;
-  if(!isHost||!currentTestModeEnabled()||!m.active||m.winner!==null)return;
+  if(!isHost||!m.active||m.winner!==null||!m.testMode)return;
   const winner=team===1?1:0,loser=1-winner,target=Math.max(1,Number(state.rules.target)||11);
   m.scores[winner]=Math.max(target,m.scores[winner]);
   m.scores[loser]=Math.min(m.scores[loser],Math.max(0,m.scores[winner]-2));
