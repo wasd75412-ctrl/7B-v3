@@ -1643,6 +1643,8 @@ function canApplyMatch(match){
 }
 function applyState(data){
   const before=matchScoreSignature(),next=cleanState(data);
+  const testModeWritePending=roomWriteScheduled||(typeof pendingRoomWrites==='number'&&pendingRoomWrites>0);
+  if(isHost&&testModeWritePending&&next.testMode!==state.testMode)next.testMode=state.testMode;
   if(!canApplyMatch(next.match)){
     next.match=structuredClone(state.match);
     for(const key of['court','nextCall','matchRollback','waitingQueue','queueDraftChosen','priority','lastLoserReplayPlayerId'])next[key]=structuredClone(state[key]);
@@ -1664,7 +1666,8 @@ function handleRemoteFullscreenCommand(data,{initial=false}={}){
   const id=String(data?.fullscreenCommand?.id||'');if(!id||id===lastRemoteFullscreenCommandId)return false;
   lastRemoteFullscreenCommandId=id;
   if(!shouldAcceptRemoteCommand({command:data.fullscreenCommand,currentMatch:state.match,initial}))return false;
-  if(initial||requestedAndroidRemote||!isHost||!state.match.active||$('scoreView').classList.contains('hidden'))return false;
+  if(initial||requestedAndroidRemote||!isHost||!state.match.active)return false;
+  if($('scoreView').classList.contains('hidden')){scoreViewRequested=true;renderScore()}
   toggleScoreFullscreen();showScoreRemoteIndicator('遙控器切換全螢幕');return true;
 }
 function handleRemoteNextMatchCommand(data,{initial=false}={}){
