@@ -26,8 +26,6 @@ import android.widget.LinearLayout;
 import android.widget.TextView;
 import android.widget.Toast;
 import androidx.activity.ComponentActivity;
-import androidx.activity.result.ActivityResultLauncher;
-import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.annotation.NonNull;
 import androidx.camera.core.CameraSelector;
 import androidx.camera.core.Preview;
@@ -56,6 +54,7 @@ import java.util.concurrent.Executors;
 
 /** App-internal camera that keeps only eighteen completed ten-second clips. */
 public final class LoopCameraActivity extends ComponentActivity {
+    private static final int CAMERA_PERMISSION_REQUEST = 7;
     private static final long SEGMENT_MS = 10_000L;
     private static final long RECORDING_RECOVERY_MS = 750L;
     private static final int SEGMENT_LIMIT = 18;
@@ -73,19 +72,20 @@ public final class LoopCameraActivity extends ComponentActivity {
     private boolean explicitExit;
     private boolean saveAfterFinalize;
 
-    private final ActivityResultLauncher<String[]> permissions = registerForActivityResult(
-            new ActivityResultContracts.RequestMultiplePermissions(), result -> {
-                if (Boolean.TRUE.equals(result.get(Manifest.permission.CAMERA))) startCamera();
-                else { Toast.makeText(this, "需要相機權限才能循環錄影", Toast.LENGTH_LONG).show(); exitRecording(); }
-            });
-
     @Override protected void onCreate(Bundle state) {
         super.onCreate(state);
         getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
         RemoteSessionStore.setRecordingEnabled(this, true);
         buildUi();
         if (hasPermission(Manifest.permission.CAMERA)) startCamera();
-        else permissions.launch(new String[]{Manifest.permission.CAMERA, Manifest.permission.RECORD_AUDIO});
+        else requestPermissions(new String[]{Manifest.permission.CAMERA, Manifest.permission.RECORD_AUDIO}, CAMERA_PERMISSION_REQUEST);
+    }
+
+    @Override public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions, @NonNull int[] grantResults) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults);
+        if (requestCode != CAMERA_PERMISSION_REQUEST) return;
+        if (hasPermission(Manifest.permission.CAMERA)) startCamera();
+        else { Toast.makeText(this, "需要相機權限才能循環錄影", Toast.LENGTH_LONG).show(); exitRecording(); }
     }
 
     private void buildUi() {
