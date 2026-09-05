@@ -19,3 +19,9 @@ test('recovers recording after transient CameraX finalization and only clears it
   assert.match(destroy,/if \(explicitExit\) RemoteSessionStore\.setRecordingEnabled\(this, false\)/);
   assert.match(camera,/void exitRecording\([\s\S]*?setRecordingEnabled\(this, false\)/);
 });
+
+test('uses the platform permission callback without requiring Fragment Activity Result APIs',()=>{
+  assert.match(camera,/requestPermissions\([^;]+CAMERA_PERMISSION_REQUEST\)/);
+  assert.match(camera,/onRequestPermissionsResult\(/);
+  assert.doesNotMatch(camera,/registerForActivityResult|ActivityResultLauncher/);
+});
