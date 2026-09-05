@@ -1694,7 +1694,7 @@ html.brand-font-fallback .brand-copy .brand-mark h1{
 #app .next-event-edit-btn{flex:0 0 auto;border-color:rgba(255,255,255,.34)!important;background:rgba(255,255,255,.16)!important;color:#fff!important;box-shadow:none}
 #app .next-event-edit-btn:hover{background:rgba(255,255,255,.24)!important}
 .next-event-facts{display:flex;align-items:center;gap:9px;flex-wrap:wrap;margin-top:13px}
-.next-event-participants,.next-event-facts .next-event-payment{display:inline-flex;margin:0;padding:9px 13px;border:1px solid rgba(255,255,255,.28);border-radius:999px;background:rgba(255,255,255,.14);font-size:1rem;font-weight:1000}
+.next-event-participants,.next-event-facts .next-event-payment,.next-event-shuttle-usage{display:inline-flex;margin:0;padding:9px 13px;border:1px solid rgba(255,255,255,.28);border-radius:999px;background:rgba(255,255,255,.14);font-size:1rem;font-weight:1000}
 .next-event-transfer{display:flex;align-items:center;justify-content:space-between;gap:14px;margin-top:13px;padding:12px 14px;border:1px solid rgba(255,255,255,.28);border-radius:14px;background:rgba(255,255,255,.12)}.next-event-transfer>span{display:flex;gap:14px;flex-wrap:wrap;overflow-wrap:anywhere}.next-event-transfer>span>span{display:inline-flex;gap:7px}.next-event-transfer strong{color:inherit}.next-event-transfer .btn{flex:0 0 auto;padding:8px 12px}
 .next-event-editor{width:min(820px,100%)}
 .next-event-editor-head{display:flex;align-items:flex-start;justify-content:space-between;gap:14px}
@@ -1716,7 +1716,7 @@ html.brand-font-fallback .brand-copy .brand-mark h1{
   .next-event-card-head{align-items:flex-start}
   #app .next-event-edit-btn{padding:9px 11px;font-size:.82rem}
   .next-event-facts{align-items:stretch;flex-direction:column}
-  .next-event-participants,.next-event-facts .next-event-payment{justify-content:center;width:100%}
+  .next-event-participants,.next-event-facts .next-event-payment,.next-event-shuttle-usage{justify-content:center;width:100%}
   .next-event-transfer{align-items:stretch;flex-direction:column}.next-event-transfer .btn{width:100%}
   .next-event-editor-head{display:block}
   .next-event-editor-head .btn{width:100%;margin-top:12px}
@@ -2649,6 +2649,7 @@ body:before{
 #app .next-event-card h3{color:#14678e}
 #app .next-event-card .next-event-note{color:var(--glass-muted)}
 #app .next-event-card .next-event-payment{border-color:rgba(24,117,162,.18);background:rgba(215,241,250,.72);color:#0d668c}
+#app .next-event-card .next-event-shuttle-usage{border-color:rgba(24,117,162,.18);background:rgba(255,255,255,.82);color:#0d668c}
 #app .admin-announcement,#app .poll-deadline-card{box-shadow:0 12px 28px rgba(105,80,23,.08)}
 #app .leader-card.hot{border-color:rgba(238,122,63,.24);background:linear-gradient(135deg,rgba(255,250,246,.96),rgba(255,231,214,.88));color:#663517;box-shadow:0 12px 27px rgba(142,73,29,.08)}
 
