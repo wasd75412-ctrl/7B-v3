@@ -196,7 +196,8 @@ test('removes the old score remote from More and provides a no-stats test mode',
   assert.match(html,/id="testWinB"[^>]*>B隊獲勝<\/button>/);
   assert.match(mainSource,/function finishTestMatch\(team\)/);
   assert.match(mainSource,/\$\('testQuickWin'\)\?\.classList\.toggle\('hidden',!enabled\|\|!isHost\|\|!state\.match\.active\|\|state\.match\.winner!==null\)/);
-  assert.match(styles,/immersive-mode \.test-quick-win\{display:none\}/);
+  assert.match(styles,/\.test-quick-win\{position:fixed;z-index:120/);
+  assert.doesNotMatch(styles,/immersive-mode \.test-quick-win\{display:none\}/);
 });
 
 test('keeps only the requested controls in normal score mode',()=>{
