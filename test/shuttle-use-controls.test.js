@@ -49,4 +49,8 @@ test('routes exactly three short presses to shuttle use with a quiet-window and 
   assert.match(controller,/sendShuttleCommand\("returnShuttle"/);
   assert.match(controller,/private synchronized void processNext\(\).*transaction\.get\(liveScore\).*command\.put\("matchId", String\.valueOf\(matchId\)\).*transaction\.set\(remoteControl/s);
   assert.match(main,/\['teamAPlus','teamBPlus','undo','useShuttle','returnShuttle'\]/);
+  assert.match(main,/if\(!scoreVisible&&!resultVisible\)\{\s*if\(courtVisible&&\['teamAPlus','teamBPlus'\]\.includes\(action\)\)/);
+  assert.match(main,/if\(action==='useShuttle'\)return useOneShuttle/);
+  assert.match(main,/if\(action==='returnShuttle'\)return returnOneShuttle/);
+  assert.match(main,/if\(resultVisible\)\{if\(action==='undo'\)performScoreRemoteAction\('undo',\{announce:false\}\);else startNext\(\);return true\}/);
 });
