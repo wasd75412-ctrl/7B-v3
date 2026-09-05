@@ -284,15 +284,13 @@ public final class MainActivity extends Activity {
     }
 
     private void sendRemoteFullscreenCommand() {
-        if (webView == null) return;
-        evaluateJavascript(
-                "(function(){return !!(window.bcmAndroidRemoteFullscreen&&window.bcmAndroidRemoteFullscreen());})()",
-                result -> {
-                    boolean accepted = "true".equals(result);
-                    Toast.makeText(MainActivity.this, accepted ? "已送出遙控器雙按指令" : "目前無法執行雙按功能", Toast.LENGTH_SHORT).show();
-                    vibrate(accepted ? 70L : 28L);
-                }
-        );
+        if (backgroundScoreController == null) {
+            backgroundScoreController = new BackgroundScoreController(this);
+        }
+        backgroundScoreController.toggleScoreFullscreen((success, message) -> keyHandler.post(() -> {
+            Toast.makeText(MainActivity.this, message, Toast.LENGTH_SHORT).show();
+            vibrate(success ? 70L : 28L);
+        }));
     }
 
     private void notifyKeyDetected(int keyCode) {
