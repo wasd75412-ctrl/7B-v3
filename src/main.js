@@ -1,7 +1,7 @@
 import { initializeApp } from 'firebase/app';
 import { initializeFirestore, memoryLocalCache, persistentLocalCache, persistentMultipleTabManager, doc, getDoc, getDocFromServer, onSnapshot, setDoc, writeBatch, serverTimestamp, runTransaction, collection, getDocs, deleteDoc, query, orderBy, limit } from 'firebase/firestore';
 import appPackage from '../package.json';
-import { calculatePerPersonFee, shouldShowNextEventAnnouncement } from './next-event.js';
+import { calculateCombinedPerPersonFee, calculatePerPersonFee, shouldShowNextEventAnnouncement } from './next-event.js';
 import { shouldShowNotificationPrompt } from './notifications.js';
 import { normalizeMatchReplayTitle, normalizeYouTubePlaylistUrl } from './youtube.js';
 import { DEFAULT_SCORE_REMOTE_BINDINGS, VIRTUAL_REMOTE_CLICK_CODE, advanceRemotePressState, assignRemoteBinding, isEditableRemoteTarget, normalizeRemoteBindings, remoteActionForCode, remoteEventCode, shouldHandleRemoteInput } from './score-remote.js';
@@ -508,7 +508,7 @@ function renderNextEventAnnouncement(){
   const visible=events.length>0;
   box.classList.toggle('hidden',!visible);
   if(!visible){box.innerHTML='';return}
-  const cards=events.map(e=>{const participantIds=cleanEventParticipantIds(e.participantIds),participantCount=wholeAmount(e.participantCount),perPersonFee=wholeAmount(e.perPersonFee),{transferBankCode,transferAccount}=cleanTransferDetails(e),participantText=participantCount?`預計參與 ${formatMoney(participantCount)} 人`:'預計參與人數待確認',playerNames=participantIds.map(pname).filter(name=>name!=='未知球員'),players=playerNames.length?`<div class="next-event-player-list"><strong>參與球員</strong>${esc(playerNames.join('、'))}</div>`:'',payment=perPersonFee?`<div class="next-event-payment">每人需繳 ${formatMoney(perPersonFee)} 元</div>`:'',transfer=transferAccount?`<div class="next-event-transfer"><span>${transferBankCode?`<span><strong>銀行代碼</strong>${esc(transferBankCode)}</span>`:''}<span><strong>轉帳帳號</strong>${esc(transferAccount)}</span></span><button class="btn" type="button" data-copy-next-event="${esc(e.id)}">複製帳號</button></div>`:'',actions=isHost?`<div class="next-event-entry-actions"><button class="btn next-event-edit-btn" type="button" data-edit-next-event="${esc(e.id)}">✏️ 編輯</button><button class="btn danger-outline" type="button" data-delete-next-event="${esc(e.id)}">刪除</button></div>`:'';return`<article class="next-event-entry"><div class="next-event-entry-head"><div class="next-event-main">${esc(formatEventDate(e.date,e.time,e.endTime))}</div>${actions}</div><div class="next-event-place"><span>📍 ${esc(e.location||'場地待公告')}</span>${e.location?googleMapsLink(e.location,'開啟地圖'):''}</div>${e.note?`<div class="next-event-note"><strong>🏸 場地備註：</strong>${esc(e.note)}</div>`:''}<div class="next-event-facts"><div class="next-event-participants">👥 ${participantText}</div>${payment}</div>${players}${transfer}</article>`}).join('');
+  const cards=events.map(e=>{const participantIds=cleanEventParticipantIds(e.participantIds),plannedCount=wholeAmount(e.participantCount),costs=sessionCombinedCosts(e),participantCount=costs.applies?costs.players:plannedCount,perPersonFee=costs.applies?costs.share:wholeAmount(e.perPersonFee),{transferBankCode,transferAccount}=cleanTransferDetails(e),participantText=participantCount?`${costs.applies?'目前出席':'預計參與'} ${formatMoney(participantCount)} 人`:'預計參與人數待確認',playerNames=participantIds.map(pname).filter(name=>name!=='未知球員'),players=playerNames.length?`<div class="next-event-player-list"><strong>參與球員</strong>${esc(playerNames.join('、'))}</div>`:'',payment=perPersonFee?`<div class="next-event-payment">${costs.applies?'場租及球費：':''}每人需繳 ${formatMoney(perPersonFee)} 元</div>`:'',transfer=transferAccount?`<div class="next-event-transfer"><span>${transferBankCode?`<span><strong>銀行代碼</strong>${esc(transferBankCode)}</span>`:''}<span><strong>轉帳帳號</strong>${esc(transferAccount)}</span></span><button class="btn" type="button" data-copy-next-event="${esc(e.id)}">複製帳號</button></div>`:'',actions=isHost?`<div class="next-event-entry-actions"><button class="btn next-event-edit-btn" type="button" data-edit-next-event="${esc(e.id)}">✏️ 編輯</button><button class="btn danger-outline" type="button" data-delete-next-event="${esc(e.id)}">刪除</button></div>`:'';return`<article class="next-event-entry"><div class="next-event-entry-head"><div class="next-event-main">${esc(formatEventDate(e.date,e.time,e.endTime))}</div>${actions}</div><div class="next-event-place"><span>📍 ${esc(e.location||'場地待公告')}</span>${e.location?googleMapsLink(e.location,'開啟地圖'):''}</div>${e.note?`<div class="next-event-note"><strong>🏸 場地備註：</strong>${esc(e.note)}</div>`:''}<div class="next-event-facts"><div class="next-event-participants">👥 ${participantText}</div>${payment}</div>${players}${transfer}</article>`}).join('');
   box.innerHTML=`<div class="next-event-card-head"><h3>📣 下次打球時間</h3></div><div class="next-event-list">${cards}</div>`;
   box.querySelectorAll('[data-edit-next-event]').forEach(button=>button.onclick=()=>openNextEventEditor(button.dataset.editNextEvent));
   box.querySelectorAll('[data-delete-next-event]').forEach(button=>button.onclick=()=>clearNextEvent(button.dataset.deleteNextEvent));
@@ -2412,6 +2412,11 @@ function shuttleParticipantCount(){
   return new Set((state.attendance||[]).filter(Boolean)).size;
 }
 function activeShuttleTube(){return normalizeShuttleTubes(state.shuttleTubes).find(tube=>tube.status==='active')||null}
+function currentSessionEvent(){return normalizeNextEvents(state).find(event=>event.date===localDateKey())||null}
+function sessionCombinedCosts(event=currentSessionEvent()){
+  const tube=activeShuttleTube(),applies=!!event&&event.date===localDateKey(),used=Math.max(0,Number(tube?.sessionUsedShuttles)||0),shuttleTotal=used*shuttleUnitPrice(tube?.price),players=shuttleParticipantCount()||wholeAmount(event?.participantCount),rentalTotal=wholeAmount(event?.rentalTotal),share=calculateCombinedPerPersonFee(rentalTotal,shuttleTotal,players);
+  return{applies,rentalTotal,shuttleTotal,used,players,share};
+}
 function updateUseShuttleButtons(){
   const tube=activeShuttleTube(),disabled=!isHost||!tube||tube.remainingShuttles<=0;
   for(const id of['scoreUseShuttle','resultUseShuttle'])if($(id)){
@@ -2437,10 +2442,9 @@ function useOneShuttle({source='button'}={}){
 function syncShuttleCostNotice(tube){
   const used=Math.max(0,Number(tube?.sessionUsedShuttles)||0),players=shuttleParticipantCount(),notices=normalizeAdminNotices(state).filter(notice=>notice.id!=='shuttle-cost');
   if(!tube){setAdminNotices(notices);renderDashboard();return}
-  const unitPrice=shuttleUnitPrice(tube.price),share=shuttleShareCost(tube.price,used,players);
-  const fee=used&&players?`本場 ${used} 顆、${players} 人，每人 ${formatMoney(share)} 元。`:'本場費用會依用球顆數與出席人數自動計算。';
-  const body=`球費＝本場用球顆數 × 每顆 ${formatMoney(unitPrice)} 元 ÷ 本場人數（購球者也計入）。${fee}「${tube.name}」剩餘 ${tube.remainingShuttles} 顆。`;
-  setAdminNotices([{id:'shuttle-cost',title:'球費與球桶',body,publishedAt:new Date().toISOString()},...notices]);
+  const unitPrice=shuttleUnitPrice(tube.price),costs=sessionCombinedCosts(),fee=costs.players?`場租 ${formatMoney(costs.rentalTotal)} 元＋球費 ${formatMoney(costs.shuttleTotal)} 元，共 ${costs.players} 人，每人需繳 ${formatMoney(costs.share)} 元。`:'場租及球費會依出席人數自動計算。';
+  const body=`${fee}本場已使用 ${used} 顆（每顆 ${formatMoney(unitPrice)} 元），「${tube.name}」剩餘 ${tube.remainingShuttles} 顆。`;
+  setAdminNotices([{id:'shuttle-cost',title:'場租及球費',body,publishedAt:new Date().toISOString()},...notices]);
   renderDashboard();
 }
 function renderShuttleTubeManager(){
