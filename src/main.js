@@ -55,7 +55,7 @@ function normalizeAdminNotices(source){
   }).filter(notice=>{if(seen.has(notice.id))return false;seen.add(notice.id);return true}).sort((a,b)=>(Date.parse(b.publishedAt)||0)-(Date.parse(a.publishedAt)||0)).slice(0,20);
 }
 function setAdminNotices(rows){state.adminNotices=normalizeAdminNotices({adminNotices:rows});state.adminNotice=state.adminNotices[0]||null}
-const initialState=()=>({version:9.8,testMode:false,roster:[],retiredPlayers:[],adminPlayerIds:[],attendance:[],court:[],waitingQueue:[],queueDraftChosen:[],priority:null,lastLoserReplayPlayerId:null,match:{active:false,players:[[],[]],scores:[0,0],rallies:[],serving:0,positions:[[0,1],[0,1]],winner:null,startedAt:''},matchRollback:null,rules:{target:11,cap:15,deuce:true},history:[],matchReplayPlaylistTitle:'',matchReplayPlaylistUrl:'',nextCall:null,schedulePoll:{status:'open',createdAt:'',deadlineAt:'',autoCycle:'',options:[],votes:{},voterPlayers:{},manualParticipants:{}},pollHistory:[],nextEvent:null,nextEvents:[],adminNotice:null,adminNotices:[],shuttleTubes:[],shuttleLegacyActiveTubeId:'',shuttleNoTrackingTubeIds:[],updatedAt:null});
+const initialState=()=>({version:9.8,testMode:false,testModeRevision:0,roster:[],retiredPlayers:[],adminPlayerIds:[],attendance:[],court:[],waitingQueue:[],queueDraftChosen:[],priority:null,lastLoserReplayPlayerId:null,match:{active:false,players:[[],[]],scores:[0,0],rallies:[],serving:0,positions:[[0,1],[0,1]],winner:null,startedAt:''},matchRollback:null,rules:{target:11,cap:15,deuce:true},history:[],matchReplayPlaylistTitle:'',matchReplayPlaylistUrl:'',nextCall:null,schedulePoll:{status:'open',createdAt:'',deadlineAt:'',autoCycle:'',options:[],votes:{},voterPlayers:{},manualParticipants:{}},pollHistory:[],nextEvent:null,nextEvents:[],adminNotice:null,adminNotices:[],shuttleTubes:[],shuttleLegacyActiveTubeId:'',shuttleNoTrackingTubeIds:[],updatedAt:null});
 const DEVICE_SYNC_CODE_KEY='bcmDeviceSyncCodeV1',DEVICE_SYNC_TOKEN_KEY='bcmDeviceSyncTokenV1',DEVICE_SYNC_NAME_KEY='bcmDeviceSyncNameV1',DEVICE_SYNC_PLAYER_KEY='bcmDeviceSyncPlayerV1';
 let state=initialState(), roomId='', roomRef=null, liveScoreRef=null, remoteControlRef=null, chatCollectionRef=null, isHost=false, hostToken='', adminPinHash='', unsubscribe=null, liveScoreUnsubscribe=null, remoteControlUnsubscribe=null, chatUnsubscribe=null, applying=false, saveTimer=null, liveScoreSaveTimer=null, matchAutoBackupTimer=null, editId=null;const expandedPlayerNotes=new Set();let profileOriginal=null,profileDirty={name:false,memberType:false,voiceName:false,racket:false,racketTension:false,racketString:false,backupRacket:false,backupTension:false,backupString:false,note:false};let voiceEnabled=localStorage.getItem('bdV76Voice')!=='0';let dismissedResultKey='';const selfToken=localStorage.getItem(DEVICE_SYNC_TOKEN_KEY)||localStorage.getItem('bdV73SelfToken')||randomToken();localStorage.setItem('bdV73SelfToken',selfToken);let selfHash='',scoreViewRequested=false,expandedShuttleTubeId='';
 let deviceProfileUnsubscribe=null,deviceProfileApplying=false,deviceProfileSaveTimer=null,identitySyncing=false,roomConnectInProgress=false;
@@ -200,8 +200,9 @@ window.bcmAndroidRemoteInput=action=>handleAndroidRemoteAction(String(action||''
 window.bcmAndroidRemoteUseShuttle=()=>handleAndroidRemoteAction('useShuttle');
 window.bcmAndroidRemoteReturnShuttle=()=>handleAndroidRemoteAction('returnShuttle');
 window.bcmAndroidRemoteFullscreen=()=>{
-  if(!requestedAndroidRemote||!isHost||!state.match.active||!remoteControlRef){setAndroidRemoteFeedback('目前無法切換計分模式全螢幕','error');return false}
-  const command={id:randomToken(),matchId:state.match.matchId||'',createdAt:new Date().toISOString()},finished=state.match.winner!==null;
+  const canStartTest=currentTestModeEnabled()&&!state.match.active&&new Set(state.court.filter(Boolean)).size===4;
+  if(!requestedAndroidRemote||!isHost||(!state.match.active&&!canStartTest)||!remoteControlRef){setAndroidRemoteFeedback('目前無法切換計分模式全螢幕','error');return false}
+  const command={id:randomToken(),matchId:state.match.matchId||'',createdAt:new Date().toISOString()},finished=state.match.active&&state.match.winner!==null;
   setDoc(remoteControlRef,{[finished?'undoFinishedCommand':'fullscreenCommand']:command,updatedAt:serverTimestamp()},{merge:true}).then(()=>setAndroidRemoteFeedback(finished?'已送出撤回誤觸結束':'已送出計分模式全螢幕切換','success')).catch(()=>setAndroidRemoteFeedback('遙控器指令傳送失敗','error'));
   return true;
 };
@@ -253,6 +254,7 @@ function encodeState(src){
   return {
     version:9.8,
     testMode:!!src.testMode,
+    testModeRevision:Math.max(0,Number(src.testModeRevision)||0),
     roster:Array.isArray(src.roster)?src.roster.map(playerRecord=>({...withoutLegacyGender(playerRecord),memberType:normalizePlayerType(playerRecord.memberType),ownerHashes:playerOwnerHashes(playerRecord).join('|')})):[],
     retiredPlayers:normalizeRetiredPlayers(src.retiredPlayers),
     adminPlayerIds:[...new Set((Array.isArray(src.adminPlayerIds)?src.adminPlayerIds:[]).map(id=>String(id||'').trim()).filter(Boolean))].slice(0,20),
@@ -344,6 +346,7 @@ function decodeState(d){
   return {
     ...base,...d,
     testMode:!!d.testMode,
+    testModeRevision:Math.max(0,Number(d.testModeRevision)||0),
     rules:{...base.rules,...(d.rules||{})},
     match:{
       ...base.match,...m,
@@ -1643,8 +1646,7 @@ function canApplyMatch(match){
 }
 function applyState(data){
   const before=matchScoreSignature(),next=cleanState(data);
-  const testModeWritePending=roomWriteScheduled||(typeof pendingRoomWrites==='number'&&pendingRoomWrites>0);
-  if(isHost&&testModeWritePending&&next.testMode!==state.testMode)next.testMode=state.testMode;
+  if(Number(next.testModeRevision)<Number(state.testModeRevision)){next.testMode=state.testMode;next.testModeRevision=state.testModeRevision}
   if(!canApplyMatch(next.match)){
     next.match=structuredClone(state.match);
     for(const key of['court','nextCall','matchRollback','waitingQueue','queueDraftChosen','priority','lastLoserReplayPlayerId'])next[key]=structuredClone(state[key]);
@@ -1666,7 +1668,8 @@ function handleRemoteFullscreenCommand(data,{initial=false}={}){
   const id=String(data?.fullscreenCommand?.id||'');if(!id||id===lastRemoteFullscreenCommandId)return false;
   lastRemoteFullscreenCommandId=id;
   if(!shouldAcceptRemoteCommand({command:data.fullscreenCommand,currentMatch:state.match,initial}))return false;
-  if(initial||requestedAndroidRemote||!isHost||!state.match.active)return false;
+  if(initial||requestedAndroidRemote||!isHost)return false;
+  if(!state.match.active){if(!currentTestModeEnabled()||new Set(state.court.filter(Boolean)).size!==4)return false;startMatch()}
   if($('scoreView').classList.contains('hidden')){scoreViewRequested=true;renderScore()}
   toggleScoreFullscreen();showScoreRemoteIndicator('遙控器切換全螢幕');return true;
 }
@@ -2242,6 +2245,7 @@ function toggleTestMode(){
   if(!isHost)return;
   const enabling=!currentTestModeEnabled();
   state.testMode=enabling;
+  state.testModeRevision=Math.max(Date.now(),Number(state.testModeRevision||0)+1);
   if(state.match.active&&state.match.winner===null){
     state.match.testMode=enabling;
     saveLiveScoreSoon();
