@@ -130,15 +130,25 @@ final class BackgroundScoreController {
             return;
         }
 
+        DocumentReference liveScore = liveScoreReference(session);
         DocumentReference remoteControl = remoteControlReference(session);
-        Map<String, Object> command = new HashMap<>();
-        command.put("id", java.util.UUID.randomUUID().toString());
-        command.put("action", request.action == VolumeKeyInterpreter.Action.UNDO ? "undo" : request.action == VolumeKeyInterpreter.Action.TEAM_A_PLUS ? "teamAPlus" : "teamBPlus");
-        command.put("createdAt", FieldValue.serverTimestamp());
-        Map<String, Object> commandUpdates = new HashMap<>();
-        commandUpdates.put("remoteActionCommand", command);
-        commandUpdates.put("updatedAt", FieldValue.serverTimestamp());
-        remoteControl.set(commandUpdates, SetOptions.merge())
+        firestore.runTransaction(transaction -> {
+            DocumentSnapshot snapshot = transaction.get(liveScore);
+            if (!snapshot.exists()) throw new IllegalStateException("找不到即時比分");
+            Map<String, Object> match = mapValue(snapshot.get("match"));
+            Object matchId = match.get("matchId");
+            if (matchId == null || String.valueOf(matchId).isEmpty()) throw new IllegalStateException("目前沒有進行中的比賽");
+            Map<String, Object> command = new HashMap<>();
+            command.put("id", java.util.UUID.randomUUID().toString());
+            command.put("action", request.action == VolumeKeyInterpreter.Action.UNDO ? "undo" : request.action == VolumeKeyInterpreter.Action.TEAM_A_PLUS ? "teamAPlus" : "teamBPlus");
+            command.put("matchId", String.valueOf(matchId));
+            command.put("createdAt", FieldValue.serverTimestamp());
+            Map<String, Object> commandUpdates = new HashMap<>();
+            commandUpdates.put("remoteActionCommand", command);
+            commandUpdates.put("updatedAt", FieldValue.serverTimestamp());
+            transaction.set(remoteControl, commandUpdates, SetOptions.merge());
+            return true;
+        })
                 .addOnSuccessListener(unused -> complete(request, true, "已送出遙控器指令"))
                 .addOnFailureListener(error -> complete(request, false, errorMessage(error)));
     }
