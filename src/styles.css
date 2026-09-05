@@ -4550,6 +4550,13 @@ html.chat-keyboard-open .chat-autocomplete{
 #resultModal>.modal-card>.sub{display:none}
 #resultModal .result-footer{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-top:10px}
 #resultModal #resultEndSessionBtn{margin-left:auto}
+#resultModal .next-team{color:#102f49}
+#resultModal .next-team h3{color:#102f49}
+#resultModal .next-team.a{border-color:#74afe5;background:#dcebfa}
+#resultModal .next-team.b{border-color:#ee9aac;background:#f9dfe5}
+#resultModal .slot{border-color:#b8c9d8;background:#fff}
+#resultModal .slot select{border-color:#9fb3c5;background:#fff;color:#102f49;-webkit-text-fill-color:#102f49}
+#resultModal .slot option{background:#fff;color:#102f49}
 
 /* BCM 2.6.30 — keep the 7B artwork edge clean without a white icon frame. */
 .splash-logo,#app .top .brand-logo,#landing .landing-brand img{border:0!important;outline:0!important}

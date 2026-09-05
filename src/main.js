@@ -16,7 +16,7 @@ import { adminRoleButtonState, claimedAdminPlayerId, resolveAdminSessionToken } 
 import { updateAttendanceState } from './attendance.js';
 import { pollWasFinalized } from './poll.js';
 import { nonVoterPlayerIds, recruitingMessage, recruitingSlots } from './poll-recruiting.js';
-import { activateShuttleTube, createShuttleTube, enforceLegacyActiveShuttleTube, finishShuttleTube, normalizeShuttleTubes, restoreShuttleTube, setShuttleRemaining, shuttleShareCost, shuttleUnitPrice, softDeleteShuttleTube, updateShuttleTube } from './shuttle-tube.js';
+import { activateShuttleTube, createShuttleTube, enforceLegacyActiveShuttleTube, finishShuttleTube, normalizeShuttleTubes, restoreShuttleTube, sessionShuttleUsage, setShuttleRemaining, shuttleShareCost, shuttleUnitPrice, softDeleteShuttleTube, updateShuttleTube } from './shuttle-tube.js';
 import { careerAchievementBadges } from './player-achievements.js';
 import { PLAYER_TYPE_GUEST, isGuestPlayer, normalizePlayerType, splitPlayersByMembership } from './player-membership.js';
 import { createFinishedMatchRollback, normalizeFinishedMatchRollback, reopenFinishedMatchState } from './match-correction.js';
@@ -604,7 +604,7 @@ function renderDashboard() {
     `;
     const activeTube=activeShuttleTube(),shuttleSummary=$('homeShuttleSummary');
     if(activeTube){
-      const used=Math.max(0,Number(activeTube.sessionUsedShuttles)||0),players=shuttleParticipantCount(),share=shuttleShareCost(activeTube.price,used,players);
+      const used=currentSessionShuttleUsage(activeTube),players=shuttleParticipantCount(),share=shuttleShareCost(activeTube.price,used,players);
       shuttleSummary.className='home-shuttle-summary';
       shuttleSummary.innerHTML=`<span><strong>🏸 ${esc(activeTube.name)}</strong><small>已使用 ${used} 顆 · 剩餘 ${activeTube.remainingShuttles} 顆</small></span><strong>${players?`每人 ${formatMoney(share)} 元`:'等待出席名單'}</strong>`;
     }else{
@@ -2410,8 +2410,10 @@ function shuttleParticipantCount(){
 }
 function activeShuttleTube(){return normalizeShuttleTubes(state.shuttleTubes).find(tube=>tube.status==='active')||null}
 function currentSessionEvent(){return normalizeNextEvents(state).find(event=>event.date===localDateKey())||null}
+function shuttleUsageSessionKey(){return currentSessionEvent()?.id||`date:${localDateKey()}`}
+function currentSessionShuttleUsage(tube){return sessionShuttleUsage(tube,shuttleUsageSessionKey())}
 function sessionCombinedCosts(event=currentSessionEvent()){
-  const tube=activeShuttleTube(),applies=!!event&&event.date===localDateKey(),used=Math.max(0,Number(tube?.sessionUsedShuttles)||0),shuttleTotal=used*shuttleUnitPrice(tube?.price),players=shuttleParticipantCount()||wholeAmount(event?.participantCount),rentalTotal=wholeAmount(event?.rentalTotal),share=calculateCombinedPerPersonFee(rentalTotal,shuttleTotal,players);
+  const tube=activeShuttleTube(),applies=!!event&&event.date===localDateKey(),used=currentSessionShuttleUsage(tube),shuttleTotal=used*shuttleUnitPrice(tube?.price),players=shuttleParticipantCount()||wholeAmount(event?.participantCount),rentalTotal=wholeAmount(event?.rentalTotal),share=calculateCombinedPerPersonFee(rentalTotal,shuttleTotal,players);
   return{applies,rentalTotal,shuttleTotal,used,players,share};
 }
 function updateUseShuttleButtons(){
@@ -2429,7 +2431,7 @@ function useOneShuttle({source='button'}={}){
     return false;
   }
   state.shuttleTubes=normalizeShuttleTubes(state.shuttleTubes.map(row=>row.id===tube.id?{
-    ...setShuttleRemaining(row,row.remainingShuttles-1),sessionUsedShuttles:(Number(row.sessionUsedShuttles)||0)+1
+    ...setShuttleRemaining(row,row.remainingShuttles-1),sessionUsedShuttles:currentSessionShuttleUsage(row)+1,sessionUsageKey:shuttleUsageSessionKey()
   }:row));
   const updated=activeShuttleTube();
   syncShuttleCostNotice(updated);updateUseShuttleButtons();renderShuttleTubeManager();saveSoon();
@@ -2437,7 +2439,7 @@ function useOneShuttle({source='button'}={}){
   return true;
 }
 function syncShuttleCostNotice(tube){
-  const used=Math.max(0,Number(tube?.sessionUsedShuttles)||0),players=shuttleParticipantCount(),notices=normalizeAdminNotices(state).filter(notice=>notice.id!=='shuttle-cost');
+  const used=currentSessionShuttleUsage(tube),notices=normalizeAdminNotices(state).filter(notice=>notice.id!=='shuttle-cost');
   if(!tube){setAdminNotices(notices);renderDashboard();return}
   const unitPrice=shuttleUnitPrice(tube.price),costs=sessionCombinedCosts(),fee=costs.players?`場租 ${formatMoney(costs.rentalTotal)} 元＋球費 ${formatMoney(costs.shuttleTotal)} 元，共 ${costs.players} 人，每人需繳 ${formatMoney(costs.share)} 元。`:'場租及球費會依出席人數自動計算。';
   const body=`${fee}本場已使用 ${used} 顆（每顆 ${formatMoney(unitPrice)} 元），「${tube.name}」剩餘 ${tube.remainingShuttles} 顆。`;
@@ -2457,7 +2459,7 @@ function renderShuttleTubeManager(){
     return;
   }
   const costPanel=tube=>{
-    const used=Math.max(0,Number(tube.sessionUsedShuttles)||0),players=shuttleParticipantCount(),share=shuttleShareCost(tube.price,used,players);
+    const used=currentSessionShuttleUsage(tube),players=shuttleParticipantCount(),share=shuttleShareCost(tube.price,used,players);
     return `<div class="shuttle-cost-panel"><div><span>球桶價格 / 顆數</span><strong>${formatMoney(tube.price)} 元 / 12 顆</strong></div><div><span>每顆單價</span><strong>${formatMoney(shuttleUnitPrice(tube.price))} 元</strong></div><div><span>該場次已使用</span><strong>${used} 顆</strong></div><div><span>該場次參與人數</span><strong>${players} 人</strong><small>購球者若參與也計入</small></div><div class="shuttle-share-total"><span>該場次每人分攤</span><strong>${players?`${formatMoney(share)} 元`:'等待出席名單'}</strong></div></div>`;
   };
   const activeMarkup=active?`<article class="shuttle-tube-current">
@@ -2482,7 +2484,7 @@ function renderShuttleTubeManager(){
   all('[data-shuttle-delta]').forEach(button=>button.onclick=()=>{
     if(!isHost)return;
     const tubeId=button.dataset.shuttleTube,delta=Number(button.dataset.shuttleDelta)||0;
-    state.shuttleTubes=normalizeShuttleTubes(tubes.map(tube=>tube.id===tubeId?{...setShuttleRemaining(tube,tube.remainingShuttles+delta),sessionUsedShuttles:Math.max(0,(Number(tube.sessionUsedShuttles)||0)-delta)}:tube));
+    state.shuttleTubes=normalizeShuttleTubes(tubes.map(tube=>tube.id===tubeId?{...setShuttleRemaining(tube,tube.remainingShuttles+delta),sessionUsedShuttles:Math.max(0,currentSessionShuttleUsage(tube)-delta),sessionUsageKey:shuttleUsageSessionKey()}:tube));
     const updated=state.shuttleTubes.find(tube=>tube.id===tubeId);
     syncShuttleCostNotice(updated);renderShuttleTubeManager();saveSoon();
   });
@@ -2490,7 +2492,7 @@ function renderShuttleTubeManager(){
     if(!isHost)return;
     const tubeId=button.dataset.resetShuttleSession,tube=tubes.find(row=>row.id===tubeId);
     if(!tube||!confirm('確定結束該場次，並將該場次的用球顆數歸零？\n球桶剩餘顆數不會加回。'))return;
-    state.shuttleTubes=normalizeShuttleTubes(tubes.map(row=>row.id===tubeId?{...row,sessionUsedShuttles:0}:row));
+    state.shuttleTubes=normalizeShuttleTubes(tubes.map(row=>row.id===tubeId?{...row,sessionUsedShuttles:0,sessionUsageKey:shuttleUsageSessionKey()}:row));
     syncShuttleCostNotice(state.shuttleTubes.find(row=>row.id===tubeId));renderShuttleTubeManager();saveSoon();
   });
   all('[data-set-shuttle-remaining]').forEach(button=>button.onclick=()=>{
