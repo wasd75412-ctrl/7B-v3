@@ -2289,7 +2289,7 @@ function currentTestModeEnabled(){
   return !!state.testMode||!!state.match?.active&&state.match?.winner===null&&!!state.match?.testMode;
 }
 function renderTestMode(){
-  const enabled=currentTestModeEnabled(),currentMatchIsTest=!!state.match?.active&&state.match?.winner===null&&!!state.match?.testMode,button=$('testModeToggle'),scoreButton=$('scoreTestModeToggle');
+  const enabled=currentTestModeEnabled(),currentMatchIsTest=!!state.testMode&&!!state.match?.active&&state.match?.winner===null&&!!state.match?.testMode,button=$('testModeToggle'),scoreButton=$('scoreTestModeToggle');
   if(button){button.setAttribute('aria-pressed',enabled?'true':'false');button.setAttribute('aria-label',`測試模式，${enabled?'已啟用':'未啟用'}`);button.textContent='🧪 測試模式';button.classList.toggle('test-mode-on',enabled)}
   if(scoreButton){scoreButton.setAttribute('aria-pressed',enabled?'true':'false');scoreButton.setAttribute('aria-label',`測試模式，${enabled?'已啟用':'未啟用'}`);scoreButton.title=`測試模式，${enabled?'已啟用':'未啟用'}`;scoreButton.classList.toggle('test-mode-on',enabled)}
   $('testQuickWin')?.classList.toggle('hidden',!currentMatchIsTest||!isHost||state.match.winner!==null);
@@ -2299,6 +2299,13 @@ function toggleTestMode(){
   const enabling=!currentTestModeEnabled();
   state.testMode=enabling;
   state.testModeRevision=Math.max(Date.now(),Number(state.testModeRevision||0)+1);
+  if(!enabling){
+    const previousMatch=state.match,attending=uniqueIds(state.attendance).filter(id=>state.roster.some(player=>player.id===id));
+    state.match={...initialState().match,syncEpoch:nextMatchEpoch(previousMatch),testMode:false};
+    state.matchRollback=null;state.nextCall=null;state.court=attending.slice(0,4);state.waitingQueue=attending.slice(4);state.queueDraftChosen=[];state.priority=state.waitingQueue[0]||null;state.lastLoserReplayPlayerId=null;
+    scoreViewRequested=false;dismissedResultKey='';$('resultModal').classList.add('hidden');
+    renderAll();page(3);checkpointNewMatch();return;
+  }
   if(state.match.active&&state.match.winner===null){
     state.match.testMode=enabling;
     saveLiveScoreSoon();
@@ -2311,7 +2318,7 @@ function toggleTestMode(){
 }
 function finishTestMatch(team){
   const m=state.match;
-  if(!isHost||!m.active||m.winner!==null||!m.testMode)return;
+  if(!isHost||!state.testMode||!m.active||m.winner!==null||!m.testMode)return;
   const winner=team===1?1:0,loser=1-winner,target=Math.max(1,Number(state.rules.target)||11);
   m.scores[winner]=Math.max(target,m.scores[winner]);
   m.scores[loser]=Math.min(m.scores[loser],Math.max(0,m.scores[winner]-2));
