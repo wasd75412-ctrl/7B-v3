@@ -104,16 +104,19 @@ test('lets the admin add players after voting closes and edit them later',()=>{
   assert.match(mainSource,/manualParticipants:cleanManualPollParticipants/);
 });
 
-test('keeps previous poll results available after a new round starts',()=>{
-  assert.match(html,/id="confirmPollRound"/);
+test('keeps previous poll results inside the new-event dialog',()=>{
+  assert.doesNotMatch(html,/id="confirmPollRound"/);
+  assert.match(html,/id="editNextEventPollOption"/);
+  assert.match(html,/從歷史投票帶入（選填）/);
   assert.match(mainSource,/pollHistory:cleanPollHistory\(src\.pollHistory\)/);
   assert.match(mainSource,/function archiveCurrentPoll\(\)/);
   assert.match(mainSource,/archiveCurrentPoll\(\);state\.schedulePoll=/);
-  assert.match(mainSource,/fromHistory\?cleanPollHistory\(remote\.pollHistory\)/);
-  assert.match(mainSource,/將從歷史投票發布，目前的新投票不受影響/);
-  assert.match(mainSource,/hasHistoricalOptions=state\.pollHistory\.some/);
-  assert.match(mainSource,/confirmEventPanel'\)\.style\.display=!options\.length&&!hasHistoricalOptions/);
-  assert.match(mainSource,/!options\.length&&latestHistory\?\.options\?\.length\?latestHistory\.id/);
+  assert.match(mainSource,/function historicalPollChoices\(\)/);
+  assert.match(mainSource,/function applyHistoricalPollChoice\(\)/);
+  assert.match(mainSource,/editNextEventPollOption'\)\.addEventListener\('change',applyHistoricalPollChoice\)/);
+  assert.match(mainSource,/participantIds=creating\?eventPlayerChoiceIds\('editNextEventPlayerChoices'\)/);
+  assert.match(mainSource,/optionId:historyChoice\?\.option\.id\|\|''/);
+  assert.match(mainSource,/confirmEventPanel'\)\.style\.display=!options\.length\?'none':''/);
 });
 
 test('the page stops at its bottom without exposing overscroll whitespace',()=>{
