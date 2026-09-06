@@ -800,7 +800,19 @@ async function setPushNotificationEnabled(){
   }catch(error){alert(error.message||'無法設定通知。')}finally{updatePushNotificationButton()}
 }
 
+const CHAT_CACHE_PREFIX='bcmChatMessagesV1:';
 function chatSeenKey(id=roomId){return `bcmChatSeenV1:${id||'none'}`}
+function chatCacheKey(id=roomId){return `${CHAT_CACHE_PREFIX}${id||'none'}`}
+function readCachedChatMessages(id=roomId){
+  try{
+    const cached=JSON.parse(localStorage.getItem(chatCacheKey(id))||'[]');
+    return Array.isArray(cached)?cached.filter(message=>message&&typeof message==='object'&&message.id&&(message.text||message.media)).slice(-100):[];
+  }catch{return[]}
+}
+function cacheChatMessages(id=roomId){
+  if(!id)return;
+  try{localStorage.setItem(chatCacheKey(id),JSON.stringify(chatMessages.filter(message=>!message.pending&&!message.failed).slice(-100)))}catch{}
+}
 function chatMessageTimeMs(message){
   if(typeof message?.createdAt?.toMillis==='function')return message.createdAt.toMillis();
   const created=Date.parse(message?.createdAt||'');
@@ -1107,15 +1119,18 @@ function renderChat(){
   chatFirstRender=false;
 }
 function startChatSync(){
-  chatUnsubscribe?.();chatUnsubscribe=null;chatMessages=[];chatFirstRender=true;chatMessagesRenderKey='';
+  chatUnsubscribe?.();chatUnsubscribe=null;chatFirstRender=true;chatMessagesRenderKey='';
   if(!roomId)return;
   chatCollectionRef=roomId;
+  chatMessages=readCachedChatMessages(roomId);
+  renderChat();
   const load=async()=>{
     if(chatRequestRunning||!roomId||chatCollectionRef!==roomId||!navigator.onLine)return;
     chatRequestRunning=true;
     try{
       const result=await pushApi(`chat-mention?roomId=${encodeURIComponent(roomId)}`);
       chatMessages=mergeServerChatMessages(result.messages);
+      cacheChatMessages(roomId);
       renderChat();
     }catch(error){
       $('chatConnection').textContent=navigator.onLine?'同步中斷':'離線中';
@@ -1152,6 +1167,7 @@ async function sendChatMessage(){
     const media=queuedMedia?await uploadChatMedia(queuedMedia,senderId):null;
     const result=await pushApi('chat-mention',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({roomId,text,media,senderId,senderToken:selfToken,mentions,mentionAll,clientCreatedAt,clientNonce})});
     chatMessages=chatMessages.map(message=>message.clientNonce===clientNonce?result.message:message);
+    cacheChatMessages(roomId);
     renderChat();
     if(queuedMedia?.previewUrl)URL.revokeObjectURL(queuedMedia.previewUrl);
     if(mentionAll||mentions.length)setChatStatus(result.sent?`訊息已傳送，已通知 ${result.sent} 台裝置`:'訊息已傳送；目前沒有可接收通知的其他裝置','success');

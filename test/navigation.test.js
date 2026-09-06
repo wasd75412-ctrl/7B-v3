@@ -344,12 +344,21 @@ test('chat preserves unchanged media elements between sync polls',()=>{
   assert.match(mainSource,/messagesChanged&&wasNearBottom/);
 });
 
-test('chat always opens at the latest message',()=>{
+test('chat opens instantly at the latest message without jumping to the top',()=>{
   const pageFlow=mainSource.slice(mainSource.indexOf('function page(n)'),mainSource.indexOf('function renderRoster()'));
   assert.match(pageFlow,/if\(n===8\)\{[\s\S]*scrollChatToLatest\(\)/);
   assert.match(mainSource,/function scrollChatToLatest\(\)[\s\S]*list\.scrollTop=list\.scrollHeight/);
   assert.match(mainSource,/requestAnimationFrame\(\(\)=>requestAnimationFrame\(scroll\)\)/);
   assert.match(mainSource,/addEventListener\('load',scroll,\{once:true\}\)/);
+  assert.match(styles,/\.chat-messages\{[\s\S]*scroll-behavior:auto;[\s\S]*overflow-anchor:none/);
+});
+
+test('chat restores cached messages before refreshing from the server',()=>{
+  const syncFlow=mainSource.slice(mainSource.indexOf('function startChatSync()'),mainSource.indexOf('async function sendChatMessage()'));
+  assert.match(mainSource,/const CHAT_CACHE_PREFIX='bcmChatMessagesV1:'/);
+  assert.match(syncFlow,/chatMessages=readCachedChatMessages\(roomId\);\s*renderChat\(\);/);
+  assert.doesNotMatch(syncFlow,/chatMessages=\[\]/);
+  assert.match(syncFlow,/chatMessages=mergeServerChatMessages\(result\.messages\);\s*cacheChatMessages\(roomId\);/);
 });
 
 test('editing the next event updates the announcement without another push',()=>{
