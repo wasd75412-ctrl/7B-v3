@@ -4590,3 +4590,20 @@ html.chat-keyboard-open .chat-autocomplete{
 
 /* BCM 2.6.49 — keep secondary UI copy concise. */
 #viewerNote,#backupList .backup-loading,#backupList .poll-empty,.shuttle-tube-empty span{display:none!important}
+
+/* BCM 2.8.15 — permanent contrast contract for packing/reminder text bars. */
+body>.modal .packing-reminder-controls,
+body>.modal .event-packing-memo-item{
+  border-color:#2d6685!important;
+  background:#0b2b43!important;
+  color:#eefaff!important;
+  -webkit-text-fill-color:#eefaff
+}
+body>.modal .event-packing-memo-item:has(input:checked){
+  border-color:#55b98b!important;
+  background:#dff7eb!important;
+  color:#0d5437!important;
+  -webkit-text-fill-color:#0d5437
+}
+body>.modal .packing-reminder-controls :is(label,span,p),
+body>.modal .event-packing-memo-item span{color:inherit;-webkit-text-fill-color:inherit}
