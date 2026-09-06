@@ -24,7 +24,7 @@ import { rotateAfterMatch } from './match-rotation.js';
 import { deletePlayerFromState, normalizeRetiredPlayers } from './player-deletion.js';
 import { normalizeScoreFont, randomScoreFont } from './score-font.js';
 import { EVENT_PACKING_MEMO_ITEMS, eventPackingMemoProgress, normalizeEventPackingMemo } from './event-packing-memo.js';
-import { moveAdminNotice, normalizeAdminNotices, syncManagedAdminNotice } from './admin-notices.js';
+import { ensureShuttleCostNotice, moveAdminNotice, normalizeAdminNotices } from './admin-notices.js';
 
 const firebaseConfig={apiKey:'AIzaSyBrakbTPK7UqEChPBI6pM8-i03IcLq0IvM',authDomain:'badminton-7a1c3.firebaseapp.com',projectId:'badminton-7a1c3',storageBucket:'badminton-7a1c3.firebasestorage.app',messagingSenderId:'883534015507',appId:'1:883534015507:web:a7f6fb318151b6d07563e6',measurementId:'G-C97B98H7YW'};
 const fbApp=initializeApp(firebaseConfig);
@@ -2532,12 +2532,7 @@ function returnOneShuttle({source='button'}={}){
   return true;
 }
 function syncShuttleCostNotice(tube){
-  const used=currentSessionShuttleUsage(tube),players=shuttleParticipantCount(),notices=normalizeAdminNotices(state);
-  if(!tube){setAdminNotices(notices.filter(notice=>notice.id!=='shuttle-cost'));renderDashboard();return}
-  const unitPrice=shuttleUnitPrice(tube.price),share=shuttleShareCost(tube.price,used,players);
-  const fee=used&&players?`本場 ${used} 顆、${players} 人，每人 ${formatMoney(share)} 元。`:'本場費用會依用球顆數與出席人數自動計算。';
-  const body=`球費＝本場用球顆數 × 每顆 ${formatMoney(unitPrice)} 元 ÷ 本場人數（購球者也計入）。${fee}「${tube.name}」剩餘 ${tube.remainingShuttles} 顆。`;
-  setAdminNotices(syncManagedAdminNotice(notices,{id:'shuttle-cost',title:'球費與球桶',body,publishedAt:new Date().toISOString()}));
+  setAdminNotices(ensureShuttleCostNotice(normalizeAdminNotices(state),new Date().toISOString()));
   renderDashboard();
 }
 function renderShuttleTubeManager(){
