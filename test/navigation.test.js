@@ -4,6 +4,7 @@ import { readFileSync } from 'node:fs';
 
 const html=readFileSync(new URL('../index.html',import.meta.url),'utf8');
 const mainSource=readFileSync(new URL('../src/main.js',import.meta.url),'utf8');
+const adminNoticesSource=readFileSync(new URL('../src/admin-notices.js',import.meta.url),'utf8');
 const styles=readFileSync(new URL('../src/styles.css',import.meta.url),'utf8');
 const nav=html.match(/<nav class="tabs">([\s\S]*?)<\/nav>/)?.[1]||'';
 
@@ -273,7 +274,8 @@ test('separates fixed members and guest players while shuttle costs use session 
   assert.match(mainSource,/splitPlayersByMembership\(rows\)/);
   assert.match(mainSource,/function shuttleParticipantCount\(\)/);
   assert.match(mainSource,/購球者若參與也計入/);
-  assert.match(mainSource,/「\$\{tube\.name\}」剩餘 \$\{tube\.remainingShuttles\} 顆/);
+  assert.match(adminNoticesSource,/球費＝本場使用顆數 ×（球桶價格 ÷ 12）÷ 本場參與人數/);
+  assert.doesNotMatch(mainSource,/「\$\{tube\.name\}」剩餘 \$\{tube\.remainingShuttles\} 顆/);
   assert.match(styles,/BCM 2\.4\.42 — fixed members and guest-player sections/);
 });
 

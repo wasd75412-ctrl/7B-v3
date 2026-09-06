@@ -29,8 +29,7 @@ test('shows one-shuttle controls in scoring and next-match result views plus das
   assert.match(styles,/\.score-remote-indicator\{[^}]*z-index:1000/);
   assert.doesNotMatch(main,/if\(source==='remote'\)showScoreRemoteIndicator\(`已使用 1 顆/);
   assert.match(main,/每人 \$\{formatMoney\(share\)\} 元/);
-  assert.match(main,/title:'球費與球桶'/);
-  assert.match(main,/球費＝本場用球顆數/);
+  assert.match(main,/ensureShuttleCostNotice/);
   assert.match(main,/sessionCombinedCosts\(e\)/);
   assert.match(main,/next-event-payment">場租及球費 \$\{formatMoney\(perPersonFee\)\} 元/);
   assert.doesNotMatch(html,/勝方兩人保留，候場隊首兩人上場/);
