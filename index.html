@@ -45,6 +45,7 @@
           <button id="adminNoticeManagerBtn" class="btn host-only" type="button">📣 事務公告</button>
           <button id="recruitingMessageBtn" class="btn host-only" type="button">💬 揪人訊息</button>
           <button id="shuttleTubeManagerBtn" class="btn host-only" type="button">🏸 球桶管理</button>
+          <button id="eventPackingMemoBtn" class="btn host-only" type="button">🎒 開團備忘錄</button>
           <div id="wakeLockFeedback" class="hidden" aria-hidden="true"></div>
         </div>
         <details id="roomMoreAdvanced" class="room-more-advanced">
@@ -292,6 +293,12 @@
 </div></div>
 
 <div id="audioHelpModal" class="hidden" hidden aria-hidden="true"><button id="closeAudioHelp" type="button"></button></div>
+
+<div id="eventPackingMemoModal" class="modal hidden"><div class="modal-card event-packing-memo">
+  <div class="event-packing-memo-head"><div><h2>🎒 開團備忘錄</h2><p id="eventPackingMemoProgress" class="sub"></p></div><button id="closeEventPackingMemo" class="btn" type="button" aria-label="關閉開團備忘錄">關閉</button></div>
+  <div id="eventPackingMemoList" class="event-packing-memo-list"></div>
+  <button id="resetEventPackingMemo" class="btn wide" type="button">全部改為未帶</button>
+</div></div>
 
 <div id="adminNoticeModal" class="modal hidden"><div class="modal-card admin-notice-manager">
   <div class="admin-notice-manager-head"><div><h2>📣 事務公告</h2></div><button id="closeAdminNotice" class="btn admin-notice-close" type="button" aria-label="關閉事務公告" title="關閉">✕</button></div>

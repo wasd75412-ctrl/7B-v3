@@ -1615,6 +1615,15 @@ html.brand-font-fallback .brand-copy .brand-mark h1{
 .admin-notice-feedback.success{background:#e9f8f0;color:#126446}
 .admin-notice-feedback.error{background:#fff0f0;color:#a71919}
 .admin-notice-feedback.editing{background:#fff7db;color:#855000}
+.event-packing-memo{width:min(620px,100%)}
+.event-packing-memo-head{display:flex;align-items:flex-start;justify-content:space-between;gap:14px}
+.event-packing-memo-head h2{margin:0 0 5px}
+.event-packing-memo-head p{margin:0}
+.event-packing-memo-list{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin:20px 0}
+.event-packing-memo-item{display:flex;align-items:center;gap:11px;padding:13px 14px;border:1px solid var(--line);border-radius:14px;background:#f8fafc;font-weight:900;cursor:pointer}
+.event-packing-memo-item:has(input:checked){border-color:#77c89d;background:#e8f7ef;color:#0d6840}
+.event-packing-memo-item input{width:21px;height:21px;accent-color:var(--green)}
+@media(max-width:520px){.event-packing-memo-list{grid-template-columns:1fr}}
 .admin-notice-actions{display:flex;justify-content:flex-end;gap:9px;margin-top:16px}
 @media(max-width:560px){
   .admin-notice-manager{padding:16px}
