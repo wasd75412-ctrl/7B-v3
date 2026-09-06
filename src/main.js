@@ -16,7 +16,7 @@ import { adminRoleButtonState, claimedAdminPlayerId, resolveAdminSessionToken } 
 import { updateAttendanceState } from './attendance.js';
 import { pollWasFinalized } from './poll.js';
 import { nonVoterPlayerIds, recruitingMessage, recruitingSlots } from './poll-recruiting.js';
-import { activateShuttleTube, createShuttleTube, enforceLegacyActiveShuttleTube, finishShuttleTube, normalizeShuttleTubes, restoreShuttleTube, sessionShuttleUsage, setShuttleRemaining, shuttleShareCost, shuttleUnitPrice, softDeleteShuttleTube, updateShuttleTube } from './shuttle-tube.js';
+import { activateShuttleTube, adjustSessionShuttleUsage, createShuttleTube, enforceLegacyActiveShuttleTube, finishShuttleTube, normalizeShuttleTubes, restoreShuttleTube, sessionShuttleUsage, setShuttleRemaining, shuttleShareCost, shuttleUnitPrice, softDeleteShuttleTube, updateShuttleTube } from './shuttle-tube.js';
 import { careerAchievementBadges } from './player-achievements.js';
 import { PLAYER_TYPE_GUEST, isGuestPlayer, normalizePlayerType, splitPlayersByMembership } from './player-membership.js';
 import { createFinishedMatchRollback, normalizeFinishedMatchRollback, reopenFinishedMatchState } from './match-correction.js';
@@ -1609,6 +1609,7 @@ async function connectRoom(id){
       lastRoomSnapshotData=s.data();
       roomSnapshotFromCache=!!s.metadata.fromCache;
       snapshotHasPendingWrites=!!s.metadata.hasPendingWrites;
+      if((roomWriteScheduled||pendingRoomWrites>0)&&!snapshotHasPendingWrites){updateSyncBadge();return}
       const promoted=adoptClaimedPlayerAdmin(lastRoomSnapshotData,id);
       applyState(lastRoomSnapshotData);
       if(promoted){
@@ -2519,9 +2520,7 @@ function useOneShuttle({source='button'}={}){
     if(source==='remote')showScoreRemoteIndicator(tube?'目前球桶已用完':'請先啟用球桶');
     return false;
   }
-  state.shuttleTubes=normalizeShuttleTubes(state.shuttleTubes.map(row=>row.id===tube.id?{
-    ...setShuttleRemaining(row,row.remainingShuttles-1),sessionUsedShuttles:currentSessionShuttleUsage(row)+1,sessionUsageKey:shuttleUsageSessionKey()
-  }:row));
+  state.shuttleTubes=normalizeShuttleTubes(state.shuttleTubes.map(row=>row.id===tube.id?adjustSessionShuttleUsage(row,-1,shuttleUsageSessionKey()):row));
   const updated=activeShuttleTube();
   syncShuttleCostNotice(updated);updateUseShuttleButtons();renderShuttleTubeManager();saveSoon();
   showScoreRemoteIndicator(`已使用 1 顆球｜剩餘 ${updated.remainingShuttles} 顆`,{duration:2000,icon:'🏸'});
@@ -2534,9 +2533,7 @@ function returnOneShuttle({source='button'}={}){
     if(source==='remote')showScoreRemoteIndicator('本場沒有可加回的球',{duration:2000,icon:'🏸'});
     return false;
   }
-  state.shuttleTubes=normalizeShuttleTubes(state.shuttleTubes.map(row=>row.id===tube.id?{
-    ...setShuttleRemaining(row,row.remainingShuttles+1),sessionUsedShuttles:Math.max(0,currentSessionShuttleUsage(row)-1),sessionUsageKey:shuttleUsageSessionKey()
-  }:row));
+  state.shuttleTubes=normalizeShuttleTubes(state.shuttleTubes.map(row=>row.id===tube.id?adjustSessionShuttleUsage(row,1,shuttleUsageSessionKey()):row));
   const updated=activeShuttleTube();
   syncShuttleCostNotice(updated);updateUseShuttleButtons();renderShuttleTubeManager();saveSoon();
   showScoreRemoteIndicator(`已加回 1 顆球｜剩餘 ${updated.remainingShuttles} 顆`,{duration:2000,icon:'↩️🏸'});
@@ -2589,7 +2586,7 @@ function renderShuttleTubeManager(){
   all('[data-shuttle-delta]').forEach(button=>button.onclick=()=>{
     if(!isHost)return;
     const tubeId=button.dataset.shuttleTube,delta=Number(button.dataset.shuttleDelta)||0;
-    state.shuttleTubes=normalizeShuttleTubes(tubes.map(tube=>tube.id===tubeId?{...setShuttleRemaining(tube,tube.remainingShuttles+delta),sessionUsedShuttles:Math.max(0,currentSessionShuttleUsage(tube)-delta),sessionUsageKey:shuttleUsageSessionKey()}:tube));
+    state.shuttleTubes=normalizeShuttleTubes(tubes.map(tube=>tube.id===tubeId?adjustSessionShuttleUsage(tube,delta,shuttleUsageSessionKey()):tube));
     const updated=state.shuttleTubes.find(tube=>tube.id===tubeId);
     syncShuttleCostNotice(updated);renderShuttleTubeManager();saveSoon();
   });
