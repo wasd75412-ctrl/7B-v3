@@ -295,6 +295,11 @@
 
 <div id="eventPackingMemoModal" class="modal hidden"><div class="modal-card event-packing-memo">
   <div class="event-packing-memo-head"><div><h2>🎒 開團備忘錄</h2><p id="eventPackingMemoProgress" class="sub"></p></div><button id="closeEventPackingMemo" class="btn" type="button" aria-label="關閉開團備忘錄">關閉</button></div>
+  <div class="packing-reminder-controls">
+    <label class="packing-reminder-toggle"><input id="packingReminderToggle" type="checkbox"><span>啟用出發前推播提醒</span></label>
+    <label class="field"><span>球局開始前</span><select id="packingReminderMinutes" class="input"><option value="30">30 分鐘</option><option value="60">60 分鐘</option><option value="90">90 分鐘</option><option value="120">2 小時</option></select></label>
+    <p id="packingReminderStatus" class="sub" aria-live="polite"></p>
+  </div>
   <div id="eventPackingMemoList" class="event-packing-memo-list"></div>
   <button id="resetEventPackingMemo" class="btn wide" type="button">全部改為未帶</button>
 </div></div>

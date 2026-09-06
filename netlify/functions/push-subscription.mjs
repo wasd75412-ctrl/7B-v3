@@ -19,6 +19,7 @@ export default async request=>{
   }
   if(!validSubscription(body.subscription))return jsonResponse({error:'通知裝置資料不完整。'},400);
   const existing=await store.get(key,{type:'json'}).catch(()=>null),now=new Date().toISOString();
+  const packingReminderMinutes=[30,60,90,120].includes(Number(body.packingReminderMinutes))?Number(body.packingReminderMinutes):(existing?.packingReminderMinutes||60);
   await store.setJSON(key,{
     roomId,
     clientHash:cleanText(body.clientHash,128),
@@ -30,7 +31,11 @@ export default async request=>{
     lastReminderDeadline:existing?.lastReminderDeadline||'',
     lastReminderAt:existing?.lastReminderAt||'',
     lastEventPublishedAt:existing?.lastEventPublishedAt||'',
-    lastEventAt:existing?.lastEventAt||''
+    lastEventAt:existing?.lastEventAt||'',
+    packingReminderEnabled:typeof body.packingReminderEnabled==='boolean'?body.packingReminderEnabled:existing?.packingReminderEnabled===true,
+    packingReminderMinutes,
+    lastPackingEventId:existing?.lastPackingEventId||'',
+    lastPackingReminderAt:existing?.lastPackingReminderAt||''
   });
   return jsonResponse({ok:true,enabled:true});
 };
