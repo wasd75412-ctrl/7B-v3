@@ -2289,10 +2289,11 @@ function currentTestModeEnabled(){
   return !!state.testMode||!!state.match?.active&&state.match?.winner===null&&!!state.match?.testMode;
 }
 function renderTestMode(){
-  const enabled=currentTestModeEnabled(),currentMatchIsTest=!!state.testMode&&!!state.match?.active&&state.match?.winner===null&&!!state.match?.testMode,button=$('testModeToggle'),scoreButton=$('scoreTestModeToggle');
+  const enabled=currentTestModeEnabled(),currentMatchIsTest=!!state.testMode&&!!state.match?.active&&state.match?.winner===null&&!!state.match?.testMode,button=$('testModeToggle'),scoreButton=$('scoreTestModeToggle'),quickWin=$('testQuickWin'),showQuickWin=currentMatchIsTest&&isHost;
   if(button){button.setAttribute('aria-pressed',enabled?'true':'false');button.setAttribute('aria-label',`測試模式，${enabled?'已啟用':'未啟用'}`);button.textContent='🧪 測試模式';button.classList.toggle('test-mode-on',enabled)}
   if(scoreButton){scoreButton.setAttribute('aria-pressed',enabled?'true':'false');scoreButton.setAttribute('aria-label',`測試模式，${enabled?'已啟用':'未啟用'}`);scoreButton.title=`測試模式，${enabled?'已啟用':'未啟用'}`;scoreButton.classList.toggle('test-mode-on',enabled)}
   $('testQuickWin')?.classList.toggle('hidden',!currentMatchIsTest||!isHost||state.match.winner!==null);
+  if(quickWin){quickWin.hidden=!showQuickWin;quickWin.setAttribute('aria-hidden',showQuickWin?'false':'true');quickWin.style.setProperty('display',showQuickWin?'flex':'none','important')}
 }
 function toggleTestMode(){
   if(!isHost)return;
