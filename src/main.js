@@ -639,10 +639,11 @@ function renderDashboard() {
     if(activeTube){
       const used=currentSessionShuttleUsage(activeTube),players=shuttleParticipantCount(),share=shuttleShareCost(activeTube.price,used,players);
       shuttleSummary.className='home-shuttle-summary';
-      shuttleSummary.innerHTML=`<span><strong>🏸 ${esc(activeTube.name)}</strong><small>已使用 ${used} 顆 · 剩餘 ${activeTube.remainingShuttles} 顆</small></span><strong>${players?`每人 ${formatMoney(share)} 元`:'等待出席名單'}</strong>`;
+      shuttleSummary.innerHTML=`<span><strong>🏸 ${esc(activeTube.name)}</strong><small>已使用 ${used} 顆 · 剩餘 ${activeTube.remainingShuttles} 顆</small></span><div class="home-shuttle-summary-actions"><strong>${players?`每人 ${formatMoney(share)} 元`:'等待出席名單'}</strong>${isHost?'<button id="homeShuttleManagerBtn" class="btn" type="button">球桶管理</button>':''}</div>`;
     }else{
-      shuttleSummary.className='home-shuttle-summary empty';shuttleSummary.textContent='🏸 目前沒有正在使用的球桶';
+      shuttleSummary.className='home-shuttle-summary empty';shuttleSummary.innerHTML=`<span>🏸 目前沒有正在使用的球桶</span>${isHost?'<button id="homeShuttleManagerBtn" class="btn" type="button">球桶管理</button>':''}`;
     }
+    $('homeShuttleManagerBtn')?.addEventListener('click',openShuttleTubeManager);
 
     const recent = state.history.slice(-3).reverse();
     $('homeRecentMatches').innerHTML = recent.map(h => {

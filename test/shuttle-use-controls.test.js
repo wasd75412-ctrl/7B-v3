@@ -15,6 +15,8 @@ test('shows one-shuttle controls in scoring and next-match result views plus das
   assert.match(html,/id="resultReturnShuttle"[^>]*>\+1<\/button>/);
   assert.doesNotMatch(html,/id="result(?:Use|Return)Shuttle"[^>]*>[^<]*🏸/);
   assert.match(main,/function useOneShuttle\(/);
+  assert.match(main,/id="homeShuttleManagerBtn"[^>]*>球桶管理<\/button>/);
+  assert.match(main,/\$\('homeShuttleManagerBtn'\)\?\.addEventListener\('click',openShuttleTubeManager\)/);
   assert.match(main,/adjustSessionShuttleUsage\(row,-1,shuttleUsageSessionKey\(\)\)/);
   assert.match(main,/adjustSessionShuttleUsage\(row,1,shuttleUsageSessionKey\(\)\)/);
   assert.match(main,/adjustSessionShuttleUsage\(tube,delta,shuttleUsageSessionKey\(\)\)/);
