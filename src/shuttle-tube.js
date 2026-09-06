@@ -17,6 +17,16 @@ export function sessionShuttleUsage(tube,sessionKey=''){
   return key&&cleanText(tube?.sessionUsageKey,180)===key?clamp(tube?.sessionUsedShuttles||0,0,100):0;
 }
 
+export function adjustSessionShuttleUsage(tube,remainingDelta=0,sessionKey=''){
+  const normalized=normalizeShuttleTubes([tube])[0],delta=Math.round(Number(remainingDelta)||0);
+  if(!normalized)return normalized;
+  return{
+    ...setShuttleRemaining(normalized,normalized.remainingShuttles+delta),
+    sessionUsedShuttles:clamp(sessionShuttleUsage(normalized,sessionKey)-delta,0,100),
+    sessionUsageKey:cleanText(sessionKey,180)
+  };
+}
+
 export function normalizeShuttleTubes(value,maxCount=20){
   const rows=Array.isArray(value)?value:[];
   const normalized=rows.map((tube,index)=>{

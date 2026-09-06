@@ -15,13 +15,14 @@ test('shows one-shuttle controls in scoring and next-match result views plus das
   assert.match(html,/id="resultReturnShuttle"[^>]*>\+1<\/button>/);
   assert.doesNotMatch(html,/id="result(?:Use|Return)Shuttle"[^>]*>[^<]*🏸/);
   assert.match(main,/function useOneShuttle\(/);
-  assert.match(main,/sessionUsedShuttles:currentSessionShuttleUsage\(row\)\+1,sessionUsageKey:shuttleUsageSessionKey\(\)/);
-  assert.match(main,/sessionUsedShuttles:Math\.max\(0,currentSessionShuttleUsage\(tube\)-delta\),sessionUsageKey:shuttleUsageSessionKey\(\)/);
+  assert.match(main,/adjustSessionShuttleUsage\(row,-1,shuttleUsageSessionKey\(\)\)/);
+  assert.match(main,/adjustSessionShuttleUsage\(row,1,shuttleUsageSessionKey\(\)\)/);
+  assert.match(main,/adjustSessionShuttleUsage\(tube,delta,shuttleUsageSessionKey\(\)\)/);
+  assert.match(main,/if\(\(roomWriteScheduled\|\|pendingRoomWrites>0\)&&!snapshotHasPendingWrites\)\{updateSyncBadge\(\);return\}/);
   assert.match(main,/function returnOneShuttle\(/);
   assert.match(main,/data-shuttle-delta="-1"[^>]*>−1<\/button>/);
   assert.match(main,/data-shuttle-delta="1"[^\n]*?>\+1<\/button>/);
   assert.match(main,/已加回 1 顆球｜剩餘/);
-  assert.match(main,/setShuttleRemaining\(row,row\.remainingShuttles-1\)/);
   assert.match(main,/showScoreRemoteIndicator\(`已使用 1 顆球｜剩餘 \$\{updated\.remainingShuttles\} 顆`,\{duration:2000,icon:'🏸'\}\)/);
   assert.match(main,/resultModal&&!resultModal\.classList\.contains\('hidden'\)\?resultModal:\(currentFullscreenElement\(\)\|\|\$\('scoreView'\)\)/);
   assert.match(main,/overlayHost\.append\(indicator\)/);

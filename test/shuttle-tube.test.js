@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
   activateShuttleTube,
+  adjustSessionShuttleUsage,
   createShuttleTube,
   enforceLegacyActiveShuttleTube,
   finishShuttleTube,
@@ -30,6 +31,16 @@ test('counts shuttle usage only for the current session key',()=>{
   assert.equal(sessionShuttleUsage(tube,'event-new'),0);
   assert.equal(sessionShuttleUsage(tube,'event-old'),2);
   assert.equal(sessionShuttleUsage({sessionUsedShuttles:2},'event-new'),0);
+});
+
+test('returns a used shuttle to zero usage and restores the inventory',()=>{
+  const tube=createShuttleTube({id:'tube',name:'AS-30',price:960,status:'active'});
+  const used=adjustSessionShuttleUsage(tube,-1,'event-today');
+  const returned=adjustSessionShuttleUsage(used,1,'event-today');
+  assert.equal(used.remainingShuttles,11);
+  assert.equal(used.sessionUsedShuttles,1);
+  assert.equal(returned.remainingShuttles,12);
+  assert.equal(returned.sessionUsedShuttles,0);
 });
 
 test('finishes an active tube without deleting its inventory record',()=>{
