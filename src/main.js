@@ -23,6 +23,7 @@ import { createFinishedMatchRollback, normalizeFinishedMatchRollback, reopenFini
 import { rotateAfterMatch } from './match-rotation.js';
 import { deletePlayerFromState, normalizeRetiredPlayers } from './player-deletion.js';
 import { normalizeScoreFont, randomScoreFont } from './score-font.js';
+import { EVENT_PACKING_MEMO_ITEMS, eventPackingMemoProgress, normalizeEventPackingMemo } from './event-packing-memo.js';
 
 const firebaseConfig={apiKey:'AIzaSyBrakbTPK7UqEChPBI6pM8-i03IcLq0IvM',authDomain:'badminton-7a1c3.firebaseapp.com',projectId:'badminton-7a1c3',storageBucket:'badminton-7a1c3.firebasestorage.app',messagingSenderId:'883534015507',appId:'1:883534015507:web:a7f6fb318151b6d07563e6',measurementId:'G-C97B98H7YW'};
 const fbApp=initializeApp(firebaseConfig);
@@ -37,6 +38,16 @@ const brandFontGate=Promise.race([brandFontRequest,wait(2500).then(()=>false)]);
 brandFontGate.then(loaded=>document.documentElement.classList.add(loaded?'brand-font-ready':'brand-font-fallback'));
 Promise.all([brandFontGate,wait(900)]).then(()=>document.getElementById('splash')?.classList.add('hide'));
 const $=id=>document.getElementById(id), all=q=>[...document.querySelectorAll(q)];
+const EVENT_PACKING_MEMO_KEY='bcmEventPackingMemoV1';
+function loadEventPackingMemo(){try{return normalizeEventPackingMemo(JSON.parse(localStorage.getItem(EVENT_PACKING_MEMO_KEY)||'{}'))}catch{return normalizeEventPackingMemo({})}}
+function saveEventPackingMemo(memo){localStorage.setItem(EVENT_PACKING_MEMO_KEY,JSON.stringify(normalizeEventPackingMemo(memo)))}
+function renderEventPackingMemo(){
+  const memo=loadEventPackingMemo(),checked=new Set(memo.checked),progress=eventPackingMemoProgress(memo);
+  $('eventPackingMemoProgress').textContent=progress.remaining?`還有 ${progress.remaining} 項未確認`:'已全部帶齊';
+  $('eventPackingMemoList').innerHTML=EVENT_PACKING_MEMO_ITEMS.map((item,index)=>`<label class="event-packing-memo-item"><input type="checkbox" data-packing-index="${index}" ${checked.has(item)?'checked':''}><span>${esc(item)}</span></label>`).join('');
+  $('eventPackingMemoBtn').textContent=progress.remaining?`🎒 開團備忘錄（${progress.remaining}）`:'✅ 開團備忘錄';
+}
+function openEventPackingMemo(){renderEventPackingMemo();$('eventPackingMemoModal').classList.remove('hidden')}
 document.title=`7B 羽球社 ${BCM_VERSION}`;
 all('[data-bcm-version]').forEach(element=>{element.textContent=BCM_VERSION});
 const esc=s=>String(s??'').replace(/[&<>'"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]));
@@ -2872,6 +2883,11 @@ $('recruitingMessageBtn').onclick=()=>openRecruitingDialog();
 $('closeRecruitingMessage').onclick=closeRecruitingDialog;
 $('copyRecruitingMessage').onclick=copyRecruitingMessage;
 $('shuttleTubeManagerBtn').onclick=openShuttleTubeManager;
+$('eventPackingMemoBtn').onclick=openEventPackingMemo;
+$('closeEventPackingMemo').onclick=()=>$('eventPackingMemoModal').classList.add('hidden');
+$('eventPackingMemoModal').addEventListener('click',event=>{if(event.target===$('eventPackingMemoModal'))$('eventPackingMemoModal').classList.add('hidden')});
+$('eventPackingMemoList').addEventListener('change',event=>{const input=event.target.closest('[data-packing-index]');if(!input)return;const item=EVENT_PACKING_MEMO_ITEMS[Number(input.dataset.packingIndex)],memo=loadEventPackingMemo(),checked=new Set(memo.checked);input.checked?checked.add(item):checked.delete(item);saveEventPackingMemo({checked:[...checked]});renderEventPackingMemo()});
+$('resetEventPackingMemo').onclick=()=>{saveEventPackingMemo({checked:[]});renderEventPackingMemo()};
 $('scoreUseShuttle').onclick=()=>useOneShuttle();
 $('resultUseShuttle').onclick=()=>useOneShuttle();
 $('resultReturnShuttle').onclick=()=>returnOneShuttle();
