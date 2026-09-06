@@ -111,6 +111,9 @@ test('keeps previous poll results available after a new round starts',()=>{
   assert.match(mainSource,/archiveCurrentPoll\(\);state\.schedulePoll=/);
   assert.match(mainSource,/fromHistory\?cleanPollHistory\(remote\.pollHistory\)/);
   assert.match(mainSource,/將從歷史投票發布，目前的新投票不受影響/);
+  assert.match(mainSource,/hasHistoricalOptions=state\.pollHistory\.some/);
+  assert.match(mainSource,/confirmEventPanel'\)\.style\.display=!options\.length&&!hasHistoricalOptions/);
+  assert.match(mainSource,/!options\.length&&latestHistory\?\.options\?\.length\?latestHistory\.id/);
 });
 
 test('the page stops at its bottom without exposing overscroll whitespace',()=>{
@@ -124,7 +127,7 @@ test('keeps and renders multiple upcoming events without overwriting older annou
   assert.match(mainSource,/events\.map\(e=>/);
   assert.match(mainSource,/state\.nextEvents=upsertNextEvent\(previousEvents,updatedEvent\)/);
   assert.match(mainSource,/tx\.update\(roomRef,\{nextEvent:finalEvent,nextEvents/);
-  assert.match(mainSource,/state\.nextEvents=events\.filter\(event=>event\.id!==target\.id\)/);
+  assert.match(mainSource,/state\.nextEvents=events\.filter\(event=>event\.id!==target\.id\);state\.nextEvent=primaryNextEvent/);
   assert.match(mainSource,/events\.map\(e=>\{const participantIds=[\s\S]*?costs=sessionCombinedCosts\(e\)[\s\S]*?perPersonFee=costs\.applies\?costs\.share:wholeAmount\(e\.perPersonFee\),\{transferBankCode,transferAccount\}=cleanTransferDetails\(e\)/);
   assert.match(mainSource,/shuttleUsage=costs\.applies\?`<div class="next-event-shuttle-usage">🏸 本場使用 \$\{formatMoney\(costs\.used\)\} 顆<\/div>`:''/);
   assert.match(mainSource,/payment=perPersonFee\?`<div class="next-event-payment">場租及球費 \$\{formatMoney\(perPersonFee\)\} 元<\/div>`:''/);
@@ -351,6 +354,13 @@ test('chat opens instantly at the latest message without jumping to the top',()=
   assert.match(mainSource,/requestAnimationFrame\(\(\)=>requestAnimationFrame\(scroll\)\)/);
   assert.match(mainSource,/addEventListener\('load',scroll,\{once:true\}\)/);
   assert.match(styles,/\.chat-messages\{[\s\S]*scroll-behavior:auto;[\s\S]*overflow-anchor:none/);
+});
+
+test('uses the current upcoming event in the poll page instead of an expired legacy event',()=>{
+  assert.match(mainSource,/function primaryNextEvent\(source=state\)/);
+  assert.match(mainSource,/activeEvent=primaryNextEvent\(\)/);
+  assert.match(mainSource,/editNextEventFromPoll'\)\.onclick=\(\)=>openNextEventEditor\(primaryNextEvent\(\)\?\.id\|\|''\)/);
+  assert.match(mainSource,/fallback=primaryNextEvent\(\{nextEvents:events\}\)/);
 });
 
 test('chat restores cached messages before refreshing from the server',()=>{
