@@ -24,6 +24,7 @@ import { rotateAfterMatch } from './match-rotation.js';
 import { deletePlayerFromState, normalizeRetiredPlayers } from './player-deletion.js';
 import { normalizeScoreFont, randomScoreFont } from './score-font.js';
 import { EVENT_PACKING_MEMO_ITEMS, eventPackingMemoProgress, normalizeEventPackingMemo } from './event-packing-memo.js';
+import { moveAdminNotice, normalizeAdminNotices, syncManagedAdminNotice } from './admin-notices.js';
 
 const firebaseConfig={apiKey:'AIzaSyBrakbTPK7UqEChPBI6pM8-i03IcLq0IvM',authDomain:'badminton-7a1c3.firebaseapp.com',projectId:'badminton-7a1c3',storageBucket:'badminton-7a1c3.firebasestorage.app',messagingSenderId:'883534015507',appId:'1:883534015507:web:a7f6fb318151b6d07563e6',measurementId:'G-C97B98H7YW'};
 const fbApp=initializeApp(firebaseConfig);
@@ -73,15 +74,6 @@ const randomToken=()=>crypto.randomUUID?.()||([...crypto.getRandomValues(new Uin
 const shuffle=a=>{a=[...a];const r=new Uint32Array(Math.max(1,a.length));crypto.getRandomValues(r);for(let i=a.length-1;i>0;i--){const j=r[i]% (i+1);[a[i],a[j]]=[a[j],a[i]]}return a};
 function teammateSafeLineup(ids,{randomize=false}={}){const values=ids.filter(Boolean);if(values.length!==4||new Set(values).size!==4)return values;const todayHistory=state.history.filter(h=>historyDate(h)===localDateKey());if(!randomize&&!lineupExceedsTeammateLimit(values,todayHistory))return values;const random=crypto.getRandomValues(new Uint32Array(1))[0];return arrangeTeamsWithTeammateLimit(shuffle(values),todayHistory,random)}
 function wholeAmount(value){const n=Number(value);return Number.isFinite(n)&&n>0?Math.round(n):0}
-function normalizeAdminNotices(source){
-  const rows=Array.isArray(source?.adminNotices)?source.adminNotices:(source?.adminNotice?.body?[source.adminNotice]:[]);
-  const seen=new Set();
-  return rows.filter(notice=>notice&&String(notice.body||'').trim()).map((notice,index)=>{
-    const publishedAt=notice.publishedAt||'';
-    const fallbackId=`notice_${String(publishedAt||index).replace(/[^a-zA-Z0-9]/g,'').slice(-28)||index}`;
-    return{id:String(notice.id||fallbackId),title:String(notice.title||'事務通知').trim().slice(0,40)||'事務通知',body:String(notice.body||'').trim().slice(0,500),publishedAt};
-  }).filter(notice=>{if(seen.has(notice.id))return false;seen.add(notice.id);return true}).sort((a,b)=>(Date.parse(b.publishedAt)||0)-(Date.parse(a.publishedAt)||0)).slice(0,20);
-}
 function setAdminNotices(rows){state.adminNotices=normalizeAdminNotices({adminNotices:rows});state.adminNotice=state.adminNotices[0]||null}
 const initialState=()=>({version:9.8,testMode:false,testModeRevision:0,roster:[],retiredPlayers:[],adminPlayerIds:[],attendance:[],court:[],waitingQueue:[],queueDraftChosen:[],priority:null,lastLoserReplayPlayerId:null,match:{active:false,players:[[],[]],scores:[0,0],rallies:[],serving:0,positions:[[0,1],[0,1]],winner:null,startedAt:''},matchRollback:null,rules:{target:11,cap:15,deuce:true},history:[],matchReplayPlaylistTitle:'',matchReplayPlaylistUrl:'',nextCall:null,schedulePoll:{status:'open',createdAt:'',deadlineAt:'',autoCycle:'',options:[],votes:{},voterPlayers:{},manualParticipants:{}},pollHistory:[],nextEvent:null,nextEvents:[],adminNotice:null,adminNotices:[],shuttleTubes:[],shuttleLegacyActiveTubeId:'',shuttleNoTrackingTubeIds:[],updatedAt:null});
 const DEVICE_SYNC_CODE_KEY='bcmDeviceSyncCodeV1',DEVICE_SYNC_TOKEN_KEY='bcmDeviceSyncTokenV1',DEVICE_SYNC_NAME_KEY='bcmDeviceSyncNameV1',DEVICE_SYNC_PLAYER_KEY='bcmDeviceSyncPlayerV1';
@@ -2540,12 +2532,12 @@ function returnOneShuttle({source='button'}={}){
   return true;
 }
 function syncShuttleCostNotice(tube){
-  const used=currentSessionShuttleUsage(tube),players=shuttleParticipantCount(),notices=normalizeAdminNotices(state).filter(notice=>notice.id!=='shuttle-cost');
-  if(!tube){setAdminNotices(notices);renderDashboard();return}
+  const used=currentSessionShuttleUsage(tube),players=shuttleParticipantCount(),notices=normalizeAdminNotices(state);
+  if(!tube){setAdminNotices(notices.filter(notice=>notice.id!=='shuttle-cost'));renderDashboard();return}
   const unitPrice=shuttleUnitPrice(tube.price),share=shuttleShareCost(tube.price,used,players);
   const fee=used&&players?`本場 ${used} 顆、${players} 人，每人 ${formatMoney(share)} 元。`:'本場費用會依用球顆數與出席人數自動計算。';
   const body=`球費＝本場用球顆數 × 每顆 ${formatMoney(unitPrice)} 元 ÷ 本場人數（購球者也計入）。${fee}「${tube.name}」剩餘 ${tube.remainingShuttles} 顆。`;
-  setAdminNotices([{id:'shuttle-cost',title:'球費與球桶',body,publishedAt:new Date().toISOString()},...notices]);
+  setAdminNotices(syncManagedAdminNotice(notices,{id:'shuttle-cost',title:'球費與球桶',body,publishedAt:new Date().toISOString()}));
   renderDashboard();
 }
 function renderShuttleTubeManager(){
@@ -2691,12 +2683,13 @@ function setAdminNoticeFeedback(message='',kind=''){
 function renderAdminNoticeManager(){
   const list=$('adminNoticeManagerList'),notices=normalizeAdminNotices(state);
   if(!list)return;
-  list.innerHTML=notices.map(notice=>{
+  list.innerHTML=notices.map((notice,index)=>{
     const date=new Date(notice.publishedAt||''),time=!isNaN(date)?date.toLocaleString('zh-TW',{month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit'}):'';
-    return `<article class="admin-notice-manage-item"><div class="admin-notice-manage-copy"><strong>${esc(notice.title)}</strong>${time?`<time>${esc(time)}</time>`:''}<p>${esc(notice.body)}</p></div><div class="admin-notice-manage-actions"><button class="btn" type="button" data-edit-admin-notice="${esc(notice.id)}">編輯</button><button class="btn danger-outline" type="button" data-delete-admin-notice="${esc(notice.id)}">刪除</button></div></article>`;
+    return `<article class="admin-notice-manage-item"><div class="admin-notice-manage-copy"><strong>${esc(notice.title)}</strong>${time?`<time>${esc(time)}</time>`:''}<p>${esc(notice.body)}</p></div><div class="admin-notice-manage-actions"><button class="btn notice-order-btn" type="button" data-move-admin-notice="${esc(notice.id)}" data-direction="-1" aria-label="上移" title="上移" ${index===0?'disabled':''}>↑</button><button class="btn notice-order-btn" type="button" data-move-admin-notice="${esc(notice.id)}" data-direction="1" aria-label="下移" title="下移" ${index===notices.length-1?'disabled':''}>↓</button><button class="btn" type="button" data-edit-admin-notice="${esc(notice.id)}">編輯</button><button class="btn danger-outline" type="button" data-delete-admin-notice="${esc(notice.id)}">刪除</button></div></article>`;
   }).join('')||'<div class="admin-notice-empty">目前還沒有事務公告，可直接在下方發布。</div>';
   all('[data-edit-admin-notice]').forEach(button=>button.onclick=()=>loadAdminNoticeEditor(button.dataset.editAdminNotice));
   all('[data-delete-admin-notice]').forEach(button=>button.onclick=()=>deleteAdminNotice(button.dataset.deleteAdminNotice));
+  all('[data-move-admin-notice]').forEach(button=>button.onclick=()=>reorderAdminNotice(button.dataset.moveAdminNotice,Number(button.dataset.direction)));
 }
 function resetAdminNoticeEditor(focus=false){
   editingAdminNoticeId='';
@@ -2734,7 +2727,7 @@ async function publishAdminNotice(){
   if(button.disabled)return;
   if(!title){$('adminNoticeTitle').focus();return alert('請輸入公告標題。')}
   if(!body){$('adminNoticeBody').focus();return alert('請輸入公告內容。')}
-  const notices=normalizeAdminNotices(state),editedId=editingAdminNoticeId,old=editedId?notices.find(notice=>notice.id===editedId):null,wasEditing=!!editedId,record={id:editedId||randomToken(),title:title.slice(0,40),body:body.slice(0,500),publishedAt:old?.publishedAt||new Date().toISOString()};
+  const notices=normalizeAdminNotices(state),editedId=editingAdminNoticeId,old=editedId?notices.find(notice=>notice.id===editedId):null,wasEditing=!!editedId,record={...old,id:editedId||randomToken(),title:title.slice(0,40),body:body.slice(0,500),publishedAt:old?.publishedAt||new Date().toISOString()};
   if(wasEditing&&!old)return alert('這則公告已由其他裝置刪除，請取消編輯後重新新增。');
   setAdminNotices(wasEditing?notices.map(notice=>notice.id===editedId?record:notice):[record,...notices]);
   renderDashboard();
@@ -2750,6 +2743,14 @@ async function publishAdminNotice(){
   }finally{
     button.disabled=false;button.textContent=editingAdminNoticeId?'儲存修改':'發布公告';
   }
+}
+async function reorderAdminNotice(id,direction){
+  if(!isHost)return;
+  const before=normalizeAdminNotices(state),moved=moveAdminNotice(before,id,direction);
+  if(moved.every((notice,index)=>notice.id===before[index]?.id))return;
+  setAdminNotices(moved);renderDashboard();renderAdminNoticeManager();
+  try{await saveNow();setAdminNoticeFeedback('公告順序已更新。','success')}
+  catch(error){setAdminNotices(before);renderDashboard();renderAdminNoticeManager();setAdminNoticeFeedback(`排序失敗：${formatError(error)}`,'error')}
 }
 async function deleteAdminNotice(id=''){
   if(!isHost)return alert('只有管理員可以刪除公告。');
