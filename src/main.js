@@ -39,15 +39,32 @@ brandFontGate.then(loaded=>document.documentElement.classList.add(loaded?'brand-
 Promise.all([brandFontGate,wait(900)]).then(()=>document.getElementById('splash')?.classList.add('hide'));
 const $=id=>document.getElementById(id), all=q=>[...document.querySelectorAll(q)];
 const EVENT_PACKING_MEMO_KEY='bcmEventPackingMemoV1';
+const PACKING_REMINDER_PREFIX='bcmPackingReminderV1:';
+function packingReminderKey(){return `${PACKING_REMINDER_PREFIX}${roomId||'none'}`}
+function packingReminderSettings(){try{const value=JSON.parse(localStorage.getItem(packingReminderKey())||'{}');return{enabled:value.enabled===true,minutes:[30,60,90,120].includes(Number(value.minutes))?Number(value.minutes):60}}catch{return{enabled:false,minutes:60}}}
+function savePackingReminderSettings(value){localStorage.setItem(packingReminderKey(),JSON.stringify({enabled:value.enabled===true,minutes:[30,60,90,120].includes(Number(value.minutes))?Number(value.minutes):60}))}
 function loadEventPackingMemo(){try{return normalizeEventPackingMemo(JSON.parse(localStorage.getItem(EVENT_PACKING_MEMO_KEY)||'{}'))}catch{return normalizeEventPackingMemo({})}}
 function saveEventPackingMemo(memo){localStorage.setItem(EVENT_PACKING_MEMO_KEY,JSON.stringify(normalizeEventPackingMemo(memo)))}
 function renderEventPackingMemo(){
   const memo=loadEventPackingMemo(),checked=new Set(memo.checked),progress=eventPackingMemoProgress(memo);
+  const reminder=packingReminderSettings();$('packingReminderToggle').checked=reminder.enabled;$('packingReminderMinutes').value=String(reminder.minutes);$('packingReminderMinutes').disabled=!reminder.enabled;$('packingReminderStatus').textContent=reminder.enabled?`只有這台裝置會在開始前 ${reminder.minutes} 分鐘收到推播。`:'目前不會自動提醒。';
   $('eventPackingMemoProgress').textContent=progress.remaining?`還有 ${progress.remaining} 項未確認`:'已全部帶齊';
   $('eventPackingMemoList').innerHTML=EVENT_PACKING_MEMO_ITEMS.map((item,index)=>`<label class="event-packing-memo-item"><input type="checkbox" data-packing-index="${index}" ${checked.has(item)?'checked':''}><span>${esc(item)}</span></label>`).join('');
   $('eventPackingMemoBtn').textContent=progress.remaining?`🎒 開團備忘錄（${progress.remaining}）`:'✅ 開團備忘錄';
 }
 function openEventPackingMemo(){renderEventPackingMemo();$('eventPackingMemoModal').classList.remove('hidden')}
+async function updatePackingReminder(enabled,minutes=Number($('packingReminderMinutes').value)||60){
+  if(!isHost)return alert('只有管理員可以設定開團提醒。');
+  const toggle=$('packingReminderToggle');toggle.disabled=true;
+  try{
+    if(enabled&&!pushNotificationEnabled()){await setPushNotificationEnabled();if(!pushNotificationEnabled())throw new Error('請先允許這台裝置接收通知。')}
+    const registration=await navigator.serviceWorker.ready,subscription=await registration.pushManager.getSubscription();
+    if(!subscription)throw new Error('這台裝置尚未完成通知訂閱。');
+    const playerId=preferredNotificationPlayerId(),playerName=playerId?pname(playerId):'';
+    await pushApi('push-subscription',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({enabled:true,roomId,clientHash:selfHash,playerId,playerName,subscription:subscription.toJSON(),packingReminderEnabled:enabled,packingReminderMinutes:minutes})});
+    savePackingReminderSettings({enabled,minutes});renderEventPackingMemo();
+  }catch(error){toggle.checked=!enabled;alert(error.message||'無法設定開團提醒。')}finally{toggle.disabled=false}
+}
 document.title=`7B 羽球社 ${BCM_VERSION}`;
 all('[data-bcm-version]').forEach(element=>{element.textContent=BCM_VERSION});
 const esc=s=>String(s??'').replace(/[&<>'"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]));
@@ -802,6 +819,7 @@ async function setPushNotificationEnabled(){
       const registration=await navigator.serviceWorker.ready,existing=await registration.pushManager.getSubscription();
       if(existing)await pushApi('push-subscription',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({enabled:false,roomId,endpoint:existing.endpoint})});
       localStorage.removeItem(pushEnabledKey());
+      localStorage.removeItem(packingReminderKey());
       alert('已關閉這個球局的手機通知。');
       return;
     }
@@ -2894,6 +2912,8 @@ $('closeEventPackingMemo').onclick=()=>$('eventPackingMemoModal').classList.add(
 $('eventPackingMemoModal').addEventListener('click',event=>{if(event.target===$('eventPackingMemoModal'))$('eventPackingMemoModal').classList.add('hidden')});
 $('eventPackingMemoList').addEventListener('change',event=>{const input=event.target.closest('[data-packing-index]');if(!input)return;const item=EVENT_PACKING_MEMO_ITEMS[Number(input.dataset.packingIndex)],memo=loadEventPackingMemo(),checked=new Set(memo.checked);input.checked?checked.add(item):checked.delete(item);saveEventPackingMemo({checked:[...checked]});renderEventPackingMemo()});
 $('resetEventPackingMemo').onclick=()=>{saveEventPackingMemo({checked:[]});renderEventPackingMemo()};
+$('packingReminderToggle').onchange=event=>updatePackingReminder(event.target.checked);
+$('packingReminderMinutes').onchange=event=>updatePackingReminder(true,Number(event.target.value));
 $('scoreUseShuttle').onclick=()=>useOneShuttle();
 $('resultUseShuttle').onclick=()=>useOneShuttle();
 $('resultReturnShuttle').onclick=()=>returnOneShuttle();
