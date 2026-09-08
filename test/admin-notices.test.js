@@ -11,6 +11,21 @@ test('preserves the saved announcement order',()=>{
   assert.deepEqual(moveAdminNotice(rows,'newer',-1).map(row=>row.id),['newer','older']);
 });
 
+test('keeps every club announcement ahead of the automatic shuttle fee notice',()=>{
+  const rows=[
+    {id:'shuttle-cost',title:'球費計算方式',body:'球費內容',systemVersion:1},
+    {id:'club-first',title:'球團公告',body:'置頂內容'},
+    {id:'club-second',title:'第二公告',body:'其他內容'}
+  ];
+  assert.deepEqual(normalizeAdminNotices({adminNotices:rows}).map(row=>row.id),['club-first','club-second','shuttle-cost']);
+  assert.deepEqual(ensureShuttleCostNotice(rows).map(row=>row.id),['club-first','club-second','shuttle-cost']);
+});
+
+test('adds a missing shuttle fee notice after existing club announcements',()=>{
+  const rows=[{id:'club-first',title:'球團公告',body:'置頂內容'}];
+  assert.deepEqual(ensureShuttleCostNotice(rows).map(row=>row.id),['club-first','shuttle-cost']);
+});
+
 test('publishes only the fixed shuttle fee formula',()=>{
   const notice=ensureShuttleCostNotice([],'2026-09-06T00:00:00Z')[0];
   assert.equal(notice.title,'球費計算方式');
