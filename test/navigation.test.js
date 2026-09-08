@@ -139,6 +139,15 @@ test('keeps and renders multiple upcoming events without overwriting older annou
   assert.doesNotMatch(mainSource,/>只複製帳號<\/button>/);
 });
 
+test('lets a claimed participant report an event payment and an admin confirm it',()=>{
+  assert.match(mainSource,/data-event-payment-report/);
+  assert.match(mainSource,/data-event-payment-confirm/);
+  assert.match(mainSource,/data-event-payment-reject/);
+  assert.match(mainSource,/async function writeNextEventPayment\(eventId,playerId,status\)/);
+  assert.match(mainSource,/decoded\.roster\.find\(item=>item\.id===playerId&&playerOwnerHashes\(item\)\.includes\(selfHash\)\)/);
+  assert.match(styles,/#app \.event-payment-report\.confirmed\{[^}]*color:#bff6dc/);
+});
+
 test('club announcements blend into the dashboard with a visible accent',()=>{
   assert.match(styles,/BCM 2\.4\.49 — unmistakable integrated club notice/);
   assert.match(styles,/#app \.admin-announcement\{[\s\S]*?border-left:6px solid #ffc84d[\s\S]*?rgba\(8,43,65,\.30\)/);

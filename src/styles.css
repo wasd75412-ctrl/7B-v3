@@ -4610,3 +4610,16 @@ body>.modal .event-packing-memo-item:has(input:checked){
 }
 body>.modal .packing-reminder-controls :is(label,span,p),
 body>.modal .event-packing-memo-item span{color:inherit;-webkit-text-fill-color:inherit}
+
+/* BCM 2.8.22 — event-scoped member payment reporting and admin confirmation. */
+#app .event-payment-member{display:flex;justify-content:flex-end;margin-top:13px}
+#app .event-payment-report{min-width:150px;border-color:rgba(102,207,238,.42);background:rgba(12,75,108,.78);color:#eefaff}
+#app .event-payment-report.pending{border-color:#e2b64d;background:#6d5014;color:#ffe7a4}
+#app .event-payment-report.confirmed{border-color:#49c98d;background:#145f47;color:#bff6dc;opacity:1}
+#app .event-payment-admin{display:grid;gap:8px;margin-top:13px;padding:12px;border:1px solid rgba(102,207,238,.24);border-radius:14px;background:rgba(2,23,38,.55)}
+#app .event-payment-admin>strong{color:#d8f4ff}
+#app .event-payment-admin>span{display:grid;grid-template-columns:minmax(90px,1fr) auto auto auto;align-items:center;gap:7px}
+#app .event-payment-admin em{border-radius:999px;padding:5px 8px;color:#ffe09a;background:rgba(126,86,9,.72);font-size:.76rem;font-style:normal;font-weight:950}
+#app .event-payment-admin em.confirmed{color:#bdf5d9;background:rgba(20,103,76,.75)}
+#app .event-payment-admin .btn{padding:8px 10px;font-size:.8rem}
+@media(max-width:620px){#app .event-payment-member .btn{width:100%}#app .event-payment-admin>span{grid-template-columns:1fr auto auto}#app .event-payment-admin>span>b{grid-column:1/-1}}
