@@ -13,6 +13,15 @@ export function calculateCombinedPerPersonFee(rentalTotal,shuttleTotal,participa
   return participants&&(rental||shuttles)?Math.ceil((rental+shuttles)/participants):0;
 }
 
+export function suggestedEventEndTime(startTime,participantCount){
+  const match=String(startTime||'').match(/^(\d{2}):(\d{2})$/);
+  if(!match)return'';
+  const participants=positiveWholeNumber(participantCount);
+  const durationMinutes=participants===4?120:180;
+  const minutes=(Number(match[1])*60+Number(match[2])+durationMinutes)%(24*60);
+  return `${String(Math.floor(minutes/60)).padStart(2,'0')}:${String(minutes%60).padStart(2,'0')}`;
+}
+
 const DATE_KEY=/^\d{4}-\d{2}-\d{2}$/;
 
 export function shouldShowNextEventAnnouncement(eventDate,todayDate){
