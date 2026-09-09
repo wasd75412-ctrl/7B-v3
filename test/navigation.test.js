@@ -8,6 +8,12 @@ const adminNoticesSource=readFileSync(new URL('../src/admin-notices.js',import.m
 const styles=readFileSync(new URL('../src/styles.css',import.meta.url),'utf8');
 const nav=html.match(/<nav class="tabs">([\s\S]*?)<\/nav>/)?.[1]||'';
 
+test('startup uses only the imported event end-time helper',()=>{
+  assert.match(mainSource,/import \{[^}]*suggestedEventEndTime[^}]*\} from '\.\/next-event\.js'/);
+  assert.doesNotMatch(mainSource,/\bsuggestedEndTime\(/);
+  assert.match(mainSource,/pollEndTime'\)\.value=suggestedEventEndTime\(\$\('pollTime'\)\.value,0\)/);
+});
+
 test('renders the 7B icon without a white frame',()=>{
   assert.match(styles,/\.splash-logo,#app \.top \.brand-logo,#landing \.landing-brand img\{border:0!important;outline:0!important\}/);
   assert.doesNotMatch(styles,/\.splash-logo\{box-shadow:[^}]*0 0 0 8px rgba\(255,255,255/);
