@@ -1,7 +1,7 @@
 import { initializeApp } from 'firebase/app';
 import { initializeFirestore, memoryLocalCache, persistentLocalCache, persistentMultipleTabManager, doc, getDoc, getDocFromServer, onSnapshot, setDoc, writeBatch, serverTimestamp, runTransaction, collection, getDocs, deleteDoc, query, orderBy, limit } from 'firebase/firestore';
 import appPackage from '../package.json';
-import { calculateCombinedPerPersonFee, calculatePerPersonFee, shouldShowNextEventAnnouncement } from './next-event.js';
+import { calculateCombinedPerPersonFee, calculatePerPersonFee, shouldShowNextEventAnnouncement, suggestedEventEndTime } from './next-event.js';
 import { shouldShowNotificationPrompt } from './notifications.js';
 import { normalizeMatchReplayTitle, normalizeYouTubePlaylistUrl } from './youtube.js';
 import { DEFAULT_SCORE_REMOTE_BINDINGS, VIRTUAL_REMOTE_CLICK_CODE, advanceRemotePressState, assignRemoteBinding, isEditableRemoteTarget, normalizeRemoteBindings, remoteActionForCode, remoteEventCode, shouldHandleRemoteInput } from './score-remote.js';
@@ -1265,15 +1265,17 @@ function updateConfirmParticipantDefault(){
   const poll=confirmationPoll(),key=`${poll.id||'current'}:${optionId}`;
   if(input.dataset.optionId!==key){const existingEvent=normalizeNextEvents(state).find(event=>event.optionId===optionId);input.value=optionId?(existingEvent?wholeAmount(existingEvent.participantCount):pollParticipantCount(optionId,poll))||'':'';input.dataset.optionId=key}
 }
-function suggestedEndTime(time){const match=String(time||'').match(/^(\d{2}):(\d{2})$/);if(!match)return'';const minutes=(+match[1]*60+ +match[2]+180)%(24*60);return `${String(Math.floor(minutes/60)).padStart(2,'0')}:${String(minutes%60).padStart(2,'0')}`}
+function updateConfirmEndTimeDefault(){
+  const option=(confirmationPoll().options||[]).find(item=>item.id===$('confirmPollOption')?.value),endInput=$('confirmEndTime');
+  if(endInput&&option?.time)endInput.value=suggestedEventEndTime(option.time,$('confirmParticipants')?.value);
+}
 function updateConfirmOptionDetails(){
-  const option=(confirmationPoll().options||[]).find(item=>item.id===$('confirmPollOption')?.value),endInput=$('confirmEndTime'),locationInput=$('confirmLocation');
-  if(endInput&&option?.time)endInput.value=option.endTime||suggestedEndTime(option.time);
+  const option=(confirmationPoll().options||[]).find(item=>item.id===$('confirmPollOption')?.value),locationInput=$('confirmLocation');
   if(locationInput){
     if(option?.note&&(!locationInput.value.trim()||locationInput.dataset.autoVenue==='1')){locationInput.value=option.note;locationInput.dataset.autoVenue='1'}
     else if(!option?.note&&locationInput.dataset.autoVenue==='1'){locationInput.value=''}
   }
-  updateConfirmParticipantDefault();updateVenueMapPreviews();
+  updateConfirmParticipantDefault();updateConfirmEndTimeDefault();updateVenueMapPreviews();
   updateConfirmFeePreview();
 }
 function renderPoll(){
@@ -1371,7 +1373,7 @@ async function confirmNextEvent(){
   if(!endTime)return alert('請設定結束時間。');
   if(endTime<=option.time)return alert('結束時間必須晚於開始時間。');
   if(!location)return alert('請填寫已預約的場地。');
-  const participantIds=pollParticipantIds(optionId,sourcePoll);if(participantIds.length)$('confirmParticipants').value=participantIds.length;
+  const participantIds=pollParticipantIds(optionId,sourcePoll);
   const {rentalTotal,participantCount,perPersonFee}=updateConfirmFeePreview();
   if(!rentalTotal)return alert('請填寫場租總金額。');
   if(!participantCount)return alert('請填寫預計參與人數。');
@@ -3000,7 +3002,7 @@ $('adminLoginBtn').onclick=async()=>{
 $('confirmPollOption').addEventListener('change',updateConfirmOptionDetails);
 $('editNextEventPollOption').addEventListener('change',applyHistoricalPollChoice);
 $('confirmRentalTotal').addEventListener('input',updateConfirmFeePreview);
-$('confirmParticipants').addEventListener('input',updateConfirmFeePreview);
+$('confirmParticipants').addEventListener('input',()=>{updateConfirmEndTimeDefault();updateConfirmFeePreview()});
 $('pollNote').addEventListener('input',()=>updateMapPreview('pollNote','pollLocationMap'));
 $('confirmLocation').addEventListener('input',()=>{$('confirmLocation').dataset.autoVenue='0';updateMapPreview('confirmLocation','confirmLocationMap')});
 $('statsSort').onchange=renderStats;

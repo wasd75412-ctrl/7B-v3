@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { eventAnnouncementBody, roomAnnouncementFromDocument } from '../netlify/functions/event-announcement.mjs';
-import { calculateCombinedPerPersonFee, calculatePerPersonFee, shouldShowNextEventAnnouncement } from '../src/next-event.js';
+import { calculateCombinedPerPersonFee, calculatePerPersonFee, shouldShowNextEventAnnouncement, suggestedEventEndTime } from '../src/next-event.js';
 
 test('calculates and rounds the per-person fee up',()=>{
   assert.equal(calculatePerPersonFee(2400,12),200);
@@ -18,6 +18,15 @@ test('does not calculate a fee without valid totals',()=>{
   assert.equal(calculatePerPersonFee(0,12),0);
   assert.equal(calculatePerPersonFee(2400,0),0);
   assert.equal(calculatePerPersonFee('invalid',12),0);
+});
+
+test('suggests two hours for four players and three hours for five or six players',()=>{
+  assert.equal(suggestedEventEndTime('01:00',4),'03:00');
+  assert.equal(suggestedEventEndTime('01:00',5),'04:00');
+  assert.equal(suggestedEventEndTime('01:00',6),'04:00');
+  assert.equal(suggestedEventEndTime('11:00',4),'13:00');
+  assert.equal(suggestedEventEndTime('11:00',5),'14:00');
+  assert.equal(suggestedEventEndTime('11:00',6),'14:00');
 });
 
 test('keeps the next event announcement through the event date',()=>{
