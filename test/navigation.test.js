@@ -60,6 +60,13 @@ test('groups independently selectable time slots under one date',()=>{
   assert.match(styles,/@media\(max-width:700px\)[^\n]*\.poll-time-options\{grid-template-columns:1fr\}/);
 });
 
+test('shows player-count duration rules inside the poll choices',()=>{
+  assert.match(mainSource,/4 人 01:00–03:00｜5–6 人 01:00–04:00/);
+  assert.match(mainSource,/4 人 11:00–13:00｜5–6 人 11:00–14:00/);
+  assert.match(mainSource,/class="poll-duration-rule"/);
+  assert.match(styles,/\.poll-duration-rule\{/);
+});
+
 test('non-chat pages return to the top instead of preserving a stale scroll position',()=>{
   const pageFlow=mainSource.slice(mainSource.indexOf('function page(n)'),mainSource.indexOf('function renderRoster()'));
   assert.match(pageFlow,/requestAnimationFrame\(\(\)=>window\.scrollTo\(0,0\)\)/);
