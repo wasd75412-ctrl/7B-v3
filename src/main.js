@@ -590,7 +590,7 @@ function setNextEventEditorMode(mode='edit'){
 function historicalPollChoices(){return state.pollHistory.slice().reverse().flatMap(poll=>(poll.options||[]).map(option=>({value:`${poll.id}::${option.id}`,poll,option})))}
 function selectedHistoricalPollChoice(){const value=$('editNextEventPollOption')?.value||'';return historicalPollChoices().find(choice=>choice.value===value)||null}
 function renderHistoricalPollChoices(){const select=$('editNextEventPollOption'),choices=historicalPollChoices();if(!select)return;select.innerHTML='<option value="">手動輸入</option>'+choices.map(choice=>`<option value="${esc(choice.value)}">${esc(pollOptionLabel(choice.option))}</option>`).join('');select.value=''}
-function applyHistoricalPollChoice(){const choice=selectedHistoricalPollChoice();if(!choice)return;const {poll,option}=choice,participantIds=pollParticipantIds(option.id,poll);$('editNextEventDate').value=option.date||'';$('editNextEventTime').value=option.time||'';$('editNextEventEndTime').value=option.endTime||suggestedEndTime(option.time);$('editNextEventLocation').value=option.note||'';$('editNextEventParticipants').value=participantIds.length||'';renderEventPlayerChoices('editNextEventPlayerChoices',participantIds,()=>syncParticipantCountFromChoices('editNextEventPlayerChoices','editNextEventParticipants',updateNextEventEditFeePreview));updateNextEventEditFeePreview();updateVenueMapPreviews()}
+function applyHistoricalPollChoice(){const choice=selectedHistoricalPollChoice();if(!choice)return;const {poll,option}=choice,participantIds=pollParticipantIds(option.id,poll);$('editNextEventDate').value=option.date||'';$('editNextEventTime').value=option.time||'';$('editNextEventEndTime').value=option.endTime||suggestedEventEndTime(option.time,participantIds.length);$('editNextEventLocation').value=option.note||'';$('editNextEventParticipants').value=participantIds.length||'';renderEventPlayerChoices('editNextEventPlayerChoices',participantIds,()=>syncParticipantCountFromChoices('editNextEventPlayerChoices','editNextEventParticipants',updateNextEventEditFeePreview));updateNextEventEditFeePreview();updateVenueMapPreviews()}
 function openNextEventEditor(eventId=''){
   const event=normalizeNextEvents(state).find(row=>row.id===eventId)||cleanNextEvent(state.nextEvent);
   if(!isHost||!event?.date)return;
@@ -614,7 +614,7 @@ function openDirectNextEventCreator(){
   nextEventEditorId='';
   renderHistoricalPollChoices();
   const start='01:00';
-  $('editNextEventDate').value='';$('editNextEventTime').value=start;$('editNextEventEndTime').value=suggestedEndTime(start);
+  $('editNextEventDate').value='';$('editNextEventTime').value=start;$('editNextEventEndTime').value=suggestedEventEndTime(start,0);
   $('editNextEventLocation').value='';$('editNextEventRentalTotal').value='';$('editNextEventParticipants').value='';$('editNextEventTransferBankCode').value='';$('editNextEventTransferAccount').value='';$('editNextEventNote').value='';applyFavoriteTransferDetails('editNextEventTransferBankCode','editNextEventTransferAccount');
   renderEventPlayerChoices('editNextEventPlayerChoices',[],()=>syncParticipantCountFromChoices('editNextEventPlayerChoices','editNextEventParticipants',updateNextEventEditFeePreview));
   updateNextEventEditFeePreview();updateVenueMapPreviews();$('nextEventEditModal').classList.remove('hidden');
@@ -3050,8 +3050,8 @@ $('scoreTestModeToggle').onclick=toggleTestMode;
 $('testWinA').onclick=()=>finishTestMatch(0);
 $('testWinB').onclick=()=>finishTestMatch(1);
 if(!$('pollTime').value)$('pollTime').value='01:00';
-if(!$('pollEndTime').value)$('pollEndTime').value=suggestedEndTime($('pollTime').value);
-$('pollTime').addEventListener('change',()=>{$('pollEndTime').value=suggestedEndTime($('pollTime').value)});
+if(!$('pollEndTime').value)$('pollEndTime').value=suggestedEventEndTime($('pollTime').value,0);
+$('pollTime').addEventListener('change',()=>{$('pollEndTime').value=suggestedEventEndTime($('pollTime').value,0)});
 updateDeviceSyncControls();
 initializeDeviceProfileSync().catch(error=>console.warn('Device profile initialization failed',error));
 const APP_THEME_KEY='bcmAppThemeV1';
