@@ -17,6 +17,7 @@ test('startup uses only the imported event end-time helper',()=>{
 test('renders the 7B icon without a white frame',()=>{
   assert.match(styles,/\.splash-logo,#app \.top \.brand-logo,#landing \.landing-brand img\{border:0!important;outline:0!important\}/);
   assert.doesNotMatch(styles,/\.splash-logo\{box-shadow:[^}]*0 0 0 8px rgba\(255,255,255/);
+  assert.match(styles,/\.splash-logo\{box-shadow:none!important;filter:drop-shadow\(/);
 });
 
 test('keeps exactly eight primary navigation tabs',()=>{
