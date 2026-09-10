@@ -7,6 +7,7 @@ const mainSource=readFileSync(new URL('../src/main.js',import.meta.url),'utf8');
 const adminNoticesSource=readFileSync(new URL('../src/admin-notices.js',import.meta.url),'utf8');
 const styles=readFileSync(new URL('../src/styles.css',import.meta.url),'utf8');
 const manifest=readFileSync(new URL('../public/manifest.webmanifest',import.meta.url),'utf8');
+const installIcons=['icon-180.png','icon-192.png','icon-512.png'].map(name=>readFileSync(new URL(`../public/icons/${name}`,import.meta.url)));
 const nav=html.match(/<nav class="tabs">([\s\S]*?)<\/nav>/)?.[1]||'';
 
 test('startup uses only the imported event end-time helper',()=>{
@@ -21,8 +22,9 @@ test('renders the 7B icon without a white frame',()=>{
   assert.match(styles,/\.splash-logo\{box-shadow:none!important;filter:drop-shadow\(/);
   assert.doesNotMatch(html,/20260820-icon-blue-black/);
   assert.doesNotMatch(manifest,/20260820-icon-blue-black/);
-  assert.match(html,/manifest\.webmanifest\?v=20260910-transparent-icon/);
-  assert.equal((manifest.match(/20260910-transparent-icon/g)||[]).length,3);
+  assert.match(html,/manifest\.webmanifest\?v=20260910-opaque-install-icon/);
+  assert.equal((manifest.match(/20260910-opaque-install-icon/g)||[]).length,3);
+  assert.ok(installIcons.every(icon=>icon[25]===2),'install icons must be opaque RGB PNGs so iOS cannot add a white backing edge');
 });
 
 test('keeps exactly eight primary navigation tabs',()=>{
