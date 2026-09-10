@@ -6,6 +6,7 @@ const html=readFileSync(new URL('../index.html',import.meta.url),'utf8');
 const mainSource=readFileSync(new URL('../src/main.js',import.meta.url),'utf8');
 const adminNoticesSource=readFileSync(new URL('../src/admin-notices.js',import.meta.url),'utf8');
 const styles=readFileSync(new URL('../src/styles.css',import.meta.url),'utf8');
+const manifest=readFileSync(new URL('../public/manifest.webmanifest',import.meta.url),'utf8');
 const nav=html.match(/<nav class="tabs">([\s\S]*?)<\/nav>/)?.[1]||'';
 
 test('startup uses only the imported event end-time helper',()=>{
@@ -18,6 +19,10 @@ test('renders the 7B icon without a white frame',()=>{
   assert.match(styles,/\.splash-logo,#app \.top \.brand-logo,#landing \.landing-brand img\{border:0!important;outline:0!important\}/);
   assert.doesNotMatch(styles,/\.splash-logo\{box-shadow:[^}]*0 0 0 8px rgba\(255,255,255/);
   assert.match(styles,/\.splash-logo\{box-shadow:none!important;filter:drop-shadow\(/);
+  assert.doesNotMatch(html,/20260820-icon-blue-black/);
+  assert.doesNotMatch(manifest,/20260820-icon-blue-black/);
+  assert.match(html,/manifest\.webmanifest\?v=20260910-transparent-icon/);
+  assert.equal((manifest.match(/20260910-transparent-icon/g)||[]).length,3);
 });
 
 test('keeps exactly eight primary navigation tabs',()=>{
