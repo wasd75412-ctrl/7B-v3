@@ -83,6 +83,11 @@ test('keeps detailed poll statistics private to administrators',()=>{
   assert.match(mainSource,/<span class="poll-count">\$\{counts\[o\.id\]\|\|0\} 票<\/span>/);
 });
 
+test('keeps the unavailable summary visible to administrators after the deadline',()=>{
+  assert.match(mainSource,/options\.length&&\(!closed\|\|isHost\)\?/);
+  assert.match(mainSource,/poll-unavailable-choice.*\$\{closed\?'disabled':''\}/);
+});
+
 test('non-chat pages return to the top instead of preserving a stale scroll position',()=>{
   const pageFlow=mainSource.slice(mainSource.indexOf('function page(n)'),mainSource.indexOf('function renderRoster()'));
   assert.match(pageFlow,/requestAnimationFrame\(\(\)=>window\.scrollTo\(0,0\)\)/);
