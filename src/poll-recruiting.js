@@ -18,7 +18,11 @@ export function recruitingSlots(poll={},requiredOptionIds=null){
   }
   return (Array.isArray(poll.options)?poll.options:[])
     .map(option=>({...option,participantCount:counts[option.id]?.size||0}))
-    .filter(option=>(option.participantCount===3||option.participantCount===4)&&(!requiredOptionIds||requiredOptionIds.has(option.id)))
+    .filter(option=>{
+      const day=new Date(`${option.date}T00:00:00Z`).getUTCDay(),weekend=day===0||day===6;
+      const qualifies=weekend?option.participantCount>=5:(option.participantCount===3||option.participantCount===4);
+      return qualifies&&(!requiredOptionIds||requiredOptionIds.has(option.id));
+    })
     .sort((a,b)=>(a.date+a.time).localeCompare(b.date+b.time));
 }
 
