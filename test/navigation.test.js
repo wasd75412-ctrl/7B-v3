@@ -75,6 +75,14 @@ test('shows player-count duration rules inside the poll choices',()=>{
   assert.match(styles,/\.poll-duration-rule\{/);
 });
 
+test('keeps detailed poll statistics private to administrators',()=>{
+  assert.match(mainSource,/pollSummary'\)\.classList\.toggle\('hidden',!isHost\)/);
+  assert.match(mainSource,/voterDetail=isHost\?/);
+  assert.match(mainSource,/unavailableVoters=isHost\?/);
+  assert.match(mainSource,/\$\{isHost\?`<span class="poll-count">\$\{unavailableCount\} 人<\/span>`:''\}/);
+  assert.match(mainSource,/<span class="poll-count">\$\{counts\[o\.id\]\|\|0\} 票<\/span>/);
+});
+
 test('non-chat pages return to the top instead of preserving a stale scroll position',()=>{
   const pageFlow=mainSource.slice(mainSource.indexOf('function page(n)'),mainSource.indexOf('function renderRoster()'));
   assert.match(pageFlow,/requestAnimationFrame\(\(\)=>window\.scrollTo\(0,0\)\)/);
