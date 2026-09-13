@@ -589,7 +589,8 @@ function setNextEventEditorMode(mode='edit'){
 }
 function historicalPollChoices(){return state.pollHistory.slice().reverse().flatMap(poll=>(poll.options||[]).map(option=>({value:`${poll.id}::${option.id}`,poll,option})))}
 function selectedHistoricalPollChoice(){const value=$('editNextEventPollOption')?.value||'';return historicalPollChoices().find(choice=>choice.value===value)||null}
-function renderHistoricalPollChoices(){const select=$('editNextEventPollOption'),choices=historicalPollChoices();if(!select)return;select.innerHTML='<option value="">手動輸入</option>'+choices.map(choice=>`<option value="${esc(choice.value)}">${esc(pollOptionLabel(choice.option))}</option>`).join('');select.value=''}
+function historicalPollChoiceLabel(choice){const participants=pollParticipantIds(choice.option.id,choice.poll).length,endTime=suggestedEventEndTime(choice.option.time,participants);return pollOptionLabel({...choice.option,endTime})}
+function renderHistoricalPollChoices(){const select=$('editNextEventPollOption'),choices=historicalPollChoices();if(!select)return;select.innerHTML='<option value="">手動輸入</option>'+choices.map(choice=>`<option value="${esc(choice.value)}">${esc(historicalPollChoiceLabel(choice))}</option>`).join('');select.value=''}
 function updateNextEventCreateEndTimeDefault(){
   if(nextEventEditorMode!=='create')return;
   const start=$('editNextEventTime')?.value,participants=$('editNextEventParticipants')?.value;
