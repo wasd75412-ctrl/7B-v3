@@ -590,7 +590,13 @@ function setNextEventEditorMode(mode='edit'){
 function historicalPollChoices(){return state.pollHistory.slice().reverse().flatMap(poll=>(poll.options||[]).map(option=>({value:`${poll.id}::${option.id}`,poll,option})))}
 function selectedHistoricalPollChoice(){const value=$('editNextEventPollOption')?.value||'';return historicalPollChoices().find(choice=>choice.value===value)||null}
 function renderHistoricalPollChoices(){const select=$('editNextEventPollOption'),choices=historicalPollChoices();if(!select)return;select.innerHTML='<option value="">手動輸入</option>'+choices.map(choice=>`<option value="${esc(choice.value)}">${esc(pollOptionLabel(choice.option))}</option>`).join('');select.value=''}
-function applyHistoricalPollChoice(){const choice=selectedHistoricalPollChoice();if(!choice)return;const {poll,option}=choice,participantIds=pollParticipantIds(option.id,poll);$('editNextEventDate').value=option.date||'';$('editNextEventTime').value=option.time||'';$('editNextEventEndTime').value=option.endTime||suggestedEventEndTime(option.time,participantIds.length);$('editNextEventLocation').value=option.note||'';$('editNextEventParticipants').value=participantIds.length||'';renderEventPlayerChoices('editNextEventPlayerChoices',participantIds,()=>syncParticipantCountFromChoices('editNextEventPlayerChoices','editNextEventParticipants',updateNextEventEditFeePreview));updateNextEventEditFeePreview();updateVenueMapPreviews()}
+function updateNextEventCreateEndTimeDefault(){
+  if(nextEventEditorMode!=='create')return;
+  const start=$('editNextEventTime')?.value,participants=$('editNextEventParticipants')?.value;
+  if(start)$('editNextEventEndTime').value=suggestedEventEndTime(start,participants);
+}
+function updateNextEventCreateDefaults(){updateNextEventCreateEndTimeDefault();updateNextEventEditFeePreview()}
+function applyHistoricalPollChoice(){const choice=selectedHistoricalPollChoice();if(!choice)return;const {poll,option}=choice,participantIds=pollParticipantIds(option.id,poll);$('editNextEventDate').value=option.date||'';$('editNextEventTime').value=option.time||'';$('editNextEventLocation').value=option.note||'';$('editNextEventParticipants').value=participantIds.length||'';updateNextEventCreateEndTimeDefault();renderEventPlayerChoices('editNextEventPlayerChoices',participantIds,()=>syncParticipantCountFromChoices('editNextEventPlayerChoices','editNextEventParticipants',updateNextEventCreateDefaults));updateNextEventEditFeePreview();updateVenueMapPreviews()}
 function openNextEventEditor(eventId=''){
   const event=normalizeNextEvents(state).find(row=>row.id===eventId)||cleanNextEvent(state.nextEvent);
   if(!isHost||!event?.date)return;
@@ -2971,7 +2977,8 @@ $('closeNextEventEditor').onclick=closeNextEventEditor;
 $('cancelNextEventEdits').onclick=closeNextEventEditor;
 $('saveNextEventEdits').onclick=saveNextEventEdits;
 $('editNextEventRentalTotal').addEventListener('input',updateNextEventEditFeePreview);
-$('editNextEventParticipants').addEventListener('input',updateNextEventEditFeePreview);
+$('editNextEventParticipants').addEventListener('input',updateNextEventCreateDefaults);
+$('editNextEventTime').addEventListener('change',updateNextEventCreateEndTimeDefault);
 $('editNextEventLocation').addEventListener('input',()=>updateMapPreview('editNextEventLocation','editNextEventLocationMap'));
 $('savePollVenue').onclick=()=>saveFavoriteVenue('pollNote');
 $('saveConfirmVenue').onclick=()=>saveFavoriteVenue('confirmLocation');
