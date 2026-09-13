@@ -2,11 +2,11 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { archivePollHistoryFirestoreValue, shouldOpenWeeklyPoll, taipeiWeekSchedule, weeklyPollFirestoreValue, weeklyPollPushPayload } from '../netlify/functions/lib/weekly-poll.mjs';
 
-test('builds next week Monday through Sunday in Taipei with Saturday noon deadline',()=>{
+test('builds next week Monday through Sunday with a Monday 08:00 open and Saturday noon deadline in Taipei',()=>{
   const now=Date.parse('2026-08-09T16:00:00.000Z'); // Monday 00:00 in Taipei
   const schedule=taipeiWeekSchedule(now);
   assert.equal(schedule.cycle,'2026-08-10');
-  assert.equal(schedule.opensAt,'2026-08-10T04:00:00.000Z');
+  assert.equal(schedule.opensAt,'2026-08-10T00:00:00.000Z');
   assert.equal(schedule.deadlineAt,'2026-08-15T04:00:00.000Z');
   assert.equal(schedule.options.length,14);
   assert.deepEqual([...new Set(schedule.options.map(option=>option.date))],['2026-08-17','2026-08-18','2026-08-19','2026-08-20','2026-08-21','2026-08-22','2026-08-23']);
@@ -19,9 +19,9 @@ test('builds next week Monday through Sunday in Taipei with Saturday noon deadli
   assert.equal(new Set(schedule.options.map(option=>option.id)).size,14);
 });
 
-test('opens once at Monday noon in Taipei during the weekly voting window',()=>{
-  assert.equal(shouldOpenWeeklyPoll({},Date.parse('2026-08-10T03:59:59.999Z')),false);
-  const now=Date.parse('2026-08-10T04:00:00.000Z');
+test('opens once at Monday 08:00 in Taipei during the weekly voting window',()=>{
+  assert.equal(shouldOpenWeeklyPoll({},Date.parse('2026-08-09T23:59:59.999Z')),false);
+  const now=Date.parse('2026-08-10T00:00:00.000Z');
   assert.equal(shouldOpenWeeklyPoll({},now),true);
   const value=weeklyPollFirestoreValue(now);
   assert.equal(value.mapValue.fields.autoCycle.stringValue,'2026-08-10');
