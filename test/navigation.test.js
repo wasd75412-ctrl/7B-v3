@@ -154,6 +154,16 @@ test('keeps previous poll results inside the new-event dialog',()=>{
   assert.match(mainSource,/confirmEventPanel'\)\.style\.display=!options\.length\?'none':''/);
 });
 
+test('derives an editable event end time from historical poll attendance',()=>{
+  assert.match(mainSource,/function updateNextEventCreateEndTimeDefault\(\)/);
+  assert.match(mainSource,/suggestedEventEndTime\(start,participants\)/);
+  assert.doesNotMatch(mainSource,/option\.endTime\|\|suggestedEventEndTime/);
+  assert.match(mainSource,/editNextEventParticipants'\)\.addEventListener\('input',updateNextEventCreateDefaults\)/);
+  assert.match(mainSource,/editNextEventTime'\)\.addEventListener\('change',updateNextEventCreateEndTimeDefault\)/);
+  assert.match(html,/id="editNextEventEndTime"[^>]*type="time"/);
+  assert.doesNotMatch(html,/id="editNextEventEndTime"[^>]*readonly/);
+});
+
 test('the page stops at its bottom without exposing overscroll whitespace',()=>{
   assert.match(styles,/html\{overscroll-behavior:none\}/);
   assert.match(styles,/body\{min-height:100dvh;overscroll-behavior-y:none\}/);
