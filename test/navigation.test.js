@@ -155,6 +155,10 @@ test('keeps previous poll results inside the new-event dialog',()=>{
 });
 
 test('derives an editable event end time from historical poll attendance',()=>{
+  assert.match(mainSource,/function historicalPollChoiceLabel\(choice\)/);
+  assert.match(mainSource,/pollParticipantIds\(choice\.option\.id,choice\.poll\)\.length/);
+  assert.match(mainSource,/pollOptionLabel\(\{\.\.\.choice\.option,endTime\}\)/);
+  assert.match(mainSource,/historicalPollChoiceLabel\(choice\)/);
   assert.match(mainSource,/function updateNextEventCreateEndTimeDefault\(\)/);
   assert.match(mainSource,/suggestedEventEndTime\(start,participants\)/);
   assert.doesNotMatch(mainSource,/option\.endTime\|\|suggestedEventEndTime/);
