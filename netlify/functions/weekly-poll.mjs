@@ -63,5 +63,5 @@ export default async()=>{
   console.log('Weekly poll run',response);return jsonResponse(response);
 };
 
-// Every five minutes lets a delayed deploy recover automatically after Monday noon in Taipei.
+// Every five minutes lets a delayed deploy recover automatically after Monday 08:00 in Taipei.
 export const config={schedule:'*/5 * * * *'};
