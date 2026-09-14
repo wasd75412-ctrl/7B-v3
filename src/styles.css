@@ -4339,7 +4339,7 @@ html.chat-keyboard-open .chat-autocomplete{
 .score-view.singles-match .court-names{grid-template-rows:minmax(0,1fr)}
 .score-view.singles-match .court-name{
   align-self:start!important;
-  overflow:hidden!important
+  overflow:visible!important
 }
 .score-view.singles-match .score-side.a .court-name{
   justify-self:start;
@@ -4357,7 +4357,7 @@ html.chat-keyboard-open .chat-autocomplete{
   grid-template-rows:auto auto;
   justify-items:center;
   gap:clamp(8px,1.2vh,14px);
-  overflow:hidden
+  overflow:visible
 }
 .score-view.singles-match .score-side :is(.avatar,.court-player-copy){order:initial}
 .score-view.singles-match .avatar.score-large{
@@ -4374,13 +4374,23 @@ html.chat-keyboard-open .chat-autocomplete{
 .score-view.singles-match .court-name.server .court-player-name{
   width:auto;
   max-width:min(26vw,300px);
-  padding:4px 3px 8px;
-  font-size:clamp(3rem,6vw,5.6rem);
-  line-height:1;
+  padding:4px 3px 14px;
+  border:0;
+  border-radius:0;
+  background:none;
+  box-shadow:none;
+  font-size:clamp(1.9rem,4vw,4.2rem);
+  line-height:1.08;
   text-align:center;
   white-space:nowrap;
-  overflow:hidden;
-  text-overflow:ellipsis
+  overflow:visible;
+  overflow-wrap:normal
+}
+.score-view.singles-match .court-player-name.score-name-yoyo,
+.score-view.singles-match .court-name.server .court-player-name.score-name-yoyo{
+  padding-bottom:clamp(18px,2vw,26px);
+  line-height:1.16;
+  overflow:visible
 }
 @media(max-width:760px){
   .score-view.singles-match .score-side.a .court-name{left:6px}
@@ -4388,7 +4398,7 @@ html.chat-keyboard-open .chat-autocomplete{
   .score-view.singles-match .court-player-name,
   .score-view.singles-match .court-name.server .court-player-name{
     max-width:24vw;
-    font-size:clamp(1.35rem,6vw,2.5rem);
+    font-size:clamp(1.25rem,4.8vw,2.2rem);
     -webkit-text-stroke:clamp(2px,.42vw,4px) #000!important
   }
 }
