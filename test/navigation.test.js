@@ -148,6 +148,14 @@ test('lets the admin add players after voting closes and edit them later',()=>{
   assert.match(mainSource,/participantIds=eventPlayerChoiceIds\('editNextEventPlayerChoices'\)/);
 });
 
+test('upgrades the legacy noon venue name in current polls, history, and announcements',()=>{
+  assert.match(mainSource,/function normalizeVenueName\(value\)/);
+  assert.match(mainSource,/name\.trim\(\)==='飛颺'\?'飛颺羽球館':name/);
+  assert.match(mainSource,/options:\(Array\.isArray\(d\.schedulePoll\?\.options\)\?d\.schedulePoll\.options:\[\]\)\.map\(o=>\(\{\.\.\.o,note:String\(o\.note\|\|''\)\.trim\(\)==='飛颺'\?'飛颺羽球館'/);
+  assert.match(mainSource,/options:row\.options\.slice\(0,40\)\.map\(cleanPollOption\)/);
+  assert.match(mainSource,/location:normalizeVenueName\(event\.location\)/);
+});
+
 test('keeps previous poll results inside the new-event dialog',()=>{
   assert.doesNotMatch(html,/id="confirmPollRound"/);
   assert.match(html,/id="editNextEventPollOption"/);

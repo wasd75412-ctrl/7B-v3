@@ -318,7 +318,7 @@ function encodeState(src){
       createdAt:src.schedulePoll?.createdAt||'',
       deadlineAt:src.schedulePoll?.deadlineAt||'',
       autoCycle:src.schedulePoll?.autoCycle||'',
-      options:(Array.isArray(src.schedulePoll?.options)?src.schedulePoll.options:[]).map(o=>({id:o.id||randomToken(),date:o.date||'',time:o.time||'',endTime:o.endTime||'',note:o.note||''})),
+      options:(Array.isArray(src.schedulePoll?.options)?src.schedulePoll.options:[]).map(o=>({id:o.id||randomToken(),date:o.date||'',time:o.time||'',endTime:o.endTime||'',note:String(o.note||'').trim()==='飛颺'?'飛颺羽球館':o.note||''})),
       votes:src.schedulePoll?.votes&&typeof src.schedulePoll.votes==='object'?src.schedulePoll.votes:{},
       voterPlayers:src.schedulePoll?.voterPlayers&&typeof src.schedulePoll.voterPlayers==='object'?src.schedulePoll.voterPlayers:{},manualParticipants:cleanManualPollParticipants(src.schedulePoll?.manualParticipants)
     },
@@ -402,7 +402,7 @@ function decodeState(d){
       createdAt:d.schedulePoll?.createdAt||'',
       deadlineAt:d.schedulePoll?.deadlineAt||'',
       autoCycle:d.schedulePoll?.autoCycle||'',
-      options:Array.isArray(d.schedulePoll?.options)?d.schedulePoll.options:[],
+      options:(Array.isArray(d.schedulePoll?.options)?d.schedulePoll.options:[]).map(o=>({...o,note:String(o.note||'').trim()==='飛颺'?'飛颺羽球館':o.note||''})),
       votes:d.schedulePoll?.votes&&typeof d.schedulePoll.votes==='object'?d.schedulePoll.votes:{},
       voterPlayers:d.schedulePoll?.voterPlayers&&typeof d.schedulePoll.voterPlayers==='object'?d.schedulePoll.voterPlayers:{},manualParticipants:cleanManualPollParticipants(d.schedulePoll?.manualParticipants)
     },
@@ -504,13 +504,15 @@ function cleanTransferAccount(value){return String(value||'').replace(/[\u0000-\
 function cleanTransferBankCode(value){return String(value||'').replace(/\D/g,'').slice(0,3)}
 function cleanTransferDetails(source={}){let transferBankCode=cleanTransferBankCode(source.transferBankCode),transferAccount=cleanTransferAccount(source.transferAccount);if(!transferBankCode&&/銀行代碼\s*\d{3}/.test(transferAccount)){transferBankCode=cleanTransferBankCode(transferAccount.match(/銀行代碼\s*(\d{3})/)?.[1]);transferAccount=cleanTransferAccount(transferAccount.replace(/.*?帳號\s*/,'').replace(/[｜|]\s*$/,''))}return{transferBankCode,transferAccount}}
 function cleanEventParticipantIds(ids){return[...new Set((Array.isArray(ids)?ids:[]).map(id=>String(id||'').trim()).filter(Boolean))].slice(0,60)}
+function normalizeVenueName(value){const name=String(value||'');return name.trim()==='飛颺'?'飛颺羽球館':name}
+function cleanPollOption(option={}){return{...option,id:option.id||randomToken(),date:option.date||'',time:option.time||'',endTime:option.endTime||'',note:normalizeVenueName(option.note)}}
 function nextEventIdentity(event={}){const explicit=String(event.id||event.optionId||event.publishedAt||'').trim();return(explicit||`${event.date||''}_${event.time||''}_${event.endTime||''}_${event.location||''}`).slice(0,180)}
-function cleanNextEvent(event){if(!event||typeof event!=='object'||!event.date)return null;return{...event,id:nextEventIdentity(event),optionId:String(event.optionId||''),date:String(event.date||''),time:String(event.time||''),endTime:String(event.endTime||''),location:String(event.location||''),note:String(event.note||''),participantIds:cleanEventParticipantIds(event.participantIds),payments:normalizeEventPayments(event.payments),...cleanTransferDetails(event),rentalTotal:wholeAmount(event.rentalTotal),participantCount:wholeAmount(event.participantCount),perPersonFee:wholeAmount(event.perPersonFee),publishedAt:String(event.publishedAt||'')}}
+function cleanNextEvent(event){if(!event||typeof event!=='object'||!event.date)return null;return{...event,id:nextEventIdentity(event),optionId:String(event.optionId||''),date:String(event.date||''),time:String(event.time||''),endTime:String(event.endTime||''),location:normalizeVenueName(event.location),note:String(event.note||''),participantIds:cleanEventParticipantIds(event.participantIds),payments:normalizeEventPayments(event.payments),...cleanTransferDetails(event),rentalTotal:wholeAmount(event.rentalTotal),participantCount:wholeAmount(event.participantCount),perPersonFee:wholeAmount(event.perPersonFee),publishedAt:String(event.publishedAt||'')}}
 function normalizeNextEvents(source={}){const rows=[...(Array.isArray(source.nextEvents)?source.nextEvents:[]),source.nextEvent].map(cleanNextEvent).filter(Boolean),seen=new Set();return rows.filter(event=>{const key=nextEventIdentity(event);if(seen.has(key))return false;seen.add(key);return true}).sort((a,b)=>(a.date+a.time).localeCompare(b.date+b.time)).slice(0,30)}
 function upsertNextEvent(rows,event){const clean=cleanNextEvent(event);if(!clean)return normalizeNextEvents({nextEvents:rows});return normalizeNextEvents({nextEvents:[...(Array.isArray(rows)?rows:[]).filter(row=>nextEventIdentity(row)!==clean.id),clean]})}
 function primaryNextEvent(source=state){const events=normalizeNextEvents(source);return events.find(event=>shouldShowNextEventAnnouncement(event.date,localDateKey()))||events.at(-1)||null}
 function cleanManualPollParticipants(rows){if(!rows||typeof rows!=='object'||Array.isArray(rows))return{};return Object.fromEntries(Object.entries(rows).map(([optionId,ids])=>[String(optionId||'').trim(),cleanEventParticipantIds(ids)]).filter(([optionId,ids])=>optionId&&ids.length).slice(0,80))}
-function cleanPollHistory(rows){return(Array.isArray(rows)?rows:[]).filter(row=>row&&Array.isArray(row.options)&&row.options.length).map(row=>({id:String(row.id||row.autoCycle||row.createdAt||randomToken()),archivedAt:row.archivedAt||'',status:'closed',createdAt:row.createdAt||'',deadlineAt:row.deadlineAt||'',autoCycle:row.autoCycle||'',options:row.options.slice(0,40),votes:row.votes&&typeof row.votes==='object'?row.votes:{},voterPlayers:row.voterPlayers&&typeof row.voterPlayers==='object'?row.voterPlayers:{},manualParticipants:cleanManualPollParticipants(row.manualParticipants)})).slice(-8)}
+function cleanPollHistory(rows){return(Array.isArray(rows)?rows:[]).filter(row=>row&&Array.isArray(row.options)&&row.options.length).map(row=>({id:String(row.id||row.autoCycle||row.createdAt||randomToken()),archivedAt:row.archivedAt||'',status:'closed',createdAt:row.createdAt||'',deadlineAt:row.deadlineAt||'',autoCycle:row.autoCycle||'',options:row.options.slice(0,40).map(cleanPollOption),votes:row.votes&&typeof row.votes==='object'?row.votes:{},voterPlayers:row.voterPlayers&&typeof row.voterPlayers==='object'?row.voterPlayers:{},manualParticipants:cleanManualPollParticipants(row.manualParticipants)})).slice(-8)}
 function archiveCurrentPoll(){const poll=state.schedulePoll;if(!poll?.options?.length)return;const snapshot={...poll,id:poll.autoCycle||poll.createdAt||randomToken(),archivedAt:new Date().toISOString(),status:'closed'};state.pollHistory=cleanPollHistory([...state.pollHistory.filter(row=>row.id!==snapshot.id),snapshot])}
 function confirmationPoll(){return state.schedulePoll}
 const TRANSFER_DETAILS_KEY='bdVFavoriteTransferDetails';
