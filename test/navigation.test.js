@@ -237,13 +237,13 @@ test('removes the old score remote from More and provides a no-stats test mode',
   assert.match(mainSource,/function currentTestModeEnabled\(\)\{[\s\S]*?!!state\.testMode\|\|!!state\.match\?\.active/);
   assert.match(mainSource,/const enabling=!currentTestModeEnabled\(\)/);
   assert.match(mainSource,/function selectablePlayerIds\(\)\{return currentTestModeEnabled\(\)\?state\.roster\.map\(p=>p\.id\):state\.attendance\}/);
-  assert.match(mainSource,/function randomTestLineup\(\)\{return shuffle\(state\.roster\.map\(player=>player\.id\)\)\.slice\(0,4\)\}/);
+  assert.match(mainSource,/function randomTestLineup\(\)\{return shuffle\(state\.roster\.map\(player=>player\.id\)\)\.slice\(0,matchPlayerCount\(state\.matchFormat\)\)\}/);
   assert.match(mainSource,/if\(enabling&&!\(state\.match\.active&&state\.match\.winner===null\)\)\{[\s\S]*?state\.court=randomTestLineup\(\)[\s\S]*?state\.waitingQueue=\[\][\s\S]*?renderAll\(\);page\(3\)/);
   assert.match(mainSource,/function options\(selected=''\).*selectablePlayerIds\(\)\.map/);
   assert.match(mainSource,/function reconcileWaitingQueue\(excludeIds=currentCourtIds\(\)\)\{\s*if\(currentTestModeEnabled\(\)\)\{state\.waitingQueue=\[\]/);
   assert.match(mainSource,/function renderWaiting\(\)\{if\(currentTestModeEnabled\(\)\)\{[\s\S]*?\$\('waiting'\)\.innerHTML='';return\}/);
   assert.match(mainSource,/attendance:selectablePlayerIds\(\)/);
-  assert.match(mainSource,/shuffle\(selectablePlayerIds\(\)\)\.slice\(0,4\)/);
+  assert.match(mainSource,/shuffle\(selectablePlayerIds\(\)\)\.slice\(0,needed\)/);
   assert.match(mainSource,/button\.textContent='🧪 測試模式'/);
   assert.doesNotMatch(styles,/@keyframes test-mode-glow/);
   assert.match(styles,/#app #testModeToggle\.test-mode-on,\.score-head #scoreTestModeToggle\.test-mode-on\{[^}]*background:#ffd400!important;color:#171100!important/);
@@ -252,8 +252,8 @@ test('removes the old score remote from More and provides a no-stats test mode',
   assert.match(mainSource,/if\(Number\(next\.testModeRevision\)<Number\(state\.testModeRevision\)\)\{next\.testMode=state\.testMode;next\.testModeRevision=state\.testModeRevision\}/);
   assert.match(mainSource,/state\.testModeRevision=Math\.max\(Date\.now\(\),Number\(state\.testModeRevision\|\|0\)\+1\)/);
   assert.match(mainSource,/if\(\$\('scoreView'\)\.classList\.contains\('hidden'\)\)\{scoreViewRequested=true;renderScore\(\)\}\s*toggleScoreFullscreen\(\)/);
-  assert.match(mainSource,/if\(!state\.match\.active\)\{if\(!currentTestModeEnabled\(\)\|\|new Set\(state\.court\.filter\(Boolean\)\)\.size!==4\)return false;startMatch\(\)\}/);
-  assert.match(mainSource,/if\(isTestMatch\)\{[\s\S]*?four=randomTestLineup\(\)/);
+  assert.match(mainSource,/if\(!state\.match\.active\)\{if\(!currentTestModeEnabled\(\)\|\|new Set\(state\.court\.filter\(Boolean\)\)\.size!==matchPlayerCount\(state\.matchFormat\)\)return false;startMatch\(\)\}/);
+  assert.match(mainSource,/if\(isTestMatch\)\{[\s\S]*?lineup=randomTestLineup\(\)/);
   assert.match(mainSource,/if\(!currentTestModeEnabled\(\)&&!winners\.every/);
   assert.match(html,/id="testQuickWin" class="test-quick-win hidden host-only"/);
   assert.match(html,/id="testWinA"[^>]*>A隊獲勝<\/button>/);
@@ -262,7 +262,7 @@ test('removes the old score remote from More and provides a no-stats test mode',
   assert.match(mainSource,/currentMatchIsTest=!!state\.testMode&&!!state\.match\?\.active&&state\.match\?\.winner===null&&!!state\.match\?\.testMode/);
   assert.match(mainSource,/\$\('testQuickWin'\)\?\.classList\.toggle\('hidden',!currentMatchIsTest\|\|!isHost\|\|state\.match\.winner!==null\)/);
   assert.match(mainSource,/function finishTestMatch\(team\)\{[\s\S]*?!state\.testMode\|\|!m\.active\|\|m\.winner!==null\|\|!m\.testMode\)return;/);
-  assert.match(mainSource,/if\(!enabling\)\{[\s\S]*?state\.match=\{\.\.\.initialState\(\)\.match,syncEpoch:nextMatchEpoch\(previousMatch\),testMode:false\}[\s\S]*?state\.court=attending\.slice\(0,4\)[\s\S]*?checkpointNewMatch\(\);return;/);
+  assert.match(mainSource,/if\(!enabling\)\{[\s\S]*?state\.match=\{\.\.\.initialState\(\)\.match,syncEpoch:nextMatchEpoch\(previousMatch\),testMode:false\}[\s\S]*?const needed=matchPlayerCount\(state\.matchFormat\);[\s\S]*?state\.court=attending\.slice\(0,needed\)[\s\S]*?checkpointNewMatch\(\);return;/);
   assert.match(styles,/\.test-quick-win\{position:fixed;z-index:120/);
   assert.doesNotMatch(styles,/immersive-mode \.test-quick-win\{display:none\}/);
 });
