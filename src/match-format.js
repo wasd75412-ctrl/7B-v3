@@ -9,6 +9,12 @@ export function matchPlayerCount(format){
   return normalizeMatchFormat(format)===MATCH_FORMAT_SINGLES?2:4;
 }
 
+export function formatSwitchDisposition({match={},scoreViewRequested=false}={}){
+  if(!match?.active||match.winner!==null)return'switch';
+  if(scoreViewRequested)return'blocked';
+  return Array.isArray(match.rallies)&&match.rallies.length?'confirm':'switch';
+}
+
 export function teamsForLineup(players=[],format){
   const values=[...new Set(players.filter(Boolean))].slice(0,matchPlayerCount(format));
   return normalizeMatchFormat(format)===MATCH_FORMAT_SINGLES

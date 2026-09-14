@@ -21,7 +21,7 @@ import { careerAchievementBadges } from './player-achievements.js';
 import { PLAYER_TYPE_GUEST, isGuestPlayer, normalizePlayerType, splitPlayersByMembership } from './player-membership.js';
 import { createFinishedMatchRollback, normalizeFinishedMatchRollback, reopenFinishedMatchState } from './match-correction.js';
 import { rotateAfterMatch } from './match-rotation.js';
-import { MATCH_FORMAT_SINGLES, matchPlayerCount, normalizeMatchFormat, rotateSinglesAfterMatch, teamsForLineup } from './match-format.js';
+import { MATCH_FORMAT_SINGLES, formatSwitchDisposition, matchPlayerCount, normalizeMatchFormat, rotateSinglesAfterMatch, teamsForLineup } from './match-format.js';
 import { deletePlayerFromState, normalizeRetiredPlayers } from './player-deletion.js';
 import { normalizeScoreFont, randomScoreFont } from './score-font.js';
 import { EVENT_PACKING_MEMO_ITEMS, eventPackingMemoProgress, normalizeEventPackingMemo } from './event-packing-memo.js';
@@ -2085,12 +2085,17 @@ function renderAttendance(){
 function options(selected=''){return `<option value="">請選擇</option>`+selectablePlayerIds().map(id=>`<option value="${id}" ${id===selected?'selected':''}>${esc(pname(id))}</option>`).join('')}
 function setMatchFormat(format){
   if(!isHost)return;
-  if(state.match.active&&state.match.winner===null)return alert('比賽進行中，無法切換模式。');
   const previous=normalizeMatchFormat(state.matchFormat),next=normalizeMatchFormat(format);
   if(previous===next)return;
+  const disposition=formatSwitchDisposition({match:state.match,scoreViewRequested});
+  if(disposition==='blocked')return alert('請先離開比分畫面，再切換模式。');
+  if(disposition==='confirm'&&!confirm('切換模式會放棄目前未完成的比分，且不計入比賽紀錄。確定切換？'))return;
+  const abandoned=!!state.match.active&&state.match.winner===null;
+  if(abandoned){state.match={...initialState().match,format:next,syncEpoch:nextMatchEpoch(state.match)};state.matchRollback=null;dismissedResultKey=''}
   state.matchFormat=next;
   state.court=next===MATCH_FORMAT_SINGLES?(previous===MATCH_FORMAT_SINGLES?state.court.slice(0,2):[state.court[0],state.court[2]].filter(Boolean)):state.court.slice(0,2);
   state.nextCall=null;state.queueDraftChosen=[];reconcileWaitingQueue(state.court);renderAll();saveSoon();
+  if(abandoned)checkpointNewMatch();
 }
 function renderCourt(){
   const singles=normalizeMatchFormat(state.matchFormat)===MATCH_FORMAT_SINGLES,map=singles?[0,null,1,null]:[0,1,2,3];
