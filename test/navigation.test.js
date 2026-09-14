@@ -177,6 +177,16 @@ test('derives an editable event end time from historical poll attendance',()=>{
   assert.doesNotMatch(html,/id="editNextEventEndTime"[^>]*readonly/);
 });
 
+test('locks the page behind the next-event editor while the dialog remains scrollable',()=>{
+  assert.match(mainSource,/function setNextEventEditorOpen\(open\)/);
+  assert.match(mainSource,/body\.style\.top=`-\$\{nextEventEditorScrollY\}px`/);
+  assert.match(mainSource,/body\.classList\.add\('next-event-modal-open'\)/);
+  assert.match(mainSource,/body\.classList\.remove\('next-event-modal-open'\);body\.style\.top=''/);
+  assert.match(mainSource,/window\.scrollTo\(0,nextEventEditorScrollY\)/);
+  assert.match(styles,/body\.next-event-modal-open\{[^}]*position:fixed;[^}]*overflow:hidden/);
+  assert.match(styles,/#nextEventEditModal\{overscroll-behavior:contain\}/);
+});
+
 test('the page stops at its bottom without exposing overscroll whitespace',()=>{
   assert.match(styles,/html\{overscroll-behavior:none\}/);
   assert.match(styles,/body\{min-height:100dvh;overscroll-behavior-y:none\}/);
