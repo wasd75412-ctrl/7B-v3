@@ -201,6 +201,15 @@ body.player-modal-open{
   overflow:hidden;
   overscroll-behavior:none
 }
+body.next-event-modal-open{
+  position:fixed;
+  left:0;
+  right:0;
+  width:100%;
+  overflow:hidden;
+  overscroll-behavior:none
+}
+#nextEventEditModal{overscroll-behavior:contain}
 #editModal{overscroll-behavior:contain}
 .player-profile-modal-card{
   position:relative;

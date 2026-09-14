@@ -623,7 +623,7 @@ function openNextEventEditor(eventId=''){
   $('editNextEventNote').value=event.note||'';
   updateNextEventEditFeePreview();
   updateVenueMapPreviews();
-  $('nextEventEditModal').classList.remove('hidden');
+  setNextEventEditorOpen(true);
 }
 function openDirectNextEventCreator(){
   if(!isHost)return;
@@ -634,9 +634,25 @@ function openDirectNextEventCreator(){
   $('editNextEventDate').value='';$('editNextEventTime').value=start;$('editNextEventEndTime').value=suggestedEventEndTime(start,0);
   $('editNextEventLocation').value='';$('editNextEventRentalTotal').value='';$('editNextEventParticipants').value='';$('editNextEventTransferBankCode').value='';$('editNextEventTransferAccount').value='';$('editNextEventNote').value='';applyFavoriteTransferDetails('editNextEventTransferBankCode','editNextEventTransferAccount');
   renderEventPlayerChoices('editNextEventPlayerChoices',[],()=>syncParticipantCountFromChoices('editNextEventPlayerChoices','editNextEventParticipants',updateNextEventEditFeePreview));
-  updateNextEventEditFeePreview();updateVenueMapPreviews();$('nextEventEditModal').classList.remove('hidden');
+  updateNextEventEditFeePreview();updateVenueMapPreviews();setNextEventEditorOpen(true);
 }
-function closeNextEventEditor(){$('nextEventEditModal').classList.add('hidden')}
+let nextEventEditorScrollY=0;
+function setNextEventEditorOpen(open){
+  const modal=$('nextEventEditModal'),body=document.body;
+  if(open){
+    nextEventEditorScrollY=window.scrollY||document.documentElement.scrollTop||0;
+    body.style.top=`-${nextEventEditorScrollY}px`;
+    body.classList.add('next-event-modal-open');
+    modal.classList.remove('hidden');
+    modal.querySelector('.modal-card').scrollTop=0;
+    return;
+  }
+  modal.classList.add('hidden');
+  if(!body.classList.contains('next-event-modal-open'))return;
+  body.classList.remove('next-event-modal-open');body.style.top='';
+  window.scrollTo(0,nextEventEditorScrollY);
+}
+function closeNextEventEditor(){setNextEventEditorOpen(false)}
 function renderAdminAnnouncement(){
   const box=$('adminAnnouncement'),notices=normalizeAdminNotices(state);
   if(!box)return;
@@ -1726,7 +1742,7 @@ function applyRole(){
   if(!isHost){
     $('resultModal').classList.add('hidden');
     $('scoreView').classList.add('hidden');
-    $('nextEventEditModal')?.classList.add('hidden');
+    closeNextEventEditor();
     $('shuttleTubeModal')?.classList.add('hidden');
     if(!$('page3')?.classList.contains('hidden'))page(0);
   }
