@@ -141,6 +141,11 @@ test('lets the admin add players after voting closes and edit them later',()=>{
   assert.match(mainSource,/data-add-manual-player/);
   assert.match(mainSource,/function addManualPollParticipant\(optionId\)/);
   assert.match(mainSource,/manualParticipants:cleanManualPollParticipants/);
+  assert.match(html,/id="editNextEventPlayerField"[^>]*hidden/);
+  assert.match(html,/id="editNextEventPlayerChoices" class="event-player-choices"/);
+  assert.match(mainSource,/editNextEventPlayerField'\)\.classList\.toggle\('hidden',nextEventEditorMode==='create'\)/);
+  assert.match(mainSource,/renderEventPlayerChoices\('editNextEventPlayerChoices',event\.participantIds/);
+  assert.match(mainSource,/participantIds=eventPlayerChoiceIds\('editNextEventPlayerChoices'\)/);
 });
 
 test('keeps previous poll results inside the new-event dialog',()=>{
@@ -153,7 +158,7 @@ test('keeps previous poll results inside the new-event dialog',()=>{
   assert.match(mainSource,/function historicalPollChoices\(\)/);
   assert.match(mainSource,/function applyHistoricalPollChoice\(\)/);
   assert.match(mainSource,/editNextEventPollOption'\)\.addEventListener\('change',applyHistoricalPollChoice\)/);
-  assert.match(mainSource,/participantIds=creating\?eventPlayerChoiceIds\('editNextEventPlayerChoices'\)/);
+  assert.match(mainSource,/participantIds=eventPlayerChoiceIds\('editNextEventPlayerChoices'\)/);
   assert.match(mainSource,/optionId:historyChoice\?\.option\.id\|\|''/);
   assert.match(mainSource,/confirmEventPanel'\)\.style\.display=!options\.length\?'none':''/);
 });

@@ -594,6 +594,7 @@ function setNextEventEditorMode(mode='edit'){
   $('nextEventEditorTitle').textContent=nextEventEditorMode==='create'?'新增球局':'編輯下一次打球公告';
   $('saveNextEventEdits').textContent=nextEventEditorMode==='create'?'新增並發布球局':'儲存公告';
   $('editNextEventHistoryField').classList.toggle('hidden',nextEventEditorMode!=='create');
+  $('editNextEventPlayerField').classList.toggle('hidden',nextEventEditorMode==='create');
 }
 function historicalPollChoices(){return state.pollHistory.slice().reverse().flatMap(poll=>(poll.options||[]).map(option=>({value:`${poll.id}::${option.id}`,poll,option})))}
 function selectedHistoricalPollChoice(){const value=$('editNextEventPollOption')?.value||'';return historicalPollChoices().find(choice=>choice.value===value)||null}
@@ -617,6 +618,7 @@ function openNextEventEditor(eventId=''){
   $('editNextEventLocation').value=event.location||'';
   $('editNextEventRentalTotal').value=wholeAmount(event.rentalTotal)||'';
   $('editNextEventParticipants').value=wholeAmount(event.participantCount)||'';
+  renderEventPlayerChoices('editNextEventPlayerChoices',event.participantIds,()=>syncParticipantCountFromChoices('editNextEventPlayerChoices','editNextEventParticipants',updateNextEventEditFeePreview));
   const transferDetails=cleanTransferDetails(event);$('editNextEventTransferBankCode').value=transferDetails.transferBankCode;$('editNextEventTransferAccount').value=transferDetails.transferAccount;
   $('editNextEventNote').value=event.note||'';
   updateNextEventEditFeePreview();
@@ -1365,7 +1367,7 @@ async function saveNextEventEdits(){
   if(!endTime)return alert('請設定結束時間。');
   if(endTime<=time)return alert('結束時間必須晚於開始時間。');
   if(!location)return alert('請填寫場地。');
-  const historyChoice=creating?selectedHistoricalPollChoice():null,participantIds=creating?eventPlayerChoiceIds('editNextEventPlayerChoices'):cleanEventParticipantIds(previous?.participantIds);
+  const historyChoice=creating?selectedHistoricalPollChoice():null,participantIds=eventPlayerChoiceIds('editNextEventPlayerChoices');
   const {rentalTotal,participantCount,perPersonFee}=updateNextEventEditFeePreview();
   if(!rentalTotal)return alert('請填寫場租總額。');
   if(!participantCount)return alert('請填寫預計參與總人數。');
