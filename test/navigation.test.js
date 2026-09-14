@@ -68,9 +68,12 @@ test('groups independently selectable time slots under one date',()=>{
   assert.match(styles,/@media\(max-width:700px\)[^\n]*\.poll-time-options\{grid-template-columns:1fr\}/);
 });
 
-test('shows player-count duration rules inside the poll choices',()=>{
+test('shows the six-player opening note only on weekend poll choices',()=>{
+  assert.match(mainSource,/function pollDurationRule\(date,time\)/);
+  assert.match(mainSource,/if\(day===0\|\|day===6\)return '滿六人開團'/);
   assert.match(mainSource,/4 人 01:00–03:00｜5–6 人 01:00–04:00/);
   assert.match(mainSource,/4 人 11:00–13:00｜5–6 人 11:00–14:00/);
+  assert.match(mainSource,/pollDurationRule\(o\.date,o\.time\)/);
   assert.match(mainSource,/class="poll-duration-rule"/);
   assert.match(styles,/\.poll-duration-rule\{/);
   assert.doesNotMatch(mainSource,/<strong>\$\{esc\(`\$\{o\.time\|\|'未設定'\}\$\{o\.endTime\?`–\$\{o\.endTime\}`:''\}`\}\)<\/strong>/);
