@@ -15,7 +15,7 @@ test('builds next week Monday through Sunday with a Monday 08:00 open and Saturd
     assert.deepEqual(slots,['01:00-04:00','11:00-13:00']);
   }
   assert.ok(schedule.options.filter(option=>option.time==='01:00').every(option=>option.note==='立羽會館'));
-  assert.ok(schedule.options.filter(option=>option.time==='11:00').every(option=>option.note==='飛颺'));
+  assert.ok(schedule.options.filter(option=>option.time==='11:00').every(option=>option.note==='飛颺羽球館'));
   assert.equal(new Set(schedule.options.map(option=>option.id)).size,14);
 });
 

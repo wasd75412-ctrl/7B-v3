@@ -1,6 +1,6 @@
 export const TAIPEI_OFFSET_MS=8*60*60*1000;
 export const WEEKLY_POLL_LOCATION='立羽會館';
-export const WEEKLY_POLL_NOON_LOCATION='飛颺';
+export const WEEKLY_POLL_NOON_LOCATION='飛颺羽球館';
 export const WEEKLY_POLL_START='01:00';
 export const WEEKLY_POLL_END='04:00';
 export const WEEKLY_POLL_NOON_START='11:00';
