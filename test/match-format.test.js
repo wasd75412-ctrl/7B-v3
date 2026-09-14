@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
-import {matchPlayerCount,normalizeMatchFormat,rotateSinglesAfterMatch,teamsForLineup} from '../src/match-format.js';
+import {formatSwitchDisposition,matchPlayerCount,normalizeMatchFormat,rotateSinglesAfterMatch,teamsForLineup} from '../src/match-format.js';
 
 test('legacy and unknown formats remain doubles',()=>{
   assert.equal(normalizeMatchFormat(), 'doubles');
@@ -27,6 +27,14 @@ test('singles rematches when nobody is waiting',()=>{
   });
 });
 
+test('leaving score view allows a format switch while protecting scored matches',()=>{
+  const active={active:true,winner:null,rallies:[]};
+  assert.equal(formatSwitchDisposition({match:active,scoreViewRequested:true}),'blocked');
+  assert.equal(formatSwitchDisposition({match:active,scoreViewRequested:false}),'switch');
+  assert.equal(formatSwitchDisposition({match:{...active,rallies:[0]},scoreViewRequested:false}),'confirm');
+  assert.equal(formatSwitchDisposition({match:{active:false,winner:null},scoreViewRequested:true}),'switch');
+});
+
 test('court, score, history, and stats expose singles mode',()=>{
   const html=readFileSync(new URL('../index.html',import.meta.url),'utf8');
   const main=readFileSync(new URL('../src/main.js',import.meta.url),'utf8');
@@ -35,6 +43,7 @@ test('court, score, history, and stats expose singles mode',()=>{
   assert.match(main,/rotateSinglesAfterMatch/);
   assert.match(main,/format,teams:structuredClone\(m\.players\)/);
   assert.match(main,/\$\('scoreView'\)\.classList\.toggle\('singles-match'/);
+  assert.match(main,/if\(abandoned\)checkpointNewMatch\(\)/);
 });
 
 test('singles scoreboard keeps names out of the central score area',()=>{
