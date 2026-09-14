@@ -41,6 +41,13 @@ test('singles scoreboard keeps names out of the central score area',()=>{
   const css=readFileSync(new URL('../src/styles.css',import.meta.url),'utf8');
   assert.match(css,/\.score-view\.singles-match \.score-side\.a \.court-name\{[\s\S]*?justify-self:start/);
   assert.match(css,/\.score-view\.singles-match \.score-side\.b \.court-name\{[\s\S]*?justify-self:end/);
-  assert.match(css,/\.score-view\.singles-match \.court-name \.score-player,[\s\S]*?grid-template-columns:1fr;[\s\S]*?overflow:hidden/);
-  assert.match(css,/\.score-view\.singles-match \.court-player-name,[\s\S]*?max-width:min\(26vw,300px\);[\s\S]*?text-overflow:ellipsis/);
+  assert.match(css,/\.score-view\.singles-match \.court-name \.score-player,[\s\S]*?grid-template-columns:1fr;[\s\S]*?overflow:visible/);
+  assert.match(css,/\.score-view\.singles-match \.court-player-name,[\s\S]*?max-width:min\(26vw,300px\);[\s\S]*?font-size:clamp\(1\.9rem,4vw,4\.2rem\);[\s\S]*?overflow-wrap:normal/);
+});
+
+test('singles server ring and Yoyo descender are not clipped or boxed',()=>{
+  const css=readFileSync(new URL('../src/styles.css',import.meta.url),'utf8');
+  assert.match(css,/\.score-view\.singles-match \.court-name\{[\s\S]*?overflow:visible!important/);
+  assert.match(css,/\.score-view\.singles-match \.court-player-name,[\s\S]*?border:0;[\s\S]*?background:none;[\s\S]*?box-shadow:none/);
+  assert.match(css,/\.score-view\.singles-match \.court-player-name\.score-name-yoyo,[\s\S]*?padding-bottom:clamp\(18px,2vw,26px\);[\s\S]*?line-height:1\.16;[\s\S]*?overflow:visible/);
 });
