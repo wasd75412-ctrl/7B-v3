@@ -52,8 +52,8 @@ test('singles server ring and Yoyo descender are not clipped or boxed',()=>{
   assert.match(css,/\.score-view\.singles-match \.court-player-name\.score-name-yoyo,[\s\S]*?padding-bottom:clamp\(18px,2vw,26px\);[\s\S]*?line-height:1\.16;[\s\S]*?overflow:visible/);
 });
 
-test('singles scoreboard shows only the actual server without court labels',()=>{
+test('singles scoreboard shows a court label only for the actual server',()=>{
   const main=readFileSync(new URL('../src/main.js',import.meta.url),'utf8');
-  assert.match(main,/const positionLabel=singles\?'':`<span class="court-position\$\{nameClass\}">\$\{physicalSide\}<\/span>`/);
-  assert.match(main,/MATCH_FORMAT_SINGLES\?`\$\{m\.serving===0\?'A隊':'B隊'\} · \$\{pname\(sid\)\} 發球`/);
+  assert.match(main,/const positionLabel=singles\?\(serving\?`<span class="court-position\$\{nameClass\}">\$\{m\.scores\[t\]%2===0\?'右發球區':'左發球區'\}<\/span>`:''\)/);
+  assert.match(main,/const servingLabel=`\$\{m\.serving===0\?'A隊':'B隊'\} · \$\{pname\(sid\)\} · \$\{side\}發球區`/);
 });

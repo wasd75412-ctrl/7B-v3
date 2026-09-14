@@ -2260,7 +2260,7 @@ function renderScore(){
       const physicalSide=sideIndex===1?'右邊':'左邊';
       const serving=m.serving===t&&serverIndex===i&&m.winner===null;
       const nameClass=scoreNameClass(displayName);
-      const positionLabel=singles?'':`<span class="court-position${nameClass}">${physicalSide}</span>`;
+      const positionLabel=singles?(serving?`<span class="court-position${nameClass}">${m.scores[t]%2===0?'右發球區':'左發球區'}</span>`:''):`<span class="court-position${nameClass}">${physicalSide}</span>`;
       return `<div class="court-name ${serving?'server':''}"><span class="score-player">${avatar(id,'score-large')}<span class="court-player-copy">${positionLabel}<span class="court-player-name${nameClass}">${esc(displayName)}</span></span></span></div>`;
     }).join('');
   };
@@ -2281,7 +2281,7 @@ function renderScore(){
   $('matchPoint').classList.toggle('hidden',!gamePoint());
   const side=m.scores[m.serving]%2===0?'右':'左';
   const sid=m.players[m.serving]?.[m.positions[m.serving]?.[m.scores[m.serving]%2===0?1:0]??0];
-  const servingLabel=normalizeMatchFormat(m.format)===MATCH_FORMAT_SINGLES?`${m.serving===0?'A隊':'B隊'} · ${pname(sid)} 發球`:`${m.serving===0?'A隊':'B隊'} · ${pname(sid)} · ${side}發球區`;
+  const servingLabel=`${m.serving===0?'A隊':'B隊'} · ${pname(sid)} · ${side}發球區`;
   $('serveText').textContent=m.winner!==null?'比賽結束':servingLabel;
   // 比分畫面是否開啟只屬於這台裝置，另一位管理員登入或操作不會影響它。
   const scoreVisible=shouldShowScoreView({matchActive:m.active,isHost,androidRemote:requestedAndroidRemote,requested:scoreViewRequested});
