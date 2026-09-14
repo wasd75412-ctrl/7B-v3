@@ -4337,7 +4337,61 @@ html.chat-keyboard-open .chat-autocomplete{
 .singles-layout .doubles-only{display:none!important}
 .match-format-badge{display:inline-block;margin-right:6px;padding:3px 7px;border-radius:999px;background:#e6f1ff;color:#174f87;font-size:.75rem;font-weight:950}
 .score-view.singles-match .court-names{grid-template-rows:minmax(0,1fr)}
-.score-view.singles-match .court-name{align-self:stretch!important}
+.score-view.singles-match .court-name{
+  align-self:start!important;
+  overflow:hidden!important
+}
+.score-view.singles-match .score-side.a .court-name{
+  justify-self:start;
+  left:clamp(18px,3vw,48px)
+}
+.score-view.singles-match .score-side.b .court-name{
+  justify-self:end;
+  left:clamp(-48px,-3vw,-18px)
+}
+.score-view.singles-match .court-name .score-player,
+.score-view.singles-match .score-side.b .court-name .score-player{
+  width:fit-content;
+  max-width:100%;
+  grid-template-columns:1fr;
+  grid-template-rows:auto auto;
+  justify-items:center;
+  gap:clamp(8px,1.2vh,14px);
+  overflow:hidden
+}
+.score-view.singles-match .score-side :is(.avatar,.court-player-copy){order:initial}
+.score-view.singles-match .avatar.score-large{
+  width:clamp(64px,9vw,96px);
+  height:clamp(64px,9vw,96px)
+}
+.score-view.singles-match .court-player-copy,
+.score-view.singles-match .score-side.b .court-player-copy{
+  width:100%;
+  max-width:100%;
+  align-items:center
+}
+.score-view.singles-match .court-player-name,
+.score-view.singles-match .court-name.server .court-player-name{
+  width:auto;
+  max-width:min(26vw,300px);
+  padding:4px 3px 8px;
+  font-size:clamp(3rem,6vw,5.6rem);
+  line-height:1;
+  text-align:center;
+  white-space:nowrap;
+  overflow:hidden;
+  text-overflow:ellipsis
+}
+@media(max-width:760px){
+  .score-view.singles-match .score-side.a .court-name{left:6px}
+  .score-view.singles-match .score-side.b .court-name{left:-6px}
+  .score-view.singles-match .court-player-name,
+  .score-view.singles-match .court-name.server .court-player-name{
+    max-width:24vw;
+    font-size:clamp(1.35rem,6vw,2.5rem);
+    -webkit-text-stroke:clamp(2px,.42vw,4px) #000!important
+  }
+}
 @media(max-width:620px){
   #app #page3 .court-rules{gap:7px}
   #app #page3 .court-rules .field{padding:7px;border-radius:13px}

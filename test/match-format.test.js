@@ -36,3 +36,11 @@ test('court, score, history, and stats expose singles mode',()=>{
   assert.match(main,/format,teams:structuredClone\(m\.players\)/);
   assert.match(main,/\$\('scoreView'\)\.classList\.toggle\('singles-match'/);
 });
+
+test('singles scoreboard keeps names out of the central score area',()=>{
+  const css=readFileSync(new URL('../src/styles.css',import.meta.url),'utf8');
+  assert.match(css,/\.score-view\.singles-match \.score-side\.a \.court-name\{[\s\S]*?justify-self:start/);
+  assert.match(css,/\.score-view\.singles-match \.score-side\.b \.court-name\{[\s\S]*?justify-self:end/);
+  assert.match(css,/\.score-view\.singles-match \.court-name \.score-player,[\s\S]*?grid-template-columns:1fr;[\s\S]*?overflow:hidden/);
+  assert.match(css,/\.score-view\.singles-match \.court-player-name,[\s\S]*?max-width:min\(26vw,300px\);[\s\S]*?text-overflow:ellipsis/);
+});
