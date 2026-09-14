@@ -5,6 +5,7 @@ import {createLiveScoreData,decodeLiveMatch,encodeLiveMatch,generalRoomStateWith
 test('encodes Firestore-safe live score without nested arrays',()=>{
   const data=createLiveScoreData({
     active:true,
+    format:'singles',
     players:[['a','b'],['c','d']],
     scores:[10,9],
     rallies:[0,1,0],
@@ -20,6 +21,7 @@ test('encodes Firestore-safe live score without nested arrays',()=>{
   assert.deepEqual(data.match.teamB,['c','d']);
   assert.equal(Array.isArray(data.match.teamA[0]),false);
   assert.equal(data.match.scoreFont,'orbitron');
+  assert.equal(data.match.format,'singles');
   assert.equal(JSON.stringify(data).length<1000,true);
 });
 

@@ -2,10 +2,12 @@ export const LIVE_SCORE_SCHEMA_VERSION=1;
 
 const pair=(value,fallback)=>Array.isArray(value)?value.slice(0,2):[...fallback];
 const team=value=>Array.isArray(value)?value.filter(Boolean).slice(0,2):[];
+const format=value=>value==='singles'?'singles':'doubles';
 
 export function encodeLiveMatch(source={}){
   return{
     active:!!source.active,
+    format:format(source.format),
     teamA:team(source.players?.[0]??source.teamA),
     teamB:team(source.players?.[1]??source.teamB),
     scores:pair(source.scores,[0,0]).map(value=>Math.max(0,Number(value)||0)),
@@ -30,6 +32,7 @@ export function decodeLiveMatch(source={},fallback={}){
   return{
     ...fallback,
     active:match.active,
+    format:match.format,
     players:[match.teamA,match.teamB],
     scores:match.scores,
     rallies:match.rallies,

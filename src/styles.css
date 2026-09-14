@@ -4329,6 +4329,15 @@ html.chat-keyboard-open .chat-autocomplete{
   border-radius:12px;
   text-align:left
 }
+
+/* BCM singles mode */
+.match-format-control{display:inline-flex;gap:8px;margin-bottom:14px;padding:5px;border:1px solid var(--line);border-radius:16px;background:var(--app-surface-soft,#edf2f6)}
+.match-format-control .btn{min-width:88px;padding:9px 16px}
+.match-format-control .btn.active{color:#fff;border-color:var(--dark);background:var(--dark)}
+.singles-layout .doubles-only{display:none!important}
+.match-format-badge{display:inline-block;margin-right:6px;padding:3px 7px;border-radius:999px;background:#e6f1ff;color:#174f87;font-size:.75rem;font-weight:950}
+.score-view.singles-match .court-names{grid-template-rows:minmax(0,1fr)}
+.score-view.singles-match .court-name{align-self:stretch!important}
 @media(max-width:620px){
   #app #page3 .court-rules{gap:7px}
   #app #page3 .court-rules .field{padding:7px;border-radius:13px}
