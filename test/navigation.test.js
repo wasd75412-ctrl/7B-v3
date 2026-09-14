@@ -73,6 +73,7 @@ test('shows player-count duration rules inside the poll choices',()=>{
   assert.match(mainSource,/4 人 11:00–13:00｜5–6 人 11:00–14:00/);
   assert.match(mainSource,/class="poll-duration-rule"/);
   assert.match(styles,/\.poll-duration-rule\{/);
+  assert.doesNotMatch(mainSource,/<strong>\$\{esc\(`\$\{o\.time\|\|'未設定'\}\$\{o\.endTime\?`–\$\{o\.endTime\}`:''\}`\}\)<\/strong>/);
 });
 
 test('keeps detailed poll statistics private to administrators',()=>{
