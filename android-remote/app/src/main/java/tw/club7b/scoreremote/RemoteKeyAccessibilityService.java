@@ -55,6 +55,12 @@ public final class RemoteKeyAccessibilityService extends AccessibilityService {
         int keyCode = event.getKeyCode();
         VolumeKeyInterpreter.Action action = VolumeKeyInterpreter.Action.NONE;
         if (event.getAction() == KeyEvent.ACTION_DOWN) {
+            if (event.getRepeatCount() == 0) {
+                VolumeKeyInterpreter.Action previousAction = backgroundKeys.onMissingKeyUp(keyCode);
+                if (previousAction != VolumeKeyInterpreter.Action.NONE) {
+                    handleResolvedBackgroundAction(previousAction, keyCode, event.getEventTime());
+                }
+            }
             action = backgroundKeys.onKeyDown(keyCode, event.getEventTime(), event.getRepeatCount());
             if (event.getRepeatCount() == 0) {
                 vibrate(18L);
