@@ -30,10 +30,12 @@ test('shows one-shuttle controls in scoring and next-match result views plus das
   assert.match(main,/overlayHost\.append\(indicator\)/);
   assert.match(styles,/\.score-remote-indicator\{[^}]*z-index:1000/);
   assert.doesNotMatch(main,/if\(source==='remote'\)showScoreRemoteIndicator\(`已使用 1 顆/);
-  assert.match(main,/每人 \$\{formatMoney\(share\)\} 元/);
+  assert.match(main,/class="home-shuttle-fee-amount">\$\{players\?`每人 \$\{formatMoney\(share\)\} 元`/);
   assert.match(main,/ensureShuttleCostNotice/);
   assert.match(main,/sessionCombinedCosts\(e\)/);
-  assert.match(main,/next-event-payment">場租及球費 \$\{formatMoney\(perPersonFee\)\} 元/);
+  assert.match(main,/next-event-payment">場租及球費 <strong class="next-event-fee-amount">\$\{formatMoney\(perPersonFee\)\} 元/);
+  assert.match(styles,/\.home-shuttle-fee-amount\{[^}]*font-size:1\.16rem/);
+  assert.match(styles,/\.next-event-fee-amount\{[^}]*font-size:1\.18em/);
   assert.doesNotMatch(html,/勝方兩人保留，候場隊首兩人上場/);
   assert.doesNotMatch(html,/id="priorityText"/);
   assert.doesNotMatch(main,/\$\('priorityText'\)/);
@@ -42,6 +44,7 @@ test('shows one-shuttle controls in scoring and next-match result views plus das
 
 test('routes exactly three short presses to shuttle use with a quiet-window and cooldown guard',()=>{
   for(const source of [activity,service]){
+    assert.match(source,/Action previousAction = \w+Keys\.onMissingKeyUp\(keyCode\);[\s\S]*?handleResolved\w+Action\(previousAction, keyCode, event\.getEventTime\(\)\);/);
     assert.match(source,/if\(count==1\).*Action\(resolved\);else if\(count==2\).*FullscreenCommand\(\);else if\(count==3\).*else if\(count==4\)/s);
     assert.match(source,/SHUTTLE_PRESS_COOLDOWN_MS = 2000L/);
     assert.match(source,/now-lastShuttleActionAt>=SHUTTLE_PRESS_COOLDOWN_MS/);

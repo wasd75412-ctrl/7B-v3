@@ -175,6 +175,12 @@ public final class MainActivity extends Activity {
         if (!VolumeKeyInterpreter.isSupportedRemoteKey(keyCode)) return false;
         VolumeKeyInterpreter.Action action = VolumeKeyInterpreter.Action.NONE;
         if (event.getAction() == KeyEvent.ACTION_DOWN) {
+            if (event.getRepeatCount() == 0) {
+                VolumeKeyInterpreter.Action previousAction = volumeKeys.onMissingKeyUp(keyCode);
+                if (previousAction != VolumeKeyInterpreter.Action.NONE) {
+                    handleResolvedRemoteAction(previousAction, keyCode, event.getEventTime());
+                }
+            }
             action = volumeKeys.onKeyDown(keyCode, event.getEventTime(), event.getRepeatCount());
             if (event.getRepeatCount() == 0) {
                 notifyKeyDetected(keyCode);
