@@ -134,7 +134,7 @@ test('lets the admin add players after voting closes and edit them later',()=>{
   assert.doesNotMatch(html,/id="editNextEventPlayers"/);
   assert.match(mainSource,/function pollParticipantIds\(optionId,poll=state\.schedulePoll\)/);
   assert.match(mainSource,/participantIds:cleanEventParticipantIds\(event\.participantIds\)/);
-  assert.match(mainSource,/const participantIds=pollParticipantIds\(optionId,sourcePoll\)/);
+  assert.match(mainSource,/const participantIds=pollParticipantIds\(remoteOption\.id,poll\)/);
   assert.match(mainSource,/finalEvent=cleanNextEvent\(\{[^}]*participantIds/);
   assert.match(styles,/\.event-player-choices\{[^}]*display:grid/);
   assert.match(mainSource,/deadlineExpired&&isHost\?`<div class="poll-manual-controls">/);
@@ -174,6 +174,17 @@ test('keeps previous poll results inside the new-event dialog',()=>{
   assert.match(mainSource,/participantIds=eventPlayerChoiceIds\('editNextEventPlayerChoices'\)/);
   assert.match(mainSource,/optionId:historyChoice\?\.option\.id\|\|''/);
   assert.match(mainSource,/confirmEventPanel'\)\.style\.display=!options\.length\?'none':''/);
+});
+
+test('publishing an event does not close or clear the active poll',()=>{
+  assert.match(html,/從投票建立球局/);
+  assert.match(html,/id="confirmNextEvent"[^>]*>確認建立球局</);
+  const publishFlow=mainSource.slice(mainSource.indexOf('async function confirmNextEvent()'),mainSource.indexOf('async function startNewPoll()'));
+  assert.match(publishFlow,/投票仍會持續到原訂截止時間/);
+  assert.match(publishFlow,/tx\.update\(roomRef,\{nextEvent:finalEvent,nextEvents,updatedAt:serverTimestamp\(\)\}\)/);
+  assert.doesNotMatch(publishFlow,/archiveCurrentPoll\(\)/);
+  assert.doesNotMatch(publishFlow,/schedulePoll:\{status:'closed'/);
+  assert.doesNotMatch(publishFlow,/state\.schedulePoll=\{status:'closed'/);
 });
 
 test('derives an editable event end time from historical poll attendance',()=>{
