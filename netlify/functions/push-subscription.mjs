@@ -1,4 +1,5 @@
 import { getStore } from '@netlify/blobs';
+import { EVENT_PACKING_MEMO_ITEMS, normalizePackingItems } from '../../src/event-packing-memo.js';
 import { PUSH_STORE, cleanText, jsonResponse, subscriptionKey, validEndpoint, validRoomId, validSubscription } from './lib/push-shared.mjs';
 
 export default async request=>{
@@ -34,6 +35,7 @@ export default async request=>{
     lastEventAt:existing?.lastEventAt||'',
     packingReminderEnabled:typeof body.packingReminderEnabled==='boolean'?body.packingReminderEnabled:existing?.packingReminderEnabled===true,
     packingReminderMinutes,
+    packingItems:Array.isArray(body.packingItems)?normalizePackingItems(body.packingItems):(existing?.packingItems||EVENT_PACKING_MEMO_ITEMS),
     lastPackingEventId:existing?.lastPackingEventId||'',
     lastPackingReminderAt:existing?.lastPackingReminderAt||''
   });

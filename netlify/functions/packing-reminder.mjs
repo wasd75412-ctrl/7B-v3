@@ -1,6 +1,6 @@
 import { getStore } from '@netlify/blobs';
 import webpush from 'web-push';
-import { EVENT_PACKING_MEMO_ITEMS } from '../../src/event-packing-memo.js';
+import { EVENT_PACKING_MEMO_ITEMS, normalizePackingItems } from '../../src/event-packing-memo.js';
 import { PUSH_STORE, jsonResponse, validRoomId, validSubscription } from './lib/push-shared.mjs';
 import { duePackingEvent, firestoreEventsFromDocument } from './lib/packing-reminder.mjs';
 
@@ -25,7 +25,7 @@ export default async()=>{
     if(!events){try{events=await getRoomEvents(item.record.roomId);eventsByRoom.set(item.record.roomId,events)}catch(error){console.error(error);failed++;continue}}
     const event=duePackingEvent(events,item.record.lastPackingEventId,item.record.packingReminderMinutes);
     if(!event)continue;
-    const when=`${event.date} ${event.time}`,place=event.location?` · ${event.location}`:'',payload=JSON.stringify({title:'🎒 出發前記得帶',body:`${when}${place}\n${EVENT_PACKING_MEMO_ITEMS.join('、')}`,url:`${siteUrl}/?room=${encodeURIComponent(item.record.roomId)}`,icon:`${siteUrl}/icons/icon-192.png`,badge:`${siteUrl}/icons/icon-192.png`,tag:`7b-packing-${item.record.roomId}-${event.id}`});
+    const items=Array.isArray(item.record.packingItems)?normalizePackingItems(item.record.packingItems):EVENT_PACKING_MEMO_ITEMS,when=`${event.date} ${event.time}`,place=event.location?` · ${event.location}`:'',payload=JSON.stringify({title:'🎒 出發前記得帶',body:`${when}${place}\n${items.join('、')}`,url:`${siteUrl}/?room=${encodeURIComponent(item.record.roomId)}`,icon:`${siteUrl}/icons/icon-192.png`,badge:`${siteUrl}/icons/icon-192.png`,tag:`7b-packing-${item.record.roomId}-${event.id}`});
     try{await webpush.sendNotification(item.record.subscription,payload,{TTL:7200,urgency:'high',topic:`packing-${item.record.roomId}`});item.record.lastPackingEventId=event.id;item.record.lastPackingReminderAt=new Date().toISOString();await store.setJSON(item.key,item.record);sent++}
     catch(error){if(error?.statusCode===404||error?.statusCode===410){await store.delete(item.key);removed++}else{console.error(`Packing push ${item.record.roomId} failed`,error);failed++}}
   }
