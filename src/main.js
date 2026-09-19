@@ -1324,7 +1324,7 @@ function updateConfirmOptionDetails(){
 function renderPoll(){
   if(!$('pollOptions'))return;
   const poll=state.schedulePoll||{status:'open',deadlineAt:'',options:[],votes:{},voterPlayers:{}};
-  const deadlineExpired=isPollDeadlinePassed(poll),closed=isPollClosed(poll),legacyCompleted=closed&&!!state.nextEvent?.optionId&&!!state.nextEvent?.endTime&&(poll.options||[]).some(option=>option.id===state.nextEvent.optionId);if(legacyCompleted){poll.deadlineAt='';poll.options=[];poll.votes={};poll.voterPlayers={};if(isHost&&roomRef)setTimeout(()=>saveSoon(),0)}const options=poll.options||[],counts=pollCounts(),mine=pollSelectionList(poll.votes?.[selfHash]),completed=closed&&!options.length,submittedCount=Object.values(poll.votes||{}).filter(value=>pollSelectionList(value).length).length;
+  const deadlineExpired=isPollDeadlinePassed(poll),closed=isPollClosed(poll),options=poll.options||[],counts=pollCounts(),mine=pollSelectionList(poll.votes?.[selfHash]),completed=closed&&!options.length,submittedCount=Object.values(poll.votes||{}).filter(value=>pollSelectionList(value).length).length;
   const unavailableCount=Object.values(poll.votes||{}).filter(v=>pollSelectionList(v).includes(POLL_UNAVAILABLE)).length;
   const own=ownedPlayerId(),voter=$('pollVoter'),current=poll.voterPlayers?.[selfHash]||own||voter.value||'';
   voter.innerHTML='<option value="">請選擇姓名</option>'+state.roster.map(p=>`<option value="${p.id}">${esc(p.name)}</option>`).join('');
@@ -1358,7 +1358,7 @@ function renderPoll(){
     updateConfirmParticipantDefault();
     $('clearNextEvent').disabled=!activeEvent?.date;
     $('editNextEventFromPoll').disabled=!activeEvent?.date;
-    $('confirmNextEvent').textContent='確認並結束投票';
+    $('confirmNextEvent').textContent='確認建立球局';
     updateConfirmFeePreview();
   }
   updateVenueMapPreviews();schedulePollDeadlineTimer(poll);renderPollNotice();maybeOpenRecruitingDialog(poll);
@@ -1411,18 +1411,17 @@ async function saveNextEventEdits(){
   }
 }
 async function confirmNextEvent(){
-  if(!isHost)return alert('只有管理員可以結束投票。');
+  if(!isHost)return alert('只有管理員可以建立球局。');
   const sourcePoll=confirmationPoll(),optionId=$('confirmPollOption').value,option=(sourcePoll.options||[]).find(o=>o.id===optionId),endTime=$('confirmEndTime').value,location=$('confirmLocation').value.trim(),note=$('confirmEventNote').value.trim(),transferBankCode=cleanTransferBankCode($('confirmTransferBankCode').value),transferAccount=cleanTransferAccount($('confirmTransferAccount').value);
   if(!option)return alert('請先選擇已確定的日期與開始時間。');
   if(!endTime)return alert('請設定結束時間。');
   if(endTime<=option.time)return alert('結束時間必須晚於開始時間。');
   if(!location)return alert('請填寫已預約的場地。');
-  const participantIds=pollParticipantIds(optionId,sourcePoll);
   const {rentalTotal,participantCount,perPersonFee}=updateConfirmFeePreview();
   if(!rentalTotal)return alert('請填寫場租總金額。');
   if(!participantCount)return alert('請填寫預計參與人數。');
-  const summary=`${formatEventDate(option.date,option.time,endTime)}\n${location}${note?`\n場地備註：${note}`:''}\n場租 ${formatMoney(rentalTotal)} 元｜每人 ${formatMoney(perPersonFee)} 元${transferAccount?`\n銀行代碼：${transferBankCode||'未填'}｜帳號：${transferAccount}`:''}\n\n本輪投票會封存後結束。`;
-  if(!confirm(`確定發布球局並結束投票？\n\n${summary}`))return;
+  const summary=`${formatEventDate(option.date,option.time,endTime)}\n${location}${note?`\n場地備註：${note}`:''}\n場租 ${formatMoney(rentalTotal)} 元｜每人 ${formatMoney(perPersonFee)} 元${transferAccount?`\n銀行代碼：${transferBankCode||'未填'}｜帳號：${transferAccount}`:''}`;
+  if(!confirm(`確定建立並發布球局？\n\n${summary}\n\n投票仍會持續到原訂截止時間。`))return;
   const button=$('confirmNextEvent'),publishedAt=new Date().toISOString();
   button.disabled=true;button.textContent='發布球局中…';
   let finalEvent=null,finalFee=perPersonFee;
@@ -1436,21 +1435,21 @@ async function confirmNextEvent(){
       const remoteOption=(Array.isArray(poll.options)?poll.options:[]).find(item=>item.id===optionId);
       if(!remoteOption)throw new Error('候選日期已變更，請重新確認。');
       finalFee=calculatePerPersonFee(rentalTotal,participantCount);
+      const participantIds=pollParticipantIds(remoteOption.id,poll);
       finalEvent=cleanNextEvent({id:randomToken(),optionId:remoteOption.id,date:remoteOption.date,time:remoteOption.time||'',endTime,location,note,participantIds,transferBankCode,transferAccount,rentalTotal,participantCount,perPersonFee:finalFee,publishedAt});
       const nextEvents=upsertNextEvent(normalizeNextEvents(remote),finalEvent);
-      const history=cleanPollHistory([...(remote.pollHistory||[]),{...poll,id:poll.autoCycle||poll.createdAt||randomToken(),archivedAt:publishedAt,status:'closed'}]);tx.update(roomRef,{nextEvent:finalEvent,nextEvents,pollHistory:history,schedulePoll:{status:'closed',createdAt:poll.createdAt||'',deadlineAt:'',options:[],votes:{},voterPlayers:{}},updatedAt:serverTimestamp()})
+      tx.update(roomRef,{nextEvent:finalEvent,nextEvents,updatedAt:serverTimestamp()})
     });
     state.nextEvents=upsertNextEvent(normalizeNextEvents(state),finalEvent);state.nextEvent=finalEvent;saveFavoriteTransferDetails(transferBankCode,transferAccount);
-    archiveCurrentPoll();state.schedulePoll={status:'closed',createdAt:state.schedulePoll.createdAt||'',deadlineAt:'',options:[],votes:{},voterPlayers:{}};
     renderDashboard();renderPoll();setSync('已同步','online');
   }catch(error){
-    button.disabled=false;button.textContent='確認並結束投票';
+    button.disabled=false;button.textContent='確認建立球局';
     alert(error.message||formatError(error));
     return;
   }
   const pushMessage=await nextEventPushMessage(publishedAt);
-  button.disabled=false;button.textContent='確認並結束投票';
-  alert(`已結束投票並發布球局。\n每人需繳 ${formatMoney(finalFee)} 元。${pushMessage}`);
+  button.disabled=false;button.textContent='確認建立球局';
+  alert(`球局已發布，投票會持續到原訂截止時間。\n每人需繳 ${formatMoney(finalFee)} 元。${pushMessage}`);
 }
 async function startNewPoll(){if(!confirm('建立新投票？目前的球局公告會保留在總覽。'))return;archiveCurrentPoll();state.schedulePoll={status:'open',createdAt:new Date().toISOString(),deadlineAt:'',options:[],votes:{},voterPlayers:{},manualParticipants:{}};['confirmPollOption','confirmEndTime','confirmLocation','confirmParticipants','confirmRentalTotal','confirmPerPersonFee','confirmTransferBankCode','confirmTransferAccount','confirmEventNote'].forEach(id=>{const input=$(id);if(input){input.value='';delete input.dataset.optionId}});applyFavoriteTransferDetails('confirmTransferBankCode','confirmTransferAccount');renderPoll();renderDashboard();try{await saveNow();alert('新投票已建立，上一輪結果已保留。')}catch(error){saveSoon();alert(`新投票已建立，但雲端同步尚未完成：${formatError(error)}`)}}
 function clearNextEvent(input=''){const events=normalizeNextEvents(state),fallback=primaryNextEvent({nextEvents:events}),eventId=typeof input==='string'?input:fallback?.id,target=events.find(event=>event.id===eventId)||fallback;if(!target)return;if(!confirm(`確定刪除這筆球局公告？\n\n${formatEventDate(target.date,target.time,target.endTime)}`))return;state.nextEvents=events.filter(event=>event.id!==target.id);state.nextEvent=primaryNextEvent({nextEvents:state.nextEvents});closeNextEventEditor();renderDashboard();renderPoll();saveSoon()}
