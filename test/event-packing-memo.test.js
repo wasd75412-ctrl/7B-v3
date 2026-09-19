@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
-import { EVENT_PACKING_MEMO_ITEMS, eventPackingMemoProgress, normalizeEventPackingMemo } from '../src/event-packing-memo.js';
+import { EVENT_PACKING_MEMO_ITEMS, eventPackingMemoProgress, normalizeEventPackingMemo, normalizePackingItems } from '../src/event-packing-memo.js';
 
 const styles=fs.readFileSync(new URL('../src/styles.css',import.meta.url),'utf8');
 
@@ -13,8 +13,13 @@ test('開團備忘錄包含指定的攜帶物品', () => {
 });
 
 test('備忘錄只保留清單內的唯一勾選項目', () => {
-  assert.deepEqual(normalizeEventPackingMemo({ checked: ['球拍', '球拍', '不明物品'] }), { checked: ['球拍'] });
+  assert.deepEqual(normalizeEventPackingMemo({ checked: ['球拍', '球拍', '不明物品'] }), { items:EVENT_PACKING_MEMO_ITEMS,checked: ['球拍'] });
   assert.deepEqual(eventPackingMemoProgress({ checked: ['球拍', '水壺'] }), { checked: 2, total: 13, remaining: 11 });
+});
+
+test('備忘錄可新增與編輯本機物品並排除重複',()=>{
+  assert.deepEqual(normalizePackingItems([' 球拍 ','球拍','毛巾','']),['球拍','毛巾']);
+  assert.deepEqual(normalizeEventPackingMemo({items:['雨傘','水壺'],checked:['雨傘','球拍']}),{items:['雨傘','水壺'],checked:['雨傘']});
 });
 
 test('開團備忘錄與提醒 Bar 永遠使用明確的高對比底色與文字色',()=>{
