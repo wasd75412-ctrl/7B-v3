@@ -164,6 +164,11 @@ test('keeps previous poll results inside the new-event dialog',()=>{
   assert.match(mainSource,/function archiveCurrentPoll\(\)/);
   assert.match(mainSource,/archiveCurrentPoll\(\);state\.schedulePoll=/);
   assert.match(mainSource,/function historicalPollChoices\(\)/);
+  assert.match(mainSource,/function taipeiDateKey\(now=Date\.now\(\)\)/);
+  assert.match(mainSource,/function cleanPollHistory\(rows,today=taipeiDateKey\(\)\)/);
+  assert.match(mainSource,/\.filter\(option=>option\.date>=today\)/);
+  assert.match(mainSource,/\.filter\(row=>row\.options\.length\)\.slice\(-8\)/);
+  assert.match(mainSource,/function historicalPollChoices\(\)\{const today=taipeiDateKey\(\)/);
   assert.match(mainSource,/function applyHistoricalPollChoice\(\)/);
   assert.match(mainSource,/editNextEventPollOption'\)\.addEventListener\('change',applyHistoricalPollChoice\)/);
   assert.match(mainSource,/participantIds=eventPlayerChoiceIds\('editNextEventPlayerChoices'\)/);
