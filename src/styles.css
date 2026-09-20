@@ -4700,6 +4700,7 @@ body>.modal .event-packing-memo-item:has(input:checked){
 }
 body>.modal .packing-reminder-controls :is(label,span,p),
 body>.modal .event-packing-memo-item span{color:inherit;-webkit-text-fill-color:inherit}
+body>.modal .event-packing-item-actions .danger-outline{border-color:#ff8798!important;background:#7b2634!important;color:#fff!important;-webkit-text-fill-color:#fff!important}
 
 /* BCM 2.8.22 — event-scoped member payment reporting and admin confirmation. */
 #app .event-payment-member{display:flex;justify-content:flex-end;margin-top:13px}
