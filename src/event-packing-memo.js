@@ -22,8 +22,14 @@ export function normalizeEventPackingMemo(value) {
   return {
     items,
     checked: [...new Set(Array.isArray(checked) ? checked : [])]
-      .filter(item => allowed.has(item))
+      .filter(item => allowed.has(item)),
+    updatedAt: Number.isFinite(Number(value?.updatedAt)) ? Math.max(0, Number(value.updatedAt)) : 0
   };
+}
+
+export function mergePackingMemos(localValue, cloudValue) {
+  const local=normalizeEventPackingMemo(localValue),cloud=normalizeEventPackingMemo(cloudValue);
+  return cloud.updatedAt>local.updatedAt?cloud:local;
 }
 
 export function eventPackingMemoProgress(value) {
