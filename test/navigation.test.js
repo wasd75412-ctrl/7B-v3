@@ -84,7 +84,7 @@ test('keeps detailed poll statistics private to administrators',()=>{
   assert.match(mainSource,/voterDetail=isHost\?/);
   assert.match(mainSource,/unavailableVoters=isHost\?/);
   assert.match(mainSource,/\$\{isHost\?`<span class="poll-count">\$\{unavailableCount\} 人<\/span>`:''\}/);
-  assert.match(mainSource,/<span class="poll-count">\$\{counts\[o\.id\]\|\|0\} 票<\/span>/);
+  assert.match(mainSource,/<span class="poll-count">\$\{count\}\/\$\{POLL_SLOT_CAPACITY\} 人\$\{full\?' · 額滿':''\}<\/span>/);
 });
 
 test('keeps the unavailable summary visible to administrators after the deadline',()=>{
