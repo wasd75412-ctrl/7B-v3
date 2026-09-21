@@ -61,6 +61,12 @@ test('separates male players when fewer than three men are present',()=>{
   assert.equal(pairs(lineup).includes('A|B'),false);
 });
 
+test('uses the original teammate rules when gender grouping is disabled',()=>{
+  const genderByPlayer={A:'male',B:'male',C:'female',D:'female'};
+  const lineup=arrangeTeamsWithTeammateLimit(['A','B','C','D'],[],0,2,{genderGroupingEnabled:false,genderByPlayer,malePresentCount:2});
+  assert.deepEqual(pairs(lineup),['A|B','C|D']);
+});
+
 test('allows male teammates when three men are present',()=>{
   const genderByPlayer={A:'male',B:'male',C:'male',D:'female'};
   const lineup=arrangeTeamsWithTeammateLimit(['A','B','C','D'],[],0,2,{genderByPlayer,malePresentCount:3});

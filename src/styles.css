@@ -4318,7 +4318,7 @@ html.chat-keyboard-open .chat-autocomplete{
 
 /* BCM 2.4.23 — restore rounded match settings across desktop, iPad and phone */
 #app #page3 .court-rules{
-  grid-template-columns:repeat(3,minmax(0,1fr));
+  grid-template-columns:repeat(4,minmax(0,1fr));
   align-items:stretch;
   gap:12px;
   margin-top:18px
@@ -4419,7 +4419,7 @@ html.chat-keyboard-open .chat-autocomplete{
   }
 }
 @media(max-width:620px){
-  #app #page3 .court-rules{gap:7px}
+  #app #page3 .court-rules{grid-template-columns:repeat(2,minmax(0,1fr));gap:7px}
   #app #page3 .court-rules .field{padding:7px;border-radius:13px}
   #app #page3 .court-rules .field label{font-size:.68rem;text-align:center}
   #app #page3 .court-rules .field :is(input,select){min-height:42px;padding:7px 4px;text-align:center}
