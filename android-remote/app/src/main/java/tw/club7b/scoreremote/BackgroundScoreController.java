@@ -43,14 +43,16 @@ final class BackgroundScoreController {
 
     private void sendShuttleCommand(String action, String successMessage, FullscreenCallback callback) {
         RemoteSessionStore.Session session=RemoteSessionStore.getSession(context);
-        if(!session.isReady()){callback.onComplete(false,"請先連接球局並開始比賽");return;}
+        if(!session.isAuthorized()){callback.onComplete(false,"請先連接球局並登入管理員");return;}
         DocumentReference liveScore=liveScoreReference(session),remoteControl=remoteControlReference(session);
         firestore.runTransaction(transaction -> {
             DocumentSnapshot snapshot=transaction.get(liveScore);
             if(!snapshot.exists())throw new IllegalStateException("找不到即時比分");
             Map<String,Object> match=mapValue(snapshot.get("match")),command=new HashMap<>(),updates=new HashMap<>();
+            Object matchId=match.get("matchId");
+            if(!Boolean.TRUE.equals(match.get("active"))||matchId==null||String.valueOf(matchId).isEmpty())throw new IllegalStateException("目前沒有進行中的比賽");
             command.put("id",java.util.UUID.randomUUID().toString());command.put("action",action);
-            Object matchId=match.get("matchId");command.put("matchId",matchId == null ? "" : String.valueOf(matchId));command.put("createdAt",FieldValue.serverTimestamp());
+            command.put("matchId",String.valueOf(matchId));command.put("createdAt",FieldValue.serverTimestamp());
             updates.put("remoteActionCommand",command);updates.put("updatedAt",FieldValue.serverTimestamp());
             transaction.set(remoteControl,updates,SetOptions.merge());return true;
         }).addOnSuccessListener(done->callback.onComplete(true,successMessage))
@@ -87,8 +89,8 @@ final class BackgroundScoreController {
 
     void warmUp(WarmUpCallback callback) {
         RemoteSessionStore.Session session = RemoteSessionStore.getSession(context);
-        if (!session.isReady()) {
-            callback.onComplete(false, "請先連接球局、登入管理員並開始比賽");
+        if (!session.isAuthorized()) {
+            callback.onComplete(false, "請先連接球局並登入管理員");
             return;
         }
         liveScoreReference(session).get(Source.SERVER)
@@ -101,8 +103,8 @@ final class BackgroundScoreController {
 
     void toggleScoreFullscreen(FullscreenCallback callback) {
         RemoteSessionStore.Session session = RemoteSessionStore.getSession(context);
-        if (!session.isReady()) {
-            callback.onComplete(false, "請先連接球局並開始比賽");
+        if (!session.isAuthorized()) {
+            callback.onComplete(false, "請先連接球局並登入管理員");
             return;
         }
         DocumentReference liveScore = liveScoreReference(session);
@@ -113,7 +115,7 @@ final class BackgroundScoreController {
             Map<String, Object> match = mapValue(snapshot.get("match"));
             boolean finished = match.get("winner") != null;
             Object matchId = match.get("matchId");
-            if (matchId == null || String.valueOf(matchId).isEmpty()) {
+            if (!Boolean.TRUE.equals(match.get("active")) || matchId == null || String.valueOf(matchId).isEmpty()) {
                 throw new IllegalStateException("找不到目前比賽");
             }
             Map<String, Object> command = new HashMap<>();
