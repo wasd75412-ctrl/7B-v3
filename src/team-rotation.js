@@ -46,13 +46,19 @@ function repeatPenalty(lineup,history){
   },0);
 }
 
-export function arrangeTeamsWithTeammateLimit(players=[],history=[],randomValue=0,maxConsecutiveGames=2){
+function hasMaleTeammates(lineup,genderByPlayer){
+  return [lineup.slice(0,2),lineup.slice(2,4)].some(team=>team.length===2&&team.every(id=>genderByPlayer[id]==='male'));
+}
+
+export function arrangeTeamsWithTeammateLimit(players=[],history=[],randomValue=0,maxConsecutiveGames=2,{genderByPlayer={},malePresentCount=0}={}){
   const ids=[...new Set(players.filter(Boolean))].slice(0,4);
   if(ids.length!==4)return ids;
   const [a,b,c,d]=ids;
   const pairings=[[a,b,c,d],[a,c,b,d],[a,d,b,c]];
-  const safe=pairings.filter(lineup=>!lineupExceedsTeammateLimit(lineup,history,maxConsecutiveGames));
-  const candidates=safe.length?safe:pairings;
+  const genderSafe=malePresentCount===3?pairings:pairings.filter(lineup=>!hasMaleTeammates(lineup,genderByPlayer));
+  const genderCandidates=genderSafe.length?genderSafe:pairings;
+  const safe=genderCandidates.filter(lineup=>!lineupExceedsTeammateLimit(lineup,history,maxConsecutiveGames));
+  const candidates=safe.length?safe:genderCandidates;
   const lowestRepeat=Math.min(...candidates.map(lineup=>repeatPenalty(lineup,history)));
   let pool=candidates.filter(lineup=>repeatPenalty(lineup,history)===lowestRepeat);
   if(!safe.length){

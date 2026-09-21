@@ -4566,7 +4566,7 @@ html.chat-keyboard-open .chat-autocomplete{
 }
 
 /* BCM 2.4.42 — fixed members and guest-player sections */
-#app .player-add-row{grid-template-columns:minmax(0,1fr) minmax(145px,.32fr) auto}
+#app .player-add-row{grid-template-columns:minmax(0,1fr) minmax(130px,.26fr) minmax(145px,.32fr) auto}
 #app .roster-sections{display:grid;gap:18px}
 #app .roster-group{
   padding:16px;
