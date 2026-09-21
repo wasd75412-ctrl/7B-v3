@@ -526,3 +526,11 @@ test('removes the next-match announcement button and explanatory feature notes',
   ]) assert.ok(!html.includes(note),`still shows explanatory note: ${note}`);
   assert.match(styles,/#resultModal>\.modal-card>\.sub\{display:none\}/);
 });
+
+test('lets players set gender for mixed-team rotation',()=>{
+  assert.match(html,/id="newPlayerGender"[\s\S]*?<option value="male">男性<\/option>[\s\S]*?<option value="female">女性<\/option>/);
+  assert.match(html,/id="editGender"[\s\S]*?<option value="male">男性<\/option>[\s\S]*?<option value="female">女性<\/option>/);
+  assert.match(mainSource,/gender:normalizePlayerGender\(playerRecord\.gender\)/);
+  assert.match(mainSource,/if\(profileDirty\.gender\)updated\.gender=normalizePlayerGender/);
+  assert.match(mainSource,/malePresentCount=selectablePlayerIds\(\)\.filter/);
+});

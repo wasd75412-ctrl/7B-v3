@@ -53,3 +53,23 @@ test('randomizes only between pairings with the same repeat count',()=>{
   assert.equal(pairs(first).includes('A|B'),false);
   assert.equal(pairs(second).includes('A|B'),false);
 });
+
+test('separates male players when fewer than three men are present',()=>{
+  const genderByPlayer={A:'male',B:'male',C:'female',D:'female'};
+  const history=[game(['A','C'],['B','D'])];
+  const lineup=arrangeTeamsWithTeammateLimit(['A','B','C','D'],history,0,2,{genderByPlayer,malePresentCount:2});
+  assert.equal(pairs(lineup).includes('A|B'),false);
+});
+
+test('allows male teammates when three men are present',()=>{
+  const genderByPlayer={A:'male',B:'male',C:'male',D:'female'};
+  const lineup=arrangeTeamsWithTeammateLimit(['A','B','C','D'],[],0,2,{genderByPlayer,malePresentCount:3});
+  assert.equal(pairs(lineup).some(pair=>pair==='A|B'||pair==='A|C'||pair==='B|C'),true);
+});
+
+test('still prefers an unseen gender-safe pairing',()=>{
+  const genderByPlayer={A:'male',B:'male',C:'female',D:'female'};
+  const history=[game(['A','C'],['B','D'])];
+  const lineup=arrangeTeamsWithTeammateLimit(['A','B','C','D'],history,0,2,{genderByPlayer,malePresentCount:2});
+  assert.deepEqual(pairs(lineup),['A|D','B|C']);
+});
