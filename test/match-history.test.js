@@ -42,3 +42,8 @@ test('uses the existing theme colors for the admin timeline',()=>{
   assert.match(css,/\.youtube-timeline\{[^}]*background:var\(--card\);color:var\(--ink\);border:1px solid var\(--line\)/);
   assert.match(css,/\.youtube-timeline-text\{[^}]*border:1px solid var\(--line\);[^}]*background:var\(--card\);color:var\(--ink\)/);
 });
+
+test('keeps match record dates readable on themed cards',()=>{
+  const css=readFileSync(new URL('../src/styles.css',import.meta.url),'utf8');
+  assert.match(css,/#app \.history-item \.history-main>\.sub\{color:var\(--sport-ink\)!important;opacity:\.82\}/);
+});
