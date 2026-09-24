@@ -46,4 +46,5 @@ test('uses the existing theme colors for the admin timeline',()=>{
 test('keeps match record dates readable on themed cards',()=>{
   const css=readFileSync(new URL('../src/styles.css',import.meta.url),'utf8');
   assert.match(css,/#app \.history-item \.history-main>\.sub\{color:var\(--sport-ink\)!important;opacity:\.82\}/);
+  assert.match(css,/#app \.history-date-group>summary span:last-of-type,#app \.history-date-group>summary:after\{color:var\(--sport-ink\)!important;opacity:\.9\}/);
 });
