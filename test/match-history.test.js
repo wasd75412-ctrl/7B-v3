@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { formatDuration, formatTimelineOffset, groupMatchHistoryByDate, matchDayTimeline } from '../src/match-history.js';
+import { formatDuration, formatTimelineOffset, groupMatchHistoryByDate, matchDayTimeline, youtubeTimelineText } from '../src/match-history.js';
 
 test('groups match history by date newest first and preserves original indexes',()=>{
   const history=[
@@ -20,8 +20,13 @@ test('builds YouTube offsets and full session duration from recorded timestamps'
   ]);
   assert.deepEqual(timeline.rows.map(row=>row.offsetSeconds),[0,1110]);
   assert.equal(timeline.durationSeconds,1860);
-  assert.equal(formatTimelineOffset(1110),'18:30');
+  assert.equal(formatTimelineOffset(1110),'00:18:30');
   assert.equal(formatDuration(1860),'31 分鐘');
+});
+
+test('creates a copyable YouTube chapter list from the recording start',()=>{
+  const matches=[{match:{startedAt:'2026-09-25T01:22:34.000Z',teams:[['yoyo','jie'],['yu','xuan']],scores:[11,9]}}];
+  assert.equal(youtubeTimelineText(matches,'2026-09-25T01:00:00.000Z',id=>({yoyo:'Yoyo',jie:'澐緁',yu:'建昱',xuan:'于萱'})[id]),'00:00:00 準備與熱身\n00:22:34 Game1 Yoyo／澐緁 11：9 建昱／于萱');
 });
 
 test('keeps legacy matches without start timestamps usable',()=>{

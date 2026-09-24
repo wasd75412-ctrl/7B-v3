@@ -28,7 +28,7 @@ import { normalizeScoreFont, randomScoreFont } from './score-font.js';
 import { EVENT_PACKING_MEMO_ITEMS, eventPackingMemoProgress, mergePackingMemos, normalizeEventPackingMemo } from './event-packing-memo.js';
 import { ensureShuttleCostNotice, moveAdminNotice, normalizeAdminNotices } from './admin-notices.js';
 import { eventPaymentStatus, normalizeEventPayments, updateEventPayment } from './event-payment.js';
-import { formatDuration, formatTimelineOffset, groupMatchHistoryByDate, matchDayTimeline } from './match-history.js';
+import { groupMatchHistoryByDate, youtubeTimelineText } from './match-history.js';
 
 const firebaseConfig={apiKey:'AIzaSyBrakbTPK7UqEChPBI6pM8-i03IcLq0IvM',authDomain:'badminton-7a1c3.firebaseapp.com',projectId:'badminton-7a1c3',storageBucket:'badminton-7a1c3.firebasestorage.app',messagingSenderId:'883534015507',appId:'1:883534015507:web:a7f6fb318151b6d07563e6',measurementId:'G-C97B98H7YW'};
 const fbApp=initializeApp(firebaseConfig);
@@ -83,7 +83,7 @@ const shuffle=a=>{a=[...a];const r=new Uint32Array(Math.max(1,a.length));crypto.
 function teammateSafeLineup(ids,{randomize=false,randomizeAll=false}={}){const values=ids.filter(Boolean);if(values.length!==4||new Set(values).size!==4)return values;const todayHistory=state.history.filter(h=>historyDate(h)===localDateKey()),genderGroupingEnabled=state.rules?.genderGroupingEnabled!==false,genderByPlayer=Object.fromEntries(state.roster.map(p=>[p.id,normalizePlayerGender(p.gender)])),malePresentCount=selectablePlayerIds().filter(id=>genderByPlayer[id]===PLAYER_GENDER_MALE).length,hasMalePair=[values.slice(0,2),values.slice(2,4)].some(team=>team.every(id=>genderByPlayer[id]===PLAYER_GENDER_MALE)),genderViolation=genderGroupingEnabled&&malePresentCount!==3&&hasMalePair;if(!randomize&&!genderViolation&&!lineupExceedsTeammateLimit(values,todayHistory))return values;const random=crypto.getRandomValues(new Uint32Array(1))[0];return arrangeTeamsWithTeammateLimit(shuffle(values),todayHistory,random,2,{genderGroupingEnabled,genderByPlayer,malePresentCount,randomizeAll})}
 function wholeAmount(value){const n=Number(value);return Number.isFinite(n)&&n>0?Math.round(n):0}
 function setAdminNotices(rows){state.adminNotices=normalizeAdminNotices({adminNotices:rows});state.adminNotice=state.adminNotices[0]||null}
-const initialState=()=>({version:9.8,matchFormat:'doubles',testMode:false,testModeRevision:0,roster:[],retiredPlayers:[],adminPlayerIds:[],attendance:[],court:[],waitingQueue:[],queueDraftChosen:[],priority:null,lastLoserReplayPlayerId:null,match:{active:false,format:'doubles',players:[[],[]],scores:[0,0],rallies:[],serving:0,positions:[[0,1],[0,1]],winner:null,startedAt:''},matchRollback:null,rules:{target:11,cap:15,deuce:true,genderGroupingEnabled:true},history:[],matchReplayPlaylistTitle:'',matchReplayPlaylistUrl:'',nextCall:null,schedulePoll:{status:'open',createdAt:'',deadlineAt:'',autoCycle:'',options:[],votes:{},voterPlayers:{},manualParticipants:{}},pollHistory:[],nextEvent:null,nextEvents:[],adminNotice:null,adminNotices:[],shuttleTubes:[],shuttleLegacyActiveTubeId:'',shuttleNoTrackingTubeIds:[],updatedAt:null});
+const initialState=()=>({version:9.8,matchFormat:'doubles',testMode:false,testModeRevision:0,roster:[],retiredPlayers:[],adminPlayerIds:[],attendance:[],court:[],waitingQueue:[],queueDraftChosen:[],priority:null,lastLoserReplayPlayerId:null,match:{active:false,format:'doubles',players:[[],[]],scores:[0,0],rallies:[],serving:0,positions:[[0,1],[0,1]],winner:null,startedAt:''},matchRollback:null,rules:{target:11,cap:15,deuce:true,genderGroupingEnabled:true},history:[],matchTimelineStarts:{},matchReplayPlaylistTitle:'',matchReplayPlaylistUrl:'',nextCall:null,schedulePoll:{status:'open',createdAt:'',deadlineAt:'',autoCycle:'',options:[],votes:{},voterPlayers:{},manualParticipants:{}},pollHistory:[],nextEvent:null,nextEvents:[],adminNotice:null,adminNotices:[],shuttleTubes:[],shuttleLegacyActiveTubeId:'',shuttleNoTrackingTubeIds:[],updatedAt:null});
 const DEVICE_SYNC_CODE_KEY='bcmDeviceSyncCodeV1',DEVICE_SYNC_TOKEN_KEY='bcmDeviceSyncTokenV1',DEVICE_SYNC_NAME_KEY='bcmDeviceSyncNameV1',DEVICE_SYNC_PLAYER_KEY='bcmDeviceSyncPlayerV1';
 let state=initialState(), roomId='', roomRef=null, liveScoreRef=null, remoteControlRef=null, chatCollectionRef=null, isHost=false, hostToken='', adminPinHash='', unsubscribe=null, liveScoreUnsubscribe=null, remoteControlUnsubscribe=null, chatUnsubscribe=null, applying=false, saveTimer=null, liveScoreSaveTimer=null, matchAutoBackupTimer=null, editId=null;const expandedPlayerNotes=new Set();let profileOriginal=null,profileDirty={name:false,gender:false,memberType:false,voiceName:false,racket:false,racketTension:false,racketString:false,backupRacket:false,backupTension:false,backupString:false,note:false};let voiceEnabled=localStorage.getItem('bdV76Voice')!=='0';let dismissedResultKey='';const selfToken=localStorage.getItem(DEVICE_SYNC_TOKEN_KEY)||localStorage.getItem('bdV73SelfToken')||randomToken();localStorage.setItem('bdV73SelfToken',selfToken);let selfHash='',scoreViewRequested=false,expandedShuttleTubeId='';
 let deviceProfileUnsubscribe=null,deviceProfileApplying=false,deviceProfileSaveTimer=null,identitySyncing=false,roomConnectInProgress=false;
@@ -335,6 +335,7 @@ function encodeState(src){
     shuttleTubes:enforceLegacyActiveShuttleTube(src.shuttleTubes,legacyActiveTubeId),
     shuttleLegacyActiveTubeId:legacyActiveTubeId,
     shuttleNoTrackingTubeIds:noTrackingTubeIds,
+    matchTimelineStarts:src.matchTimelineStarts&&typeof src.matchTimelineStarts==='object'?src.matchTimelineStarts:{},
     history:(Array.isArray(src.history)?src.history:[]).map(h=>({
       matchId:h.matchId||randomToken(),
       time:h.time||'',
@@ -421,7 +422,8 @@ function decodeState(d){
     shuttleTubes:enforceLegacyActiveShuttleTube(d.shuttleTubes,legacyActiveTubeId),
     shuttleLegacyActiveTubeId:legacyActiveTubeId,
     shuttleNoTrackingTubeIds:noTrackingTubeIds,
-    history
+    history,
+    matchTimelineStarts:d.matchTimelineStarts&&typeof d.matchTimelineStarts==='object'?d.matchTimelineStarts:{}
   }
 }
 
@@ -2384,19 +2386,27 @@ async function clearMatchReplayPlaylist(){
     button.disabled=!state.matchReplayPlaylistUrl;
   }
 }
-function historyClock(value){const d=new Date(value||'');return isNaN(d.getTime())?'—':d.toLocaleTimeString('zh-TW',{hour:'2-digit',minute:'2-digit',hour12:false})}
 function historyDateLabel(dateKey){if(!/^\d{4}-\d{2}-\d{2}$/.test(dateKey))return dateKey;const d=new Date(`${dateKey}T12:00:00`);return `${d.getFullYear()} 年 ${d.getMonth()+1} 月 ${d.getDate()} 日（${'日一二三四五六'[d.getDay()]}）`}
+function timelineLocalInputValue(value){const d=new Date(value||'');if(isNaN(d.getTime()))return '';return `${localDateKey(d)}T${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}:${String(d.getSeconds()).padStart(2,'0')}`}
+function timelinePanel(group){
+  const savedStart=state.matchTimelineStarts?.[group.dateKey]||'',text=savedStart?youtubeTimelineText(group.matches,savedStart,pname):'請先設定錄影開始時間。';
+  return `<section class="youtube-timeline host-only"><div class="youtube-timeline-head"><strong>YouTube 比賽時間軸</strong><button class="btn primary" type="button" data-copy-timeline="${esc(group.dateKey)}" ${savedStart?'':'disabled'}>複製全部</button></div><div class="youtube-timeline-start"><label class="field"><span>錄影開始時間</span><input class="input" type="datetime-local" step="1" value="${esc(timelineLocalInputValue(savedStart))}" data-timeline-start="${esc(group.dateKey)}"></label><button class="btn" type="button" data-timeline-now="${esc(group.dateKey)}">設為現在</button></div><textarea class="youtube-timeline-text" readonly data-timeline-text="${esc(group.dateKey)}">${esc(text)}</textarea></section>`;
+}
+function setTimelineStart(dateKey,value){if(!isHost)return;const date=new Date(value||'');if(isNaN(date.getTime()))return alert('請輸入正確的錄影開始時間。');state.matchTimelineStarts={...(state.matchTimelineStarts||{}),[dateKey]:date.toISOString()};renderHistory();saveSoon()}
+async function copyTimeline(dateKey){const text=document.querySelector(`[data-timeline-text="${CSS.escape(dateKey)}"]`)?.value;if(!text)return;try{await navigator.clipboard.writeText(text);alert('比賽時間軸已複製。')}catch{prompt('複製比賽時間軸：',text)}}
 function renderHistory(){
   renderMatchReplay();
   const container=$('history'),openDates=new Set(all('.history-date-group[open]').map(group=>group.dataset.historyDate));
   const groups=groupMatchHistoryByDate(state.history,historyDate);
   container.innerHTML=groups.map((group,groupIndex)=>{
-    const timeline=matchDayTimeline(group.matches),open=openDates.has(group.dateKey)||(!openDates.size&&groupIndex===0);
-    const adminSummary=timeline.firstStart?`<div class="history-session-summary host-only"><strong>球局時間</strong><span>${historyClock(timeline.firstStart)}－${historyClock(timeline.lastEnd)} · 總時間 ${formatDuration(timeline.durationSeconds)}</span></div>`:'';
-    const matches=timeline.rows.map(({match:h,index,position,offsetSeconds})=>`<div class="history-item ${h.testMode?'test-record':''}"><div class="history-main"><strong><span class="match-format-badge">${historyFormat(h)===MATCH_FORMAT_SINGLES?'單打':'雙打'}</span>${h.testMode?'<span class="test-record-badge">測試</span> ':''}${esc((h.teams?.[0]||[]).map(pname).join('／'))} ${h.scores?.[0]??0}：${h.scores?.[1]??0} ${esc((h.teams?.[1]||[]).map(pname).join('／'))}</strong><div class="sub">${esc(h.time||'')}${h.testMode?' · 不計入戰績':''}</div><div class="history-timestamp host-only"><span>第 ${position+1} 場 · 開始 ${historyClock(h.startedAt)}</span><code>${formatTimelineOffset(offsetSeconds)}</code></div></div><div class="history-actions host-only"><button class="btn danger-outline" data-delete-history="${index}">刪除</button></div></div>`).join('');
-    return `<details class="history-date-group" data-history-date="${esc(group.dateKey)}" ${open?'open':''}><summary><span>${esc(historyDateLabel(group.dateKey))}</span><span>${group.matches.length} 場</span></summary>${adminSummary}<div class="history-date-matches">${matches}</div></details>`;
+    const open=openDates.has(group.dateKey)||(!openDates.size&&groupIndex===0);
+    const matches=group.matches.map(({match:h,index})=>`<div class="history-item ${h.testMode?'test-record':''}"><div class="history-main"><strong><span class="match-format-badge">${historyFormat(h)===MATCH_FORMAT_SINGLES?'單打':'雙打'}</span>${h.testMode?'<span class="test-record-badge">測試</span> ':''}${esc((h.teams?.[0]||[]).map(pname).join('／'))} ${h.scores?.[0]??0}：${h.scores?.[1]??0} ${esc((h.teams?.[1]||[]).map(pname).join('／'))}</strong><div class="sub">${esc(h.time||'')}${h.testMode?' · 不計入戰績':''}</div></div><div class="history-actions host-only"><button class="btn danger-outline" data-delete-history="${index}">刪除</button></div></div>`).join('');
+    return `<details class="history-date-group" data-history-date="${esc(group.dateKey)}" ${open?'open':''}><summary><span>${esc(historyDateLabel(group.dateKey))}</span><span>${group.matches.length} 場</span></summary>${timelinePanel(group)}<div class="history-date-matches">${matches}</div></details>`;
   }).join('')||'<p class="sub">尚無比賽紀錄。</p>';
   all('[data-delete-history]').forEach(btn=>btn.onclick=()=>deleteHistoryRecord(+btn.dataset.deleteHistory));applyRole()
+  all('[data-timeline-start]').forEach(input=>input.onchange=()=>setTimelineStart(input.dataset.timelineStart,input.value));
+  all('[data-timeline-now]').forEach(button=>button.onclick=()=>setTimelineStart(button.dataset.timelineNow,new Date()));
+  all('[data-copy-timeline]').forEach(button=>button.onclick=()=>copyTimeline(button.dataset.copyTimeline));
 }
 function deleteHistoryRecord(index){if(!isHost)return;const h=state.history[index];if(!h)return;const title=`${(h.teams?.[0]||[]).map(pname).join('／')} ${h.scores?.[0]??0}：${h.scores?.[1]??0} ${(h.teams?.[1]||[]).map(pname).join('／')}`;if(!confirm(`確定刪除這筆比賽紀錄？\n\n${title}\n${h.time||''}`))return;state.history.splice(index,1);renderAll();saveSoon()}
 function clearAllHistory(){if(!isHost)return;if(!state.history.length)return alert('目前沒有比賽紀錄。');if(!confirm(`即將刪除全部 ${state.history.length} 筆比賽紀錄。\n球員名單與目前比分不會被刪除。`))return;const text=prompt('為避免誤刪，請輸入「清空」：','');if(text!=='清空')return alert('輸入不正確，已取消清空。');state.history=[];renderAll();saveSoon();alert('全部比賽紀錄已清空。')}
