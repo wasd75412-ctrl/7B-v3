@@ -4657,6 +4657,16 @@ html.chat-keyboard-open .chat-autocomplete{
 .test-quick-win{position:fixed;z-index:120;left:50%;bottom:calc(18px + env(safe-area-inset-bottom));display:flex;gap:12px;transform:translateX(-50%)}.test-quick-win.hidden{display:none}.test-quick-win .btn{min-width:120px;border:2px solid #ffd65a;background:rgba(20,28,38,.9);color:#fff;font-weight:1000;box-shadow:0 0 18px rgba(255,214,90,.55)}
 .score-view .score-foot{display:none}
 .history-item.test-record{border-color:#d49b21;background:rgba(255,195,66,.10)}.test-record-badge{display:inline-block;border-radius:999px;padding:3px 7px;background:#f0b429;color:#352300;font-size:.72rem;font-weight:1000;vertical-align:.1em}
+.history-date-group{margin-top:14px;border:1px solid var(--line);border-radius:18px;overflow:hidden;background:rgba(255,255,255,.42)}
+.history-date-group>summary{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:15px 16px;cursor:pointer;font-weight:1000;list-style:none}
+.history-date-group>summary::-webkit-details-marker{display:none}
+.history-date-group>summary:after{content:'＋';font-size:1.2rem;color:var(--muted)}
+.history-date-group[open]>summary:after{content:'－'}
+.history-date-group>summary span:last-of-type{margin-left:auto;color:var(--muted);font-size:.88rem}
+.history-date-matches{padding:0 10px 10px}
+.history-session-summary{display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;margin:0 10px 4px;padding:11px 13px;border-radius:13px;background:#eaf4ff;color:#123f69}
+.history-timestamp{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:6px;color:var(--muted);font-size:.84rem;font-weight:850}
+.history-timestamp code{padding:3px 7px;border-radius:7px;background:#102f4d;color:#fff;font:800 .82rem ui-monospace,SFMono-Regular,Consolas,monospace}
 #resultModal>.modal-card>.sub{display:none}
 #resultModal .result-card{position:relative;width:min(920px,100%);padding:24px}
 #resultModal .result-topbar{display:flex;align-items:flex-start;justify-content:space-between;gap:18px;margin-bottom:18px}

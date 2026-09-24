@@ -28,6 +28,7 @@ import { normalizeScoreFont, randomScoreFont } from './score-font.js';
 import { EVENT_PACKING_MEMO_ITEMS, eventPackingMemoProgress, mergePackingMemos, normalizeEventPackingMemo } from './event-packing-memo.js';
 import { ensureShuttleCostNotice, moveAdminNotice, normalizeAdminNotices } from './admin-notices.js';
 import { eventPaymentStatus, normalizeEventPayments, updateEventPayment } from './event-payment.js';
+import { formatDuration, formatTimelineOffset, groupMatchHistoryByDate, matchDayTimeline } from './match-history.js';
 
 const firebaseConfig={apiKey:'AIzaSyBrakbTPK7UqEChPBI6pM8-i03IcLq0IvM',authDomain:'badminton-7a1c3.firebaseapp.com',projectId:'badminton-7a1c3',storageBucket:'badminton-7a1c3.firebasestorage.app',messagingSenderId:'883534015507',appId:'1:883534015507:web:a7f6fb318151b6d07563e6',measurementId:'G-C97B98H7YW'};
 const fbApp=initializeApp(firebaseConfig);
@@ -347,6 +348,7 @@ function encodeState(src){
       format:h.format==='singles'?'singles':'doubles',
       testMode:!!h.testMode,
       endedAt:h.endedAt||'',
+      startedAt:h.startedAt||'',
       dateKey:h.dateKey||'',
       monthKey:h.monthKey||''
     }))
@@ -370,6 +372,7 @@ function decodeState(d){
       format:h.format==='singles'?'singles':'doubles',
       testMode:!!h.testMode,
       endedAt:h.endedAt||'',
+      startedAt:h.startedAt||'',
       dateKey:h.dateKey||'',
       monthKey:h.monthKey||''
     }
@@ -2381,7 +2384,20 @@ async function clearMatchReplayPlaylist(){
     button.disabled=!state.matchReplayPlaylistUrl;
   }
 }
-function renderHistory(){renderMatchReplay();const list=state.history.map((h,index)=>({h,index})).reverse();$('history').innerHTML=list.map(({h,index})=>`<div class="history-item ${h.testMode?'test-record':''}"><div class="history-main"><strong><span class="match-format-badge">${historyFormat(h)===MATCH_FORMAT_SINGLES?'單打':'雙打'}</span>${h.testMode?'<span class="test-record-badge">測試</span> ':''}${esc((h.teams?.[0]||[]).map(pname).join('／'))} ${h.scores?.[0]??0}：${h.scores?.[1]??0} ${esc((h.teams?.[1]||[]).map(pname).join('／'))}</strong><div class="sub">${esc(h.time||'')}${h.testMode?' · 不計入戰績':''}</div></div><div class="history-actions host-only"><button class="btn danger-outline" data-delete-history="${index}">刪除</button></div></div>`).join('')||'<p class="sub">尚無比賽紀錄。</p>';all('[data-delete-history]').forEach(btn=>btn.onclick=()=>deleteHistoryRecord(+btn.dataset.deleteHistory));applyRole()}
+function historyClock(value){const d=new Date(value||'');return isNaN(d.getTime())?'—':d.toLocaleTimeString('zh-TW',{hour:'2-digit',minute:'2-digit',hour12:false})}
+function historyDateLabel(dateKey){if(!/^\d{4}-\d{2}-\d{2}$/.test(dateKey))return dateKey;const d=new Date(`${dateKey}T12:00:00`);return `${d.getFullYear()} 年 ${d.getMonth()+1} 月 ${d.getDate()} 日（${'日一二三四五六'[d.getDay()]}）`}
+function renderHistory(){
+  renderMatchReplay();
+  const container=$('history'),openDates=new Set(all('.history-date-group[open]').map(group=>group.dataset.historyDate));
+  const groups=groupMatchHistoryByDate(state.history,historyDate);
+  container.innerHTML=groups.map((group,groupIndex)=>{
+    const timeline=matchDayTimeline(group.matches),open=openDates.has(group.dateKey)||(!openDates.size&&groupIndex===0);
+    const adminSummary=timeline.firstStart?`<div class="history-session-summary host-only"><strong>球局時間</strong><span>${historyClock(timeline.firstStart)}－${historyClock(timeline.lastEnd)} · 總時間 ${formatDuration(timeline.durationSeconds)}</span></div>`:'';
+    const matches=timeline.rows.map(({match:h,index,position,offsetSeconds})=>`<div class="history-item ${h.testMode?'test-record':''}"><div class="history-main"><strong><span class="match-format-badge">${historyFormat(h)===MATCH_FORMAT_SINGLES?'單打':'雙打'}</span>${h.testMode?'<span class="test-record-badge">測試</span> ':''}${esc((h.teams?.[0]||[]).map(pname).join('／'))} ${h.scores?.[0]??0}：${h.scores?.[1]??0} ${esc((h.teams?.[1]||[]).map(pname).join('／'))}</strong><div class="sub">${esc(h.time||'')}${h.testMode?' · 不計入戰績':''}</div><div class="history-timestamp host-only"><span>第 ${position+1} 場 · 開始 ${historyClock(h.startedAt)}</span><code>${formatTimelineOffset(offsetSeconds)}</code></div></div><div class="history-actions host-only"><button class="btn danger-outline" data-delete-history="${index}">刪除</button></div></div>`).join('');
+    return `<details class="history-date-group" data-history-date="${esc(group.dateKey)}" ${open?'open':''}><summary><span>${esc(historyDateLabel(group.dateKey))}</span><span>${group.matches.length} 場</span></summary>${adminSummary}<div class="history-date-matches">${matches}</div></details>`;
+  }).join('')||'<p class="sub">尚無比賽紀錄。</p>';
+  all('[data-delete-history]').forEach(btn=>btn.onclick=()=>deleteHistoryRecord(+btn.dataset.deleteHistory));applyRole()
+}
 function deleteHistoryRecord(index){if(!isHost)return;const h=state.history[index];if(!h)return;const title=`${(h.teams?.[0]||[]).map(pname).join('／')} ${h.scores?.[0]??0}：${h.scores?.[1]??0} ${(h.teams?.[1]||[]).map(pname).join('／')}`;if(!confirm(`確定刪除這筆比賽紀錄？\n\n${title}\n${h.time||''}`))return;state.history.splice(index,1);renderAll();saveSoon()}
 function clearAllHistory(){if(!isHost)return;if(!state.history.length)return alert('目前沒有比賽紀錄。');if(!confirm(`即將刪除全部 ${state.history.length} 筆比賽紀錄。\n球員名單與目前比分不會被刪除。`))return;const text=prompt('為避免誤刪，請輸入「清空」：','');if(text!=='清空')return alert('輸入不正確，已取消清空。');state.history=[];renderAll();saveSoon();alert('全部比賽紀錄已清空。')}
 function renderAll(){renderRoster();renderAttendance();renderCourt();renderHistory();renderScore();renderDashboard();renderStats();renderPoll();renderChat();renderTestMode();if(!$('shuttleTubeModal')?.classList.contains('hidden'))renderShuttleTubeManager();applyRole();renderAndroidRemote()}
@@ -2441,7 +2457,7 @@ function finishMatch(){
       m.testCompleted=true;state.waitingQueue=[];state.queueDraftChosen=[];state.priority=null;state.lastLoserReplayPlayerId=null;
       lineup=randomTestLineup();
     }else{
-      state.history.push({matchId:m.matchId,time:now.toLocaleString('zh-TW'),endedAt:now.toISOString(),dateKey:localDateKey(now),monthKey:localMonthKey(now),format,teams:structuredClone(m.players),scores:[...m.scores],winner:m.winner});
+      state.history.push({matchId:m.matchId,time:now.toLocaleString('zh-TW'),startedAt:m.startedAt||'',endedAt:now.toISOString(),dateKey:localDateKey(now),monthKey:localMonthKey(now),format,teams:structuredClone(m.players),scores:[...m.scores],winner:m.winner});
       const winners=[...m.players[m.winner]],losers=[...m.players[1-m.winner]],previousCourt=m.players.flat();
       reconcileWaitingQueue(previousCourt);
       if(format===MATCH_FORMAT_SINGLES){
