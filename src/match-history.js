@@ -19,15 +19,17 @@ export function groupMatchHistoryByDate(history=[],dateKeyForMatch=()=>'',fallba
     .sort((a,b)=>b.dateKey.localeCompare(a.dateKey));
 }
 
-export function matchDayTimeline(matches=[]){
+export function matchDayTimeline(matches=[],sessionStartedAt=''){
   const rows=matches.map((entry,position)=>{
     const match=entry.match||entry;
     return {...entry,match,position,start:validDate(match.startedAt),end:validDate(match.endedAt)};
   });
   const firstStart=rows.find(row=>row.start)?.start||null;
+  const timelineStart=validDate(sessionStartedAt)||firstStart;
   const lastEnd=[...rows].reverse().find(row=>row.end)?.end||null;
   return {
-    rows:rows.map(row=>({...row,offsetSeconds:firstStart&&row.start?Math.max(0,Math.floor((row.start-firstStart)/1000)):null})),
+    rows:rows.map(row=>({...row,offsetSeconds:timelineStart&&row.start?Math.max(0,Math.floor((row.start-timelineStart)/1000)):null})),
+    timelineStart,
     firstStart,
     lastEnd,
     durationSeconds:firstStart&&lastEnd&&lastEnd>=firstStart?Math.floor((lastEnd-firstStart)/1000):null
@@ -37,7 +39,18 @@ export function matchDayTimeline(matches=[]){
 export function formatTimelineOffset(seconds){
   if(!Number.isFinite(seconds)||seconds<0)return '—';
   const total=Math.floor(seconds),hours=Math.floor(total/3600),minutes=Math.floor(total%3600/60),secs=total%60;
-  return hours?`${hours}:${String(minutes).padStart(2,'0')}:${String(secs).padStart(2,'0')}`:`${minutes}:${String(secs).padStart(2,'0')}`;
+  return `${String(hours).padStart(2,'0')}:${String(minutes).padStart(2,'0')}:${String(secs).padStart(2,'0')}`;
+}
+
+export function youtubeTimelineText(matches=[],sessionStartedAt='',playerName=id=>id){
+  const timeline=matchDayTimeline(matches,sessionStartedAt);
+  const lines=['00:00:00 準備與熱身'];
+  timeline.rows.forEach(({match,position,offsetSeconds})=>{
+    const left=(match.teams?.[0]||[]).map(playerName).join('／');
+    const right=(match.teams?.[1]||[]).map(playerName).join('／');
+    lines.push(`${formatTimelineOffset(offsetSeconds)} Game${position+1} ${left} ${match.scores?.[0]??0}：${match.scores?.[1]??0} ${right}`);
+  });
+  return lines.join('\n');
 }
 
 export function formatDuration(seconds){
