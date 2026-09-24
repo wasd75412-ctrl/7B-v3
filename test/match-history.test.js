@@ -1,5 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 import { formatDuration, formatTimelineOffset, groupMatchHistoryByDate, matchDayTimeline, youtubeTimelineText } from '../src/match-history.js';
 
 test('groups match history by date newest first and preserves original indexes',()=>{
@@ -34,4 +35,10 @@ test('keeps legacy matches without start timestamps usable',()=>{
   assert.equal(timeline.firstStart,null);
   assert.equal(timeline.durationSeconds,null);
   assert.equal(formatTimelineOffset(timeline.rows[0].offsetSeconds),'—');
+});
+
+test('uses the existing theme colors for the admin timeline',()=>{
+  const css=readFileSync(new URL('../src/styles.css',import.meta.url),'utf8');
+  assert.match(css,/\.youtube-timeline\{[^}]*background:var\(--card\);color:var\(--ink\);border:1px solid var\(--line\)/);
+  assert.match(css,/\.youtube-timeline-text\{[^}]*border:1px solid var\(--line\);[^}]*background:var\(--card\);color:var\(--ink\)/);
 });
