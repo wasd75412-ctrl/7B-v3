@@ -317,6 +317,16 @@ test('keeps only the requested controls in normal score mode',()=>{
   for(const id of ['voiceToggle','speakerTest','scoreRemoteQuickBtn','audioHelp'])assert.doesNotMatch(scoreActions,new RegExp(`id="${id}"`));
 });
 
+test('enters fullscreen whenever a match starts',()=>{
+  const startMatchSource=mainSource.match(/function startMatch\(\)\{[\s\S]*?\nfunction finishMatch/)?.[0]||'';
+  const startNextSource=mainSource.match(/function startNext\(\)\{[\s\S]*?\n\}/)?.[0]||'';
+  assert.match(startMatchSource,/renderTestMode\(\);void enterScoreFullscreen\(\)/);
+  assert.match(startNextSource,/renderAll\(\);void enterScoreFullscreen\(\)/);
+  assert.match(mainSource,/async function enterScoreFullscreen\(\)\{[\s\S]*?requestFullscreen/);
+  assert.match(mainSource,/if\(enter\)\{try\{await enter\.call\(fullscreenScoreView\)/);
+  assert.match(mainSource,/catch\{\}\}\s*fullscreenScoreView\?\.classList\.add\('immersive-mode'\)/);
+});
+
 test('removes the bottom server-selection bar from score mode',()=>{
   assert.match(styles,/\.score-view \.score-foot\s*\{display:none\}/);
 });

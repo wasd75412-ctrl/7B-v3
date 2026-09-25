@@ -2452,7 +2452,7 @@ function finishTestMatch(team){
   m.winner=winner;
   finishMatch();
 }
-function startMatch(){dismissedResultKey='';const format=normalizeMatchFormat(state.matchFormat),needed=matchPlayerCount(format),selected=state.court.filter(Boolean);if(selected.length!==needed||new Set(selected).size!==needed)return alert(`請選擇${needed===2?'兩':'四'}位不同球員。`);const ids=format===MATCH_FORMAT_SINGLES?selected:teammateSafeLineup(selected);state.court=[...ids];reconcileWaitingQueue(ids);state.queueDraftChosen=[];state.lastLoserReplayPlayerId=null;state.matchRollback=null;randomizeScoreThemeAtMatchStart(ids);state.match={active:true,format,players:teamsForLineup(ids,format),scores:[0,0],rallies:[],serving:0,positions:format===MATCH_FORMAT_SINGLES?[[0],[0]]:[[0,1],[0,1]],winner:null,matchId:randomToken(),syncEpoch:nextMatchEpoch(state.match),scoreFont:randomScoreFont(state.match?.scoreFont),testMode:!!state.testMode,startedAt:new Date().toISOString()};scoreViewRequested=true;checkpointNewMatch();renderScore();renderDashboard();renderTestMode()}
+function startMatch(){dismissedResultKey='';const format=normalizeMatchFormat(state.matchFormat),needed=matchPlayerCount(format),selected=state.court.filter(Boolean);if(selected.length!==needed||new Set(selected).size!==needed)return alert(`請選擇${needed===2?'兩':'四'}位不同球員。`);const ids=format===MATCH_FORMAT_SINGLES?selected:teammateSafeLineup(selected);state.court=[...ids];reconcileWaitingQueue(ids);state.queueDraftChosen=[];state.lastLoserReplayPlayerId=null;state.matchRollback=null;randomizeScoreThemeAtMatchStart(ids);state.match={active:true,format,players:teamsForLineup(ids,format),scores:[0,0],rallies:[],serving:0,positions:format===MATCH_FORMAT_SINGLES?[[0],[0]]:[[0,1],[0,1]],winner:null,matchId:randomToken(),syncEpoch:nextMatchEpoch(state.match),scoreFont:randomScoreFont(state.match?.scoreFont),testMode:!!state.testMode,startedAt:new Date().toISOString()};scoreViewRequested=true;checkpointNewMatch();renderScore();renderDashboard();renderTestMode();void enterScoreFullscreen()}
 function finishMatch(){
   const m=state.match;if(!m.active||m.winner===null)return;
   const format=normalizeMatchFormat(m.format),needed=matchPlayerCount(format);
@@ -2512,7 +2512,7 @@ function startNext(){
   state.court=[...vals];state.nextCall=null;state.matchRollback=null;
   randomizeScoreThemeAtMatchStart(vals);
   state.match={active:true,format,players:teamsForLineup(vals,format),scores:[0,0],rallies:[],serving:0,positions:format===MATCH_FORMAT_SINGLES?[[0],[0]]:[[0,1],[0,1]],winner:null,matchId:randomToken(),syncEpoch:nextMatchEpoch(state.match),scoreFont:randomScoreFont(state.match?.scoreFont),testMode:!!state.testMode,startedAt:new Date().toISOString()};
-  scoreViewRequested=true;$('resultModal').classList.add('hidden');checkpointNewMatch();renderAll();if(isHost&&voiceEnabled&&finalCall)setTimeout(()=>speak(finalCall),180)
+  scoreViewRequested=true;$('resultModal').classList.add('hidden');checkpointNewMatch();renderAll();void enterScoreFullscreen();if(isHost&&voiceEnabled&&finalCall)setTimeout(()=>speak(finalCall),180)
 }
 
 function backupsRef(){return collection(db,'badmintonRooms',roomId,'backups')}
@@ -3248,18 +3248,21 @@ function updateFullscreenButton(){
   fullscreenScoreBtn.title=fullscreen?'離開全螢幕':'進入全螢幕';
 }
 async function exitScoreFullscreen(){fullscreenScoreView?.classList.remove('immersive-mode');if(currentFullscreenElement()){const exit=document.exitFullscreen||document.webkitExitFullscreen;if(exit)await exit.call(document)}updateFullscreenButton()}
-async function toggleScoreFullscreen(){
-  if(isScoreFullscreen())return exitScoreFullscreen();
+async function enterScoreFullscreen(){
+  if(isScoreFullscreen())return updateFullscreenButton();
   appWakeLockWanted=true;
   localStorage.setItem(APP_WAKE_LOCK_KEY,'1');
   appWakeLockLastError='';
-  await syncAppWakeLock(true);
   const enter=fullscreenScoreView?.requestFullscreen||fullscreenScoreView?.webkitRequestFullscreen;
   if(enter){try{await enter.call(fullscreenScoreView);void syncAppWakeLock(true);scheduleAppWakeLockRetry(350);return updateFullscreenButton()}catch{}}
   fullscreenScoreView?.classList.add('immersive-mode');
   void syncAppWakeLock(true);
   scheduleAppWakeLockRetry(350);
   updateFullscreenButton()
+}
+async function toggleScoreFullscreen(){
+  if(isScoreFullscreen())return exitScoreFullscreen();
+  return enterScoreFullscreen()
 }
 if(fullscreenScoreBtn)fullscreenScoreBtn.onclick=toggleScoreFullscreen;
 document.addEventListener('fullscreenchange',()=>{updateFullscreenButton();if(isScoreFullscreen())void syncAppWakeLock(true)});
