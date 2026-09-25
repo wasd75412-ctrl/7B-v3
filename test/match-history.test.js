@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { formatDuration, formatTimelineOffset, groupHistoryDatesByMonth, groupMatchHistoryByDate, matchDayTimeline, youtubeTimelineText } from '../src/match-history.js';
+import { defaultRecordingStartLocalValue, formatDuration, formatTimelineOffset, groupHistoryDatesByMonth, groupMatchHistoryByDate, matchDayTimeline, youtubeTimelineText } from '../src/match-history.js';
 
 test('groups match history by date newest first and preserves original indexes',()=>{
   const history=[
@@ -47,6 +47,11 @@ test('keeps legacy matches without start timestamps usable',()=>{
   assert.equal(timeline.firstStart,null);
   assert.equal(timeline.durationSeconds,null);
   assert.equal(formatTimelineOffset(timeline.rows[0].offsetSeconds),'—');
+});
+
+test('defaults overnight recordings to 01:00 and daytime recordings to 11:00',()=>{
+  assert.equal(defaultRecordingStartLocalValue([{match:{startedAt:'2026-09-25T17:20:00.000Z'}}],'2026-09-26'),'2026-09-26T01:00:00');
+  assert.equal(defaultRecordingStartLocalValue([{match:{startedAt:'2026-09-26T04:20:00.000Z'}}],'2026-09-26'),'2026-09-26T11:00:00');
 });
 
 test('saves a complete recording date and time only after explicit confirmation',()=>{
