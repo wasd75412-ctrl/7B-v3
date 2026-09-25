@@ -88,7 +88,7 @@ const DEVICE_SYNC_CODE_KEY='bcmDeviceSyncCodeV1',DEVICE_SYNC_TOKEN_KEY='bcmDevic
 let state=initialState(), roomId='', roomRef=null, liveScoreRef=null, remoteControlRef=null, chatCollectionRef=null, isHost=false, hostToken='', adminPinHash='', unsubscribe=null, liveScoreUnsubscribe=null, remoteControlUnsubscribe=null, chatUnsubscribe=null, applying=false, saveTimer=null, liveScoreSaveTimer=null, matchAutoBackupTimer=null, editId=null;const expandedPlayerNotes=new Set();let profileOriginal=null,profileDirty={name:false,gender:false,memberType:false,voiceName:false,racket:false,racketTension:false,racketString:false,backupRacket:false,backupTension:false,backupString:false,note:false};let voiceEnabled=localStorage.getItem('bdV76Voice')!=='0';let dismissedResultKey='';const selfToken=localStorage.getItem(DEVICE_SYNC_TOKEN_KEY)||localStorage.getItem('bdV73SelfToken')||randomToken();localStorage.setItem('bdV73SelfToken',selfToken);let selfHash='',scoreViewRequested=false,expandedShuttleTubeId='';
 let deviceProfileUnsubscribe=null,deviceProfileApplying=false,deviceProfileSaveTimer=null,identitySyncing=false,roomConnectInProgress=false;
 let roomSnapshotFromCache=false,snapshotHasPendingWrites=false,pendingRoomWrites=0,roomWriteScheduled=false;
-let liveScoreSnapshotFromCache=false,liveScoreHasPendingWrites=false,pendingLiveScoreWrites=0,liveScoreWriteScheduled=false,liveScoreConnecting=false,liveScoreAvailable=true,liveScoreReady=false,liveScoreInitialSnapshot=true,remoteControlInitialSnapshot=true,liveScoreMigrationStarted=false,latestLiveMatch=null,lastRoomSnapshotData=null,lastRemoteFullscreenCommandId='',lastRemoteNextMatchCommandId='',lastRemoteUndoFinishedCommandId='',lastRemoteStartMatchCommandId='',lastRemoteActionCommandId='';
+let liveScoreSnapshotFromCache=false,liveScoreHasPendingWrites=false,pendingLiveScoreWrites=0,liveScoreWriteScheduled=false,liveScoreConnecting=false,liveScoreAvailable=true,liveScoreReady=false,liveScoreInitialSnapshot=true,remoteControlInitialSnapshot=true,liveScoreMigrationStarted=false,latestLiveMatch=null,lastRoomSnapshotData=null,lastRemoteFullscreenCommandId='',lastRemoteOfficialStartCommandId='',lastRemoteNextMatchCommandId='',lastRemoteUndoFinishedCommandId='',lastRemoteStartMatchCommandId='',lastRemoteActionCommandId='';
 let chatMessages=[],chatMentionIds=new Set(),chatFirstRender=true,chatMessagesRenderKey='',chatLastSentAt=0,chatRequestRunning=false,chatSendRunning=false,chatPendingMedia=null;
 const requestParams=new URLSearchParams(location.search),requestedPage=requestParams.get('page'),requestedAndroidRemote=requestParams.get('androidRemote')==='1';
 if(requestedAndroidRemote){
@@ -139,9 +139,20 @@ function showScoreRemoteIndicator(message,{duration=900,icon='🎮'}={}){
   clearTimeout(scoreRemoteIndicatorTimer);indicator.textContent=`${icon} ${message}`;indicator.classList.remove('hidden');
   scoreRemoteIndicatorTimer=setTimeout(()=>{indicator.classList.add('hidden');if($('scoreView')&&indicator.parentElement!==$('scoreView'))$('scoreView').append(indicator)},duration);
 }
+function matchHasOfficiallyStarted(match=state.match){return Boolean(match?.startedAt)}
+function markMatchOfficialStarted(){
+  const match=state.match;
+  if(!isHost||!match.active||match.winner!==null)return false;
+  if(matchHasOfficiallyStarted(match)){showScoreRemoteIndicator('本場已正式開始',{duration:1400,icon:'✅'});return true}
+  match.startedAt=new Date().toISOString();
+  saveLiveScoreSoon();saveSoon();renderDashboard();
+  showScoreRemoteIndicator('比賽正式開始',{duration:1800,icon:'✅'});
+  return true;
+}
 function performScoreRemoteAction(action,{announce=true}={}){
   const match=state.match;
   if(action==='teamAPlus'||action==='teamBPlus'){
+    if(!matchHasOfficiallyStarted(match)){showScoreRemoteIndicator('請先連按兩下正式開始',{duration:1600,icon:'⏱️'});return false}
     if(match.winner!==null)return false;
     match.rallies.push(action==='teamAPlus'?0:1);replay();if(announce&&voiceEnabled)setTimeout(announceScore,80);return true;
   }
@@ -227,13 +238,14 @@ function sendRemoteNextMatchCommand(){
 window.bcmAndroidRemoteInput=action=>handleAndroidRemoteAction(String(action||''));
 window.bcmAndroidRemoteUseShuttle=()=>handleAndroidRemoteAction('useShuttle');
 window.bcmAndroidRemoteReturnShuttle=()=>handleAndroidRemoteAction('returnShuttle');
-window.bcmAndroidRemoteFullscreen=()=>{
+window.bcmAndroidRemoteOfficialStart=()=>{
   const canStartTest=currentTestModeEnabled()&&!state.match.active&&new Set(state.court.filter(Boolean)).size===matchPlayerCount(state.matchFormat);
-  if(!requestedAndroidRemote||!isHost||(!state.match.active&&!canStartTest)||!remoteControlRef){setAndroidRemoteFeedback('目前無法切換計分模式全螢幕','error');return false}
-  const command={id:randomToken(),matchId:state.match.matchId||'',createdAt:new Date().toISOString()},finished=state.match.active&&state.match.winner!==null;
-  setDoc(remoteControlRef,{[finished?'undoFinishedCommand':'fullscreenCommand']:command,updatedAt:serverTimestamp()},{merge:true}).then(()=>setAndroidRemoteFeedback(finished?'已送出撤回誤觸結束':'已送出計分模式全螢幕切換','success')).catch(()=>setAndroidRemoteFeedback('遙控器指令傳送失敗','error'));
+  if(!requestedAndroidRemote||!isHost||(!state.match.active&&!canStartTest)||state.match.winner!==null||!remoteControlRef){setAndroidRemoteFeedback('目前無法正式開始比賽','error');return false}
+  const command={id:randomToken(),matchId:state.match.matchId||'',createdAt:new Date().toISOString()};
+  setDoc(remoteControlRef,{officialStartCommand:command,updatedAt:serverTimestamp()},{merge:true}).then(()=>setAndroidRemoteFeedback('已送出正式開始比賽','success')).catch(()=>setAndroidRemoteFeedback('正式開始指令傳送失敗','error'));
   return true;
 };
+window.bcmAndroidRemoteFullscreen=window.bcmAndroidRemoteOfficialStart;
 window.bcmAndroidKeyAccessChanged=()=>{renderAndroidRemote();return true};
 window.bcmAndroidRecordingModeChanged=()=>{renderAndroidRemote();return true};
 window.bcmAndroidRemoteKeyDetected=label=>{
@@ -255,7 +267,7 @@ function handleScoreRemoteCode(event,code){
   const now=performance.now();if(now-scoreRemoteLastInputAt<120)return;scoreRemoteLastInputAt=now;
   event.preventDefault();
   if(scoreRemotePendingPress&&scoreRemotePendingPress.code===code&&now-scoreRemotePendingPress.at<=SCORE_REMOTE_DOUBLE_PRESS_MS){
-    clearTimeout(scoreRemotePendingPress.timer);scoreRemotePendingPress=null;toggleScoreFullscreen();showScoreRemoteIndicator('切換全螢幕');return;
+    clearTimeout(scoreRemotePendingPress.timer);scoreRemotePendingPress=null;markMatchOfficialStarted();return;
   }
   if(scoreRemotePendingPress)runPendingScoreRemoteAction();
   scoreRemotePendingPress={code,action,at:now,timer:setTimeout(runPendingScoreRemoteAction,SCORE_REMOTE_DOUBLE_PRESS_MS)};
@@ -1623,7 +1635,7 @@ async function connectRoom(id){
   liveScoreRef=doc(db,'badmintonRooms',id,'liveScore','current');
   remoteControlRef=doc(db,'badmintonRooms',id,'remoteControl','current');
   liveScoreReady=false;liveScoreInitialSnapshot=true;liveScoreMigrationStarted=false;liveScoreAvailable=true;liveScoreConnecting=true;latestLiveMatch=null;lastRoomSnapshotData=null;
-  remoteControlInitialSnapshot=true;lastRemoteFullscreenCommandId='';lastRemoteNextMatchCommandId='';lastRemoteUndoFinishedCommandId='';lastRemoteStartMatchCommandId='';lastRemoteActionCommandId='';
+  remoteControlInitialSnapshot=true;lastRemoteFullscreenCommandId='';lastRemoteOfficialStartCommandId='';lastRemoteNextMatchCommandId='';lastRemoteUndoFinishedCommandId='';lastRemoteStartMatchCommandId='';lastRemoteActionCommandId='';
   liveScoreSnapshotFromCache=false;liveScoreHasPendingWrites=false;pendingLiveScoreWrites=0;liveScoreWriteScheduled=false;
   selfHash=await sha256(selfToken);
   setSync(navigator.onLine?'連線中':'讀取離線資料','pending');
@@ -1724,6 +1736,7 @@ async function connectRoom(id){
       if(!snapshot.exists()){remoteControlInitialSnapshot=false;return}
       const commandData=snapshot.data(),initial=remoteControlInitialSnapshot;
       handleRemoteFullscreenCommand(commandData,{initial});
+      handleRemoteOfficialStartCommand(commandData,{initial});
       handleRemoteNextMatchCommand(commandData,{initial});
       handleRemoteUndoFinishedCommand(commandData,{initial});
       handleRemoteStartMatchCommand(commandData,{initial});
@@ -1796,9 +1809,14 @@ function handleRemoteFullscreenCommand(data,{initial=false}={}){
   lastRemoteFullscreenCommandId=id;
   if(!shouldAcceptRemoteCommand({command:data.fullscreenCommand,currentMatch:state.match,initial}))return false;
   if(initial||requestedAndroidRemote||!isHost)return false;
-  if(!state.match.active){if(!currentTestModeEnabled()||new Set(state.court.filter(Boolean)).size!==matchPlayerCount(state.matchFormat))return false;startMatch()}
-  if($('scoreView').classList.contains('hidden')){scoreViewRequested=true;renderScore()}
-  toggleScoreFullscreen();showScoreRemoteIndicator('遙控器切換全螢幕');return true;
+  return markMatchOfficialStarted();
+}
+function handleRemoteOfficialStartCommand(data,{initial=false}={}){
+  const id=String(data?.officialStartCommand?.id||'');if(!id||id===lastRemoteOfficialStartCommandId)return false;
+  lastRemoteOfficialStartCommandId=id;
+  if(!shouldAcceptRemoteCommand({command:data.officialStartCommand,currentMatch:state.match,initial}))return false;
+  if(initial||requestedAndroidRemote||!isHost)return false;
+  return markMatchOfficialStarted();
 }
 function handleRemoteNextMatchCommand(data,{initial=false}={}){
   const id=String(data?.nextMatchCommand?.id||'');if(!id||id===lastRemoteNextMatchCommandId)return false;
@@ -2457,7 +2475,7 @@ function finishTestMatch(team){
   m.winner=winner;
   finishMatch();
 }
-function startMatch(){dismissedResultKey='';const format=normalizeMatchFormat(state.matchFormat),needed=matchPlayerCount(format),selected=state.court.filter(Boolean);if(selected.length!==needed||new Set(selected).size!==needed)return alert(`請選擇${needed===2?'兩':'四'}位不同球員。`);const ids=format===MATCH_FORMAT_SINGLES?selected:teammateSafeLineup(selected);state.court=[...ids];reconcileWaitingQueue(ids);state.queueDraftChosen=[];state.lastLoserReplayPlayerId=null;state.matchRollback=null;randomizeScoreThemeAtMatchStart(ids);state.match={active:true,format,players:teamsForLineup(ids,format),scores:[0,0],rallies:[],serving:0,positions:format===MATCH_FORMAT_SINGLES?[[0],[0]]:[[0,1],[0,1]],winner:null,matchId:randomToken(),syncEpoch:nextMatchEpoch(state.match),scoreFont:randomScoreFont(state.match?.scoreFont),testMode:!!state.testMode,startedAt:new Date().toISOString()};scoreViewRequested=true;checkpointNewMatch();renderScore();renderDashboard();renderTestMode();void enterScoreFullscreen()}
+function startMatch(){dismissedResultKey='';const format=normalizeMatchFormat(state.matchFormat),needed=matchPlayerCount(format),selected=state.court.filter(Boolean);if(selected.length!==needed||new Set(selected).size!==needed)return alert(`請選擇${needed===2?'兩':'四'}位不同球員。`);const ids=format===MATCH_FORMAT_SINGLES?selected:teammateSafeLineup(selected);state.court=[...ids];reconcileWaitingQueue(ids);state.queueDraftChosen=[];state.lastLoserReplayPlayerId=null;state.matchRollback=null;randomizeScoreThemeAtMatchStart(ids);state.match={active:true,format,players:teamsForLineup(ids,format),scores:[0,0],rallies:[],serving:0,positions:format===MATCH_FORMAT_SINGLES?[[0],[0]]:[[0,1],[0,1]],winner:null,matchId:randomToken(),syncEpoch:nextMatchEpoch(state.match),scoreFont:randomScoreFont(state.match?.scoreFont),testMode:!!state.testMode,startedAt:''};scoreViewRequested=true;checkpointNewMatch();renderScore();renderDashboard();renderTestMode();void enterScoreFullscreen()}
 function finishMatch(){
   const m=state.match;if(!m.active||m.winner===null)return;
   const format=normalizeMatchFormat(m.format),needed=matchPlayerCount(format);
@@ -2516,7 +2534,7 @@ function startNext(){
   state.waitingQueue=projectedQueueForLineup(vals);state.queueDraftChosen=[];state.priority=state.waitingQueue[0]||null;
   state.court=[...vals];state.nextCall=null;state.matchRollback=null;
   randomizeScoreThemeAtMatchStart(vals);
-  state.match={active:true,format,players:teamsForLineup(vals,format),scores:[0,0],rallies:[],serving:0,positions:format===MATCH_FORMAT_SINGLES?[[0],[0]]:[[0,1],[0,1]],winner:null,matchId:randomToken(),syncEpoch:nextMatchEpoch(state.match),scoreFont:randomScoreFont(state.match?.scoreFont),testMode:!!state.testMode,startedAt:new Date().toISOString()};
+  state.match={active:true,format,players:teamsForLineup(vals,format),scores:[0,0],rallies:[],serving:0,positions:format===MATCH_FORMAT_SINGLES?[[0],[0]]:[[0,1],[0,1]],winner:null,matchId:randomToken(),syncEpoch:nextMatchEpoch(state.match),scoreFont:randomScoreFont(state.match?.scoreFont),testMode:!!state.testMode,startedAt:''};
   scoreViewRequested=true;$('resultModal').classList.add('hidden');checkpointNewMatch();renderAll();void enterScoreFullscreen();if(isHost&&voiceEnabled&&finalCall)setTimeout(()=>speak(finalCall),180)
 }
 

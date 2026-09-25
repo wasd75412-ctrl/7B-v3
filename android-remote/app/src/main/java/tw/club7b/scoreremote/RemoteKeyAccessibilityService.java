@@ -131,7 +131,7 @@ public final class RemoteKeyAccessibilityService extends AccessibilityService {
         pendingShortPress = () -> {
             int count=pendingShortPressCount;VolumeKeyInterpreter.Action resolved=pendingShortPressAction;
             cancelPendingShortPress();
-            if(count==1)sendBackgroundAction(resolved);else if(count==2)sendBackgroundFullscreenCommand();else if(count==3){
+            if(count==1)sendBackgroundAction(resolved);else if(count==2)sendBackgroundOfficialStart();else if(count==3){
                 long now=SystemClock.uptimeMillis();
                 if(now-lastShuttleActionAt>=SHUTTLE_PRESS_COOLDOWN_MS){lastShuttleActionAt=now;sendBackgroundUseShuttle();}
             }else if(count==4){
@@ -156,9 +156,9 @@ public final class RemoteKeyAccessibilityService extends AccessibilityService {
         return scoreController;
     }
 
-    private void sendBackgroundFullscreenCommand() {
+    private void sendBackgroundOfficialStart() {
         try {
-            scoreController().toggleScoreFullscreen((success, message) -> keyHandler.post(() -> {
+            scoreController().startOfficialMatch((success, message) -> keyHandler.post(() -> {
                 Toast.makeText(RemoteKeyAccessibilityService.this, message, Toast.LENGTH_SHORT).show();
                 vibrate(success ? 70L : 28L);
             }));

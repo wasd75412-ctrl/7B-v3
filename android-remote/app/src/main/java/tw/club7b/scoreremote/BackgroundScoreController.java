@@ -101,7 +101,7 @@ final class BackgroundScoreController {
                 .addOnFailureListener(error -> callback.onComplete(false, errorMessage(error)));
     }
 
-    void toggleScoreFullscreen(FullscreenCallback callback) {
+    void startOfficialMatch(FullscreenCallback callback) {
         RemoteSessionStore.Session session = RemoteSessionStore.getSession(context);
         if (!session.isAuthorized()) {
             callback.onComplete(false, "請先連接球局並登入管理員");
@@ -113,22 +113,25 @@ final class BackgroundScoreController {
             DocumentSnapshot snapshot = transaction.get(liveScore);
             if (!snapshot.exists()) throw new IllegalStateException("找不到即時比分");
             Map<String, Object> match = mapValue(snapshot.get("match"));
-            boolean finished = match.get("winner") != null;
             Object matchId = match.get("matchId");
             if (!Boolean.TRUE.equals(match.get("active")) || matchId == null || String.valueOf(matchId).isEmpty()) {
                 throw new IllegalStateException("找不到目前比賽");
+            }
+            if (match.get("winner") != null) throw new IllegalStateException("本場比賽已結束");
+            if (match.get("startedAt") != null && !String.valueOf(match.get("startedAt")).isEmpty()) {
+                throw new IllegalStateException("本場比賽已正式開始");
             }
             Map<String, Object> command = new HashMap<>();
             command.put("id", java.util.UUID.randomUUID().toString());
             command.put("matchId", String.valueOf(matchId));
             command.put("createdAt", FieldValue.serverTimestamp());
             Map<String, Object> updates = new HashMap<>();
-            updates.put(finished ? "undoFinishedCommand" : "fullscreenCommand", command);
+            updates.put("officialStartCommand", command);
             updates.put("updatedAt", FieldValue.serverTimestamp());
             transaction.set(remoteControl, updates, SetOptions.merge());
-            return finished;
+            return true;
         })
-                .addOnSuccessListener(finished -> callback.onComplete(true, finished ? "已撤回誤觸結束" : "已切換計分模式全螢幕"))
+                .addOnSuccessListener(ignored -> callback.onComplete(true, "已送出正式開始比賽"))
                 .addOnFailureListener(error -> callback.onComplete(false, errorMessage(error)));
     }
 
