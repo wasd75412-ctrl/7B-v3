@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { formatDuration, formatTimelineOffset, groupMatchHistoryByDate, matchDayTimeline, youtubeTimelineText } from '../src/match-history.js';
+import { formatDuration, formatTimelineOffset, groupHistoryDatesByMonth, groupMatchHistoryByDate, matchDayTimeline, youtubeTimelineText } from '../src/match-history.js';
 
 test('groups match history by date newest first and preserves original indexes',()=>{
   const history=[
@@ -12,6 +12,18 @@ test('groups match history by date newest first and preserves original indexes',
   const groups=groupMatchHistoryByDate(history,match=>match.dateKey);
   assert.deepEqual(groups.map(group=>group.dateKey),['2026-09-25','2026-09-24']);
   assert.deepEqual(groups[0].matches.map(entry=>entry.index),[2,1]);
+});
+
+test('groups date sections into newest month with date and match totals',()=>{
+  const dates=[
+    {dateKey:'2026-08-26',matches:[{},{}]},
+    {dateKey:'2026-08-24',matches:[{}]},
+    {dateKey:'2026-07-31',matches:[{},{},{}]}
+  ];
+  assert.deepEqual(groupHistoryDatesByMonth(dates),[
+    {monthKey:'2026-08',dates:dates.slice(0,2),matchCount:3},
+    {monthKey:'2026-07',dates:dates.slice(2),matchCount:3}
+  ]);
 });
 
 test('builds YouTube offsets and full session duration from recorded timestamps',()=>{
@@ -49,4 +61,5 @@ test('keeps match record dates readable on themed cards',()=>{
   assert.doesNotMatch(css,/\.history-date-group\{[^}]*background:rgba\(255,255,255,\.42\)/);
   assert.match(css,/#app \.history-item \.history-main>\.sub\{color:var\(--sport-ink\)!important;opacity:\.82\}/);
   assert.match(css,/#app \.history-date-group>summary span:last-of-type,#app \.history-date-group>summary:after\{color:var\(--sport-ink\)!important;opacity:\.9\}/);
+  assert.match(css,/#app \.history-month-group>summary span:last-of-type,#app \.history-month-group>summary:after\{color:var\(--sport-ink\)!important;opacity:\.9\}/);
 });
