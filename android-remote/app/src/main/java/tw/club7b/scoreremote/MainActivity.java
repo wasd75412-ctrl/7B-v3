@@ -251,7 +251,7 @@ public final class MainActivity extends Activity {
         pendingShortPress = () -> {
             int count=pendingShortPressCount;VolumeKeyInterpreter.Action resolved=pendingShortPressAction;
             cancelPendingShortPress();
-            if(count==1)sendRemoteAction(resolved);else if(count==2)sendRemoteFullscreenCommand();else if(count==3){
+            if(count==1)sendRemoteAction(resolved);else if(count==2)sendRemoteOfficialStartCommand();else if(count==3){
                 long now=SystemClock.uptimeMillis();
                 if(now-lastShuttleActionAt>=SHUTTLE_PRESS_COOLDOWN_MS){lastShuttleActionAt=now;sendRemoteUseShuttleCommand();}
             }else if(count==4){
@@ -289,11 +289,11 @@ public final class MainActivity extends Activity {
         });
     }
 
-    private void sendRemoteFullscreenCommand() {
+    private void sendRemoteOfficialStartCommand() {
         if (backgroundScoreController == null) {
             backgroundScoreController = new BackgroundScoreController(this);
         }
-        backgroundScoreController.toggleScoreFullscreen((success, message) -> keyHandler.post(() -> {
+        backgroundScoreController.startOfficialMatch((success, message) -> keyHandler.post(() -> {
             Toast.makeText(MainActivity.this, message, Toast.LENGTH_SHORT).show();
             vibrate(success ? 70L : 28L);
         }));

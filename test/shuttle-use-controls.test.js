@@ -45,7 +45,7 @@ test('shows one-shuttle controls in scoring and next-match result views plus das
 test('routes exactly three short presses to shuttle use with a quiet-window and cooldown guard',()=>{
   for(const source of [activity,service]){
     assert.match(source,/Action previousAction = \w+Keys\.onMissingKeyUp\(keyCode\);[\s\S]*?handleResolved\w+Action\(previousAction, keyCode, event\.getEventTime\(\)\);/);
-    assert.match(source,/if\(count==1\).*Action\(resolved\);else if\(count==2\).*FullscreenCommand\(\);else if\(count==3\).*else if\(count==4\)/s);
+    assert.match(source,/if\(count==1\).*Action\(resolved\);else if\(count==2\).*OfficialStart.*\(\);else if\(count==3\).*else if\(count==4\)/s);
     assert.match(source,/SHUTTLE_PRESS_COOLDOWN_MS = 2000L/);
     assert.match(source,/now-lastShuttleActionAt>=SHUTTLE_PRESS_COOLDOWN_MS/);
     assert.doesNotMatch(source,/pendingShortPressCount == 5/);
@@ -55,14 +55,13 @@ test('routes exactly three short presses to shuttle use with a quiet-window and 
   assert.match(activity,/bcmAndroidRemoteReturnShuttle/);
   assert.match(service,/useOneShuttle/);
   assert.match(service,/returnOneShuttle/);
-  assert.match(activity,/sendRemoteFullscreenCommand\(\).*backgroundScoreController\.toggleScoreFullscreen/s);
-  assert.doesNotMatch(activity,/sendRemoteFullscreenCommand\(\).*bcmAndroidRemoteFullscreen/s);
-  assert.match(controller,/toggleScoreFullscreen\(FullscreenCallback callback\).*transaction\.get\(liveScore\).*command\.put\("matchId", String\.valueOf\(matchId\)\).*transaction\.set\(remoteControl/s);
+  assert.match(activity,/sendRemoteOfficialStartCommand\(\).*backgroundScoreController\.startOfficialMatch/s);
+  assert.match(controller,/startOfficialMatch\(FullscreenCallback callback\).*transaction\.get\(liveScore\).*command\.put\("matchId", String\.valueOf\(matchId\)\).*updates\.put\("officialStartCommand", command\).*transaction\.set\(remoteControl/s);
   assert.match(controller,/sendShuttleCommand\("useShuttle"/);
   assert.match(controller,/sendShuttleCommand\("returnShuttle"/);
   assert.match(controller,/sendShuttleCommand[\s\S]*?if\(!session\.isAuthorized\(\)\)[\s\S]*?transaction\.get\(liveScore\)[\s\S]*?Boolean\.TRUE\.equals\(match\.get\("active"\)\)/);
   assert.doesNotMatch(controller,/sendShuttleCommand[\s\S]*?if\(!session\.isReady\(\)\)/);
-  assert.match(controller,/toggleScoreFullscreen[\s\S]*?if \(!session\.isAuthorized\(\)\)[\s\S]*?transaction\.get\(liveScore\)/);
+  assert.match(controller,/startOfficialMatch[\s\S]*?if \(!session\.isAuthorized\(\)\)[\s\S]*?transaction\.get\(liveScore\)/);
   assert.match(controller,/private synchronized void processNext\(\).*transaction\.get\(liveScore\).*command\.put\("matchId", String\.valueOf\(matchId\)\).*transaction\.set\(remoteControl/s);
   assert.match(main,/\['teamAPlus','teamBPlus','undo','useShuttle','returnShuttle'\]/);
   assert.match(main,/if\(!scoreVisible&&!resultVisible\)\{\s*if\(courtVisible&&\['teamAPlus','teamBPlus'\]\.includes\(action\)\)/);

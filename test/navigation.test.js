@@ -294,8 +294,8 @@ test('removes the old score remote from More and provides a no-stats test mode',
   assert.match(mainSource,/testModeRevision:Math\.max\(0,Number\(src\.testModeRevision\)\|\|0\)/);
   assert.match(mainSource,/if\(Number\(next\.testModeRevision\)<Number\(state\.testModeRevision\)\)\{next\.testMode=state\.testMode;next\.testModeRevision=state\.testModeRevision\}/);
   assert.match(mainSource,/state\.testModeRevision=Math\.max\(Date\.now\(\),Number\(state\.testModeRevision\|\|0\)\+1\)/);
-  assert.match(mainSource,/if\(\$\('scoreView'\)\.classList\.contains\('hidden'\)\)\{scoreViewRequested=true;renderScore\(\)\}\s*toggleScoreFullscreen\(\)/);
-  assert.match(mainSource,/if\(!state\.match\.active\)\{if\(!currentTestModeEnabled\(\)\|\|new Set\(state\.court\.filter\(Boolean\)\)\.size!==matchPlayerCount\(state\.matchFormat\)\)return false;startMatch\(\)\}/);
+  assert.match(mainSource,/scoreRemotePendingPress=null;markMatchOfficialStarted\(\);return/);
+  assert.match(mainSource,/function handleRemoteFullscreenCommand[\s\S]*?return markMatchOfficialStarted\(\)/);
   assert.match(mainSource,/if\(isTestMatch\)\{[\s\S]*?lineup=randomTestLineup\(\)/);
   assert.match(mainSource,/if\(!currentTestModeEnabled\(\)&&!winners\.every/);
   assert.match(html,/id="testQuickWin" class="test-quick-win hidden host-only"/);
