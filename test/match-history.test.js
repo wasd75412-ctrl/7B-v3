@@ -49,6 +49,13 @@ test('keeps legacy matches without start timestamps usable',()=>{
   assert.equal(formatTimelineOffset(timeline.rows[0].offsetSeconds),'—');
 });
 
+test('saves a complete recording date and time only after explicit confirmation',()=>{
+  const source=readFileSync(new URL('../src/main.js',import.meta.url),'utf8');
+  assert.match(source,/data-save-timeline=/);
+  assert.match(source,/儲存時間/);
+  assert.doesNotMatch(source,/\[data-timeline-start\][^\n]*\.onchange=/);
+});
+
 test('uses the existing theme colors for the admin timeline',()=>{
   const css=readFileSync(new URL('../src/styles.css',import.meta.url),'utf8');
   assert.match(css,/\.youtube-timeline\{[^}]*background:var\(--card\);color:var\(--ink\);border:1px solid var\(--line\)/);
