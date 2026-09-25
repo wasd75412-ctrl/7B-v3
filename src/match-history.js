@@ -19,6 +19,20 @@ export function groupMatchHistoryByDate(history=[],dateKeyForMatch=()=>'',fallba
     .sort((a,b)=>b.dateKey.localeCompare(a.dateKey));
 }
 
+export function groupHistoryDatesByMonth(dateGroups=[]){
+  const months=new Map();
+  dateGroups.forEach(group=>{
+    const monthKey=/^\d{4}-\d{2}/.test(group.dateKey||'')?group.dateKey.slice(0,7):'日期不明';
+    if(!months.has(monthKey))months.set(monthKey,[]);
+    months.get(monthKey).push(group);
+  });
+  return [...months.entries()].map(([monthKey,dates])=>({
+    monthKey,
+    dates,
+    matchCount:dates.reduce((total,date)=>total+date.matches.length,0)
+  })).sort((a,b)=>b.monthKey.localeCompare(a.monthKey));
+}
+
 export function matchDayTimeline(matches=[],sessionStartedAt=''){
   const rows=matches.map((entry,position)=>{
     const match=entry.match||entry;

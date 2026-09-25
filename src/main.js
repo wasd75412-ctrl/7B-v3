@@ -28,7 +28,7 @@ import { normalizeScoreFont, randomScoreFont } from './score-font.js';
 import { EVENT_PACKING_MEMO_ITEMS, eventPackingMemoProgress, mergePackingMemos, normalizeEventPackingMemo } from './event-packing-memo.js';
 import { ensureShuttleCostNotice, moveAdminNotice, normalizeAdminNotices } from './admin-notices.js';
 import { eventPaymentStatus, normalizeEventPayments, updateEventPayment } from './event-payment.js';
-import { groupMatchHistoryByDate, youtubeTimelineText } from './match-history.js';
+import { groupHistoryDatesByMonth, groupMatchHistoryByDate, youtubeTimelineText } from './match-history.js';
 
 const firebaseConfig={apiKey:'AIzaSyBrakbTPK7UqEChPBI6pM8-i03IcLq0IvM',authDomain:'badminton-7a1c3.firebaseapp.com',projectId:'badminton-7a1c3',storageBucket:'badminton-7a1c3.firebasestorage.app',messagingSenderId:'883534015507',appId:'1:883534015507:web:a7f6fb318151b6d07563e6',measurementId:'G-C97B98H7YW'};
 const fbApp=initializeApp(firebaseConfig);
@@ -2387,6 +2387,7 @@ async function clearMatchReplayPlaylist(){
   }
 }
 function historyDateLabel(dateKey){if(!/^\d{4}-\d{2}-\d{2}$/.test(dateKey))return dateKey;const d=new Date(`${dateKey}T12:00:00`);return `${d.getFullYear()} 年 ${d.getMonth()+1} 月 ${d.getDate()} 日（${'日一二三四五六'[d.getDay()]}）`}
+function historyMonthLabel(monthKey){if(!/^\d{4}-\d{2}$/.test(monthKey))return monthKey;const [year,month]=monthKey.split('-');return `${year} 年 ${Number(month)} 月`}
 function timelineLocalInputValue(value){const d=new Date(value||'');if(isNaN(d.getTime()))return '';return `${localDateKey(d)}T${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}:${String(d.getSeconds()).padStart(2,'0')}`}
 function timelinePanel(group){
   const savedStart=state.matchTimelineStarts?.[group.dateKey]||'',text=savedStart?youtubeTimelineText(group.matches,savedStart,pname):'請先設定錄影開始時間。';
@@ -2396,12 +2397,16 @@ function setTimelineStart(dateKey,value){if(!isHost)return;const date=new Date(v
 async function copyTimeline(dateKey){const text=document.querySelector(`[data-timeline-text="${CSS.escape(dateKey)}"]`)?.value;if(!text)return;try{await navigator.clipboard.writeText(text);alert('比賽時間軸已複製。')}catch{prompt('複製比賽時間軸：',text)}}
 function renderHistory(){
   renderMatchReplay();
-  const container=$('history'),openDates=new Set(all('.history-date-group[open]').map(group=>group.dataset.historyDate));
-  const groups=groupMatchHistoryByDate(state.history,historyDate);
-  container.innerHTML=groups.map((group,groupIndex)=>{
-    const open=openDates.has(group.dateKey)||(!openDates.size&&groupIndex===0);
+  const container=$('history'),existingMonths=all('.history-month-group'),existingDates=all('.history-date-group'),openMonths=new Set(existingMonths.filter(group=>group.open).map(group=>group.dataset.historyMonth)),openDates=new Set(existingDates.filter(group=>group.open).map(group=>group.dataset.historyDate));
+  const months=groupHistoryDatesByMonth(groupMatchHistoryByDate(state.history,historyDate));
+  const renderDate=(group,dateIndex,monthIndex)=>{
+    const open=openDates.has(group.dateKey)||(!existingDates.length&&monthIndex===0&&dateIndex===0);
     const matches=group.matches.map(({match:h,index})=>`<div class="history-item ${h.testMode?'test-record':''}"><div class="history-main"><strong><span class="match-format-badge">${historyFormat(h)===MATCH_FORMAT_SINGLES?'單打':'雙打'}</span>${h.testMode?'<span class="test-record-badge">測試</span> ':''}${esc((h.teams?.[0]||[]).map(pname).join('／'))} ${h.scores?.[0]??0}：${h.scores?.[1]??0} ${esc((h.teams?.[1]||[]).map(pname).join('／'))}</strong><div class="sub">${esc(h.time||'')}${h.testMode?' · 不計入戰績':''}</div></div><div class="history-actions host-only"><button class="btn danger-outline" data-delete-history="${index}">刪除</button></div></div>`).join('');
     return `<details class="history-date-group" data-history-date="${esc(group.dateKey)}" ${open?'open':''}><summary><span>${esc(historyDateLabel(group.dateKey))}</span><span>${group.matches.length} 場</span></summary>${timelinePanel(group)}<div class="history-date-matches">${matches}</div></details>`;
+  };
+  container.innerHTML=months.map((month,monthIndex)=>{
+    const open=openMonths.has(month.monthKey)||(!existingMonths.length&&monthIndex===0),dates=month.dates.map((group,dateIndex)=>renderDate(group,dateIndex,monthIndex)).join('');
+    return `<details class="history-month-group" data-history-month="${esc(month.monthKey)}" ${open?'open':''}><summary><span>${esc(historyMonthLabel(month.monthKey))}</span><span>${month.dates.length} 次 · ${month.matchCount} 場</span></summary><div class="history-month-dates">${dates}</div></details>`;
   }).join('')||'<p class="sub">尚無比賽紀錄。</p>';
   all('[data-delete-history]').forEach(btn=>btn.onclick=()=>deleteHistoryRecord(+btn.dataset.deleteHistory));applyRole()
   all('[data-timeline-start]').forEach(input=>input.onchange=()=>setTimelineStart(input.dataset.timelineStart,input.value));
