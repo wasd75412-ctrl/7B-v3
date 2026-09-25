@@ -2409,9 +2409,28 @@ function historyMonthLabel(monthKey){if(!/^\d{4}-\d{2}$/.test(monthKey))return m
 function timelineLocalInputValue(value){const d=new Date(value||'');if(isNaN(d.getTime()))return '';return `${localDateKey(d)}T${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}:${String(d.getSeconds()).padStart(2,'0')}`}
 function timelinePanel(group){
   const savedStart=state.matchTimelineStarts?.[group.dateKey]||'',text=savedStart?youtubeTimelineText(group.matches,savedStart,pname):'請先設定錄影開始時間。';
-  return `<section class="youtube-timeline host-only"><div class="youtube-timeline-head"><strong>YouTube 比賽時間軸</strong><button class="btn primary" type="button" data-copy-timeline="${esc(group.dateKey)}" ${savedStart?'':'disabled'}>複製全部</button></div><div class="youtube-timeline-start"><label class="field"><span>錄影開始時間</span><input class="input" type="datetime-local" step="1" value="${esc(timelineLocalInputValue(savedStart))}" data-timeline-start="${esc(group.dateKey)}"></label><button class="btn" type="button" data-timeline-now="${esc(group.dateKey)}">設為現在</button></div><textarea class="youtube-timeline-text" readonly data-timeline-text="${esc(group.dateKey)}">${esc(text)}</textarea></section>`;
+  return `<section class="youtube-timeline host-only"><div class="youtube-timeline-head"><strong>YouTube 比賽時間軸</strong><button class="btn primary" type="button" data-copy-timeline="${esc(group.dateKey)}" ${savedStart?'':'disabled'}>複製全部</button></div><div class="youtube-timeline-start"><label class="field"><span>錄影開始時間</span><input class="input" type="datetime-local" step="1" value="${esc(timelineLocalInputValue(savedStart))}" data-timeline-start="${esc(group.dateKey)}"></label><button class="btn primary" type="button" data-save-timeline="${esc(group.dateKey)}">儲存時間</button><button class="btn" type="button" data-timeline-now="${esc(group.dateKey)}">設為現在</button></div><div class="sub" data-timeline-feedback="${esc(group.dateKey)}">調整完整日期與時間後，請按「儲存時間」。</div><textarea class="youtube-timeline-text" readonly data-timeline-text="${esc(group.dateKey)}">${esc(text)}</textarea></section>`;
 }
-function setTimelineStart(dateKey,value){if(!isHost)return;const date=new Date(value||'');if(isNaN(date.getTime()))return alert('請輸入正確的錄影開始時間。');state.matchTimelineStarts={...(state.matchTimelineStarts||{}),[dateKey]:date.toISOString()};renderHistory();saveSoon()}
+async function setTimelineStart(dateKey,value){
+  if(!isHost)return;
+  const date=new Date(value||'');
+  if(isNaN(date.getTime()))return alert('請輸入正確的錄影開始時間。');
+  const previous=state.matchTimelineStarts?.[dateKey]||'';
+  state.matchTimelineStarts={...(state.matchTimelineStarts||{}),[dateKey]:date.toISOString()};
+  renderHistory();
+  const feedback=document.querySelector(`[data-timeline-feedback="${CSS.escape(dateKey)}"]`);
+  if(feedback)feedback.textContent='儲存中…';
+  try{
+    await saveNow();
+    renderHistory();
+    const savedFeedback=document.querySelector(`[data-timeline-feedback="${CSS.escape(dateKey)}"]`);
+    if(savedFeedback)savedFeedback.textContent=`已儲存：${timelineLocalInputValue(date.toISOString()).replace('T',' ')}`;
+  }catch(error){
+    state.matchTimelineStarts={...(state.matchTimelineStarts||{}),[dateKey]:previous};
+    renderHistory();
+    alert(`錄影開始時間儲存失敗：${formatError(error)}`);
+  }
+}
 async function copyTimeline(dateKey){const text=document.querySelector(`[data-timeline-text="${CSS.escape(dateKey)}"]`)?.value;if(!text)return;try{await navigator.clipboard.writeText(text);alert('比賽時間軸已複製。')}catch{prompt('複製比賽時間軸：',text)}}
 function renderHistory(){
   renderMatchReplay();
@@ -2427,7 +2446,7 @@ function renderHistory(){
     return `<details class="history-month-group" data-history-month="${esc(month.monthKey)}" ${open?'open':''}><summary><span>${esc(historyMonthLabel(month.monthKey))}</span><span>${month.dates.length} 次 · ${month.matchCount} 場</span></summary><div class="history-month-dates">${dates}</div></details>`;
   }).join('')||'<p class="sub">尚無比賽紀錄。</p>';
   all('[data-delete-history]').forEach(btn=>btn.onclick=()=>deleteHistoryRecord(+btn.dataset.deleteHistory));applyRole()
-  all('[data-timeline-start]').forEach(input=>input.onchange=()=>setTimelineStart(input.dataset.timelineStart,input.value));
+  all('[data-save-timeline]').forEach(button=>button.onclick=()=>{const dateKey=button.dataset.saveTimeline,input=document.querySelector(`[data-timeline-start="${CSS.escape(dateKey)}"]`);setTimelineStart(dateKey,input?.value)});
   all('[data-timeline-now]').forEach(button=>button.onclick=()=>setTimelineStart(button.dataset.timelineNow,new Date()));
   all('[data-copy-timeline]').forEach(button=>button.onclick=()=>copyTimeline(button.dataset.copyTimeline));
 }
