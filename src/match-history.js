@@ -33,6 +33,15 @@ export function groupHistoryDatesByMonth(dateGroups=[]){
   })).sort((a,b)=>b.monthKey.localeCompare(a.monthKey));
 }
 
+export function defaultRecordingStartLocalValue(matches=[],dateKey=''){
+  if(!/^\d{4}-\d{2}-\d{2}$/.test(dateKey))return '';
+  const firstStart=matches.map(entry=>validDate((entry.match||entry).startedAt)).find(Boolean);
+  if(!firstStart)return '';
+  const taipeiHour=Number(new Intl.DateTimeFormat('en-US',{timeZone:'Asia/Taipei',hour:'2-digit',hourCycle:'h23'}).format(firstStart));
+  const hour=taipeiHour<6?1:11;
+  return `${dateKey}T${String(hour).padStart(2,'0')}:00:00`;
+}
+
 export function matchDayTimeline(matches=[],sessionStartedAt=''){
   const rows=matches.map((entry,position)=>{
     const match=entry.match||entry;

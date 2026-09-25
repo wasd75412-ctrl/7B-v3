@@ -28,7 +28,7 @@ import { normalizeScoreFont, randomScoreFont } from './score-font.js';
 import { EVENT_PACKING_MEMO_ITEMS, eventPackingMemoProgress, mergePackingMemos, normalizeEventPackingMemo } from './event-packing-memo.js';
 import { ensureShuttleCostNotice, moveAdminNotice, normalizeAdminNotices } from './admin-notices.js';
 import { eventPaymentStatus, normalizeEventPayments, updateEventPayment } from './event-payment.js';
-import { groupHistoryDatesByMonth, groupMatchHistoryByDate, youtubeTimelineText } from './match-history.js';
+import { defaultRecordingStartLocalValue, groupHistoryDatesByMonth, groupMatchHistoryByDate, youtubeTimelineText } from './match-history.js';
 
 const firebaseConfig={apiKey:'AIzaSyBrakbTPK7UqEChPBI6pM8-i03IcLq0IvM',authDomain:'badminton-7a1c3.firebaseapp.com',projectId:'badminton-7a1c3',storageBucket:'badminton-7a1c3.firebasestorage.app',messagingSenderId:'883534015507',appId:'1:883534015507:web:a7f6fb318151b6d07563e6',measurementId:'G-C97B98H7YW'};
 const fbApp=initializeApp(firebaseConfig);
@@ -2408,8 +2408,9 @@ function historyDateLabel(dateKey){if(!/^\d{4}-\d{2}-\d{2}$/.test(dateKey))retur
 function historyMonthLabel(monthKey){if(!/^\d{4}-\d{2}$/.test(monthKey))return monthKey;const [year,month]=monthKey.split('-');return `${year} 年 ${Number(month)} 月`}
 function timelineLocalInputValue(value){const d=new Date(value||'');if(isNaN(d.getTime()))return '';return `${localDateKey(d)}T${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}:${String(d.getSeconds()).padStart(2,'0')}`}
 function timelinePanel(group){
-  const savedStart=state.matchTimelineStarts?.[group.dateKey]||'',text=savedStart?youtubeTimelineText(group.matches,savedStart,pname):'請先設定錄影開始時間。';
-  return `<section class="youtube-timeline host-only"><div class="youtube-timeline-head"><strong>YouTube 比賽時間軸</strong><button class="btn primary" type="button" data-copy-timeline="${esc(group.dateKey)}" ${savedStart?'':'disabled'}>複製全部</button></div><div class="youtube-timeline-start"><label class="field"><span>錄影開始時間</span><input class="input" type="datetime-local" step="1" value="${esc(timelineLocalInputValue(savedStart))}" data-timeline-start="${esc(group.dateKey)}"></label><button class="btn primary" type="button" data-save-timeline="${esc(group.dateKey)}">儲存時間</button><button class="btn" type="button" data-timeline-now="${esc(group.dateKey)}">設為現在</button></div><div class="sub" data-timeline-feedback="${esc(group.dateKey)}">調整完整日期與時間後，請按「儲存時間」。</div><textarea class="youtube-timeline-text" readonly data-timeline-text="${esc(group.dateKey)}">${esc(text)}</textarea></section>`;
+  const savedStart=state.matchTimelineStarts?.[group.dateKey]||'',defaultLocal=defaultRecordingStartLocalValue(group.matches,group.dateKey),timelineStart=savedStart||(defaultLocal?new Date(defaultLocal).toISOString():'');
+  const text=timelineStart?youtubeTimelineText(group.matches,timelineStart,pname):'請先設定錄影開始時間。',feedback=savedStart?'已儲存，仍可修改後再次儲存。':defaultLocal?`已依場次預設為 ${defaultLocal.slice(11,16)}，仍可修改。`:'調整完整日期與時間後，請按「儲存時間」。';
+  return `<section class="youtube-timeline host-only"><div class="youtube-timeline-head"><strong>YouTube 比賽時間軸</strong><button class="btn primary" type="button" data-copy-timeline="${esc(group.dateKey)}" ${timelineStart?'':'disabled'}>複製全部</button></div><div class="youtube-timeline-start"><label class="field"><span>錄影開始時間</span><input class="input" type="datetime-local" step="1" value="${esc(timelineLocalInputValue(timelineStart))}" data-timeline-start="${esc(group.dateKey)}"></label><button class="btn primary" type="button" data-save-timeline="${esc(group.dateKey)}">儲存時間</button><button class="btn" type="button" data-timeline-now="${esc(group.dateKey)}">設為現在</button></div><div class="sub" data-timeline-feedback="${esc(group.dateKey)}">${esc(feedback)}</div><textarea class="youtube-timeline-text" readonly data-timeline-text="${esc(group.dateKey)}">${esc(text)}</textarea></section>`;
 }
 async function setTimelineStart(dateKey,value){
   if(!isHost)return;
