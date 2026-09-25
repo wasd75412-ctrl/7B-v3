@@ -37,7 +37,8 @@ export function defaultRecordingStartLocalValue(matches=[],dateKey=''){
   if(!/^\d{4}-\d{2}-\d{2}$/.test(dateKey))return '';
   const firstStart=matches.map(entry=>validDate((entry.match||entry).startedAt)).find(Boolean);
   if(!firstStart)return '';
-  const hour=firstStart.getHours()<6?1:11;
+  const taipeiHour=Number(new Intl.DateTimeFormat('en-US',{timeZone:'Asia/Taipei',hour:'2-digit',hourCycle:'h23'}).format(firstStart));
+  const hour=taipeiHour<6?1:11;
   return `${dateKey}T${String(hour).padStart(2,'0')}:00:00`;
 }
 
