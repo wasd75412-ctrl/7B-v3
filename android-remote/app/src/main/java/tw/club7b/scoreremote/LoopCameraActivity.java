@@ -169,43 +169,65 @@ public final class LoopCameraActivity extends ComponentActivity {
         float height = rotationDegrees % 180 == 0 ? rawHeight : rawWidth;
         float left = (rawWidth - width) / 2f;
         float top = (rawHeight - height) / 2f;
-        float margin = Math.max(24f, width * 0.035f);
-        float boxHeight = Math.max(112f, height * 0.13f);
-        RectF box = new RectF(left + margin, top + height - boxHeight - margin, left + width - margin, top + height - margin);
+        float margin = Math.max(22f, width * 0.025f);
+        float boardWidth = Math.min(width * 0.43f, height * 0.78f);
+        float rowHeight = Math.max(54f, height * 0.082f);
+        RectF box = new RectF(left + width - boardWidth - margin, top + margin, left + width - margin, top + margin + rowHeight * 2f);
 
         Paint background = new Paint(Paint.ANTI_ALIAS_FLAG);
-        background.setColor(0xD9141820);
-        canvas.drawRoundRect(box, boxHeight * 0.16f, boxHeight * 0.16f, background);
+        background.setColor(0xE61A1E27);
+        canvas.drawRoundRect(box, rowHeight * 0.14f, rowHeight * 0.14f, background);
+
+        Paint teamAAccent = new Paint(Paint.ANTI_ALIAS_FLAG);
+        teamAAccent.setColor(0xFF25D3B4);
+        Paint teamBAccent = new Paint(Paint.ANTI_ALIAS_FLAG);
+        teamBAccent.setColor(0xFF9B6CFF);
+        float accentWidth = Math.max(7f, boardWidth * 0.018f);
+        canvas.drawRect(box.left, box.top, box.left + accentWidth, box.top + rowHeight, teamAAccent);
+        canvas.drawRect(box.left, box.top + rowHeight, box.left + accentWidth, box.bottom, teamBAccent);
 
         Paint divider = new Paint(Paint.ANTI_ALIAS_FLAG);
-        divider.setColor(0xFF52D1B2);
-        divider.setStrokeWidth(Math.max(5f, width * 0.005f));
-        float center = box.centerX();
-        canvas.drawLine(center, box.top + boxHeight * 0.14f, center, box.bottom - boxHeight * 0.14f, divider);
+        divider.setColor(0x66FFFFFF);
+        divider.setStrokeWidth(Math.max(2f, height * 0.002f));
+        canvas.drawLine(box.left + accentWidth, box.top + rowHeight, box.right, box.top + rowHeight, divider);
+
+        float scoreWidth = Math.max(66f, boardWidth * 0.2f);
+        Paint scoreBackground = new Paint(Paint.ANTI_ALIAS_FLAG);
+        scoreBackground.setColor(0xFFF7F8FA);
+        canvas.drawRect(box.right - scoreWidth, box.top, box.right, box.top + rowHeight, scoreBackground);
+        canvas.drawRect(box.right - scoreWidth, box.top + rowHeight, box.right, box.bottom, scoreBackground);
 
         Paint names = new Paint(Paint.ANTI_ALIAS_FLAG);
         names.setColor(Color.WHITE);
-        names.setTextSize(Math.max(25f, boxHeight * 0.25f));
-        names.setTextAlign(Paint.Align.CENTER);
+        names.setFakeBoldText(true);
+        names.setTextSize(Math.max(24f, rowHeight * 0.38f));
+        names.setTextAlign(Paint.Align.LEFT);
         Paint scores = new Paint(Paint.ANTI_ALIAS_FLAG);
-        scores.setColor(Color.WHITE);
+        scores.setColor(0xFF10131A);
         scores.setFakeBoldText(true);
-        scores.setTextSize(Math.max(52f, boxHeight * 0.5f));
+        scores.setTextSize(Math.max(38f, rowHeight * 0.68f));
         scores.setTextAlign(Paint.Align.CENTER);
 
-        float quarter = box.width() / 4f;
-        float nameY = box.top + boxHeight * 0.34f;
-        float scoreY = box.top + boxHeight * 0.82f;
-        canvas.drawText(teamLabel(match.teamA), box.left + quarter, nameY, names);
-        canvas.drawText(teamLabel(match.teamB), box.right - quarter, nameY, names);
-        canvas.drawText(String.valueOf(match.scoreA), box.left + quarter, scoreY, scores);
-        canvas.drawText(String.valueOf(match.scoreB), box.right - quarter, scoreY, scores);
+        float nameLeft = box.left + accentWidth + Math.max(15f, boardWidth * 0.04f);
+        float nameMaxWidth = box.right - scoreWidth - nameLeft - Math.max(12f, boardWidth * 0.025f);
+        float firstBaseline = box.top + rowHeight * 0.67f;
+        float secondBaseline = firstBaseline + rowHeight;
+        canvas.drawText(fitTeamLabel(match.teamA, names, nameMaxWidth), nameLeft, firstBaseline, names);
+        canvas.drawText(fitTeamLabel(match.teamB, names, nameMaxWidth), nameLeft, secondBaseline, names);
+        canvas.drawText(String.valueOf(match.scoreA), box.right - scoreWidth / 2f, firstBaseline + rowHeight * 0.05f, scores);
+        canvas.drawText(String.valueOf(match.scoreB), box.right - scoreWidth / 2f, secondBaseline + rowHeight * 0.05f, scores);
         canvas.restoreToCount(save);
+    }
+
+    private static String fitTeamLabel(List<String> players, Paint paint, float maxWidth) {
+        String label = teamLabel(players);
+        if (paint.measureText(label) <= maxWidth) return label;
+        return android.text.TextUtils.ellipsize(label, new android.text.TextPaint(paint), maxWidth, android.text.TextUtils.TruncateAt.END).toString();
     }
 
     private static String teamLabel(List<String> players) {
         if (players == null || players.isEmpty()) return "球員";
-        return android.text.TextUtils.join(" / ", players);
+        return android.text.TextUtils.join("・", players);
     }
 
     private void startSegment() {
