@@ -2286,6 +2286,12 @@ function renderScore(){
   scoreAEl.classList.toggle('two-digit',m.scores[0]>=10);
   scoreBEl.classList.toggle('two-digit',m.scores[1]>=10);
   $('undo').disabled=!m.rallies.length;
+  const officialStartButton=$('officialStartScore');
+  if(officialStartButton){
+    const canStart=m.active&&m.winner===null&&!matchHasOfficiallyStarted(m)&&isHost&&!requestedAndroidRemote;
+    officialStartButton.classList.toggle('hidden',!canStart);
+    officialStartButton.disabled=!canStart;
+  }
 
   const scoreNameClass=name=>{
     const cleanName=String(name||'').trim();
@@ -3242,6 +3248,8 @@ const refreshAppButtons=all('[data-refresh-app]');
 refreshAppButtons.forEach(button=>button.onclick=()=>{refreshAppButtons.forEach(item=>{item.disabled=true;item.setAttribute('aria-busy','true');item.textContent=item.id==='refreshApp'?'↻':'↻ 重新載入…'});const url=new URL(location.href);url.searchParams.set('_refresh',Date.now().toString());setTimeout(()=>location.replace(url.toString()),50)});
 
 const fullscreenScoreBtn=$('fullscreenScore'),fullscreenScoreView=$('scoreView');
+const officialStartScoreBtn=$('officialStartScore');
+officialStartScoreBtn.onclick=()=>markMatchOfficialStarted();
 const SCORE_THEME_KEY='bcmScoreThemeV1';
 const SCORE_RANDOM_THEME_KEY='bcmRandomScoreThemeV1';
 const SCORE_THEMES=new Set(['suisei-2023-09','suisei-2024-07','suisei-2026-01','gbc-grass','pudding-pattern','pudding-hug','pudding-collection','sanrio-party','three-eyed-pattern','vspo-hbl','blue-stage','the-star','vspo','vspo-snut','happy-panda','pudding-puppy','bow-kitty','girls-band','girls-band-fashion','jujutsu']);

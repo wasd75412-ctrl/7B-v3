@@ -572,8 +572,9 @@ html.brand-font-fallback .brand-copy .brand-mark h1{
   box-shadow:none;
 }
 .score-view.immersive-mode .score-head>div:first-child>span:first-child,
-.score-view.immersive-mode .score-head .score-actions>button:not(#fullscreenScore):not(#undo),
+.score-view.immersive-mode .score-head .score-actions>button:not(#fullscreenScore):not(#officialStartScore):not(#undo),
 .score-view.immersive-mode .score-foot{display:none}
+.official-start-score-btn{border-color:#8ff0bd;background:#0c8f5b;color:#fff;font-size:1.35rem;font-weight:1000;min-width:46px;box-shadow:0 0 0 3px rgba(143,240,189,.18)}
 .score-view.immersive-mode .score-connection{
   position:fixed;
   top:calc(8px + env(safe-area-inset-top));

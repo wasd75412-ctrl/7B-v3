@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 
 const main=readFileSync(new URL('../src/main.js',import.meta.url),'utf8');
+const index=readFileSync(new URL('../index.html',import.meta.url),'utf8');
 const styles=readFileSync(new URL('../src/styles.css',import.meta.url),'utf8');
 const activity=readFileSync(new URL('../android-remote/app/src/main/java/tw/club7b/scoreremote/MainActivity.java',import.meta.url),'utf8');
 const service=readFileSync(new URL('../android-remote/app/src/main/java/tw/club7b/scoreremote/RemoteKeyAccessibilityService.java',import.meta.url),'utf8');
@@ -33,6 +34,13 @@ test('official start is idempotent and scoring waits for it',()=>{
   assert.match(main,/if\(!matchHasOfficiallyStarted\(match\)\)\{showScoreRemoteIndicator\('請先連按兩下正式開始'/);
   assert.match(main,/function handleRemoteOfficialStartCommand[\s\S]*?return markMatchOfficialStarted\(\)/);
   assert.match(main,/function handleRemoteFullscreenCommand[\s\S]*?return markMatchOfficialStarted\(\)/);
+});
+
+test('score mode provides a play fallback for official start in both layouts',()=>{
+  assert.match(index,/id="officialStartScore"[^>]*>▶️/);
+  assert.match(main,/officialStartScoreBtn\.onclick=\(\)=>markMatchOfficialStarted\(\)/);
+  assert.match(main,/officialStartButton\.classList\.toggle\('hidden',!canStart\)/);
+  assert.match(styles,/\.score-view\.immersive-mode \.score-head \.score-actions>button:not\(#fullscreenScore\):not\(#officialStartScore\):not\(#undo\)/);
 });
 
 test('official start indicator is emphasized and centered for everyone to see',()=>{
