@@ -7,6 +7,7 @@ import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.graphics.Color;
 import android.graphics.Paint;
+import android.graphics.Rect;
 import android.graphics.RectF;
 import android.media.MediaCodec;
 import android.media.MediaExtractor;
@@ -20,6 +21,7 @@ import android.os.ParcelFileDescriptor;
 import android.provider.MediaStore;
 import android.util.Log;
 import android.view.Gravity;
+import android.view.Surface;
 import android.view.ViewGroup;
 import android.view.WindowManager;
 import android.widget.Button;
@@ -125,10 +127,11 @@ public final class LoopCameraActivity extends ComponentActivity {
             if (closing || isFinishing() || isDestroyed()) return;
             try {
                 ProcessCameraProvider provider = future.get();
-                Preview preview = new Preview.Builder().build();
+                int targetRotation = Surface.ROTATION_90;
+                Preview preview = new Preview.Builder().setTargetRotation(targetRotation).build();
                 preview.setSurfaceProvider(previewView.getSurfaceProvider());
                 Recorder recorder = new Recorder.Builder().setQualitySelector(QualitySelector.from(Quality.HD)).build();
-                videoCapture = VideoCapture.withOutput(recorder);
+                videoCapture = new VideoCapture.Builder<>(recorder).setTargetRotation(targetRotation).build();
                 scoreOverlayEffect = createScoreOverlayEffect();
                 provider.unbindAll();
                 UseCaseGroup group = new UseCaseGroup.Builder()
@@ -153,26 +156,33 @@ public final class LoopCameraActivity extends ComponentActivity {
                 error -> Log.e("7BRecording", "Score overlay failed", error)
         );
         effect.setOnDrawListener(frame -> {
-            drawScoreOverlay(frame.getOverlayCanvas(), frame.getRotationDegrees(), overlayState.get());
+            drawScoreOverlay(frame.getOverlayCanvas(), frame.getCropRect(), frame.getRotationDegrees(), overlayState.get());
             return true;
         });
         return effect;
     }
 
-    private void drawScoreOverlay(android.graphics.Canvas canvas, int rotationDegrees, LiveMatchOverlayController.OverlayState match) {
+    private void drawScoreOverlay(android.graphics.Canvas canvas, Rect cropRect, int rotationDegrees, LiveMatchOverlayController.OverlayState match) {
         canvas.drawColor(Color.TRANSPARENT, android.graphics.PorterDuff.Mode.CLEAR);
         if (match == null || !match.active) return;
         int save = canvas.save();
-        float rawWidth = canvas.getWidth(), rawHeight = canvas.getHeight();
-        canvas.rotate(-rotationDegrees, rawWidth / 2f, rawHeight / 2f);
-        float width = rotationDegrees % 180 == 0 ? rawWidth : rawHeight;
-        float height = rotationDegrees % 180 == 0 ? rawHeight : rawWidth;
-        float left = (rawWidth - width) / 2f;
-        float top = (rawHeight - height) / 2f;
+        float width = cropRect.width(), height = cropRect.height();
+        float viewportLeft = cropRect.left, viewportTop = cropRect.top;
+        float targetAspect = 16f / 9f;
+        if (width / height < targetAspect) {
+            float viewportHeight = width / targetAspect;
+            viewportTop += (height - viewportHeight) / 2f;
+            height = viewportHeight;
+        } else if (width / height > targetAspect) {
+            float viewportWidth = height * targetAspect;
+            viewportLeft += (width - viewportWidth) / 2f;
+            width = viewportWidth;
+        }
+        canvas.translate(viewportLeft, viewportTop);
         float margin = Math.max(22f, width * 0.025f);
         float boardWidth = Math.min(width * 0.43f, height * 0.78f);
         float rowHeight = Math.max(54f, height * 0.082f);
-        RectF box = new RectF(left + width - boardWidth - margin, top + margin, left + width - margin, top + margin + rowHeight * 2f);
+        RectF box = new RectF(width - boardWidth - margin, margin, width - margin, margin + rowHeight * 2f);
 
         Paint background = new Paint(Paint.ANTI_ALIAS_FLAG);
         background.setColor(0xE61A1E27);
