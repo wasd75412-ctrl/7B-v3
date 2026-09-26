@@ -25,3 +25,19 @@ test('uses the platform permission callback without requiring Fragment Activity 
   assert.match(camera,/onRequestPermissionsResult\(/);
   assert.doesNotMatch(camera,/registerForActivityResult|ActivityResultLauncher/);
 });
+
+test('keeps loop recording and score broadcast recording as separate camera modes',()=>{
+  assert.match(source,/openVideoCamera\(false\)/);
+  assert.match(source,/openVideoCamera\(true\)/);
+  assert.match(camera,/EXTRA_BROADCAST_MODE/);
+  assert.match(camera,/if \(broadcastMode\) \{/);
+  assert.match(camera,/MediaStoreOutputOptions/);
+  assert.match(camera,/if \(!broadcastMode\) \{[\s\S]*?保存最近 3 分鐘/);
+});
+
+test('burns the live score only into broadcast recordings at the top-left',()=>{
+  assert.match(camera,/if \(broadcastMode\)[\s\S]*?groupBuilder\.addEffect\(scoreOverlayEffect\)/);
+  assert.match(camera,/RectF box = new RectF\(margin, margin, margin \+ boardWidth/);
+  assert.match(camera,/LinearGradient/);
+  assert.match(camera,/names\.setTextSize\(Math\.max\(32f/);
+});

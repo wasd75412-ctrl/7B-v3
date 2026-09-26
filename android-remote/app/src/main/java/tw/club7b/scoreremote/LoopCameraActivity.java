@@ -9,6 +9,8 @@ import android.graphics.Color;
 import android.graphics.Paint;
 import android.graphics.Rect;
 import android.graphics.RectF;
+import android.graphics.LinearGradient;
+import android.graphics.Shader;
 import android.media.MediaCodec;
 import android.media.MediaExtractor;
 import android.media.MediaFormat;
@@ -38,6 +40,7 @@ import androidx.camera.core.UseCaseGroup;
 import androidx.camera.effects.OverlayEffect;
 import androidx.camera.lifecycle.ProcessCameraProvider;
 import androidx.camera.video.FileOutputOptions;
+import androidx.camera.video.MediaStoreOutputOptions;
 import androidx.camera.video.PendingRecording;
 import androidx.camera.video.Quality;
 import androidx.camera.video.QualitySelector;
@@ -62,6 +65,7 @@ import java.util.concurrent.atomic.AtomicReference;
 
 /** App-internal camera that keeps only eighteen completed ten-second clips. */
 public final class LoopCameraActivity extends ComponentActivity {
+    public static final String EXTRA_BROADCAST_MODE = "broadcastMode";
     private static final int CAMERA_PERMISSION_REQUEST = 7;
     private static final long SEGMENT_MS = 10_000L;
     private static final long RECORDING_RECOVERY_MS = 750L;
@@ -83,13 +87,16 @@ public final class LoopCameraActivity extends ComponentActivity {
     private boolean closing;
     private boolean explicitExit;
     private boolean saveAfterFinalize;
+    private boolean broadcastMode;
+    private boolean broadcastStopping;
 
     @Override protected void onCreate(Bundle state) {
         super.onCreate(state);
         getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
+        broadcastMode = getIntent().getBooleanExtra(EXTRA_BROADCAST_MODE, false);
         RemoteSessionStore.setRecordingEnabled(this, true);
         buildUi();
-        liveMatchOverlay = new LiveMatchOverlayController(this, overlayState::set);
+        if (broadcastMode) liveMatchOverlay = new LiveMatchOverlayController(this, overlayState::set);
         if (hasPermission(Manifest.permission.CAMERA)) startCamera();
         else requestPermissions(new String[]{Manifest.permission.CAMERA, Manifest.permission.RECORD_AUDIO}, CAMERA_PERMISSION_REQUEST);
     }
@@ -98,7 +105,7 @@ public final class LoopCameraActivity extends ComponentActivity {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults);
         if (requestCode != CAMERA_PERMISSION_REQUEST) return;
         if (hasPermission(Manifest.permission.CAMERA)) startCamera();
-        else { Toast.makeText(this, "需要相機權限才能循環錄影", Toast.LENGTH_LONG).show(); exitRecording(); }
+        else { Toast.makeText(this, "需要相機權限才能錄影", Toast.LENGTH_LONG).show(); exitRecording(); }
     }
 
     private void buildUi() {
@@ -111,8 +118,10 @@ public final class LoopCameraActivity extends ComponentActivity {
         bar.setGravity(Gravity.CENTER_VERTICAL); bar.setPadding(22, 14, 22, 14); bar.setBackgroundColor(0xB0000000);
         status = new TextView(this); status.setTextColor(Color.WHITE); status.setTextSize(17f); status.setText("相機準備中…");
         bar.addView(status, new LinearLayout.LayoutParams(0, -2, 1f));
-        Button save = new Button(this); save.setText("保存最近 3 分鐘"); save.setOnClickListener(v -> saveRecentVideo()); bar.addView(save);
-        Button close = new Button(this); close.setText("結束"); close.setOnClickListener(v -> exitRecording()); bar.addView(close);
+        if (!broadcastMode) {
+            Button save = new Button(this); save.setText("保存最近 3 分鐘"); save.setOnClickListener(v -> saveRecentVideo()); bar.addView(save);
+        }
+        Button close = new Button(this); close.setText(broadcastMode ? "結束並保存" : "結束"); close.setOnClickListener(v -> exitRecording()); bar.addView(close);
         root.addView(bar, new FrameLayout.LayoutParams(-1, -2, Gravity.BOTTOM));
         setContentView(root, new ViewGroup.LayoutParams(-1, -1));
     }
@@ -132,14 +141,15 @@ public final class LoopCameraActivity extends ComponentActivity {
                 preview.setSurfaceProvider(previewView.getSurfaceProvider());
                 Recorder recorder = new Recorder.Builder().setQualitySelector(QualitySelector.from(Quality.HD)).build();
                 videoCapture = new VideoCapture.Builder<>(recorder).setTargetRotation(targetRotation).build();
-                scoreOverlayEffect = createScoreOverlayEffect();
                 provider.unbindAll();
-                UseCaseGroup group = new UseCaseGroup.Builder()
+                UseCaseGroup.Builder groupBuilder = new UseCaseGroup.Builder()
                         .addUseCase(preview)
-                        .addUseCase(videoCapture)
-                        .addEffect(scoreOverlayEffect)
-                        .build();
-                provider.bindToLifecycle(this, CameraSelector.DEFAULT_BACK_CAMERA, group);
+                        .addUseCase(videoCapture);
+                if (broadcastMode) {
+                    scoreOverlayEffect = createScoreOverlayEffect();
+                    groupBuilder.addEffect(scoreOverlayEffect);
+                }
+                provider.bindToLifecycle(this, CameraSelector.DEFAULT_BACK_CAMERA, groupBuilder.build());
                 startSegmentIfVisible();
             } catch (Exception error) {
                 status.setText("相機啟動失敗");
@@ -179,20 +189,21 @@ public final class LoopCameraActivity extends ComponentActivity {
             width = viewportWidth;
         }
         canvas.translate(viewportLeft, viewportTop);
-        float margin = Math.max(22f, width * 0.025f);
-        float boardWidth = Math.min(width * 0.43f, height * 0.78f);
-        float rowHeight = Math.max(54f, height * 0.082f);
-        RectF box = new RectF(width - boardWidth - margin, margin, width - margin, margin + rowHeight * 2f);
+        float margin = Math.max(12f, width * 0.012f);
+        float boardWidth = Math.min(width * 0.46f, height * 0.9f);
+        float rowHeight = Math.max(62f, height * 0.09f);
+        RectF box = new RectF(margin, margin, margin + boardWidth, margin + rowHeight * 2f);
 
         Paint background = new Paint(Paint.ANTI_ALIAS_FLAG);
-        background.setColor(0xE61A1E27);
-        canvas.drawRoundRect(box, rowHeight * 0.14f, rowHeight * 0.14f, background);
+        background.setShader(new LinearGradient(box.left, box.top, box.right, box.top,
+                0xFFF00089, 0xFFF06B0B, Shader.TileMode.CLAMP));
+        canvas.drawRect(box, background);
 
         Paint teamAAccent = new Paint(Paint.ANTI_ALIAS_FLAG);
-        teamAAccent.setColor(0xFF25D3B4);
+        teamAAccent.setColor(0xFFD7F000);
         Paint teamBAccent = new Paint(Paint.ANTI_ALIAS_FLAG);
-        teamBAccent.setColor(0xFF9B6CFF);
-        float accentWidth = Math.max(7f, boardWidth * 0.018f);
+        teamBAccent.setColor(0xFFC000D8);
+        float accentWidth = Math.max(13f, boardWidth * 0.028f);
         canvas.drawRect(box.left, box.top, box.left + accentWidth, box.top + rowHeight, teamAAccent);
         canvas.drawRect(box.left, box.top + rowHeight, box.left + accentWidth, box.bottom, teamBAccent);
 
@@ -201,7 +212,7 @@ public final class LoopCameraActivity extends ComponentActivity {
         divider.setStrokeWidth(Math.max(2f, height * 0.002f));
         canvas.drawLine(box.left + accentWidth, box.top + rowHeight, box.right, box.top + rowHeight, divider);
 
-        float scoreWidth = Math.max(66f, boardWidth * 0.2f);
+        float scoreWidth = Math.max(82f, boardWidth * 0.18f);
         Paint scoreBackground = new Paint(Paint.ANTI_ALIAS_FLAG);
         scoreBackground.setColor(0xFFF7F8FA);
         canvas.drawRect(box.right - scoreWidth, box.top, box.right, box.top + rowHeight, scoreBackground);
@@ -210,15 +221,15 @@ public final class LoopCameraActivity extends ComponentActivity {
         Paint names = new Paint(Paint.ANTI_ALIAS_FLAG);
         names.setColor(Color.WHITE);
         names.setFakeBoldText(true);
-        names.setTextSize(Math.max(24f, rowHeight * 0.38f));
+        names.setTextSize(Math.max(32f, rowHeight * 0.48f));
         names.setTextAlign(Paint.Align.LEFT);
         Paint scores = new Paint(Paint.ANTI_ALIAS_FLAG);
         scores.setColor(0xFF10131A);
         scores.setFakeBoldText(true);
-        scores.setTextSize(Math.max(38f, rowHeight * 0.68f));
+        scores.setTextSize(Math.max(44f, rowHeight * 0.72f));
         scores.setTextAlign(Paint.Align.CENTER);
 
-        float nameLeft = box.left + accentWidth + Math.max(15f, boardWidth * 0.04f);
+        float nameLeft = box.left + accentWidth + Math.max(18f, boardWidth * 0.035f);
         float nameMaxWidth = box.right - scoreWidth - nameLeft - Math.max(12f, boardWidth * 0.025f);
         float firstBaseline = box.top + rowHeight * 0.67f;
         float secondBaseline = firstBaseline + rowHeight;
@@ -242,6 +253,10 @@ public final class LoopCameraActivity extends ComponentActivity {
 
     private void startSegment() {
         if (closing || recording != null || videoCapture == null) return;
+        if (broadcastMode) {
+            startBroadcastRecording();
+            return;
+        }
         File dir = new File(getCacheDir(), "rolling-video");
         if (!dir.exists() && !dir.mkdirs()) { Toast.makeText(this, "無法建立暫存區", Toast.LENGTH_LONG).show(); return; }
         activeFile = new File(dir, "segment-" + System.currentTimeMillis() + ".mp4");
@@ -256,6 +271,31 @@ public final class LoopCameraActivity extends ComponentActivity {
             recording = null;
             if (activeFile != null) activeFile.delete();
             activeFile = null;
+            status.setText("正在恢復錄影…");
+            scheduleRecordingRecovery();
+        }
+    }
+
+    private void startBroadcastRecording() {
+        String stamp = new SimpleDateFormat("yyyyMMdd-HHmmss", Locale.TAIWAN).format(new Date());
+        ContentValues values = new ContentValues();
+        values.put(MediaStore.Video.Media.DISPLAY_NAME, "7B-轉播-" + stamp + ".mp4");
+        values.put(MediaStore.Video.Media.MIME_TYPE, "video/mp4");
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            values.put(MediaStore.Video.Media.RELATIVE_PATH, Environment.DIRECTORY_MOVIES + "/7B羽球");
+        }
+        try {
+            MediaStoreOutputOptions output = new MediaStoreOutputOptions.Builder(
+                    getContentResolver(), MediaStore.Video.Media.EXTERNAL_CONTENT_URI)
+                    .setContentValues(values)
+                    .build();
+            PendingRecording pending = videoCapture.getOutput().prepareRecording(this, output);
+            if (hasPermission(Manifest.permission.RECORD_AUDIO)) pending = pending.withAudioEnabled();
+            recording = pending.start(ContextCompat.getMainExecutor(this), this::onVideoEvent);
+            status.setText("● 比分轉播錄影中");
+        } catch (RuntimeException error) {
+            Log.w("7BRecording", "Broadcast recording start interrupted", error);
+            recording = null;
             status.setText("正在恢復錄影…");
             scheduleRecordingRecovery();
         }
@@ -279,6 +319,21 @@ public final class LoopCameraActivity extends ComponentActivity {
         if (!(event instanceof VideoRecordEvent.Finalize)) return;
         VideoRecordEvent.Finalize finalized = (VideoRecordEvent.Finalize) event;
         recording = null;
+        if (broadcastMode) {
+            android.net.Uri savedUri = finalized.getOutputResults().getOutputUri();
+            boolean success = !finalized.hasError() && savedUri != null && !android.net.Uri.EMPTY.equals(savedUri);
+            if (broadcastStopping) {
+                RemoteSessionStore.setRecordingEnabled(this, false);
+                Toast.makeText(this, success ? "比分轉播影片已保存" : "影片保存失敗", Toast.LENGTH_LONG).show();
+                if (success) openSavedVideo(savedUri);
+                closing = true;
+                finish();
+            } else if (!closing) {
+                status.setText(success ? "錄影中斷，正在建立新檔…" : "正在恢復錄影…");
+                scheduleRecordingRecovery();
+            }
+            return;
+        }
         File finished = activeFile; activeFile = null;
         if (!finalized.hasError() && finished != null && finished.length() > 0) {
             segments.addLast(finished);
@@ -290,6 +345,12 @@ public final class LoopCameraActivity extends ComponentActivity {
 
     private void exitRecording() {
         explicitExit = true;
+        if (broadcastMode && recording != null) {
+            broadcastStopping = true;
+            status.setText("正在完成並保存影片…");
+            recording.stop();
+            return;
+        }
         closing = true;
         RemoteSessionStore.setRecordingEnabled(this, false);
         finish();
