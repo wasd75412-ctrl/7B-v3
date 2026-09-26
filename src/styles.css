@@ -629,6 +629,23 @@ html.brand-font-fallback .brand-copy .brand-mark h1{
   box-shadow:0 6px 18px rgba(0,0,0,.28);
   transition:opacity .16s ease;
 }
+.score-view.immersive-mode #officialStartScore:not(.hidden){
+  position:fixed;
+  top:calc(8px + env(safe-area-inset-top));
+  right:calc(62px + env(safe-area-inset-right));
+  z-index:80;
+  display:grid;
+  place-items:center;
+  width:46px;
+  height:46px;
+  padding:0;
+  font-size:25px;
+  line-height:1;
+  color:#fff;
+  border-color:#8ff0bd;
+  background:#0c8f5b;
+  box-shadow:0 6px 18px rgba(0,0,0,.28),0 0 0 3px rgba(143,240,189,.18);
+}
 .score-view.immersive-mode #fullscreenScore:hover,
 .score-view.immersive-mode #fullscreenScore:focus-visible,
 .score-view.immersive-mode #fullscreenScore:active{

@@ -41,6 +41,7 @@ test('score mode provides a play fallback for official start in both layouts',()
   assert.match(main,/officialStartScoreBtn\.onclick=\(\)=>markMatchOfficialStarted\(\)/);
   assert.match(main,/officialStartButton\.classList\.toggle\('hidden',!canStart\)/);
   assert.match(styles,/\.score-view\.immersive-mode \.score-head \.score-actions>button:not\(#fullscreenScore\):not\(#officialStartScore\):not\(#undo\)/);
+  assert.match(styles,/\.score-view\.immersive-mode #officialStartScore:not\(\.hidden\)\{[^}]*position:fixed;[^}]*right:calc\(62px/);
 });
 
 test('official start indicator is emphasized and centered for everyone to see',()=>{
