@@ -69,3 +69,10 @@ test('routes exactly three short presses to shuttle use with a quiet-window and 
   assert.match(main,/if\(action==='returnShuttle'\)return returnOneShuttle/);
   assert.match(main,/if\(resultVisible\)\{if\(action==='undo'\)performScoreRemoteAction\('undo',\{announce:false\}\);else startNext\(\);return true\}/);
 });
+
+test('waits longer after the third press so a fourth press cannot spend a shuttle first',()=>{
+  assert.match(activity,/SHUTTLE_SEQUENCE_MS = 1500L/);
+  assert.match(activity,/pendingShortPressCount >= 3 \? SHUTTLE_SEQUENCE_MS : DOUBLE_PRESS_MS/);
+  assert.match(service,/SHUTTLE_SEQUENCE_MS = 1500L/);
+  assert.match(service,/pendingShortPressCount >= 3 \? SHUTTLE_SEQUENCE_MS : DOUBLE_PRESS_MS/);
+});
