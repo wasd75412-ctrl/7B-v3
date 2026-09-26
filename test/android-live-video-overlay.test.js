@@ -24,6 +24,10 @@ test('lays out a compact two-row broadcast scoreboard against the top-left edge'
   assert.match(camera,/fitTeamLabel\(match\.teamA, names, nameMaxWidth\)/);
   assert.match(camera,/box\.right - scoreWidth \/ 2f/);
   assert.match(camera,/LinearGradient/);
+  assert.match(camera,/0xFF0057D9, 0xFF00A9C7/);
+  assert.match(camera,/0xFFD91E45, 0xFFFF7A00/);
+  assert.match(camera,/teamABackground/);
+  assert.match(camera,/teamBBackground/);
   assert.match(camera,/float boardWidth = Math\.min\(width \* 0\.28f/);
   assert.match(camera,/float rowHeight = Math\.max\(38f/);
   assert.match(camera,/names\.setTextSize\(Math\.max\(23f/);
