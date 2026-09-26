@@ -9,13 +9,17 @@ const accessibility=readFileSync(new URL('../android-remote/app/src/main/java/tw
 test('burns the live player and score overlay into both preview and recorded video',()=>{
   assert.match(camera,/CameraEffect\.PREVIEW \| CameraEffect\.VIDEO_CAPTURE/);
   assert.match(camera,/\.addEffect\(scoreOverlayEffect\)/);
-  assert.match(camera,/drawScoreOverlay\(frame\.getOverlayCanvas\(\), frame\.getRotationDegrees\(\), overlayState\.get\(\)\)/);
+  assert.match(camera,/drawScoreOverlay\(frame\.getOverlayCanvas\(\), frame\.getCropRect\(\), frame\.getRotationDegrees\(\), overlayState\.get\(\)\)/);
   assert.match(camera,/fitTeamLabel\(match\.teamA, names, nameMaxWidth\)/);
   assert.match(camera,/String\.valueOf\(match\.scoreA\)/);
 });
 
 test('lays out a compact two-row broadcast scoreboard in the top-right safe area',()=>{
-  assert.match(camera,/left \+ width - boardWidth - margin, top \+ margin/);
+  assert.match(camera,/new RectF\(width - boardWidth - margin, margin, width - margin/);
+  assert.match(camera,/float targetAspect = 16f \/ 9f/);
+  assert.match(camera,/canvas\.translate\(viewportLeft, viewportTop\)/);
+  assert.doesNotMatch(camera,/canvas\.rotate\(-90f\)/);
+  assert.match(camera,/setTargetRotation\(targetRotation\)/);
   assert.match(camera,/box\.top \+ rowHeight/);
   assert.match(camera,/fitTeamLabel\(match\.teamA, names, nameMaxWidth\)/);
   assert.match(camera,/box\.right - scoreWidth \/ 2f/);
