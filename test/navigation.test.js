@@ -377,12 +377,17 @@ test('opens admin shuttle tube management from the more menu',()=>{
   assert.match(html,/id="shuttleTubeModal"/);
 });
 
-test('separates fixed members and guest players while shuttle costs use session attendance',()=>{
+test('separates fixed members and guest players while shuttle costs use completed-match participants',()=>{
   assert.match(html,/id="newPlayerType"[\s\S]*?<option value="member">固定團員<\/option>[\s\S]*?<option value="guest">臨打球友<\/option>/);
   assert.match(html,/id="membershipAdminSection" class="profile-panel host-only"/);
   assert.match(html,/id="editMemberType"/);
   assert.match(mainSource,/splitPlayersByMembership\(rows\)/);
   assert.match(mainSource,/function shuttleParticipantCount\(\)/);
+  assert.match(mainSource,/function sessionPlayedParticipantIds\(dateKey=localDateKey\(\)\)/);
+  assert.match(mainSource,/playedParticipantIds\(\(state\.history\|\|\[\]\)\.filter\(match=>historyDate\(match\)===dateKey\)\)/);
+  assert.doesNotMatch(mainSource,/shuttleParticipantCount\(\)\|\|wholeAmount\(event\?\.participantCount\)/);
+  assert.match(mainSource,/完成比賽即計入，退席後不扣除；購球者若參與也計入/);
+  assert.match(mainSource,/sessionPlayers\.has\(claimedId\)/);
   assert.match(mainSource,/購球者若參與也計入/);
   assert.match(adminNoticesSource,/球費＝本場使用顆數 ×（球桶價格 ÷ 12）÷ 本場參與人數/);
   assert.doesNotMatch(mainSource,/「\$\{tube\.name\}」剩餘 \$\{tube\.remainingShuttles\} 顆/);
