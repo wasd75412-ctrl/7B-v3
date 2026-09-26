@@ -133,11 +133,11 @@ function completeScoreRemoteLearning(action,code,event){
   event?.preventDefault();event?.stopPropagation();clearScoreRemoteLearningTimer();
   scoreRemoteBindings=assignRemoteBinding(scoreRemoteBindings,action,code);saveScoreRemoteBindings();scoreRemoteLearningAction='';scoreRemoteLastInputAt=performance.now();scoreRemoteStatusKind='';scoreRemoteStatusMessage=`已設定「${SCORE_REMOTE_ACTION_LABELS[action]}」為 ${scoreRemoteKeyLabel(code)}`;updateScoreRemoteUi();
 }
-function showScoreRemoteIndicator(message,{duration=900,icon='🎮'}={}){
+function showScoreRemoteIndicator(message,{duration=900,icon='🎮',emphasis=''}={}){
   const indicator=$('scoreRemoteIndicator');if(!indicator)return;
   const resultModal=$('resultModal'),overlayHost=resultModal&&!resultModal.classList.contains('hidden')?resultModal:(currentFullscreenElement()||$('scoreView'));
   if(overlayHost&&indicator.parentElement!==overlayHost)overlayHost.append(indicator);
-  clearTimeout(scoreRemoteIndicatorTimer);indicator.textContent=`${icon} ${message}`;indicator.classList.remove('hidden');
+  clearTimeout(scoreRemoteIndicatorTimer);indicator.textContent=`${icon} ${message}`;indicator.classList.toggle('official-start',emphasis==='official');indicator.classList.remove('hidden');
   scoreRemoteIndicatorTimer=setTimeout(()=>{indicator.classList.add('hidden');if($('scoreView')&&indicator.parentElement!==$('scoreView'))$('scoreView').append(indicator)},duration);
 }
 function matchHasOfficiallyStarted(match=state.match){return Boolean(match?.startedAt)}
@@ -147,7 +147,7 @@ function markMatchOfficialStarted(){
   if(matchHasOfficiallyStarted(match)){showScoreRemoteIndicator('本場已正式開始',{duration:1400,icon:'✅'});return true}
   match.startedAt=new Date().toISOString();
   saveLiveScoreSoon();saveSoon();renderDashboard();
-  showScoreRemoteIndicator('比賽正式開始',{duration:1800,icon:'✅'});
+  showScoreRemoteIndicator('比賽正式開始',{duration:2600,icon:'✅',emphasis:'official'});
   return true;
 }
 function performScoreRemoteAction(action,{announce=true}={}){
