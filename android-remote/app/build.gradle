@@ -17,8 +17,8 @@ android {
         applicationId 'tw.club7b.scoreremote'
         minSdk 26
         targetSdk 35
-        versionCode 27
-        versionName '1.3.21'
+        versionCode 28
+        versionName '1.3.22'
         testInstrumentationRunner 'androidx.test.runner.AndroidJUnitRunner'
     }
 
@@ -63,6 +63,7 @@ dependencies {
     implementation "androidx.camera:camera-lifecycle:${camerax_version}"
     implementation "androidx.camera:camera-video:${camerax_version}"
     implementation "androidx.camera:camera-view:${camerax_version}"
+    implementation "androidx.camera:camera-effects:${camerax_version}"
     implementation platform('com.google.firebase:firebase-bom:34.16.0')
     implementation 'com.google.firebase:firebase-firestore'
     testImplementation 'junit:junit:4.13.2'

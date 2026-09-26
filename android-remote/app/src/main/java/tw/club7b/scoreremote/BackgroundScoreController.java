@@ -66,6 +66,10 @@ final class BackgroundScoreController {
 
     BackgroundScoreController(Context context) {
         this.context = context.getApplicationContext();
+        firestore = firestore(this.context);
+    }
+
+    static FirebaseFirestore firestore(Context context) {
         FirebaseApp app;
         try {
             app = FirebaseApp.getInstance(FIREBASE_APP_NAME);
@@ -75,10 +79,10 @@ final class BackgroundScoreController {
                     .setApiKey(FIREBASE_API_KEY)
                     .setProjectId(FIREBASE_PROJECT_ID)
                     .build();
-            app = FirebaseApp.initializeApp(this.context, options, FIREBASE_APP_NAME);
+            app = FirebaseApp.initializeApp(context.getApplicationContext(), options, FIREBASE_APP_NAME);
             if (app == null) throw new IllegalStateException("無法啟動比分同步");
         }
-        firestore = FirebaseFirestore.getInstance(app);
+        return FirebaseFirestore.getInstance(app);
     }
 
     synchronized void submit(VolumeKeyInterpreter.Action action, Callback callback) {
