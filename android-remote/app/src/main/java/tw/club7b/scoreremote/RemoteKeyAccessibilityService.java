@@ -18,6 +18,7 @@ public final class RemoteKeyAccessibilityService extends AccessibilityService {
     private static final long ACTION_DEBOUNCE_MS = 300L;
     private static final long UNDO_DEBOUNCE_MS = 600L;
     private static final long DOUBLE_PRESS_MS = 700L;
+    private static final long SHUTTLE_SEQUENCE_MS = 1500L;
     private static final long SHUTTLE_PRESS_COOLDOWN_MS = 2000L;
 
     private final VolumeKeyInterpreter backgroundKeys = new VolumeKeyInterpreter();
@@ -139,7 +140,7 @@ public final class RemoteKeyAccessibilityService extends AccessibilityService {
                 if(now-lastShuttleActionAt>=SHUTTLE_PRESS_COOLDOWN_MS){lastShuttleActionAt=now;sendBackgroundReturnShuttle();}
             }
         };
-        keyHandler.postDelayed(pendingShortPress, DOUBLE_PRESS_MS);
+        keyHandler.postDelayed(pendingShortPress, pendingShortPressCount >= 3 ? SHUTTLE_SEQUENCE_MS : DOUBLE_PRESS_MS);
     }
 
     private void cancelPendingShortPress() {
