@@ -39,5 +39,5 @@ test('burns the live score only into broadcast recordings at the top-left',()=>{
   assert.match(camera,/if \(broadcastMode\)[\s\S]*?groupBuilder\.addEffect\(scoreOverlayEffect\)/);
   assert.match(camera,/RectF box = new RectF\(margin, margin, margin \+ boardWidth/);
   assert.match(camera,/LinearGradient/);
-  assert.match(camera,/names\.setTextSize\(Math\.max\(32f/);
+  assert.match(camera,/names\.setTextSize\(Math\.max\(23f/);
 });
