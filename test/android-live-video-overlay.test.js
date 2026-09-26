@@ -10,8 +10,15 @@ test('burns the live player and score overlay into both preview and recorded vid
   assert.match(camera,/CameraEffect\.PREVIEW \| CameraEffect\.VIDEO_CAPTURE/);
   assert.match(camera,/\.addEffect\(scoreOverlayEffect\)/);
   assert.match(camera,/drawScoreOverlay\(frame\.getOverlayCanvas\(\), frame\.getRotationDegrees\(\), overlayState\.get\(\)\)/);
-  assert.match(camera,/teamLabel\(match\.teamA\)/);
+  assert.match(camera,/fitTeamLabel\(match\.teamA, names, nameMaxWidth\)/);
   assert.match(camera,/String\.valueOf\(match\.scoreA\)/);
+});
+
+test('lays out a compact two-row broadcast scoreboard in the top-right safe area',()=>{
+  assert.match(camera,/left \+ width - boardWidth - margin, top \+ margin/);
+  assert.match(camera,/box\.top \+ rowHeight/);
+  assert.match(camera,/fitTeamLabel\(match\.teamA, names, nameMaxWidth\)/);
+  assert.match(camera,/box\.right - scoreWidth \/ 2f/);
 });
 
 test('subscribes to the shared room roster and live score documents',()=>{
