@@ -32,7 +32,7 @@ test('keeps loop recording and score broadcast recording as separate camera mode
   assert.match(camera,/EXTRA_BROADCAST_MODE/);
   assert.match(camera,/if \(broadcastMode\) \{/);
   assert.match(camera,/MediaStoreOutputOptions/);
-  assert.match(camera,/if \(!broadcastMode\) \{[\s\S]*?保存最近 3 分鐘/);
+  assert.match(camera,/else \{[\s\S]*?保存最近 3 分鐘/);
 });
 
 test('burns the live score only into broadcast recordings at the top-left',()=>{
@@ -40,4 +40,14 @@ test('burns the live score only into broadcast recordings at the top-left',()=>{
   assert.match(camera,/RectF box = new RectF\(margin, margin, margin \+ boardWidth/);
   assert.match(camera,/LinearGradient/);
   assert.match(camera,/names\.setTextSize\(Math\.max\(23f/);
+});
+
+test('saves broadcast video and immediately continues without opening a media viewer',()=>{
+  assert.match(camera,/保存並繼續/);
+  assert.match(camera,/saveBroadcastAndContinue\(\)/);
+  assert.match(camera,/影片已保存，繼續錄影/);
+  assert.match(camera,/broadcastSaveRequested = false;[\s\S]*?scheduleRecordingRecovery\(\)/);
+  const broadcastFinalize=camera.match(/if \(broadcastMode\) \{([\s\S]*?)\n\s*return;\n\s*\}/)?.[1]||'';
+  assert.doesNotMatch(broadcastFinalize,/openSavedVideo/);
+  assert.match(camera,/persistSegments\([\s\S]*?if \(success\) openSavedVideo\(savedVideoUri\)/);
 });

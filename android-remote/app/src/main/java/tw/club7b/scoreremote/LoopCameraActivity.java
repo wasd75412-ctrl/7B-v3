@@ -88,7 +88,8 @@ public final class LoopCameraActivity extends ComponentActivity {
     private boolean explicitExit;
     private boolean saveAfterFinalize;
     private boolean broadcastMode;
-    private boolean broadcastStopping;
+    private boolean broadcastSaveRequested;
+    private boolean broadcastExitRequested;
 
     @Override protected void onCreate(Bundle state) {
         super.onCreate(state);
@@ -118,10 +119,12 @@ public final class LoopCameraActivity extends ComponentActivity {
         bar.setGravity(Gravity.CENTER_VERTICAL); bar.setPadding(22, 14, 22, 14); bar.setBackgroundColor(0xB0000000);
         status = new TextView(this); status.setTextColor(Color.WHITE); status.setTextSize(17f); status.setText("相機準備中…");
         bar.addView(status, new LinearLayout.LayoutParams(0, -2, 1f));
-        if (!broadcastMode) {
+        if (broadcastMode) {
+            Button save = new Button(this); save.setText("保存並繼續"); save.setOnClickListener(v -> saveBroadcastAndContinue()); bar.addView(save);
+        } else {
             Button save = new Button(this); save.setText("保存最近 3 分鐘"); save.setOnClickListener(v -> saveRecentVideo()); bar.addView(save);
         }
-        Button close = new Button(this); close.setText(broadcastMode ? "結束並保存" : "結束"); close.setOnClickListener(v -> exitRecording()); bar.addView(close);
+        Button close = new Button(this); close.setText("結束"); close.setOnClickListener(v -> exitRecording()); bar.addView(close);
         root.addView(bar, new FrameLayout.LayoutParams(-1, -2, Gravity.BOTTOM));
         setContentView(root, new ViewGroup.LayoutParams(-1, -1));
     }
@@ -326,12 +329,16 @@ public final class LoopCameraActivity extends ComponentActivity {
         if (broadcastMode) {
             android.net.Uri savedUri = finalized.getOutputResults().getOutputUri();
             boolean success = !finalized.hasError() && savedUri != null && !android.net.Uri.EMPTY.equals(savedUri);
-            if (broadcastStopping) {
+            if (broadcastExitRequested) {
                 RemoteSessionStore.setRecordingEnabled(this, false);
                 Toast.makeText(this, success ? "比分轉播影片已保存" : "影片保存失敗", Toast.LENGTH_LONG).show();
-                if (success) openSavedVideo(savedUri);
                 closing = true;
                 finish();
+            } else if (broadcastSaveRequested) {
+                broadcastSaveRequested = false;
+                Toast.makeText(this, success ? "影片已保存，繼續錄影" : "影片保存失敗，正在繼續錄影", Toast.LENGTH_SHORT).show();
+                status.setText("正在繼續錄影…");
+                scheduleRecordingRecovery();
             } else if (!closing) {
                 status.setText(success ? "錄影中斷，正在建立新檔…" : "正在恢復錄影…");
                 scheduleRecordingRecovery();
@@ -350,7 +357,7 @@ public final class LoopCameraActivity extends ComponentActivity {
     private void exitRecording() {
         explicitExit = true;
         if (broadcastMode && recording != null) {
-            broadcastStopping = true;
+            broadcastExitRequested = true;
             status.setText("正在完成並保存影片…");
             recording.stop();
             return;
@@ -358,6 +365,17 @@ public final class LoopCameraActivity extends ComponentActivity {
         closing = true;
         RemoteSessionStore.setRecordingEnabled(this, false);
         finish();
+    }
+
+    private void saveBroadcastAndContinue() {
+        if (!broadcastMode || broadcastSaveRequested || broadcastExitRequested) return;
+        if (recording == null) {
+            Toast.makeText(this, "錄影正在準備中", Toast.LENGTH_SHORT).show();
+            return;
+        }
+        broadcastSaveRequested = true;
+        status.setText("正在保存影片…");
+        recording.stop();
     }
 
     @Override public void onBackPressed() {
