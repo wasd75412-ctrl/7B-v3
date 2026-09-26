@@ -194,15 +194,19 @@ public final class LoopCameraActivity extends ComponentActivity {
         float rowHeight = Math.max(38f, height * 0.052f);
         RectF box = new RectF(margin, margin, margin + boardWidth, margin + rowHeight * 2f);
 
-        Paint background = new Paint(Paint.ANTI_ALIAS_FLAG);
-        background.setShader(new LinearGradient(box.left, box.top, box.right, box.top,
-                0xFFF00089, 0xFFF06B0B, Shader.TileMode.CLAMP));
-        canvas.drawRect(box, background);
+        Paint teamABackground = new Paint(Paint.ANTI_ALIAS_FLAG);
+        teamABackground.setShader(new LinearGradient(box.left, box.top, box.right, box.top,
+                0xFF0057D9, 0xFF00A9C7, Shader.TileMode.CLAMP));
+        Paint teamBBackground = new Paint(Paint.ANTI_ALIAS_FLAG);
+        teamBBackground.setShader(new LinearGradient(box.left, box.top, box.right, box.top,
+                0xFFD91E45, 0xFFFF7A00, Shader.TileMode.CLAMP));
+        canvas.drawRect(box.left, box.top, box.right, box.top + rowHeight, teamABackground);
+        canvas.drawRect(box.left, box.top + rowHeight, box.right, box.bottom, teamBBackground);
 
         Paint teamAAccent = new Paint(Paint.ANTI_ALIAS_FLAG);
-        teamAAccent.setColor(0xFFD7F000);
+        teamAAccent.setColor(0xFF67E8F9);
         Paint teamBAccent = new Paint(Paint.ANTI_ALIAS_FLAG);
-        teamBAccent.setColor(0xFFC000D8);
+        teamBAccent.setColor(0xFFFFD166);
         float accentWidth = Math.max(8f, boardWidth * 0.028f);
         canvas.drawRect(box.left, box.top, box.left + accentWidth, box.top + rowHeight, teamAAccent);
         canvas.drawRect(box.left, box.top + rowHeight, box.left + accentWidth, box.bottom, teamBAccent);
