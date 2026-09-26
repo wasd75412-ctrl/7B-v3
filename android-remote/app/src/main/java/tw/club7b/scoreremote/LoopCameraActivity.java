@@ -190,8 +190,8 @@ public final class LoopCameraActivity extends ComponentActivity {
         }
         canvas.translate(viewportLeft, viewportTop);
         float margin = Math.max(12f, width * 0.012f);
-        float boardWidth = Math.min(width * 0.46f, height * 0.9f);
-        float rowHeight = Math.max(62f, height * 0.09f);
+        float boardWidth = Math.min(width * 0.28f, height * 0.64f);
+        float rowHeight = Math.max(38f, height * 0.052f);
         RectF box = new RectF(margin, margin, margin + boardWidth, margin + rowHeight * 2f);
 
         Paint background = new Paint(Paint.ANTI_ALIAS_FLAG);
@@ -203,7 +203,7 @@ public final class LoopCameraActivity extends ComponentActivity {
         teamAAccent.setColor(0xFFD7F000);
         Paint teamBAccent = new Paint(Paint.ANTI_ALIAS_FLAG);
         teamBAccent.setColor(0xFFC000D8);
-        float accentWidth = Math.max(13f, boardWidth * 0.028f);
+        float accentWidth = Math.max(8f, boardWidth * 0.028f);
         canvas.drawRect(box.left, box.top, box.left + accentWidth, box.top + rowHeight, teamAAccent);
         canvas.drawRect(box.left, box.top + rowHeight, box.left + accentWidth, box.bottom, teamBAccent);
 
@@ -212,7 +212,7 @@ public final class LoopCameraActivity extends ComponentActivity {
         divider.setStrokeWidth(Math.max(2f, height * 0.002f));
         canvas.drawLine(box.left + accentWidth, box.top + rowHeight, box.right, box.top + rowHeight, divider);
 
-        float scoreWidth = Math.max(82f, boardWidth * 0.18f);
+        float scoreWidth = Math.max(56f, boardWidth * 0.18f);
         Paint scoreBackground = new Paint(Paint.ANTI_ALIAS_FLAG);
         scoreBackground.setColor(0xFFF7F8FA);
         canvas.drawRect(box.right - scoreWidth, box.top, box.right, box.top + rowHeight, scoreBackground);
@@ -221,16 +221,16 @@ public final class LoopCameraActivity extends ComponentActivity {
         Paint names = new Paint(Paint.ANTI_ALIAS_FLAG);
         names.setColor(Color.WHITE);
         names.setFakeBoldText(true);
-        names.setTextSize(Math.max(32f, rowHeight * 0.48f));
+        names.setTextSize(Math.max(23f, rowHeight * 0.56f));
         names.setTextAlign(Paint.Align.LEFT);
         Paint scores = new Paint(Paint.ANTI_ALIAS_FLAG);
         scores.setColor(0xFF10131A);
         scores.setFakeBoldText(true);
-        scores.setTextSize(Math.max(44f, rowHeight * 0.72f));
+        scores.setTextSize(Math.max(30f, rowHeight * 0.76f));
         scores.setTextAlign(Paint.Align.CENTER);
 
-        float nameLeft = box.left + accentWidth + Math.max(18f, boardWidth * 0.035f);
-        float nameMaxWidth = box.right - scoreWidth - nameLeft - Math.max(12f, boardWidth * 0.025f);
+        float nameLeft = box.left + accentWidth + Math.max(11f, boardWidth * 0.035f);
+        float nameMaxWidth = box.right - scoreWidth - nameLeft - Math.max(8f, boardWidth * 0.025f);
         float firstBaseline = box.top + rowHeight * 0.67f;
         float secondBaseline = firstBaseline + rowHeight;
         canvas.drawText(fitTeamLabel(match.teamA, names, nameMaxWidth), nameLeft, firstBaseline, names);

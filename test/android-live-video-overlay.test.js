@@ -14,7 +14,7 @@ test('burns the live player and score overlay into both preview and recorded vid
   assert.match(camera,/String\.valueOf\(match\.scoreA\)/);
 });
 
-test('lays out a large two-row broadcast scoreboard against the top-left edge',()=>{
+test('lays out a compact two-row broadcast scoreboard against the top-left edge',()=>{
   assert.match(camera,/new RectF\(margin, margin, margin \+ boardWidth/);
   assert.match(camera,/float targetAspect = 16f \/ 9f/);
   assert.match(camera,/canvas\.translate\(viewportLeft, viewportTop\)/);
@@ -24,7 +24,9 @@ test('lays out a large two-row broadcast scoreboard against the top-left edge',(
   assert.match(camera,/fitTeamLabel\(match\.teamA, names, nameMaxWidth\)/);
   assert.match(camera,/box\.right - scoreWidth \/ 2f/);
   assert.match(camera,/LinearGradient/);
-  assert.match(camera,/names\.setTextSize\(Math\.max\(32f/);
+  assert.match(camera,/float boardWidth = Math\.min\(width \* 0\.28f/);
+  assert.match(camera,/float rowHeight = Math\.max\(38f/);
+  assert.match(camera,/names\.setTextSize\(Math\.max\(23f/);
 });
 
 test('subscribes to the shared room roster and live score documents',()=>{
