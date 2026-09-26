@@ -6,6 +6,8 @@ import android.content.ContentValues;
 import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.graphics.Color;
+import android.graphics.Paint;
+import android.graphics.RectF;
 import android.media.MediaCodec;
 import android.media.MediaExtractor;
 import android.media.MediaFormat;
@@ -28,7 +30,10 @@ import android.widget.Toast;
 import androidx.activity.ComponentActivity;
 import androidx.annotation.NonNull;
 import androidx.camera.core.CameraSelector;
+import androidx.camera.core.CameraEffect;
 import androidx.camera.core.Preview;
+import androidx.camera.core.UseCaseGroup;
+import androidx.camera.effects.OverlayEffect;
 import androidx.camera.lifecycle.ProcessCameraProvider;
 import androidx.camera.video.FileOutputOptions;
 import androidx.camera.video.PendingRecording;
@@ -51,6 +56,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.atomic.AtomicReference;
 
 /** App-internal camera that keeps only eighteen completed ten-second clips. */
 public final class LoopCameraActivity extends ComponentActivity {
@@ -66,6 +72,10 @@ public final class LoopCameraActivity extends ComponentActivity {
     private PreviewView previewView;
     private TextView status;
     private VideoCapture<Recorder> videoCapture;
+    private OverlayEffect scoreOverlayEffect;
+    private LiveMatchOverlayController liveMatchOverlay;
+    private final AtomicReference<LiveMatchOverlayController.OverlayState> overlayState =
+            new AtomicReference<>(LiveMatchOverlayController.OverlayState.waiting());
     private Recording recording;
     private File activeFile;
     private boolean closing;
@@ -77,6 +87,7 @@ public final class LoopCameraActivity extends ComponentActivity {
         getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
         RemoteSessionStore.setRecordingEnabled(this, true);
         buildUi();
+        liveMatchOverlay = new LiveMatchOverlayController(this, overlayState::set);
         if (hasPermission(Manifest.permission.CAMERA)) startCamera();
         else requestPermissions(new String[]{Manifest.permission.CAMERA, Manifest.permission.RECORD_AUDIO}, CAMERA_PERMISSION_REQUEST);
     }
@@ -118,14 +129,83 @@ public final class LoopCameraActivity extends ComponentActivity {
                 preview.setSurfaceProvider(previewView.getSurfaceProvider());
                 Recorder recorder = new Recorder.Builder().setQualitySelector(QualitySelector.from(Quality.HD)).build();
                 videoCapture = VideoCapture.withOutput(recorder);
+                scoreOverlayEffect = createScoreOverlayEffect();
                 provider.unbindAll();
-                provider.bindToLifecycle(this, CameraSelector.DEFAULT_BACK_CAMERA, preview, videoCapture);
+                UseCaseGroup group = new UseCaseGroup.Builder()
+                        .addUseCase(preview)
+                        .addUseCase(videoCapture)
+                        .addEffect(scoreOverlayEffect)
+                        .build();
+                provider.bindToLifecycle(this, CameraSelector.DEFAULT_BACK_CAMERA, group);
                 startSegmentIfVisible();
             } catch (Exception error) {
                 status.setText("相機啟動失敗");
                 Toast.makeText(this, String.valueOf(error.getMessage()), Toast.LENGTH_LONG).show();
             }
         }, ContextCompat.getMainExecutor(this));
+    }
+
+    private OverlayEffect createScoreOverlayEffect() {
+        OverlayEffect effect = new OverlayEffect(
+                CameraEffect.PREVIEW | CameraEffect.VIDEO_CAPTURE,
+                0,
+                handler,
+                error -> Log.e("7BRecording", "Score overlay failed", error)
+        );
+        effect.setOnDrawListener(frame -> {
+            drawScoreOverlay(frame.getOverlayCanvas(), frame.getRotationDegrees(), overlayState.get());
+            return true;
+        });
+        return effect;
+    }
+
+    private void drawScoreOverlay(android.graphics.Canvas canvas, int rotationDegrees, LiveMatchOverlayController.OverlayState match) {
+        canvas.drawColor(Color.TRANSPARENT, android.graphics.PorterDuff.Mode.CLEAR);
+        if (match == null || !match.active) return;
+        int save = canvas.save();
+        float rawWidth = canvas.getWidth(), rawHeight = canvas.getHeight();
+        canvas.rotate(-rotationDegrees, rawWidth / 2f, rawHeight / 2f);
+        float width = rotationDegrees % 180 == 0 ? rawWidth : rawHeight;
+        float height = rotationDegrees % 180 == 0 ? rawHeight : rawWidth;
+        float left = (rawWidth - width) / 2f;
+        float top = (rawHeight - height) / 2f;
+        float margin = Math.max(24f, width * 0.035f);
+        float boxHeight = Math.max(112f, height * 0.13f);
+        RectF box = new RectF(left + margin, top + height - boxHeight - margin, left + width - margin, top + height - margin);
+
+        Paint background = new Paint(Paint.ANTI_ALIAS_FLAG);
+        background.setColor(0xD9141820);
+        canvas.drawRoundRect(box, boxHeight * 0.16f, boxHeight * 0.16f, background);
+
+        Paint divider = new Paint(Paint.ANTI_ALIAS_FLAG);
+        divider.setColor(0xFF52D1B2);
+        divider.setStrokeWidth(Math.max(5f, width * 0.005f));
+        float center = box.centerX();
+        canvas.drawLine(center, box.top + boxHeight * 0.14f, center, box.bottom - boxHeight * 0.14f, divider);
+
+        Paint names = new Paint(Paint.ANTI_ALIAS_FLAG);
+        names.setColor(Color.WHITE);
+        names.setTextSize(Math.max(25f, boxHeight * 0.25f));
+        names.setTextAlign(Paint.Align.CENTER);
+        Paint scores = new Paint(Paint.ANTI_ALIAS_FLAG);
+        scores.setColor(Color.WHITE);
+        scores.setFakeBoldText(true);
+        scores.setTextSize(Math.max(52f, boxHeight * 0.5f));
+        scores.setTextAlign(Paint.Align.CENTER);
+
+        float quarter = box.width() / 4f;
+        float nameY = box.top + boxHeight * 0.34f;
+        float scoreY = box.top + boxHeight * 0.82f;
+        canvas.drawText(teamLabel(match.teamA), box.left + quarter, nameY, names);
+        canvas.drawText(teamLabel(match.teamB), box.right - quarter, nameY, names);
+        canvas.drawText(String.valueOf(match.scoreA), box.left + quarter, scoreY, scores);
+        canvas.drawText(String.valueOf(match.scoreB), box.right - quarter, scoreY, scores);
+        canvas.restoreToCount(save);
+    }
+
+    private static String teamLabel(List<String> players) {
+        if (players == null || players.isEmpty()) return "球員";
+        return android.text.TextUtils.join(" / ", players);
     }
 
     private void startSegment() {
@@ -370,6 +450,8 @@ public final class LoopCameraActivity extends ComponentActivity {
 
     @Override protected void onDestroy() {
         closing = true; handler.removeCallbacks(rotate); handler.removeCallbacks(recoverRecording); if (recording != null) recording.stop(); io.shutdown();
+        if (liveMatchOverlay != null) liveMatchOverlay.close();
+        if (scoreOverlayEffect != null) scoreOverlayEffect.close();
         if (explicitExit) RemoteSessionStore.setRecordingEnabled(this, false);
         super.onDestroy();
     }
