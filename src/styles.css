@@ -3640,6 +3640,7 @@ body>.modal .modal-card :is(.profile-panel,.profile-section,.stat-box,.health-bo
 .court-position-letter{
   display:inline-grid;
   place-items:center;
+  font-size:.58em;
   width:1.15em;
   height:1.15em;
   margin-inline-start:.18em;
