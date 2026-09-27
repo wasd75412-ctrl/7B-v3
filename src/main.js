@@ -6,7 +6,7 @@ import { shouldShowNotificationPrompt } from './notifications.js';
 import { normalizeMatchReplayTitle, normalizeYouTubePlaylistUrl } from './youtube.js';
 import { DEFAULT_SCORE_REMOTE_BINDINGS, VIRTUAL_REMOTE_CLICK_CODE, advanceRemotePressState, assignRemoteBinding, isEditableRemoteTarget, normalizeRemoteBindings, remoteActionForCode, remoteEventCode, shouldHandleRemoteInput } from './score-remote.js';
 import { createLiveScoreData, createMatchCheckpointData, decodeLiveMatch, generalRoomStateWithoutMatch, liveMatchKey, nextMatchEpoch, shouldAnnounceSyncedLiveScore, shouldApplyIncomingLiveMatch, shouldShowScoreView } from './live-score.js';
-import { shouldAcceptRemoteCommand } from './remote-command.js';
+import { shouldAcceptRemoteCommand, timestampMillis } from './remote-command.js';
 import { canAutoSyncPlayerIdentity } from './device-sync.js';
 import { shouldRequestNativeWakeLock, wakeLockButtonIntent, wakeLockControlIsActive } from './wake-lock.js';
 import { chooseScoreTheme } from './score-theme-preference.js';
@@ -141,11 +141,12 @@ function showScoreRemoteIndicator(message,{duration=900,icon='🎮',emphasis=''}
   scoreRemoteIndicatorTimer=setTimeout(()=>{indicator.classList.add('hidden');if($('scoreView')&&indicator.parentElement!==$('scoreView'))$('scoreView').append(indicator)},duration);
 }
 function matchHasOfficiallyStarted(match=state.match){return Boolean(match?.startedAt)}
-function markMatchOfficialStarted(){
+function markMatchOfficialStarted(requestedAt){
   const match=state.match;
   if(!isHost||!match.active||match.winner!==null)return false;
   if(matchHasOfficiallyStarted(match)){showScoreRemoteIndicator('本場已正式開始',{duration:1400,icon:'✅'});return true}
-  match.startedAt=new Date().toISOString();
+  const now=Date.now(),requestedMillis=timestampMillis(requestedAt);
+  match.startedAt=new Date(Number.isFinite(requestedMillis)?Math.min(requestedMillis,now):now).toISOString();
   saveLiveScoreSoon();saveSoon();renderDashboard();
   showScoreRemoteIndicator('比賽正式開始',{duration:2600,icon:'✅',emphasis:'official'});
   return true;
@@ -264,10 +265,11 @@ function handleScoreRemoteCode(event,code){
   const now=performance.now();if(now-scoreRemoteLastInputAt<120)return;scoreRemoteLastInputAt=now;
   event.preventDefault();
   if(scoreRemotePendingPress&&scoreRemotePendingPress.code===code&&now-scoreRemotePendingPress.at<=SCORE_REMOTE_DOUBLE_PRESS_MS){
-    clearTimeout(scoreRemotePendingPress.timer);scoreRemotePendingPress=null;markMatchOfficialStarted();return;
+    const requestedAt=scoreRemotePendingPress.requestedAt;
+    clearTimeout(scoreRemotePendingPress.timer);scoreRemotePendingPress=null;markMatchOfficialStarted(requestedAt);return;
   }
   if(scoreRemotePendingPress)runPendingScoreRemoteAction();
-  scoreRemotePendingPress={code,action,at:now,timer:setTimeout(runPendingScoreRemoteAction,SCORE_REMOTE_DOUBLE_PRESS_MS)};
+  scoreRemotePendingPress={code,action,at:now,requestedAt:new Date().toISOString(),timer:setTimeout(runPendingScoreRemoteAction,SCORE_REMOTE_DOUBLE_PRESS_MS)};
 }
 function handleScoreRemoteKeyboard(event){
   const code=remoteEventCode(event),phase=event.type;
@@ -1821,14 +1823,14 @@ function handleRemoteFullscreenCommand(data,{initial=false}={}){
   lastRemoteFullscreenCommandId=id;
   if(!shouldAcceptRemoteCommand({command:data.fullscreenCommand,currentMatch:state.match,initial}))return false;
   if(initial||requestedAndroidRemote||!isHost)return false;
-  return markMatchOfficialStarted();
+  return markMatchOfficialStarted(data.fullscreenCommand.createdAt);
 }
 function handleRemoteOfficialStartCommand(data,{initial=false}={}){
   const id=String(data?.officialStartCommand?.id||'');if(!id||id===lastRemoteOfficialStartCommandId)return false;
   lastRemoteOfficialStartCommandId=id;
   if(!shouldAcceptRemoteCommand({command:data.officialStartCommand,currentMatch:state.match,initial}))return false;
   if(initial||requestedAndroidRemote||!isHost)return false;
-  return markMatchOfficialStarted();
+  return markMatchOfficialStarted(data.officialStartCommand.createdAt);
 }
 function handleRemoteNextMatchCommand(data,{initial=false}={}){
   const id=String(data?.nextMatchCommand?.id||'');if(!id||id===lastRemoteNextMatchCommandId)return false;

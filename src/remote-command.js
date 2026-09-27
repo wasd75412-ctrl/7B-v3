@@ -1,7 +1,7 @@
 export const REMOTE_COMMAND_MAX_AGE_MS=15_000;
 export const REMOTE_COMMAND_MAX_FUTURE_SKEW_MS=5_000;
 
-function timestampMillis(value){
+export function timestampMillis(value){
   let millis=NaN;
   try{
     if(typeof value==='number')millis=value;
