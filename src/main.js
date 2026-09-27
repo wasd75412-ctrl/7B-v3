@@ -3002,7 +3002,7 @@ $('clearHistory').onclick=clearAllHistory;$('addPollOption').onclick=addPollOpti
 function guardUnofficialTouchScoring(event){
   if(!isHost||matchHasOfficiallyStarted(state.match))return;
   const target=event.target;
-  if(!scoreSideA.contains(target)&&!scoreSideB.contains(target))return;
+  if(!scoreSideA.contains(target)&&!scoreSideB.contains(target)&&!$('scoreA').contains(target)&&!$('scoreB').contains(target))return;
   event.preventDefault();event.stopImmediatePropagation();
   showScoreRemoteIndicator('請先連按兩下正式開始',{duration:1600,icon:'⏱️'});
 }
