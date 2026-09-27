@@ -45,7 +45,7 @@ test('score mode provides a play fallback for official start in both layouts',()
 });
 
 test('touchscreen scoring cannot bypass the official start timestamp',()=>{
-  assert.match(main,/function guardUnofficialTouchScoring\(event\)[\s\S]*?matchHasOfficiallyStarted\(state\.match\)[\s\S]*?scoreSideA\.contains\(target\)[\s\S]*?event\.stopImmediatePropagation\(\)[\s\S]*?請先連按兩下正式開始/);
+  assert.match(main,/function guardUnofficialTouchScoring\(event\)[\s\S]*?matchHasOfficiallyStarted\(state\.match\)[\s\S]*?scoreSideA\.contains\(target\)[\s\S]*?\$\('scoreA'\)\.contains\(target\)[\s\S]*?\$\('scoreB'\)\.contains\(target\)[\s\S]*?event\.stopImmediatePropagation\(\)[\s\S]*?請先連按兩下正式開始/);
   assert.match(main,/document\.addEventListener\('click',guardUnofficialTouchScoring,\{capture:true\}\)/);
 });
 
