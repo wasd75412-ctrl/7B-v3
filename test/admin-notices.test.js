@@ -13,7 +13,7 @@ test('preserves the saved announcement order',()=>{
 
 test('keeps every club announcement ahead of the automatic shuttle fee notice',()=>{
   const rows=[
-    {id:'shuttle-cost',title:'球費計算方式',body:'球費內容',systemVersion:1},
+    {id:'shuttle-cost',title:'球費計算方式',body:'球費內容',systemVersion:2},
     {id:'club-first',title:'球團公告',body:'置頂內容'},
     {id:'club-second',title:'第二公告',body:'其他內容'}
   ];
@@ -29,7 +29,7 @@ test('adds a missing shuttle fee notice after existing club announcements',()=>{
 test('publishes only the fixed shuttle fee formula',()=>{
   const notice=ensureShuttleCostNotice([],'2026-09-06T00:00:00Z')[0];
   assert.equal(notice.title,'球費計算方式');
-  assert.equal(notice.body,'球費＝本場使用顆數 ×（球桶價格 ÷ 12）÷ 本場參與人數，購球者有參與也計入人數。');
+  assert.equal(notice.body,'球費＝本場使用顆數 ×（球桶價格 ÷ 12）÷ 本場參與人數。');
   assert.doesNotMatch(notice.body,/剩餘|每顆 \d|本場 \d/);
 });
 
@@ -39,10 +39,15 @@ test('does not change the formula announcement again after a manual edit',()=>{
   assert.deepEqual(ensureShuttleCostNotice([edited],'2026-09-07T00:00:00Z')[0],edited);
 });
 
-test('migrates the old linked shuttle announcement to the fixed formula once',()=>{
-  const old={id:'shuttle-cost',title:'球費與球桶',body:'球費＝本場用球顆數 × 每顆 60 元。本場 1 顆。',publishedAt:'2026-09-06T00:00:00Z'};
+test('updates the untouched version 1 shuttle announcement once',()=>{
+  const old={id:'shuttle-cost',title:'球費計算方式',body:'球費＝本場使用顆數 ×（球桶價格 ÷ 12）÷ 本場參與人數，購球者有參與也計入人數。',systemVersion:1,publishedAt:'2026-09-06T00:00:00Z'};
   const migrated=ensureShuttleCostNotice([old],'2026-09-07T00:00:00Z')[0];
   assert.equal(migrated.title,'球費計算方式');
-  assert.equal(migrated.systemVersion,1);
+  assert.equal(migrated.systemVersion,2);
   assert.equal(migrated.publishedAt,old.publishedAt);
+});
+
+test('never replaces a manually edited shuttle announcement even without a system version',()=>{
+  const edited={id:'shuttle-cost',title:'球費說明',body:'這是管理員自訂的公告。',publishedAt:'2026-09-06T00:00:00Z'};
+  assert.deepEqual(ensureShuttleCostNotice([edited],'2026-09-07T00:00:00Z')[0],edited);
 });

@@ -1,5 +1,6 @@
 const clean=(value,max)=>String(value||'').trim().slice(0,max);
-const SHUTTLE_NOTICE={id:'shuttle-cost',title:'球費計算方式',body:'球費＝本場使用顆數 ×（球桶價格 ÷ 12）÷ 本場參與人數，購球者有參與也計入人數。',systemVersion:1};
+const SHUTTLE_NOTICE_V1_BODY='球費＝本場使用顆數 ×（球桶價格 ÷ 12）÷ 本場參與人數，購球者有參與也計入人數。';
+const SHUTTLE_NOTICE={id:'shuttle-cost',title:'球費計算方式',body:'球費＝本場使用顆數 ×（球桶價格 ÷ 12）÷ 本場參與人數。',systemVersion:2};
 
 export function normalizeAdminNotices(source){
   const rows=Array.isArray(source?.adminNotices)?source.adminNotices:(source?.adminNotice?.body?[source.adminNotice]:[]);
@@ -13,7 +14,7 @@ export function normalizeAdminNotices(source){
       publishedAt,
       ...(Number(notice.systemVersion)>0?{systemVersion:Number(notice.systemVersion)}:{})
     };
-    return record.id===SHUTTLE_NOTICE.id&&!record.systemVersion?{...record,...SHUTTLE_NOTICE,publishedAt:record.publishedAt}:record;
+    return record;
   }).filter(notice=>{if(seen.has(notice.id))return false;seen.add(notice.id);return true}).slice(0,20);
   return [...normalized.filter(notice=>notice.id!==SHUTTLE_NOTICE.id),...normalized.filter(notice=>notice.id===SHUTTLE_NOTICE.id)];
 }
@@ -22,8 +23,10 @@ export function ensureShuttleCostNotice(source,publishedAt=''){
   const notices=normalizeAdminNotices({adminNotices:source}),index=notices.findIndex(notice=>notice.id==='shuttle-cost');
   const record={...SHUTTLE_NOTICE,publishedAt};
   if(index<0)return normalizeAdminNotices({adminNotices:[...notices,record]});
-  if(Number(notices[index].systemVersion)>=1)return notices;
-  notices[index]={...record,publishedAt:notices[index].publishedAt||publishedAt};
+  const current=notices[index];
+  if(Number(current.systemVersion)>=SHUTTLE_NOTICE.systemVersion)return notices;
+  if(current.body!==SHUTTLE_NOTICE_V1_BODY)return notices;
+  notices[index]={...record,publishedAt:current.publishedAt||publishedAt};
   return normalizeAdminNotices({adminNotices:notices});
 }
 
