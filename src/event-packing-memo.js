@@ -36,3 +36,8 @@ export function eventPackingMemoProgress(value) {
   const memo = normalizeEventPackingMemo(value);
   return { checked: memo.checked.length, total: memo.items.length, remaining: memo.items.length - memo.checked.length };
 }
+
+export function remainingPackingItems(value) {
+  const memo=normalizeEventPackingMemo(value),checked=new Set(memo.checked);
+  return memo.items.filter(item=>!checked.has(item));
+}
