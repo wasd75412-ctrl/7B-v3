@@ -26,7 +26,7 @@ import { rotateAfterMatch } from './match-rotation.js';
 import { MATCH_FORMAT_SINGLES, formatSwitchDisposition, matchPlayerCount, normalizeMatchFormat, rotateSinglesAfterMatch, teamsForLineup } from './match-format.js';
 import { deletePlayerFromState, normalizeRetiredPlayers } from './player-deletion.js';
 import { normalizeScoreFont, randomScoreFont } from './score-font.js';
-import { EVENT_PACKING_MEMO_ITEMS, eventPackingMemoProgress, mergePackingMemos, normalizeEventPackingMemo } from './event-packing-memo.js';
+import { EVENT_PACKING_MEMO_ITEMS, eventPackingMemoProgress, mergePackingMemos, normalizeEventPackingMemo, remainingPackingItems } from './event-packing-memo.js';
 import { ensureShuttleCostNotice, moveAdminNotice, normalizeAdminNotices } from './admin-notices.js';
 import { eventPaymentStatus, normalizeEventPayments, updateEventPayment } from './event-payment.js';
 import { defaultRecordingStartLocalValue, groupHistoryDatesByMonth, groupMatchHistoryByDate, youtubeTimelineText } from './match-history.js';
@@ -53,7 +53,7 @@ function loadEventPackingMemo(){try{return normalizeEventPackingMemo(JSON.parse(
 function saveEventPackingMemo(memo,{cloud=true}={}){const clean=normalizeEventPackingMemo({...memo,updatedAt:cloud?Date.now():memo?.updatedAt});localStorage.setItem(EVENT_PACKING_MEMO_KEY,JSON.stringify(clean));if(cloud)queueDeviceProfileSave();return clean}
 async function syncPackingReminderItems(memo=loadEventPackingMemo()){
   if(!packingReminderSettings().enabled||!pushNotificationEnabled())return;
-  try{const registration=await navigator.serviceWorker.ready,subscription=await registration.pushManager.getSubscription();if(!subscription)return;const playerId=preferredNotificationPlayerId(),playerName=playerId?pname(playerId):'';await pushApi('push-subscription',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({enabled:true,roomId,clientHash:selfHash,playerId,playerName,subscription:subscription.toJSON(),packingItems:memo.items})})}catch(error){console.warn('Packing reminder items sync failed',error)}
+  try{const registration=await navigator.serviceWorker.ready,subscription=await registration.pushManager.getSubscription();if(!subscription)return;const playerId=preferredNotificationPlayerId(),playerName=playerId?pname(playerId):'';await pushApi('push-subscription',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({enabled:true,roomId,clientHash:selfHash,playerId,playerName,subscription:subscription.toJSON(),packingItems:remainingPackingItems(memo)})})}catch(error){console.warn('Packing reminder items sync failed',error)}
 }
 function renderEventPackingMemo(){
   const memo=loadEventPackingMemo(),checked=new Set(memo.checked),progress=eventPackingMemoProgress(memo);
@@ -71,7 +71,7 @@ async function updatePackingReminder(enabled,minutes=Number($('packingReminderMi
     const registration=await navigator.serviceWorker.ready,subscription=await registration.pushManager.getSubscription();
     if(!subscription)throw new Error('這台裝置尚未完成通知訂閱。');
     const playerId=preferredNotificationPlayerId(),playerName=playerId?pname(playerId):'';
-    await pushApi('push-subscription',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({enabled:true,roomId,clientHash:selfHash,playerId,playerName,subscription:subscription.toJSON(),packingReminderEnabled:enabled,packingReminderMinutes:minutes,packingItems:loadEventPackingMemo().items})});
+    await pushApi('push-subscription',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({enabled:true,roomId,clientHash:selfHash,playerId,playerName,subscription:subscription.toJSON(),packingReminderEnabled:enabled,packingReminderMinutes:minutes,packingItems:remainingPackingItems(loadEventPackingMemo())})});
     savePackingReminderSettings({enabled,minutes});renderEventPackingMemo();
   }catch(error){toggle.checked=!enabled;alert(error.message||'無法設定開團提醒。')}finally{toggle.disabled=false}
 }
@@ -3112,11 +3112,11 @@ $('shuttleTubeManagerBtn').onclick=openShuttleTubeManager;
 $('eventPackingMemoBtn').onclick=openEventPackingMemo;
 $('closeEventPackingMemo').onclick=()=>$('eventPackingMemoModal').classList.add('hidden');
 $('eventPackingMemoModal').addEventListener('click',event=>{if(event.target===$('eventPackingMemoModal'))$('eventPackingMemoModal').classList.add('hidden')});
-$('eventPackingMemoList').addEventListener('change',event=>{const input=event.target.closest('[data-packing-index]');if(!input)return;const memo=loadEventPackingMemo(),item=memo.items[Number(input.dataset.packingIndex)],checked=new Set(memo.checked);input.checked?checked.add(item):checked.delete(item);saveEventPackingMemo({...memo,checked:[...checked]});renderEventPackingMemo()});
+$('eventPackingMemoList').addEventListener('change',event=>{const input=event.target.closest('[data-packing-index]');if(!input)return;const memo=loadEventPackingMemo(),item=memo.items[Number(input.dataset.packingIndex)],checked=new Set(memo.checked);input.checked?checked.add(item):checked.delete(item);saveEventPackingMemo({...memo,checked:[...checked]});renderEventPackingMemo();void syncPackingReminderItems()});
 $('eventPackingMemoList').addEventListener('click',event=>{const edit=event.target.closest('[data-edit-packing-index]'),remove=event.target.closest('[data-delete-packing-index]');if(edit){const memo=loadEventPackingMemo(),index=Number(edit.dataset.editPackingIndex),before=memo.items[index],name=prompt('編輯物品名稱：',before);if(name===null)return;const next=name.trim();if(!next)return alert('物品名稱不能留白。');if(memo.items.some((item,i)=>i!==index&&item.toLocaleLowerCase('zh-Hant')===next.toLocaleLowerCase('zh-Hant')))return alert('清單已有相同物品。');memo.items[index]=next.slice(0,30);memo.checked=memo.checked.map(item=>item===before?memo.items[index]:item);saveEventPackingMemo(memo);renderEventPackingMemo();void syncPackingReminderItems();return}if(remove){const memo=loadEventPackingMemo(),index=Number(remove.dataset.deletePackingIndex),item=memo.items[index];if(!confirm(`移除「${item}」？`))return;memo.items.splice(index,1);memo.checked=memo.checked.filter(value=>value!==item);saveEventPackingMemo(memo);renderEventPackingMemo();void syncPackingReminderItems()}});
 $('addPackingItem').onclick=()=>{const input=$('newPackingItem'),name=input.value.trim(),memo=loadEventPackingMemo();if(!name)return;if(memo.items.some(item=>item.toLocaleLowerCase('zh-Hant')===name.toLocaleLowerCase('zh-Hant')))return alert('清單已有相同物品。');memo.items.push(name.slice(0,30));saveEventPackingMemo(memo);input.value='';renderEventPackingMemo();void syncPackingReminderItems()};
 $('newPackingItem').onkeydown=event=>{if(event.key==='Enter')$('addPackingItem').click()};
-$('resetEventPackingMemo').onclick=()=>{const memo=loadEventPackingMemo();saveEventPackingMemo({...memo,checked:[]});renderEventPackingMemo()};
+$('resetEventPackingMemo').onclick=()=>{const memo=loadEventPackingMemo();saveEventPackingMemo({...memo,checked:[]});renderEventPackingMemo();void syncPackingReminderItems()};
 $('packingReminderToggle').onchange=event=>updatePackingReminder(event.target.checked);
 $('packingReminderMinutes').onchange=event=>updatePackingReminder(true,Number(event.target.value));
 $('scoreUseShuttle').onclick=()=>useOneShuttle();

@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
-import { EVENT_PACKING_MEMO_ITEMS, eventPackingMemoProgress, mergePackingMemos, normalizeEventPackingMemo, normalizePackingItems } from '../src/event-packing-memo.js';
+import { EVENT_PACKING_MEMO_ITEMS, eventPackingMemoProgress, mergePackingMemos, normalizeEventPackingMemo, normalizePackingItems, remainingPackingItems } from '../src/event-packing-memo.js';
 
 const styles=fs.readFileSync(new URL('../src/styles.css',import.meta.url),'utf8');
 const main=fs.readFileSync(new URL('../src/main.js',import.meta.url),'utf8');
@@ -29,6 +29,13 @@ test('裝置同步採用最後編輯的備忘錄',()=>{
   assert.deepEqual(mergePackingMemos(newer,older),normalizeEventPackingMemo(newer));
   assert.match(main,/packingMemo:mergedPacking/);
   assert.match(main,/applyCloudPackingMemo\(profile\.packingMemo\)/);
+});
+
+test('提醒只包含尚未勾選的物品',()=>{
+  assert.deepEqual(remainingPackingItems({items:['球拍','毛巾','水壺'],checked:['球拍','水壺']}),['毛巾']);
+  assert.deepEqual(remainingPackingItems({items:['球拍'],checked:['球拍']}),[]);
+  assert.match(main,/packingItems:remainingPackingItems\(memo\)/);
+  assert.match(main,/eventPackingMemoList'[\s\S]*?void syncPackingReminderItems\(\)/);
 });
 
 test('開團備忘錄與提醒 Bar 永遠使用明確的高對比底色與文字色',()=>{
