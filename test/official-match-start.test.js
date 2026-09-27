@@ -44,6 +44,11 @@ test('score mode provides a play fallback for official start in both layouts',()
   assert.match(styles,/\.score-view\.immersive-mode #officialStartScore:not\(\.hidden\)\{[^}]*position:fixed;[^}]*right:calc\(62px/);
 });
 
+test('touchscreen scoring cannot bypass the official start timestamp',()=>{
+  assert.match(main,/function guardUnofficialTouchScoring\(event\)[\s\S]*?matchHasOfficiallyStarted\(state\.match\)[\s\S]*?scoreSideA\.contains\(target\)[\s\S]*?event\.stopImmediatePropagation\(\)[\s\S]*?請先連按兩下正式開始/);
+  assert.match(main,/document\.addEventListener\('click',guardUnofficialTouchScoring,\{capture:true\}\)/);
+});
+
 test('official start indicator is emphasized and centered for everyone to see',()=>{
   assert.match(main,/showScoreRemoteIndicator\('比賽正式開始',\{duration:2600,icon:'✅',emphasis:'official'\}\)/);
   assert.match(styles,/\.score-remote-indicator\.official-start\{[^}]*top:50%;[^}]*left:50%;[^}]*transform:translate\(-50%,-50%\);[^}]*font-size:clamp\(2rem,7vw,5rem\)/);
