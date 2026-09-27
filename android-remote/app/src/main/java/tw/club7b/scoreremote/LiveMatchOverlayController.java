@@ -3,6 +3,7 @@ package tw.club7b.scoreremote;
 import com.google.firebase.firestore.DocumentSnapshot;
 import com.google.firebase.firestore.FirebaseFirestore;
 import com.google.firebase.firestore.ListenerRegistration;
+import com.google.firebase.Timestamp;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
@@ -38,7 +39,8 @@ final class LiveMatchOverlayController implements AutoCloseable {
     private final Map<String, String> playerNames = new HashMap<>();
     private ListenerRegistration roomRegistration;
     private ListenerRegistration scoreRegistration;
-    private Map<String, Object> latestMatch = Collections.emptyMap();
+    private MatchSnapshot roomMatch = MatchSnapshot.empty();
+    private MatchSnapshot liveMatch = MatchSnapshot.empty();
 
     LiveMatchOverlayController(android.content.Context context, Listener listener) {
         this.listener = listener;
@@ -51,13 +53,14 @@ final class LiveMatchOverlayController implements AutoCloseable {
         roomRegistration = firestore.collection("badmintonRooms").document(session.roomId)
                 .addSnapshotListener((snapshot, error) -> {
                     if (error != null || snapshot == null || !snapshot.exists()) return;
+                    roomMatch = matchSnapshot(snapshot);
                     updateRoster(snapshot);
                 });
         scoreRegistration = firestore.collection("badmintonRooms").document(session.roomId)
                 .collection("liveScore").document("current")
                 .addSnapshotListener((snapshot, error) -> {
                     if (error != null || snapshot == null || !snapshot.exists()) return;
-                    latestMatch = mapValue(snapshot.get("match"));
+                    liveMatch = matchSnapshot(snapshot);
                     publish();
                 });
     }
@@ -77,6 +80,7 @@ final class LiveMatchOverlayController implements AutoCloseable {
     }
 
     private void publish() {
+        Map<String, Object> latestMatch = newest(roomMatch, liveMatch).match;
         boolean active = Boolean.TRUE.equals(latestMatch.get("active"));
         List<String> teamA = names(latestMatch.get("teamA"));
         List<String> teamB = names(latestMatch.get("teamB"));
@@ -88,6 +92,37 @@ final class LiveMatchOverlayController implements AutoCloseable {
                 scores.size() > 0 ? scores.get(0) : 0,
                 scores.size() > 1 ? scores.get(1) : 0
         ));
+    }
+
+    private static MatchSnapshot matchSnapshot(DocumentSnapshot snapshot) {
+        Map<String, Object> match = mapValue(snapshot.get("match"));
+        Timestamp updatedAt = snapshot.getTimestamp("updatedAt");
+        return new MatchSnapshot(match, updatedAt == null ? 0L : updatedAt.toDate().getTime());
+    }
+
+    private static MatchSnapshot newest(MatchSnapshot first, MatchSnapshot second) {
+        long firstEpoch = number(first.match.get("syncEpoch"));
+        long secondEpoch = number(second.match.get("syncEpoch"));
+        if (firstEpoch != secondEpoch) return firstEpoch > secondEpoch ? first : second;
+        return first.updatedAt > second.updatedAt ? first : second;
+    }
+
+    private static long number(Object value) {
+        return value instanceof Number ? ((Number) value).longValue() : 0L;
+    }
+
+    private static final class MatchSnapshot {
+        final Map<String, Object> match;
+        final long updatedAt;
+
+        MatchSnapshot(Map<String, Object> match, long updatedAt) {
+            this.match = match;
+            this.updatedAt = updatedAt;
+        }
+
+        static MatchSnapshot empty() {
+            return new MatchSnapshot(Collections.emptyMap(), 0L);
+        }
     }
 
     private List<String> names(Object value) {

@@ -1975,7 +1975,12 @@ async function persistLiveScoreState(){
   const livePayload=liveScorePayload(),fallbackPayload=liveScoreFallbackPayload();
   try{
     if(!liveScoreRef||!liveScoreAvailable)await setDoc(roomRef,fallbackPayload,{merge:true});
-    else await setDoc(liveScoreRef,livePayload,{merge:true});
+    else{
+      const batch=writeBatch(db);
+      batch.set(liveScoreRef,livePayload,{merge:true});
+      batch.set(roomRef,fallbackPayload,{merge:true});
+      await batch.commit();
+    }
   }catch(error){
     if(state.match.matchId!==livePayload.match.matchId)return;
     liveScoreAvailable=false;
