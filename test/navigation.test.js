@@ -23,6 +23,17 @@ test('automatically reloads once when a new service worker takes control',()=>{
   assert.match(mainSource,/sessionStorage\.setItem\(reloadKey,'1'\);\s*location\.reload\(\)/);
 });
 
+test('puts a live score board first on the dashboard and keeps support content compact',()=>{
+  const dashboard=html.match(/<section id="page0"[\s\S]*?<section id="page1"/)?.[0]||'';
+  assert.ok(dashboard.indexOf('id="homeLiveScore"')<dashboard.indexOf('id="adminAnnouncement"'));
+  assert.match(dashboard,/class="dashboard-priority-grid"[\s\S]*id="nextEventAnnouncement"[\s\S]*id="pollDeadlineAnnouncement"/);
+  assert.match(dashboard,/class="dashboard-support-grid"[\s\S]*id="clubMetrics"[\s\S]*id="homeShuttleSummary"/);
+  assert.match(mainSource,/function renderDashboardLiveScore\(/);
+  assert.match(mainSource,/home-live-numbers/);
+  assert.match(mainSource,/dashboardServingPlayerId\(match\)/);
+  assert.match(styles,/#app \.home-live-board\{display:grid;grid-template-columns:minmax\(0,1fr\) auto minmax\(0,1fr\)/);
+});
+
 test('renders the 7B icon without a white frame',()=>{
   assert.match(styles,/\.splash-logo,#app \.top \.brand-logo,#landing \.landing-brand img\{border:0!important;outline:0!important\}/);
   assert.doesNotMatch(styles,/\.splash-logo\{box-shadow:[^}]*0 0 0 8px rgba\(255,255,255/);

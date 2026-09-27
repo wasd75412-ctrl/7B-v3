@@ -688,6 +688,27 @@ function renderAdminAnnouncement(){
 }
 function renderPollDeadlineAnnouncement(){const box=$('pollDeadlineAnnouncement'),poll=state.schedulePoll||{},hasOptions=(poll.options||[]).length>0,created=!!poll.createdAt,closed=isPollClosed(poll),deadline=poll.deadlineAt||'';if(!box)return;const visible=(hasOptions||created)&&!closed;box.classList.toggle('hidden',!visible);if(!visible){box.innerHTML='';return}const detail=!hasOptions?'候選日期準備中':deadline?`截止時間：${esc(formatPollDeadline(deadline))}`:'截止時間尚未設定';box.className='poll-deadline-card';box.innerHTML=`<div><strong>🗳️ ${hasOptions?'下次球局投票中':'新投票已建立'}</strong><p>${detail}</p></div><button id="dashboardPollBtn" class="btn primary" type="button">前往投票</button>`;const button=$('dashboardPollBtn');if(button)button.onclick=()=>page(6)}
 function calloutText(sourceIds,format=state.match?.format||state.matchFormat){const ids=sourceIds||state.nextCall?.players||[],needed=matchPlayerCount(format);if(ids.length!==needed||new Set(ids).size!==needed)return'';return normalizeMatchFormat(format)===MATCH_FORMAT_SINGLES?`下一場是左方 ${vname(ids[0])}，對戰右方 ${vname(ids[1])}。`:`下一場是左方 ${vname(ids[0])}和${vname(ids[1])}，對戰右方 ${vname(ids[2])}和${vname(ids[3])}。`}
+function dashboardServingPlayerId(match){
+  if(!match?.active||match.winner!==null)return'';
+  const team=match.serving===1?1:0,players=match.players?.[team]||[];
+  if(normalizeMatchFormat(match.format)===MATCH_FORMAT_SINGLES)return players[0]||'';
+  const side=(match.scores?.[team]||0)%2===0?1:0,index=match.positions?.[team]?.[side]??0;
+  return players[index]||'';
+}
+function renderDashboardLiveScore(match=state.match){
+  const box=$('homeLiveScore');if(!box)return;
+  const needed=matchPlayerCount(match?.format),teams=match?.players||[[],[]],hasLineup=!!match?.active&&teams.flat().filter(Boolean).length===needed;
+  if(!hasLineup){
+    box.className='home-live-score idle';
+    box.innerHTML='<div class="home-live-score-empty"><span class="club-kicker">LIVE SCORE</span><strong>目前沒有進行中的比賽</strong><small>比賽開始後，比分會即時顯示在這裡</small></div>';
+    return;
+  }
+  const scores=match.scores||[0,0],winner=match.winner===0||match.winner===1?match.winner:null,serverId=dashboardServingPlayerId(match),official=matchHasOfficiallyStarted(match),status=winner!==null?'本場結束':official?'比賽進行中':'等待正式開始';
+  const teamHtml=team=>{const names=(teams[team]||[]).map(id=>esc(pname(id))).join('／')||`${team===0?'A':'B'} 隊`,serving=winner===null&&match.serving===team;return `<div class="home-live-team ${winner===team?'winner':''} ${serving?'serving':''}"><span>${serving?'發球方':team===0?'A 隊':'B 隊'}</span><strong>${names}</strong></div>`};
+  box.className=`home-live-score ${winner!==null?'finished':'active'}`;
+  box.innerHTML=`<div class="home-live-head"><span class="club-kicker">LIVE SCORE · ${normalizeMatchFormat(match.format)===MATCH_FORMAT_SINGLES?'單打':'雙打'}</span><span class="home-live-status"><i></i>${status}</span></div><div class="home-live-board">${teamHtml(0)}<div class="home-live-numbers"><strong>${scores[0]??0}</strong><span>:</span><strong>${scores[1]??0}</strong></div>${teamHtml(1)}</div><div class="home-live-foot"><span>${serverId?`🏸 ${esc(pname(serverId))} 發球`:'比分即時同步中'}</span>${isHost?'<button id="homeLiveScoreOpen" class="btn" type="button">'+(winner!==null?'查看結果':'進入計分')+'</button>':'<span>即時同步</span>'}</div>`;
+  $('homeLiveScoreOpen')?.addEventListener('click',()=>{scoreViewRequested=true;renderScore()});
+}
 function renderDashboard() {
     if (!$('clubMetrics')) return;
 
@@ -710,6 +731,7 @@ function renderDashboard() {
         monthGames = recordedGames.filter(h => historyDate(h).startsWith(month)),
         monthPlayers = new Set(monthGames.flatMap(h => (h.teams || []).flat()).filter(Boolean));
     for(const id of['endSessionBtn','resultEndSessionBtn'])if($(id))$(id).disabled=!hasCurrentMatch&&!state.nextCall&&!state.attendance.length;
+    renderDashboardLiveScore(m);
 
     $('clubMetrics').innerHTML = `
         <div class="club-metric"><span class="club-metric-icon">🏸</span><span><strong>${monthGames.length}</strong><small>本月比賽</small></span></div>

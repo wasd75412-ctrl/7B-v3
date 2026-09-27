@@ -76,11 +76,16 @@
 
   <section id="page0" class="card page">
     <div class="toolbar" style="justify-content:space-between"><div><h2 style="margin:0">7B 羽球社首頁</h2><p class="sub" id="dashboardDate"></p></div><div class="toolbar"><span id="announceBtn" hidden></span><button id="endSessionBtn" class="btn danger-outline host-only">結束今日球局</button></div></div>
+    <section id="homeLiveScore" class="home-live-score idle" aria-live="polite"></section>
     <div id="adminAnnouncement" class="admin-announcement hidden"></div>
-    <div id="nextEventAnnouncement" class="next-event-card hidden"></div>
-    <div id="pollDeadlineAnnouncement" class="poll-deadline-card hidden"></div>
-    <div id="clubMetrics" class="club-metric-grid"></div>
-    <div id="homeShuttleSummary" class="home-shuttle-summary"></div>
+    <div class="dashboard-priority-grid">
+      <div id="nextEventAnnouncement" class="next-event-card hidden"></div>
+      <div id="pollDeadlineAnnouncement" class="poll-deadline-card hidden"></div>
+    </div>
+    <div class="dashboard-support-grid">
+      <div id="clubMetrics" class="club-metric-grid"></div>
+      <div id="homeShuttleSummary" class="home-shuttle-summary"></div>
+    </div>
     <div class="club-home-grid">
       <section class="club-home-card club-recent-card">
         <div class="club-section-head"><div><span class="club-kicker">RECENT MATCHES</span><h3>最近比賽</h3></div><button id="homeHistoryBtn" class="btn" type="button">查看全部紀錄</button></div>
