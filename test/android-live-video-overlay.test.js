@@ -5,6 +5,7 @@ import {readFileSync} from 'node:fs';
 const camera=readFileSync(new URL('../android-remote/app/src/main/java/tw/club7b/scoreremote/LoopCameraActivity.java',import.meta.url),'utf8');
 const overlay=readFileSync(new URL('../android-remote/app/src/main/java/tw/club7b/scoreremote/LiveMatchOverlayController.java',import.meta.url),'utf8');
 const accessibility=readFileSync(new URL('../android-remote/app/src/main/java/tw/club7b/scoreremote/RemoteKeyAccessibilityService.java',import.meta.url),'utf8');
+const main=readFileSync(new URL('../src/main.js',import.meta.url),'utf8');
 
 test('burns the live player and score overlay into both preview and recorded video',()=>{
   assert.match(camera,/CameraEffect\.PREVIEW \| CameraEffect\.VIDEO_CAPTURE/);
@@ -37,6 +38,18 @@ test('subscribes to the shared room roster and live score documents',()=>{
   assert.match(overlay,/collection\("badmintonRooms"\)\.document\(session\.roomId\)/);
   assert.match(overlay,/collection\("liveScore"\)\.document\("current"\)/);
   assert.match(overlay,/playerNames\.getOrDefault\(id, "球員"\)/);
+});
+
+test('keeps the recording overlay on the newest mirrored score source',()=>{
+  assert.match(overlay,/roomMatch = matchSnapshot\(snapshot\)/);
+  assert.match(overlay,/liveMatch = matchSnapshot\(snapshot\)/);
+  assert.match(overlay,/newest\(roomMatch, liveMatch\)\.match/);
+  assert.match(overlay,/firstEpoch != secondEpoch/);
+  assert.match(overlay,/first\.updatedAt > second\.updatedAt/);
+});
+
+test('mirrors every live score write for the recording fallback listener',()=>{
+  assert.match(main,/batch\.set\(liveScoreRef,livePayload,\{merge:true\}\);\s*batch\.set\(roomRef,fallbackPayload,\{merge:true\}\);\s*await batch\.commit\(\)/);
 });
 
 test('keeps Bluetooth scoring in the accessibility background controller path',()=>{
