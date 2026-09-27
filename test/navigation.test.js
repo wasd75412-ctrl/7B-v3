@@ -16,6 +16,13 @@ test('startup uses only the imported event end-time helper',()=>{
   assert.match(mainSource,/pollEndTime'\)\.value=suggestedEventEndTime\(\$\('pollTime'\)\.value,0\)/);
 });
 
+test('automatically reloads once when a new service worker takes control',()=>{
+  assert.match(mainSource,/const swRevision=BCM_VERSION/);
+  assert.match(mainSource,/serviceWorker\.addEventListener\('controllerchange'/);
+  assert.match(mainSource,/sessionStorage\.getItem\(reloadKey\)==='1'/);
+  assert.match(mainSource,/sessionStorage\.setItem\(reloadKey,'1'\);\s*location\.reload\(\)/);
+});
+
 test('renders the 7B icon without a white frame',()=>{
   assert.match(styles,/\.splash-logo,#app \.top \.brand-logo,#landing \.landing-brand img\{border:0!important;outline:0!important\}/);
   assert.doesNotMatch(styles,/\.splash-logo\{box-shadow:[^}]*0 0 0 8px rgba\(255,255,255/);
