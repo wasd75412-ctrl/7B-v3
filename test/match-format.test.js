@@ -67,6 +67,6 @@ test('singles scoreboard shows a court label only for the actual server',()=>{
   assert.match(main,/const positionLabel=singles&&serving\?`<span class="court-position\$\{nameClass\}">\$\{m\.scores\[t\]%2===0\?'右發球區':'左發球區'\}<\/span>`:''/);
   assert.match(main,/const positionSuffix=singles\?'':`<span class="court-position-letter" aria-label="\$\{physicalSide\}">\$\{sideIndex===0\?'L':'R'\}<\/span>`/);
   assert.match(main,/\$\{esc\(displayName\)\}\$\{positionSuffix\}/);
-  assert.match(css,/\.court-position-letter\{[\s\S]*?display:inline-grid;[\s\S]*?width:1\.15em;[\s\S]*?height:1\.15em;[\s\S]*?border:\.08em solid currentColor;[\s\S]*?border-radius:50%/);
+  assert.match(css,/\.court-position-letter\{[\s\S]*?display:inline-grid;[\s\S]*?font-size:\.58em;[\s\S]*?width:1\.15em;[\s\S]*?height:1\.15em;[\s\S]*?border:\.08em solid currentColor;[\s\S]*?border-radius:50%/);
   assert.match(main,/const servingLabel=`\$\{m\.serving===0\?'A隊':'B隊'\} · \$\{pname\(sid\)\} · \$\{side\}發球區`/);
 });
