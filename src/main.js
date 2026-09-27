@@ -285,7 +285,7 @@ function handleScoreRemoteVirtualClick(event){
 async function sha256(text){const buf=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(text));return [...new Uint8Array(buf)].map(b=>b.toString(16).padStart(2,'0')).join('')}
 function encodeState(src){
   const m=src.match||{};
-  const notices=normalizeAdminNotices(src);
+  const notices=ensureShuttleCostNotice(normalizeAdminNotices(src));
   const legacyActiveTubeId=String(src.shuttleLegacyActiveTubeId||'').trim().slice(0,128);
   const noTrackingTubeIds=[...new Set((Array.isArray(src.shuttleNoTrackingTubeIds)?src.shuttleNoTrackingTubeIds:[]).map(id=>String(id||'').trim()).filter(Boolean))].slice(0,20);
   return {
@@ -675,7 +675,7 @@ function setNextEventEditorOpen(open){
 }
 function closeNextEventEditor(){setNextEventEditorOpen(false)}
 function renderAdminAnnouncement(){
-  const box=$('adminAnnouncement'),notices=normalizeAdminNotices(state);
+  const box=$('adminAnnouncement'),notices=ensureShuttleCostNotice(normalizeAdminNotices(state));
   if(!box)return;
   state.adminNotices=notices;state.adminNotice=notices[0]||null;
   box.classList.toggle('hidden',!notices.length);
@@ -700,7 +700,7 @@ function renderDashboardLiveScore(match=state.match){
   const needed=matchPlayerCount(match?.format),teams=match?.players||[[],[]],hasLineup=!!match?.active&&teams.flat().filter(Boolean).length===needed;
   if(!hasLineup){
     box.className='home-live-score idle';
-    box.innerHTML='<div class="home-live-score-empty"><span class="club-kicker">LIVE SCORE</span><strong>目前沒有進行中的比賽</strong><small>比賽開始後，比分會即時顯示在這裡</small></div>';
+    box.innerHTML='<div class="home-live-score-empty"><strong>暫無比賽</strong></div>';
     return;
   }
   const scores=match.scores||[0,0],winner=match.winner===0||match.winner===1?match.winner:null,serverId=dashboardServingPlayerId(match),official=matchHasOfficiallyStarted(match),status=winner!==null?'本場結束':official?'比賽進行中':'等待正式開始';
