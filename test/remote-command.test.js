@@ -1,11 +1,17 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {shouldAcceptRemoteCommand} from '../src/remote-command.js';
+import {shouldAcceptRemoteCommand,timestampMillis} from '../src/remote-command.js';
 
 const now=Date.parse('2026-09-05T12:00:00.000Z');
 const currentMatch={matchId:'current-match',startedAt:new Date(now-10_000).toISOString()};
 const command={id:'press-1',createdAt:new Date(now-1000).toISOString()};
 const accept=(changes={})=>shouldAcceptRemoteCommand({command,currentMatch,now,...changes});
+
+test('normalizes accepted command timestamps for the official start marker',()=>{
+  assert.equal(timestampMillis(command.createdAt),now-1000);
+  assert.equal(timestampMillis({toMillis:()=>now-2000}),now-2000);
+  assert.equal(Number.isNaN(timestampMillis('invalid')),true);
+});
 
 test('accepts fresh legacy Android and web commands without a match id',()=>{
   const formats=[

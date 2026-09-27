@@ -16,11 +16,12 @@ test('new score screens wait for the explicit official start timestamp',()=>{
   assert.doesNotMatch(startMatch,/startedAt:new Date/);
   assert.match(startNext,/startedAt:''/);
   assert.doesNotMatch(startNext,/startedAt:new Date/);
-  assert.match(main,/function markMatchOfficialStarted\(\)[\s\S]*?match\.startedAt=new Date\(\)\.toISOString\(\)[\s\S]*?saveLiveScoreSoon\(\);saveSoon\(\)/);
+  assert.match(main,/function markMatchOfficialStarted\(requestedAt\)[\s\S]*?requestedMillis=timestampMillis\(requestedAt\)[\s\S]*?Math\.min\(requestedMillis,now\)[\s\S]*?saveLiveScoreSoon\(\);saveSoon\(\)/);
 });
 
 test('double press starts the match without changing the other press counts',()=>{
-  assert.match(main,/scoreRemotePendingPress=null;markMatchOfficialStarted\(\);return/);
+  assert.match(main,/requestedAt=scoreRemotePendingPress\.requestedAt[\s\S]*?scoreRemotePendingPress=null;markMatchOfficialStarted\(requestedAt\);return/);
+  assert.match(main,/scoreRemotePendingPress=\{code,action,at:now,requestedAt:new Date\(\)\.toISOString\(\)/);
   assert.doesNotMatch(main,/scoreRemotePendingPress=null;toggleScoreFullscreen\(\)/);
   for(const source of [activity,service]){
     assert.match(source,/count==1[\s\S]*?count==2[\s\S]*?OfficialStart[\s\S]*?count==3[\s\S]*?UseShuttle[\s\S]*?count==4[\s\S]*?ReturnShuttle/);
@@ -32,8 +33,8 @@ test('double press starts the match without changing the other press counts',()=
 test('official start is idempotent and scoring waits for it',()=>{
   assert.match(main,/if\(matchHasOfficiallyStarted\(match\)\)\{showScoreRemoteIndicator\('本場已正式開始'/);
   assert.match(main,/if\(!matchHasOfficiallyStarted\(match\)\)\{showScoreRemoteIndicator\('請先連按兩下正式開始'/);
-  assert.match(main,/function handleRemoteOfficialStartCommand[\s\S]*?return markMatchOfficialStarted\(\)/);
-  assert.match(main,/function handleRemoteFullscreenCommand[\s\S]*?return markMatchOfficialStarted\(\)/);
+  assert.match(main,/function handleRemoteOfficialStartCommand[\s\S]*?markMatchOfficialStarted\(data\.officialStartCommand\.createdAt\)/);
+  assert.match(main,/function handleRemoteFullscreenCommand[\s\S]*?markMatchOfficialStarted\(data\.fullscreenCommand\.createdAt\)/);
 });
 
 test('score mode provides a play fallback for official start in both layouts',()=>{
