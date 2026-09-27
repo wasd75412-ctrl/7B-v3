@@ -787,7 +787,6 @@ function pollDeadlineMs(poll=state.schedulePoll){const ms=Date.parse(poll?.deadl
 function isPollDeadlinePassed(poll=state.schedulePoll,now=Date.now()){const ms=pollDeadlineMs(poll);return !!ms&&ms<=now}
 function isPollClosed(poll=state.schedulePoll,now=Date.now()){return poll?.status==='closed'||isPollDeadlinePassed(poll,now)}
 let recruitingDialogScrollY=0;
-function recruitingDialogKey(poll=state.schedulePoll){return `bcmRecruitingDialogV2:${roomId}:${poll.createdAt||poll.deadlineAt||pollSignature()}`}
 function recruitingOwnOptionIds(poll=state.schedulePoll){
   const own=ownedPlayerId(),values=[];
   if(own){for(const [deviceHash,playerId] of Object.entries(poll.voterPlayers||{}))if(playerId===own)values.push(poll.votes?.[deviceHash])}
@@ -803,18 +802,12 @@ function renderRecruitingDialog(){
   if($('copyRecruitingMessage'))$('copyRecruitingMessage').disabled=!message;
   return message;
 }
-function openRecruitingDialog({automatic=false}={}){
+function openRecruitingDialog(){
   if(!isHost)return alert('只有管理員可以查看揪人訊息。');
   if(!isPollClosed(state.schedulePoll))return alert('投票截止後才會鎖定 3–4 人球局並產生訊息。');
   recruitingDialogScrollY=window.scrollY||document.documentElement.scrollTop||0;
   renderRecruitingDialog();$('recruitingMessageModal').classList.remove('hidden');
   requestAnimationFrame(()=>window.scrollTo(0,recruitingDialogScrollY));
-}
-function maybeOpenRecruitingDialog(poll=state.schedulePoll){
-  const key=recruitingDialogKey(poll);
-  if(!isHost||!isPollClosed(poll)||!(poll.options||[]).length||localStorage.getItem(key)==='1')return;
-  localStorage.setItem(key,'1');
-  setTimeout(()=>openRecruitingDialog({automatic:true}),0);
 }
 function closeRecruitingDialog(){$('recruitingMessageModal').classList.add('hidden');requestAnimationFrame(()=>window.scrollTo(0,recruitingDialogScrollY))}
 async function copyRecruitingMessage(){
@@ -1371,7 +1364,7 @@ function renderPoll(){
     $('confirmNextEvent').textContent='確認建立球局';
     updateConfirmFeePreview();
   }
-  updateVenueMapPreviews();schedulePollDeadlineTimer(poll);renderPollNotice();maybeOpenRecruitingDialog(poll);
+  updateVenueMapPreviews();schedulePollDeadlineTimer(poll);renderPollNotice();
 }
 async function addPollOption(){const date=$('pollDate').value,time=$('pollTime').value,endTime=$('pollEndTime').value,note=$('pollNote').value.trim(),button=$('addPollOption');if(isPollClosed(state.schedulePoll))return alert('請先建立新投票。');if(!date)return alert('請先選擇候選日期。');if(!time)return alert('請設定開始時間。');if(!endTime)return alert('請設定結束時間。');if(endTime<=time)return alert('結束時間必須晚於開始時間。');if(state.schedulePoll.options.some(o=>o.date===date&&o.time===time&&o.endTime===endTime))return alert('這個日期與時間已經存在。');state.schedulePoll.createdAt=state.schedulePoll.createdAt||new Date().toISOString();state.schedulePoll.options.push({id:randomToken(),date,time,endTime,note});state.schedulePoll.options.sort((a,b)=>(a.date+a.time).localeCompare(b.date+b.time));$('pollNote').value='';renderPoll();renderDashboard();button.disabled=true;try{await saveNow()}catch(error){alert(`候選日期已保留在這台裝置，但暫時無法同步：${formatError(error)}`);saveSoon()}finally{button.disabled=false}}
 function deletePollOption(id){if(!confirm('刪除這個候選日期？相關票數也會移除。'))return;state.schedulePoll.options=state.schedulePoll.options.filter(o=>o.id!==id);for(const key of Object.keys(state.schedulePoll.votes||{}))state.schedulePoll.votes[key]=pollSelectionList(state.schedulePoll.votes[key]).filter(x=>x!==id).join('|');if(state.schedulePoll.manualParticipants)delete state.schedulePoll.manualParticipants[id];renderPoll();saveSoon()}

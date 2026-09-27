@@ -101,6 +101,14 @@ test('missing-vote reminders exclude guest players',()=>{
   assert.match(mainSource,/state\.roster\.filter\(player=>!isGuestPlayer\(player\)\)\.map\(player=>player\.id\)/);
 });
 
+test('keeps recruiting messages manual instead of opening them automatically',()=>{
+  assert.match(html,/id="recruitingMessageBtn"[^>]*>💬 揪人訊息<\/button>/);
+  assert.match(mainSource,/recruitingMessageBtn'\)\.onclick=\(\)=>openRecruitingDialog\(\)/);
+  assert.doesNotMatch(mainSource,/maybeOpenRecruitingDialog/);
+  assert.doesNotMatch(mainSource,/automatic:true/);
+  assert.doesNotMatch(mainSource,/bcmRecruitingDialogV2/);
+});
+
 test('lets the admin edit participant count before confirming the next event',()=>{
   assert.match(html,/id="confirmParticipants"[^>]*type="number"[^>]*min="1"/);
   assert.match(mainSource,/participantCount=wholeAmount\(\$\('confirmParticipants'\)\?\.value\)/);
