@@ -2328,8 +2328,9 @@ function renderScore(){
       const physicalSide=sideIndex===1?'右邊':'左邊';
       const serving=m.serving===t&&serverIndex===i&&m.winner===null;
       const nameClass=scoreNameClass(displayName);
-      const positionLabel=singles?(serving?`<span class="court-position${nameClass}">${m.scores[t]%2===0?'右發球區':'左發球區'}</span>`:''):`<span class="court-position${nameClass}">${physicalSide}</span>`;
-      return `<div class="court-name ${serving?'server':''}"><span class="score-player">${avatar(id,'score-large')}<span class="court-player-copy">${positionLabel}<span class="court-player-name${nameClass}">${esc(displayName)}</span></span></span></div>`;
+      const positionLabel=singles&&serving?`<span class="court-position${nameClass}">${m.scores[t]%2===0?'右發球區':'左發球區'}</span>`:'';
+      const positionSuffix=singles?'':`<span class="court-position-letter" aria-label="${physicalSide}">${sideIndex===0?'L':'R'}</span>`;
+      return `<div class="court-name ${serving?'server':''}"><span class="score-player">${avatar(id,'score-large')}<span class="court-player-copy">${positionLabel}<span class="court-player-name${nameClass}">${esc(displayName)}${positionSuffix}</span></span></span></div>`;
     }).join('');
   };
   renderTeam(0,$('namesA'));
