@@ -3637,6 +3637,7 @@ body>.modal .modal-card :is(.profile-panel,.profile-section,.stat-box,.health-bo
   -webkit-text-stroke:3px #071018;
   paint-order:stroke fill;
 }
+.court-position-letter{display:inline-block;margin-inline-start:.2em;white-space:nowrap}
 .score-center .score-divider{
   position:absolute!important;
   left:50%!important;
