@@ -40,6 +40,7 @@ import androidx.camera.core.UseCaseGroup;
 import androidx.camera.effects.OverlayEffect;
 import androidx.camera.lifecycle.ProcessCameraProvider;
 import androidx.camera.video.FileOutputOptions;
+import androidx.camera.video.FallbackStrategy;
 import androidx.camera.video.MediaStoreOutputOptions;
 import androidx.camera.video.PendingRecording;
 import androidx.camera.video.Quality;
@@ -142,7 +143,10 @@ public final class LoopCameraActivity extends ComponentActivity {
                 int targetRotation = Surface.ROTATION_90;
                 Preview preview = new Preview.Builder().setTargetRotation(targetRotation).build();
                 preview.setSurfaceProvider(previewView.getSurfaceProvider());
-                Recorder recorder = new Recorder.Builder().setQualitySelector(QualitySelector.from(Quality.HD)).build();
+                QualitySelector qualitySelector = QualitySelector.from(
+                        Quality.FHD,
+                        FallbackStrategy.lowerQualityOrHigherThan(Quality.FHD));
+                Recorder recorder = new Recorder.Builder().setQualitySelector(qualitySelector).build();
                 videoCapture = new VideoCapture.Builder<>(recorder).setTargetRotation(targetRotation).build();
                 provider.unbindAll();
                 UseCaseGroup.Builder groupBuilder = new UseCaseGroup.Builder()
