@@ -3637,7 +3637,18 @@ body>.modal .modal-card :is(.profile-panel,.profile-section,.stat-box,.health-bo
   -webkit-text-stroke:3px #071018;
   paint-order:stroke fill;
 }
-.court-position-letter{display:inline-block;margin-inline-start:.2em;white-space:nowrap}
+.court-position-letter{
+  display:inline-grid;
+  place-items:center;
+  width:1.15em;
+  height:1.15em;
+  margin-inline-start:.18em;
+  border:.08em solid currentColor;
+  border-radius:50%;
+  line-height:1;
+  vertical-align:.04em;
+  white-space:nowrap;
+}
 .score-center .score-divider{
   position:absolute!important;
   left:50%!important;
