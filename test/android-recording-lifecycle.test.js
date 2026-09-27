@@ -5,6 +5,11 @@ import {readFileSync} from 'node:fs';
 const source=readFileSync(new URL('../android-remote/app/src/main/java/tw/club7b/scoreremote/MainActivity.java',import.meta.url),'utf8');
 const camera=readFileSync(new URL('../android-remote/app/src/main/java/tw/club7b/scoreremote/LoopCameraActivity.java',import.meta.url),'utf8');
 
+test('records at 1080p when supported and falls back safely on other cameras',()=>{
+  assert.match(camera,/QualitySelector\.from\(\s*Quality\.FHD,\s*FallbackStrategy\.lowerQualityOrHigherThan\(Quality\.FHD\)\)/);
+  assert.doesNotMatch(camera,/QualitySelector\.from\(Quality\.HD\)/);
+});
+
 test('suspends the hidden WebView while native recording stays active',()=>{
   assert.match(source,/protected void onPause\(\)[\s\S]*?webView\.onPause\(\);[\s\S]*?webView\.pauseTimers\(\);/);
   assert.match(source,/protected void onResume\(\)[\s\S]*?webView\.resumeTimers\(\);[\s\S]*?webView\.onResume\(\);/);
