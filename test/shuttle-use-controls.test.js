@@ -93,8 +93,8 @@ test('converts YUNTENG zoom gestures into score keys in remote and recording scr
   assert.match(activity,/SHORT_CONFIRM_MS[\s\S]*?LONG_PRESS_MS/);
   assert.match(cameraActivity,/SHORT_CONFIRM_MS[\s\S]*?LONG_PRESS_MS/);
   assert.match(yuntengGestures,/onLongPressTimeout\(\)[\s\S]*?Action\.UNDO/);
-  assert.match(activity,/CAMERA_DOUBLE_PRESS_MS = 800L[\s\S]*?handleCameraShortPress/);
-  assert.match(service,/CAMERA_DOUBLE_PRESS_MS = 800L[\s\S]*?handleCameraShortPress/);
+  assert.match(activity,/CAMERA_DOUBLE_PRESS_MS = 500L[\s\S]*?handleCameraShortPress/);
+  assert.match(service,/CAMERA_DOUBLE_PRESS_MS = 500L[\s\S]*?handleCameraShortPress/);
   assert.match(activity,/pendingCameraSinglePress != null[\s\S]*?sendRemoteUseShuttleCommand\(\)[\s\S]*?pendingCameraSinglePress = \(\) -> \{[\s\S]*?sendRemoteAction\(VolumeKeyInterpreter\.Action\.UNDO\)/);
   assert.match(service,/pendingCameraSinglePress != null[\s\S]*?sendBackgroundUseShuttle\(\)[\s\S]*?pendingCameraSinglePress = \(\) -> \{[\s\S]*?sendBackgroundAction\(VolumeKeyInterpreter\.Action\.UNDO\)/);
   assert.match(yuntengGestures,/YUNTENG[\s\S]*?KEYCODE_CAMERA/);
