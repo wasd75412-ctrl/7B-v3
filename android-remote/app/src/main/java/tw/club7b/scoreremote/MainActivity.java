@@ -18,6 +18,7 @@ import android.os.VibratorManager;
 import android.provider.Settings;
 import android.util.Log;
 import android.view.KeyEvent;
+import android.view.MotionEvent;
 import android.view.ViewGroup;
 import android.view.WindowManager;
 import android.view.accessibility.AccessibilityManager;
@@ -40,14 +41,19 @@ public final class MainActivity extends Activity {
     private static final long ACTION_DEBOUNCE_MS = 300L;
     private static final long UNDO_DEBOUNCE_MS = 600L;
     private static final long SHUTTLE_PRESS_COOLDOWN_MS = 2000L;
+    private static final long CAMERA_DOUBLE_PRESS_MS = 450L;
     private static final long CAMERA_PRECONNECT_TIMEOUT_MS = 5000L;
 
     private final VolumeKeyInterpreter volumeKeys = new VolumeKeyInterpreter();
+    private final YuntengGestureInterpreter yuntengGestures = new YuntengGestureInterpreter();
     private final Handler keyHandler = new Handler(Looper.getMainLooper());
     private final RemoteKeyRelay.Listener remoteKeyListener = this::handleRemoteKeyEvent;
     private WebView webView;
     private Runnable pendingLongPress;
     private Runnable pendingKeyFallback;
+    private Runnable pendingYuntengLongPress;
+    private Runnable pendingYuntengShortPress;
+    private Runnable pendingCameraSinglePress;
     private long lastShuttleActionAt;
     private long lastPointActionAt;
     private long lastUndoActionAt;
@@ -83,7 +89,7 @@ public final class MainActivity extends Activity {
         settings.setDisplayZoomControls(false);
         settings.setMediaPlaybackRequiresUserGesture(false);
         settings.setMixedContentMode(WebSettings.MIXED_CONTENT_NEVER_ALLOW);
-        settings.setUserAgentString(settings.getUserAgentString() + " 7BAndroidRemote/1.3.31");
+        settings.setUserAgentString(settings.getUserAgentString() + " 7BAndroidRemote/1.3.32");
         CookieManager.getInstance().setAcceptCookie(true);
         CookieManager.getInstance().setAcceptThirdPartyCookies(view, true);
         view.setRendererPriorityPolicy(WebView.RENDERER_PRIORITY_IMPORTANT, true);
@@ -164,8 +170,64 @@ public final class MainActivity extends Activity {
         return super.dispatchKeyEvent(event);
     }
 
+    @Override
+    public boolean dispatchTouchEvent(MotionEvent event) {
+        if (!yuntengGestures.isYuntengEvent(event)) return super.dispatchTouchEvent(event);
+        VolumeKeyInterpreter.Action action = yuntengGestures.onTouchEvent(event);
+        if (yuntengGestures.hasPendingPress()) scheduleYuntengPressTimers();
+        else cancelYuntengPressTimers();
+        if (action != VolumeKeyInterpreter.Action.NONE) {
+            notifyKeyDetected(action == VolumeKeyInterpreter.Action.TEAM_A_PLUS
+                    ? KeyEvent.KEYCODE_VOLUME_UP : KeyEvent.KEYCODE_VOLUME_DOWN);
+            sendYuntengScoreAction(action);
+        }
+        return true;
+    }
+
+    private void scheduleYuntengPressTimers() {
+        if (pendingYuntengShortPress == null) {
+            pendingYuntengShortPress = () -> {
+                pendingYuntengShortPress = null;
+                VolumeKeyInterpreter.Action action = yuntengGestures.onShortPressTimeout();
+                if (action != VolumeKeyInterpreter.Action.NONE) {
+                    cancelYuntengLongPress();
+                    sendYuntengScoreAction(action);
+                }
+            };
+            keyHandler.postDelayed(pendingYuntengShortPress, YuntengGestureInterpreter.SHORT_CONFIRM_MS);
+        }
+        if (pendingYuntengLongPress == null) {
+            pendingYuntengLongPress = () -> {
+                pendingYuntengLongPress = null;
+                VolumeKeyInterpreter.Action action = yuntengGestures.onLongPressTimeout();
+                if (action != VolumeKeyInterpreter.Action.NONE) {
+                    cancelYuntengShortPress();
+                    sendYuntengScoreAction(action);
+                }
+            };
+            keyHandler.postDelayed(pendingYuntengLongPress, YuntengGestureInterpreter.LONG_PRESS_MS);
+        }
+    }
+
+    private void cancelYuntengPressTimers() {
+        cancelYuntengShortPress();
+        cancelYuntengLongPress();
+    }
+
+    private void cancelYuntengShortPress() {
+        if (pendingYuntengShortPress == null) return;
+        keyHandler.removeCallbacks(pendingYuntengShortPress);
+        pendingYuntengShortPress = null;
+    }
+
+    private void cancelYuntengLongPress() {
+        if (pendingYuntengLongPress == null) return;
+        keyHandler.removeCallbacks(pendingYuntengLongPress);
+        pendingYuntengLongPress = null;
+    }
+
     private boolean handleRemoteKeyEvent(KeyEvent event) {
-        int keyCode = event.getKeyCode();
+        int keyCode = YuntengGestureInterpreter.remapKeyCode(event);
         if (!VolumeKeyInterpreter.isSupportedRemoteKey(keyCode)) return false;
         VolumeKeyInterpreter.Action action = VolumeKeyInterpreter.Action.NONE;
         if (event.getAction() == KeyEvent.ACTION_DOWN) {
@@ -232,6 +294,13 @@ public final class MainActivity extends Activity {
     }
 
     private void handleResolvedRemoteAction(VolumeKeyInterpreter.Action action, int keyCode, long eventTime) {
+        if (keyCode == KeyEvent.KEYCODE_CAMERA && action == VolumeKeyInterpreter.Action.USE_SHUTTLE) {
+            handleCameraShortPress();
+            return;
+        }
+        if (keyCode == KeyEvent.KEYCODE_CAMERA && action == VolumeKeyInterpreter.Action.RETURN_SHUTTLE) {
+            cancelCameraSinglePress();
+        }
         if (action == VolumeKeyInterpreter.Action.USE_SHUTTLE || action == VolumeKeyInterpreter.Action.RETURN_SHUTTLE) {
             long now = SystemClock.uptimeMillis();
             if (now - lastShuttleActionAt < SHUTTLE_PRESS_COOLDOWN_MS) return;
@@ -243,22 +312,49 @@ public final class MainActivity extends Activity {
         sendRemoteAction(action);
     }
 
+    private void handleCameraShortPress() {
+        if (pendingCameraSinglePress != null) {
+            cancelCameraSinglePress();
+            sendRemoteAction(VolumeKeyInterpreter.Action.UNDO);
+            return;
+        }
+        pendingCameraSinglePress = () -> {
+            pendingCameraSinglePress = null;
+            sendRemoteUseShuttleCommand();
+        };
+        keyHandler.postDelayed(pendingCameraSinglePress, CAMERA_DOUBLE_PRESS_MS);
+    }
+
+    private void cancelCameraSinglePress() {
+        if (pendingCameraSinglePress == null) return;
+        keyHandler.removeCallbacks(pendingCameraSinglePress);
+        pendingCameraSinglePress = null;
+    }
+
     private void sendRemoteUseShuttleCommand() {
-        if (webView == null) return;
-        evaluateJavascript("(function(){return !!(window.bcmAndroidRemoteUseShuttle&&window.bcmAndroidRemoteUseShuttle());})()",result -> {
-            boolean accepted = "true".equals(result);
-            Toast.makeText(MainActivity.this,accepted ? "已使用 1 顆球" : "請先啟用球桶",Toast.LENGTH_SHORT).show();
-            vibrate(accepted ? 120L : 28L);
-        });
+        scoreController().useOneShuttle((success, message) -> keyHandler.post(() -> {
+            Toast.makeText(MainActivity.this, message, Toast.LENGTH_SHORT).show();
+            vibrate(success ? 120L : 28L);
+        }));
     }
 
     private void sendRemoteReturnShuttleCommand() {
-        if (webView == null) return;
-        evaluateJavascript("(function(){return !!(window.bcmAndroidRemoteReturnShuttle&&window.bcmAndroidRemoteReturnShuttle());})()",result -> {
-            boolean accepted = "true".equals(result);
-            Toast.makeText(MainActivity.this,accepted ? "已加回 1 顆球" : "本場沒有可加回的球",Toast.LENGTH_SHORT).show();
-            vibrate(accepted ? 120L : 28L);
-        });
+        scoreController().returnOneShuttle((success, message) -> keyHandler.post(() -> {
+            Toast.makeText(MainActivity.this, message, Toast.LENGTH_SHORT).show();
+            vibrate(success ? 120L : 28L);
+        }));
+    }
+
+    private BackgroundScoreController scoreController() {
+        if (backgroundScoreController == null) backgroundScoreController = new BackgroundScoreController(this);
+        return backgroundScoreController;
+    }
+
+    private void sendYuntengScoreAction(VolumeKeyInterpreter.Action action) {
+        scoreController().submit(action, (success, message, completedAction) -> keyHandler.post(() -> {
+            Toast.makeText(MainActivity.this, message, Toast.LENGTH_SHORT).show();
+            vibrate(success ? 55L : 28L);
+        }));
     }
 
     private void sendRemoteOfficialStartCommand() {
@@ -492,6 +588,8 @@ public final class MainActivity extends Activity {
     protected void onDestroy() {
         cancelLongPress();
         cancelMissingKeyUpFallback();
+        cancelYuntengPressTimers();
+        cancelCameraSinglePress();
         RemoteKeyRelay.clearListener(remoteKeyListener);
         if (webView != null) {
             webView.stopLoading();
