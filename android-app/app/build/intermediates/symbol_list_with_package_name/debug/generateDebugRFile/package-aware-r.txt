@@ -1,0 +1,3 @@
+tw.club7b.app
+drawable icon_512
+style AppTheme
