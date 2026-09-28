@@ -79,6 +79,8 @@ test('routes YUNTENG keys directly without multi-press delay',()=>{
 test('converts YUNTENG zoom gestures into score keys in remote and recording screens',()=>{
   assert.match(yuntengGestures,/TEAM_SPLIT = 0\.45f/);
   assert.match(yuntengGestures,/TEAM_A_PLUS[\s\S]*?TEAM_B_PLUS/);
+  assert.match(yuntengGestures,/horizontalGesture[\s\S]*?newX[\s\S]*?newY/);
+  assert.match(yuntengGestures,/HORIZONTAL_TEAM_SPLIT = 0\.865f/);
   assert.match(yuntengGestures,/LONG_PRESS_MS = 2000L/);
   assert.doesNotMatch(yuntengGestures,/LONG_GESTURE_TRAVEL/);
   assert.match(yuntengGestures,/POST_LONG_PRESS_IGNORE_MS = 500L/);

@@ -22,6 +22,16 @@ public final class YuntengGestureInterpreterTest {
     }
 
     @Test
+    public void mapsTheSeparatedAxisAfterScreenRotation() {
+        assertEquals(VolumeKeyInterpreter.Action.TEAM_A_PLUS,
+                YuntengGestureInterpreter.classifyAxes("YUNTENG", 527f, 539f, 923f, 539f,
+                        923f, 539f, 1079f, 2637f));
+        assertEquals(VolumeKeyInterpreter.Action.TEAM_B_PLUS,
+                YuntengGestureInterpreter.classifyAxes("YUNTENG", 527f, 539f, 944f, 539f,
+                        944f, 539f, 1079f, 2637f));
+    }
+
+    @Test
     public void remapsYuntengCameraVolumeKeyOnly() {
         assertEquals(KeyEvent.KEYCODE_CAMERA,
                 YuntengGestureInterpreter.remapKeyCode("YUNTENG Consumer Control", KeyEvent.KEYCODE_VOLUME_UP));

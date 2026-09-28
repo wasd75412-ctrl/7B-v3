@@ -8,6 +8,7 @@ import java.util.Locale;
 
 final class YuntengGestureInterpreter {
     private static final float TEAM_SPLIT = 0.45f;
+    private static final float HORIZONTAL_TEAM_SPLIT = 0.865f;
     static final long SHORT_CONFIRM_MS = 700L;
     static final long LONG_PRESS_MS = 2000L;
     private static final long POST_LONG_PRESS_IGNORE_MS = 500L;
@@ -50,12 +51,20 @@ final class YuntengGestureInterpreter {
             longGesture = false;
         }
         if (event.getPointerCount() >= 2) {
-            float maxY = Math.max(event.getY(0), event.getY(1));
+            int pointerIndex = event.getActionMasked() == MotionEvent.ACTION_POINTER_DOWN
+                    ? event.getActionIndex() : event.getPointerCount() - 1;
             if (pendingAction == VolumeKeyInterpreter.Action.NONE) {
-                InputDevice.MotionRange range = event.getDevice().getMotionRange(MotionEvent.AXIS_Y, event.getSource());
-                float rangeMax = range == null ? 0f : range.getMax();
-                pendingAction = classify(event.getDevice().getName(), maxY, rangeMax);
-                initialY = maxY;
+                InputDevice.MotionRange xRange = event.getDevice().getMotionRange(MotionEvent.AXIS_X, event.getSource());
+                InputDevice.MotionRange yRange = event.getDevice().getMotionRange(MotionEvent.AXIS_Y, event.getSource());
+                pendingAction = classifyAxes(
+                        event.getDevice().getName(),
+                        event.getX(0), event.getY(0),
+                        event.getX(1), event.getY(1),
+                        event.getX(pointerIndex), event.getY(pointerIndex),
+                        xRange == null ? 0f : xRange.getMax(),
+                        yRange == null ? 0f : yRange.getMax()
+                );
+                initialY = event.getY(pointerIndex);
                 if (pressedAt <= 0L) pressedAt = event.getEventTime();
             }
         }
@@ -104,10 +113,27 @@ final class YuntengGestureInterpreter {
     }
 
     static VolumeKeyInterpreter.Action classify(String deviceName, float maxY, float rangeMax) {
+        return classify(deviceName, maxY, rangeMax, TEAM_SPLIT);
+    }
+
+    private static VolumeKeyInterpreter.Action classify(String deviceName, float value, float rangeMax, float split) {
         if (deviceName == null || !deviceName.toUpperCase(java.util.Locale.ROOT).contains("YUNTENG")
-                || rangeMax <= 0f || maxY < 0f) return VolumeKeyInterpreter.Action.NONE;
-        return maxY / rangeMax < TEAM_SPLIT
+                || rangeMax <= 0f || value < 0f) return VolumeKeyInterpreter.Action.NONE;
+        return value / rangeMax < split
                 ? VolumeKeyInterpreter.Action.TEAM_A_PLUS
                 : VolumeKeyInterpreter.Action.TEAM_B_PLUS;
+    }
+
+    static VolumeKeyInterpreter.Action classifyAxes(
+            String deviceName,
+            float x0, float y0,
+            float x1, float y1,
+            float newX, float newY,
+            float xRangeMax, float yRangeMax
+    ) {
+        boolean horizontalGesture = Math.abs(x1 - x0) > Math.abs(y1 - y0);
+        return horizontalGesture
+                ? classify(deviceName, newX, xRangeMax, HORIZONTAL_TEAM_SPLIT)
+                : classify(deviceName, newY, yRangeMax);
     }
 }
