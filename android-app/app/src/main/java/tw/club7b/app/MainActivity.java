@@ -20,7 +20,13 @@ public final class MainActivity extends ComponentActivity {
         super.onCreate(state);
         webView = new WebView(this);
         webView.setBackgroundColor(Color.rgb(3, 21, 35));
-        webView.setWebViewClient(new WebViewClient());
+        webView.setWebViewClient(new WebViewClient() {
+            @Override public void onPageFinished(WebView view, String url) {
+                super.onPageFinished(view, url);
+                // 某些 Android WebView 會把網頁 body 視為固定高度，強制恢復原生垂直捲動。
+                view.evaluateJavascript("(function(){var h=document.documentElement,b=document.body;[h,b].forEach(function(e){if(e){e.style.setProperty('height','auto','important');e.style.setProperty('min-height','100%','important');e.style.setProperty('overflow-y','scroll','important');e.style.setProperty('touch-action','pan-y','important');}}})();", null);
+            }
+        });
         webView.setWebChromeClient(new WebChromeClient());
         WebSettings settings = webView.getSettings();
         settings.setJavaScriptEnabled(true);
@@ -30,7 +36,8 @@ public final class MainActivity extends ComponentActivity {
         settings.setBuiltInZoomControls(false);
         settings.setDisplayZoomControls(false);
         settings.setLoadWithOverviewMode(false);
-        settings.setUseWideViewPort(false);
+        settings.setUseWideViewPort(true);
+        webView.setVerticalScrollBarEnabled(true);
         webView.setOverScrollMode(View.OVER_SCROLL_IF_CONTENT_SCROLLS);
         setContentView(webView);
         if (state == null) webView.loadUrl(START_URL);
