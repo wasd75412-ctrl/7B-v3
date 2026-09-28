@@ -30,6 +30,7 @@ import { EVENT_PACKING_MEMO_ITEMS, eventPackingMemoProgress, mergePackingMemos, 
 import { ensureShuttleCostNotice, moveAdminNotice, normalizeAdminNotices } from './admin-notices.js';
 import { eventPaymentStatus, normalizeEventPayments, updateEventPayment } from './event-payment.js';
 import { defaultRecordingStartLocalValue, groupHistoryDatesByMonth, groupMatchHistoryByDate, youtubeTimelineText } from './match-history.js';
+import { POLL_UNAVAILABLE, prunePollHistoryRows } from './poll-history.js';
 
 const firebaseConfig={apiKey:'AIzaSyBrakbTPK7UqEChPBI6pM8-i03IcLq0IvM',authDomain:'badminton-7a1c3.firebaseapp.com',projectId:'badminton-7a1c3',storageBucket:'badminton-7a1c3.firebasestorage.app',messagingSenderId:'883534015507',appId:'1:883534015507:web:a7f6fb318151b6d07563e6',measurementId:'G-C97B98H7YW'};
 const fbApp=initializeApp(firebaseConfig);
@@ -534,7 +535,7 @@ function upsertNextEvent(rows,event){const clean=cleanNextEvent(event);if(!clean
 function primaryNextEvent(source=state){const events=normalizeNextEvents(source);return events.find(event=>shouldShowNextEventAnnouncement(event.date,localDateKey()))||events.at(-1)||null}
 function cleanManualPollParticipants(rows){if(!rows||typeof rows!=='object'||Array.isArray(rows))return{};return Object.fromEntries(Object.entries(rows).map(([optionId,ids])=>[String(optionId||'').trim(),cleanEventParticipantIds(ids)]).filter(([optionId,ids])=>optionId&&ids.length).slice(0,80))}
 function taipeiDateKey(now=Date.now()){return new Date(now+8*60*60*1000).toISOString().slice(0,10)}
-function cleanPollHistory(rows,today=taipeiDateKey()){return(Array.isArray(rows)?rows:[]).filter(row=>row&&Array.isArray(row.options)&&row.options.length).map(row=>({id:String(row.id||row.autoCycle||row.createdAt||randomToken()),archivedAt:row.archivedAt||'',status:'closed',createdAt:row.createdAt||'',deadlineAt:row.deadlineAt||'',autoCycle:row.autoCycle||'',options:row.options.slice(0,40).map(cleanPollOption).filter(option=>option.date>=today),votes:row.votes&&typeof row.votes==='object'?row.votes:{},voterPlayers:row.voterPlayers&&typeof row.voterPlayers==='object'?row.voterPlayers:{},manualParticipants:cleanManualPollParticipants(row.manualParticipants)})).filter(row=>row.options.length).slice(-8)}
+function cleanPollHistory(rows,today=taipeiDateKey()){const normalized=(Array.isArray(rows)?rows:[]).filter(row=>row&&Array.isArray(row.options)&&row.options.length).map(row=>({id:String(row.id||row.autoCycle||row.createdAt||randomToken()),archivedAt:row.archivedAt||'',status:'closed',createdAt:row.createdAt||'',deadlineAt:row.deadlineAt||'',autoCycle:row.autoCycle||'',options:row.options.slice(0,40).map(cleanPollOption),votes:row.votes&&typeof row.votes==='object'?row.votes:{},voterPlayers:row.voterPlayers&&typeof row.voterPlayers==='object'?row.voterPlayers:{},manualParticipants:cleanManualPollParticipants(row.manualParticipants)}));return prunePollHistoryRows(normalized,today).slice(-8)}
 function archiveCurrentPoll(){const poll=state.schedulePoll;if(!poll?.options?.length)return;const snapshot={...poll,id:poll.autoCycle||poll.createdAt||randomToken(),archivedAt:new Date().toISOString(),status:'closed'};state.pollHistory=cleanPollHistory([...state.pollHistory.filter(row=>row.id!==snapshot.id),snapshot])}
 function confirmationPoll(){return state.schedulePoll}
 const TRANSFER_DETAILS_KEY='bdVFavoriteTransferDetails';
@@ -806,7 +807,6 @@ function renderStats(){
 }
 
 
-const POLL_UNAVAILABLE='__unavailable__';
 let pollDeadlineTimer=null;
 function pollDeadlineMs(poll=state.schedulePoll){const ms=Date.parse(poll?.deadlineAt||'');return Number.isFinite(ms)?ms:0}
 function isPollDeadlinePassed(poll=state.schedulePoll,now=Date.now()){const ms=pollDeadlineMs(poll);return !!ms&&ms<=now}
@@ -842,7 +842,7 @@ async function copyRecruitingMessage(){
 }
 function formatPollDeadline(value){const d=new Date(value);if(isNaN(d.getTime()))return String(value||'');return d.toLocaleString('zh-TW',{timeZone:'Asia/Taipei',month:'long',day:'numeric',weekday:'short',hour:'2-digit',minute:'2-digit',hourCycle:'h23'})}
 function pollDeadlineInputValue(value){const d=new Date(value);if(isNaN(d.getTime()))return'';return new Date(d.getTime()-d.getTimezoneOffset()*60000).toISOString().slice(0,16)}
-function schedulePollDeadlineTimer(poll=state.schedulePoll){clearTimeout(pollDeadlineTimer);pollDeadlineTimer=null;const ms=pollDeadlineMs(poll),remaining=ms-Date.now();if(!ms||remaining<=0)return;pollDeadlineTimer=setTimeout(()=>{if(isPollDeadlinePassed(state.schedulePoll)){if(state.schedulePoll.status!=='closed')state.schedulePoll.status='closed';renderDashboard();renderPoll();if(isHost&&roomRef)saveSoon()}else schedulePollDeadlineTimer()},Math.min(remaining+250,2147483000))}
+function schedulePollDeadlineTimer(poll=state.schedulePoll){clearTimeout(pollDeadlineTimer);pollDeadlineTimer=null;const ms=pollDeadlineMs(poll),remaining=ms-Date.now();if(!ms||remaining<=0)return;pollDeadlineTimer=setTimeout(()=>{if(isPollDeadlinePassed(state.schedulePoll)){if(state.schedulePoll.status!=='closed')state.schedulePoll.status='closed';archiveCurrentPoll();renderDashboard();renderPoll();if(isHost&&roomRef)saveSoon()}else schedulePollDeadlineTimer()},Math.min(remaining+250,2147483000))}
 function pollSelectionList(value){return String(value||'').split('|').filter(Boolean)}
 function pollSignature(){return `${state.schedulePoll?.createdAt||''}|${(state.schedulePoll?.options||[]).map(o=>o.id).sort().join(',')}|${state.schedulePoll?.deadlineAt||''}`}
 function pollSeenKey(){return `bcmPollSeenV1:${roomId||'local'}`}
@@ -1313,8 +1313,8 @@ function pollParticipantCount(optionId,poll=state.schedulePoll){
   return pollSlotParticipantCount(poll,optionId);
 }
 function pollParticipantIds(optionId,poll=state.schedulePoll){const ids=[];for(const [deviceHash,value] of Object.entries(poll.votes||{})){if(!pollSelectionList(value).includes(optionId))continue;const playerId=poll.voterPlayers?.[deviceHash];if(playerId)ids.push(playerId)}return cleanEventParticipantIds([...ids,...cleanEventParticipantIds(poll.manualParticipants?.[optionId])])}
-function addManualPollParticipant(optionId){if(!isHost||!isPollDeadlinePassed(state.schedulePoll))return alert('投票截止後才能新增球員。');if(pollParticipantCount(optionId)>=POLL_SLOT_CAPACITY)return alert('此時段已滿 6 人。');const select=document.querySelector(`[data-manual-player="${CSS.escape(optionId)}"]`),playerId=select?.value;if(!playerId)return alert('請選擇要加入的球員。');const rows=cleanManualPollParticipants(state.schedulePoll.manualParticipants);rows[optionId]=cleanEventParticipantIds([...(rows[optionId]||[]),playerId]);state.schedulePoll.manualParticipants=rows;renderPoll();saveSoon()}
-function removeManualPollParticipant(optionId,playerId){const rows=cleanManualPollParticipants(state.schedulePoll.manualParticipants),next=(rows[optionId]||[]).filter(id=>id!==playerId);if(next.length)rows[optionId]=next;else delete rows[optionId];state.schedulePoll.manualParticipants=rows;renderPoll();saveSoon()}
+function addManualPollParticipant(optionId){if(!isHost||!isPollDeadlinePassed(state.schedulePoll))return alert('投票截止後才能新增球員。');if(pollParticipantCount(optionId)>=POLL_SLOT_CAPACITY)return alert('此時段已滿 6 人。');const select=document.querySelector(`[data-manual-player="${CSS.escape(optionId)}"]`),playerId=select?.value;if(!playerId)return alert('請選擇要加入的球員。');const rows=cleanManualPollParticipants(state.schedulePoll.manualParticipants);rows[optionId]=cleanEventParticipantIds([...(rows[optionId]||[]),playerId]);state.schedulePoll.manualParticipants=rows;archiveCurrentPoll();renderPoll();saveSoon()}
+function removeManualPollParticipant(optionId,playerId){const rows=cleanManualPollParticipants(state.schedulePoll.manualParticipants),next=(rows[optionId]||[]).filter(id=>id!==playerId);if(next.length)rows[optionId]=next;else delete rows[optionId];state.schedulePoll.manualParticipants=rows;archiveCurrentPoll();renderPoll();saveSoon()}
 function pollOptionLabel(o){if(!o?.date)return '未設定日期';const d=new Date(`${o.date}T${o.time||'00:00'}`);const date=isNaN(d)?o.date:d.toLocaleDateString('zh-TW',{month:'long',day:'numeric',weekday:'short'}),time=o.time?` ${o.time}${o.endTime?`-${o.endTime}`:''}`:'';return `${date}${time}${o.note?` · ${o.note}`:''}`}
 function pollDurationRule(date,time){
   const day=new Date(`${date}T00:00`).getDay();

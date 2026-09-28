@@ -169,6 +169,7 @@ test('lets the admin add players after voting closes and edit them later',()=>{
   assert.match(mainSource,/deadlineExpired&&isHost\?`<div class="poll-manual-controls">/);
   assert.match(mainSource,/data-add-manual-player/);
   assert.match(mainSource,/function addManualPollParticipant\(optionId\)/);
+  assert.match(mainSource,/state\.schedulePoll\.manualParticipants=rows;archiveCurrentPoll\(\);renderPoll\(\);saveSoon\(\)/);
   assert.match(mainSource,/manualParticipants:cleanManualPollParticipants/);
   assert.match(html,/id="editNextEventPlayerField"[^>]*hidden/);
   assert.match(html,/id="editNextEventPlayerChoices" class="event-player-choices"/);
@@ -195,8 +196,7 @@ test('keeps previous poll results inside the new-event dialog',()=>{
   assert.match(mainSource,/function historicalPollChoices\(\)/);
   assert.match(mainSource,/function taipeiDateKey\(now=Date\.now\(\)\)/);
   assert.match(mainSource,/function cleanPollHistory\(rows,today=taipeiDateKey\(\)\)/);
-  assert.match(mainSource,/\.filter\(option=>option\.date>=today\)/);
-  assert.match(mainSource,/\.filter\(row=>row\.options\.length\)\.slice\(-8\)/);
+  assert.match(mainSource,/prunePollHistoryRows\(normalized,today\)\.slice\(-8\)/);
   assert.match(mainSource,/function historicalPollChoices\(\)\{const today=taipeiDateKey\(\)/);
   assert.match(mainSource,/function applyHistoricalPollChoice\(\)/);
   assert.match(mainSource,/editNextEventPollOption'\)\.addEventListener\('change',applyHistoricalPollChoice\)/);

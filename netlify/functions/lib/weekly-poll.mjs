@@ -48,10 +48,21 @@ export function weeklyPollPushPayload({siteUrl,roomId,cycle}){
 
 function stringValue(value){return{stringValue:value}}
 
+function archivedPollId(fields,now=Date.now()){return fields.autoCycle?.stringValue||fields.createdAt?.stringValue||new Date(now).toISOString()}
+
+export function shouldArchiveExpiredPoll(document,now=Date.now()){
+  const fields=document?.fields||{},current=fields.schedulePoll?.mapValue?.fields||{},options=current.options?.arrayValue?.values||[];
+  if(!options.length)return false;
+  const deadline=Date.parse(current.deadlineAt?.stringValue||''),closed=current.status?.stringValue==='closed';
+  if(!closed&&(!Number.isFinite(deadline)||deadline>now))return false;
+  const id=archivedPollId(current,now),existing=fields.pollHistory?.arrayValue?.values||[];
+  return!existing.some(row=>row?.mapValue?.fields?.id?.stringValue===id);
+}
+
 export function archivePollHistoryFirestoreValue(document,now=Date.now()){
   const fields=document?.fields||{},current=fields.schedulePoll?.mapValue?.fields||{},options=current.options?.arrayValue?.values||[],existing=fields.pollHistory?.arrayValue?.values||[];
   if(!options.length)return{arrayValue:{values:existing.slice(-8)}};
-  const id=current.autoCycle?.stringValue||current.createdAt?.stringValue||new Date(now).toISOString(),withoutDuplicate=existing.filter(row=>row?.mapValue?.fields?.id?.stringValue!==id),snapshot={mapValue:{fields:{...current,id:stringValue(id),status:stringValue('closed'),archivedAt:stringValue(new Date(now).toISOString())}}};
+  const id=archivedPollId(current,now),withoutDuplicate=existing.filter(row=>row?.mapValue?.fields?.id?.stringValue!==id),snapshot={mapValue:{fields:{...current,id:stringValue(id),status:stringValue('closed'),archivedAt:stringValue(new Date(now).toISOString())}}};
   return{arrayValue:{values:[...withoutDuplicate,snapshot].slice(-8)}};
 }
 

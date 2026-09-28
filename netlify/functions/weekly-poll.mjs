@@ -1,7 +1,7 @@
 import { getStore } from '@netlify/blobs';
 import webpush from 'web-push';
 import { PUSH_STORE, jsonResponse, validRoomId, validSubscription } from './lib/push-shared.mjs';
-import { archivePollHistoryFirestoreValue, shouldOpenWeeklyPoll, taipeiWeekSchedule, weeklyPollFirestoreValue, weeklyPollPushPayload } from './lib/weekly-poll.mjs';
+import { archivePollHistoryFirestoreValue, shouldArchiveExpiredPoll, shouldOpenWeeklyPoll, taipeiWeekSchedule, weeklyPollFirestoreValue, weeklyPollPushPayload } from './lib/weekly-poll.mjs';
 
 const FIREBASE_PROJECT='badminton-7a1c3';
 const FIREBASE_API_KEY='AIzaSyBrakbTPK7UqEChPBI6pM8-i03IcLq0IvM';
@@ -31,6 +31,12 @@ async function openPoll(roomId,document,now){
   if(!response.ok)throw new Error(`Firestore ${roomId}: ${response.status}`);
 }
 
+async function archiveExpiredPoll(roomId,document,now){
+  const url=`${firestoreUrl(`badmintonRooms/${encodeURIComponent(roomId)}`)}&updateMask.fieldPaths=pollHistory&updateMask.fieldPaths=updatedAt`;
+  const response=await fetch(url,{method:'PATCH',headers:{'content-type':'application/json'},body:JSON.stringify({fields:{pollHistory:archivePollHistoryFirestoreValue(document,now),updatedAt:{timestampValue:new Date(now).toISOString()}}})});
+  if(!response.ok)throw new Error(`Firestore archive ${roomId}: ${response.status}`);
+}
+
 async function subscriptionsByRoom(){
   const result=new Map(),store=getStore({name:PUSH_STORE,consistency:'strong'}),listing=await store.list();
   for(const blob of listing.blobs){
@@ -44,12 +50,15 @@ async function subscriptionsByRoom(){
 export default async()=>{
   const now=Date.now(),schedule=taipeiWeekSchedule(now),rooms=await listRooms();
   const due=rooms.filter(({document})=>shouldOpenWeeklyPoll(document,now));
-  if(!due.length)return jsonResponse({ok:true,cycle:schedule.cycle,checked:rooms.length,opened:0,sent:0});
+  const expired=rooms.filter(({document})=>shouldArchiveExpiredPoll(document,now));
+  let archived=0,failed=0;
+  for(const {id,document} of expired){try{await archiveExpiredPoll(id,document,now);archived++}catch(error){console.error(error);failed++}}
+  if(!due.length)return jsonResponse({ok:true,cycle:schedule.cycle,checked:rooms.length,archived,opened:0,sent:0,failed});
   const publicKey=process.env.VAPID_PUBLIC_KEY?.trim(),privateKey=process.env.VAPID_PRIVATE_KEY?.trim();
   const siteUrl=(process.env.URL||process.env.DEPLOY_PRIME_URL||'').replace(/\/$/,'');
   if(publicKey&&privateKey&&siteUrl)webpush.setVapidDetails(process.env.VAPID_SUBJECT||siteUrl,publicKey,privateKey);
   const {store,result:byRoom}=await subscriptionsByRoom();
-  let opened=0,sent=0,removed=0,failed=0;
+  let opened=0,sent=0,removed=0;
   for(const {id,document} of due){
     try{await openPoll(id,document,now);opened++}catch(error){console.error(error);failed++;continue}
     if(!publicKey||!privateKey||!siteUrl)continue;
@@ -59,7 +68,7 @@ export default async()=>{
       catch(error){if(error?.statusCode===404||error?.statusCode===410){await store.delete(item.key);removed++}else{console.error(`Push ${id} failed`,error);failed++}}
     }
   }
-  const response={ok:true,cycle:schedule.cycle,checked:rooms.length,opened,sent,removed,failed};
+  const response={ok:true,cycle:schedule.cycle,checked:rooms.length,archived,opened,sent,removed,failed};
   console.log('Weekly poll run',response);return jsonResponse(response);
 };
 
