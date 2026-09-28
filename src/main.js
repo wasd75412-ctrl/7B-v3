@@ -1557,7 +1557,8 @@ if(localStorage.getItem(ROOM_STAY_LOGGED_OUT_KEY)!=='1')localStorage.setItem(ROO
 function lastRoomId(){const local=String(localStorage.getItem(LAST_ROOM_KEY)||'').toUpperCase();if(/^[A-Z0-9]{6}$/.test(local))return local;const cookie=decodeURIComponent((document.cookie.match(/(?:^|; )bcmLastRoomV1=([^;]*)/)||[])[1]||'').toUpperCase();return/^[A-Z0-9]{6}$/.test(cookie)?cookie:''}
 function rememberLastRoomId(id){localStorage.setItem(LAST_ROOM_KEY,id);document.cookie=`${LAST_ROOM_KEY}=${encodeURIComponent(id)}; Max-Age=34560000; Path=/; SameSite=Lax; Secure`}
 function clearLastRoomId(){localStorage.removeItem(LAST_ROOM_KEY);document.cookie=`${LAST_ROOM_KEY}=; Max-Age=0; Path=/; SameSite=Lax; Secure`}
-const randomSyncCode=()=>{const chars='ABCDEFGHJKLMNPQRSTUVWXYZ23456789';let code='';crypto.getRandomValues(new Uint32Array(10)).forEach(n=>code+=chars[n%chars.length]);return code};
+// 新建立的裝置同步使用 6 位數字；舊版 10 位英數同步碼仍可輸入並繼續使用。
+const randomSyncCode=()=>String(100000+(crypto.getRandomValues(new Uint32Array(1))[0]%900000));
 function cleanRoomRows(rows){return(Array.isArray(rows)?rows:[]).filter(r=>r&&/^[A-Z0-9]{6}$/.test(r.id||'')).slice(0,20).map(r=>{const modifiedAt=Number(r.modifiedAt)||Number(r.lastUsed)||Date.now(),favorite=!!r.favorite,favoriteModifiedAt=Number(r.favoriteModifiedAt)||(favorite?modifiedAt:0);return{id:r.id,name:String(r.name||'').slice(0,30),favorite,favoriteModifiedAt,lastUsed:Number(r.lastUsed)||0,lastRole:r.lastRole==='host'?'host':'viewer',hostToken:String(r.hostToken||'').slice(0,128),modifiedAt}})}
 function mergeRoomLibraries(localRows,cloudRows){const merged=new Map();for(const room of [...cleanRoomRows(cloudRows),...cleanRoomRows(localRows)]){const old=merged.get(room.id);if(!old){merged.set(room.id,room);continue}const latest=room.modifiedAt>=old.modifiedAt?room:old,older=latest===room?old:room,hostToken=latest.hostToken||older.hostToken||'',favoriteSource=room.favoriteModifiedAt>=old.favoriteModifiedAt?room:old;merged.set(room.id,{...latest,favorite:favoriteSource.favorite,favoriteModifiedAt:favoriteSource.favoriteModifiedAt,hostToken,lastRole:hostToken?'host':latest.lastRole,lastUsed:Math.max(latest.lastUsed,older.lastUsed)})}return cleanRoomRows([...merged.values()].sort((a,b)=>Number(b.favorite)-Number(a.favorite)||b.lastUsed-a.lastUsed))}
 function roomLibrary(){try{return cleanRoomRows(JSON.parse(localStorage.getItem(ROOM_LIBRARY_KEY)||'[]'))}catch{return[]}}
@@ -1579,6 +1580,7 @@ async function setupDeviceSync(){
   input=input.trim().toUpperCase().replace(/[^A-Z0-9]/g,'');
   if(current&&input===current)return copyDeviceSyncCode();
   if(input){
+    if(!/^\d{4,6}$/.test(input)&&!/^[A-Z0-9]{10}$/.test(input))return alert('同步碼請輸入 4～6 位數字；舊版 10 位英數同步碼也可使用。');
     const snapshot=await getDoc(deviceProfileRef(input)).catch(()=>null);
     if(!snapshot?.exists())return alert('找不到這組裝置同步碼。');
     const profile=snapshot.data();
@@ -1591,7 +1593,12 @@ async function setupDeviceSync(){
   }
   const owned=ownedPlayerId(),defaultName=localStorage.getItem(DEVICE_SYNC_NAME_KEY)||(owned?pname(owned):'潘建昱'),name=(prompt('請輸入三台裝置共同使用的球員姓名：',defaultName)||'').trim();
   if(!name)return;
-  const code=randomSyncCode(),identityToken=randomToken(),ref=deviceProfileRef(code);
+  const requestedCode=prompt('請自訂 4～6 位數字同步碼；留白由系統自動產生：','');
+  if(requestedCode===null)return;
+  const customCode=requestedCode.trim();
+  if(customCode&&!/^\d{4,6}$/.test(customCode))return alert('自訂同步碼請輸入 4～6 位數字。');
+  const code=customCode||randomSyncCode(),identityToken=randomToken(),ref=deviceProfileRef(code);
+  if((await getDoc(ref)).exists())return alert('這組同步碼已被使用，請換一組數字。');
   await setDoc(ref,{displayName:name,playerName:name,identityToken,rooms:roomLibrary(),favoriteVenues:favoriteVenues(),favoriteTransferDetails:favoriteTransferDetails(),packingMemo:loadEventPackingMemo(),createdAt:serverTimestamp(),updatedAt:serverTimestamp()});
   localStorage.setItem(DEVICE_SYNC_CODE_KEY,code);localStorage.setItem(DEVICE_SYNC_TOKEN_KEY,identityToken);localStorage.setItem(DEVICE_SYNC_NAME_KEY,name);localStorage.setItem(DEVICE_SYNC_PLAYER_KEY,name);
   try{await navigator.clipboard.writeText(code)}catch{}
