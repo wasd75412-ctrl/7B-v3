@@ -51,8 +51,7 @@ public final class MainActivity extends Activity {
     private WebView webView;
     private Runnable pendingLongPress;
     private Runnable pendingKeyFallback;
-    private Runnable pendingYuntengLongPress;
-    private Runnable pendingYuntengShortPress;
+    private Runnable pendingYuntengPress;
     private Runnable pendingCameraSinglePress;
     private long lastShuttleActionAt;
     private long lastPointActionAt;
@@ -89,7 +88,7 @@ public final class MainActivity extends Activity {
         settings.setDisplayZoomControls(false);
         settings.setMediaPlaybackRequiresUserGesture(false);
         settings.setMixedContentMode(WebSettings.MIXED_CONTENT_NEVER_ALLOW);
-        settings.setUserAgentString(settings.getUserAgentString() + " 7BAndroidRemote/1.3.37");
+        settings.setUserAgentString(settings.getUserAgentString() + " 7BAndroidRemote/1.3.40");
         CookieManager.getInstance().setAcceptCookie(true);
         CookieManager.getInstance().setAcceptThirdPartyCookies(view, true);
         view.setRendererPriorityPolicy(WebView.RENDERER_PRIORITY_IMPORTANT, true);
@@ -173,57 +172,28 @@ public final class MainActivity extends Activity {
     @Override
     public boolean dispatchTouchEvent(MotionEvent event) {
         if (!yuntengGestures.isYuntengEvent(event)) return super.dispatchTouchEvent(event);
-        VolumeKeyInterpreter.Action action = yuntengGestures.onTouchEvent(event);
-        if (yuntengGestures.hasPendingPress()) scheduleYuntengPressTimers();
-        else cancelYuntengPressTimers();
-        if (action != VolumeKeyInterpreter.Action.NONE) {
-            notifyKeyDetected(action == VolumeKeyInterpreter.Action.TEAM_A_PLUS
-                    ? KeyEvent.KEYCODE_VOLUME_UP : KeyEvent.KEYCODE_VOLUME_DOWN);
-            sendYuntengScoreAction(action);
-        }
+        yuntengGestures.onTouchEvent(event);
+        if (yuntengGestures.hasPendingPress()) scheduleYuntengPress();
         return true;
     }
 
-    private void scheduleYuntengPressTimers() {
-        if (pendingYuntengShortPress == null) {
-            pendingYuntengShortPress = () -> {
-                pendingYuntengShortPress = null;
-                VolumeKeyInterpreter.Action action = yuntengGestures.onShortPressTimeout();
-                if (action != VolumeKeyInterpreter.Action.NONE) {
-                    cancelYuntengLongPress();
-                    sendYuntengScoreAction(action);
-                }
-            };
-            keyHandler.postDelayed(pendingYuntengShortPress, YuntengGestureInterpreter.SHORT_CONFIRM_MS);
-        }
-        if (pendingYuntengLongPress == null) {
-            pendingYuntengLongPress = () -> {
-                pendingYuntengLongPress = null;
-                VolumeKeyInterpreter.Action action = yuntengGestures.onLongPressTimeout();
-                if (action != VolumeKeyInterpreter.Action.NONE) {
-                    cancelYuntengShortPress();
-                    sendYuntengScoreAction(action);
-                }
-            };
-            keyHandler.postDelayed(pendingYuntengLongPress, YuntengGestureInterpreter.LONG_PRESS_MS);
-        }
+    private void scheduleYuntengPress() {
+        if (pendingYuntengPress != null) return;
+        pendingYuntengPress = () -> {
+            pendingYuntengPress = null;
+            VolumeKeyInterpreter.Action action = yuntengGestures.onSettledPress();
+            if (action == VolumeKeyInterpreter.Action.NONE) return;
+            notifyKeyDetected(action == VolumeKeyInterpreter.Action.TEAM_A_PLUS
+                    ? KeyEvent.KEYCODE_VOLUME_UP : KeyEvent.KEYCODE_VOLUME_DOWN);
+            sendYuntengScoreAction(action);
+        };
+        keyHandler.postDelayed(pendingYuntengPress, YuntengGestureInterpreter.GESTURE_SETTLE_MS);
     }
 
     private void cancelYuntengPressTimers() {
-        cancelYuntengShortPress();
-        cancelYuntengLongPress();
-    }
-
-    private void cancelYuntengShortPress() {
-        if (pendingYuntengShortPress == null) return;
-        keyHandler.removeCallbacks(pendingYuntengShortPress);
-        pendingYuntengShortPress = null;
-    }
-
-    private void cancelYuntengLongPress() {
-        if (pendingYuntengLongPress == null) return;
-        keyHandler.removeCallbacks(pendingYuntengLongPress);
-        pendingYuntengLongPress = null;
+        if (pendingYuntengPress == null) return;
+        keyHandler.removeCallbacks(pendingYuntengPress);
+        pendingYuntengPress = null;
     }
 
     private boolean handleRemoteKeyEvent(KeyEvent event) {

@@ -36,7 +36,7 @@ test('YUNTENG score keys require a same-key double press only before official st
 
 test('Android queues rapid score commands long enough for the iPad listener to observe both',()=>{
   assert.match(controller,/COMMAND_DELIVERY_GAP_MS = 250L/);
-  assert.match(controller,/if \(pending\.isEmpty\(\)\)[\s\S]*?commandHandler\.postDelayed\(this::processNext, COMMAND_DELIVERY_GAP_MS\)/);
+  assert.match(controller,/Request next = pending\.peekFirst\(\)[\s\S]*?next != null && next\.doublePress \? 0L : COMMAND_DELIVERY_GAP_MS/);
 });
 
 test('Android marks the second same-key press so one observed command can start the match',()=>{

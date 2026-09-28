@@ -243,7 +243,9 @@ final class BackgroundScoreController {
                 processing = false;
                 return;
             }
-            commandHandler.postDelayed(this::processNext, COMMAND_DELIVERY_GAP_MS);
+            Request next = pending.peekFirst();
+            commandHandler.postDelayed(this::processNext,
+                    next != null && next.doublePress ? 0L : COMMAND_DELIVERY_GAP_MS);
         }
     }
 

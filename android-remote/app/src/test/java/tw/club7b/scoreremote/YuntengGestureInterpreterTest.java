@@ -25,16 +25,16 @@ public final class YuntengGestureInterpreterTest {
     public void mapsTheSeparatedAxisAfterScreenRotation() {
         assertEquals(VolumeKeyInterpreter.Action.TEAM_A_PLUS,
                 YuntengGestureInterpreter.classifyAxes("YUNTENG", 527f, 539f, 923f, 539f,
-                        923f, 539f, 1079f, 2637f));
+                        1079f, 2637f));
         assertEquals(VolumeKeyInterpreter.Action.TEAM_B_PLUS,
                 YuntengGestureInterpreter.classifyAxes("YUNTENG", 527f, 539f, 944f, 539f,
-                        944f, 539f, 1079f, 2637f));
+                        1079f, 2637f));
         assertEquals(VolumeKeyInterpreter.Action.TEAM_A_PLUS,
                 YuntengGestureInterpreter.classifyAxes("YUNTENG", 539f, 527f, 539f, 923f,
-                        539f, 923f, 2637f, 1079f));
+                        2637f, 1079f));
         assertEquals(VolumeKeyInterpreter.Action.TEAM_B_PLUS,
                 YuntengGestureInterpreter.classifyAxes("YUNTENG", 539f, 527f, 539f, 944f,
-                        539f, 944f, 2637f, 1079f));
+                        2637f, 1079f));
     }
 
     @Test
@@ -46,9 +46,8 @@ public final class YuntengGestureInterpreterTest {
     }
 
     @Test
-    public void usesSeparateShortConfirmationAndTwoSecondLongThresholds() {
-        assertEquals(700L, YuntengGestureInterpreter.SHORT_CONFIRM_MS);
-        assertEquals(2000L, YuntengGestureInterpreter.LONG_PRESS_MS);
+    public void waitsOnlyForTheSyntheticCoordinatesToSettle() {
+        assertEquals(40L, YuntengGestureInterpreter.GESTURE_SETTLE_MS);
     }
 
     @Test
