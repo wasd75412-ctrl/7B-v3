@@ -98,6 +98,7 @@ public final class LoopCameraActivity extends ComponentActivity {
     private boolean broadcastMode;
     private boolean broadcastSaveRequested;
     private boolean broadcastExitRequested;
+    private boolean broadcastStartReported;
 
     @Override protected void onCreate(Bundle state) {
         super.onCreate(state);
@@ -406,6 +407,14 @@ public final class LoopCameraActivity extends ComponentActivity {
     private void stopSegment() { handler.removeCallbacks(rotate); if (recording != null) recording.stop(); }
 
     private void onVideoEvent(@NonNull VideoRecordEvent event) {
+        if (event instanceof VideoRecordEvent.Start && broadcastMode && !broadcastStartReported) {
+            broadcastStartReported = true;
+            if (remoteScoreController == null) remoteScoreController = new BackgroundScoreController(this);
+            remoteScoreController.markBroadcastRecordingStarted(System.currentTimeMillis(), (success, message) -> {
+                if (!success) Log.w("7BRecording", "Could not publish recording start: " + message);
+            });
+            return;
+        }
         if (!(event instanceof VideoRecordEvent.Finalize)) return;
         VideoRecordEvent.Finalize finalized = (VideoRecordEvent.Finalize) event;
         recording = null;

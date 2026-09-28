@@ -63,3 +63,9 @@ test('keeps recording controls above Android system bars with reliable touch tar
   assert.match(camera,/setMinHeight\(Math\.round\(56f \* density\)\)/);
   assert.match(camera,/close\.setEnabled\(false\);\s*close\.setText\("結束中…"\);\s*exitRecording\(\)/);
 });
+
+test('publishes the exact CameraX broadcast start time for the YouTube timeline',()=>{
+  assert.match(camera,/event instanceof VideoRecordEvent\.Start && broadcastMode && !broadcastStartReported/);
+  assert.match(camera,/markBroadcastRecordingStarted\(System\.currentTimeMillis\(\)/);
+  assert.match(camera,/broadcastStartReported = true/);
+});

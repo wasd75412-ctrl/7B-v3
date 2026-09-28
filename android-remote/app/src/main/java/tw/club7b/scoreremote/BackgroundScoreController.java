@@ -71,6 +71,7 @@ final class BackgroundScoreController {
     private boolean processing;
     private VolumeKeyInterpreter.Action lastSubmittedScoreAction = VolumeKeyInterpreter.Action.NONE;
     private long lastSubmittedScoreAt;
+    private long lastSubmittedScoreWallAt;
 
     BackgroundScoreController(Context context) {
         this.context = context.getApplicationContext();
@@ -101,14 +102,17 @@ final class BackgroundScoreController {
         boolean doublePress = scoreAction
                 && action == lastSubmittedScoreAction
                 && now - lastSubmittedScoreAt <= OFFICIAL_START_DOUBLE_PRESS_MS;
+        long clientCreatedAt = doublePress ? lastSubmittedScoreWallAt : System.currentTimeMillis();
         if (doublePress || !scoreAction) {
             lastSubmittedScoreAction = VolumeKeyInterpreter.Action.NONE;
             lastSubmittedScoreAt = 0L;
+            lastSubmittedScoreWallAt = 0L;
         } else {
             lastSubmittedScoreAction = action;
             lastSubmittedScoreAt = now;
+            lastSubmittedScoreWallAt = clientCreatedAt;
         }
-        pending.addLast(new Request(action, callback, doublePress));
+        pending.addLast(new Request(action, callback, doublePress, clientCreatedAt));
         if (!processing) processNext();
     }
 
@@ -134,6 +138,7 @@ final class BackgroundScoreController {
         }
         DocumentReference liveScore = liveScoreReference(session);
         DocumentReference remoteControl = remoteControlReference(session);
+        long clientCreatedAt = System.currentTimeMillis();
         firestore.runTransaction(transaction -> {
             DocumentSnapshot snapshot = transaction.get(liveScore);
             if (!snapshot.exists()) throw new IllegalStateException("找不到即時比分");
@@ -149,6 +154,7 @@ final class BackgroundScoreController {
             Map<String, Object> command = new HashMap<>();
             command.put("id", java.util.UUID.randomUUID().toString());
             command.put("matchId", String.valueOf(matchId));
+            command.put("clientCreatedAt", clientCreatedAt);
             command.put("createdAt", FieldValue.serverTimestamp());
             Map<String, Object> updates = new HashMap<>();
             updates.put("officialStartCommand", command);
@@ -157,6 +163,24 @@ final class BackgroundScoreController {
             return true;
         })
                 .addOnSuccessListener(ignored -> callback.onComplete(true, "已送出正式開始比賽"))
+                .addOnFailureListener(error -> callback.onComplete(false, errorMessage(error)));
+    }
+
+    void markBroadcastRecordingStarted(long clientStartedAt, FullscreenCallback callback) {
+        RemoteSessionStore.Session session = RemoteSessionStore.getSession(context);
+        if (!session.isAuthorized()) {
+            callback.onComplete(false, "請先連接球局並登入管理員");
+            return;
+        }
+        Map<String, Object> command = new HashMap<>();
+        command.put("id", java.util.UUID.randomUUID().toString());
+        command.put("clientCreatedAt", clientStartedAt);
+        command.put("createdAt", FieldValue.serverTimestamp());
+        Map<String, Object> updates = new HashMap<>();
+        updates.put("recordingStartCommand", command);
+        updates.put("updatedAt", FieldValue.serverTimestamp());
+        remoteControlReference(session).set(updates, SetOptions.merge())
+                .addOnSuccessListener(ignored -> callback.onComplete(true, "已記錄錄影開始時間"))
                 .addOnFailureListener(error -> callback.onComplete(false, errorMessage(error)));
     }
 
@@ -185,6 +209,7 @@ final class BackgroundScoreController {
             command.put("id", java.util.UUID.randomUUID().toString());
             command.put("action", request.action == VolumeKeyInterpreter.Action.UNDO ? "undo" : request.action == VolumeKeyInterpreter.Action.TEAM_A_PLUS ? "teamAPlus" : "teamBPlus");
             command.put("matchId", String.valueOf(matchId));
+            command.put("clientCreatedAt", request.clientCreatedAt);
             command.put("createdAt", FieldValue.serverTimestamp());
             if (request.doublePress) command.put("doublePress", true);
             Map<String, Object> commandUpdates = new HashMap<>();
@@ -261,11 +286,13 @@ final class BackgroundScoreController {
         final VolumeKeyInterpreter.Action action;
         final Callback callback;
         final boolean doublePress;
+        final long clientCreatedAt;
 
-        Request(VolumeKeyInterpreter.Action action, Callback callback, boolean doublePress) {
+        Request(VolumeKeyInterpreter.Action action, Callback callback, boolean doublePress, long clientCreatedAt) {
             this.action = action;
             this.callback = callback;
             this.doublePress = doublePress;
+            this.clientCreatedAt = clientCreatedAt;
         }
     }
 }
