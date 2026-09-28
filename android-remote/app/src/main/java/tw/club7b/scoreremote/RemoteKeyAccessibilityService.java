@@ -18,12 +18,14 @@ public final class RemoteKeyAccessibilityService extends AccessibilityService {
     private static final long ACTION_DEBOUNCE_MS = 300L;
     private static final long UNDO_DEBOUNCE_MS = 600L;
     private static final long SHUTTLE_PRESS_COOLDOWN_MS = 2000L;
+    private static final long CAMERA_DOUBLE_PRESS_MS = 450L;
 
     private final VolumeKeyInterpreter backgroundKeys = new VolumeKeyInterpreter();
     private final Handler keyHandler = new Handler(Looper.getMainLooper());
     private BackgroundScoreController scoreController;
     private Runnable pendingLongPress;
     private Runnable pendingKeyFallback;
+    private Runnable pendingCameraSinglePress;
     private long lastShuttleActionAt;
     private long lastPointActionAt;
     private long lastUndoActionAt;
@@ -39,14 +41,14 @@ public final class RemoteKeyAccessibilityService extends AccessibilityService {
 
     @Override
     protected boolean onKeyEvent(KeyEvent event) {
-        if (!VolumeKeyInterpreter.isSupportedRemoteKey(event.getKeyCode())) return false;
+        int keyCode = YuntengGestureInterpreter.remapKeyCode(event);
+        if (!VolumeKeyInterpreter.isSupportedRemoteKey(keyCode)) return false;
         if (RemoteKeyRelay.dispatch(event)) return true;
         if (!RemoteSessionStore.isRecordingEnabled(this)) return false;
-        return handleBackgroundKeyEvent(event);
+        return handleBackgroundKeyEvent(event, keyCode);
     }
 
-    private boolean handleBackgroundKeyEvent(KeyEvent event) {
-        int keyCode = event.getKeyCode();
+    private boolean handleBackgroundKeyEvent(KeyEvent event, int keyCode) {
         VolumeKeyInterpreter.Action action = VolumeKeyInterpreter.Action.NONE;
         if (event.getAction() == KeyEvent.ACTION_DOWN) {
             if (event.getRepeatCount() == 0) {
@@ -112,6 +114,13 @@ public final class RemoteKeyAccessibilityService extends AccessibilityService {
     }
 
     private void handleResolvedBackgroundAction(VolumeKeyInterpreter.Action action, int keyCode, long eventTime) {
+        if (keyCode == KeyEvent.KEYCODE_CAMERA && action == VolumeKeyInterpreter.Action.USE_SHUTTLE) {
+            handleCameraShortPress();
+            return;
+        }
+        if (keyCode == KeyEvent.KEYCODE_CAMERA && action == VolumeKeyInterpreter.Action.RETURN_SHUTTLE) {
+            cancelCameraSinglePress();
+        }
         if (action == VolumeKeyInterpreter.Action.USE_SHUTTLE || action == VolumeKeyInterpreter.Action.RETURN_SHUTTLE) {
             long now = SystemClock.uptimeMillis();
             if (now - lastShuttleActionAt < SHUTTLE_PRESS_COOLDOWN_MS) return;
@@ -121,6 +130,25 @@ public final class RemoteKeyAccessibilityService extends AccessibilityService {
             return;
         }
         sendBackgroundAction(action);
+    }
+
+    private void handleCameraShortPress() {
+        if (pendingCameraSinglePress != null) {
+            cancelCameraSinglePress();
+            sendBackgroundAction(VolumeKeyInterpreter.Action.UNDO);
+            return;
+        }
+        pendingCameraSinglePress = () -> {
+            pendingCameraSinglePress = null;
+            sendBackgroundUseShuttle();
+        };
+        keyHandler.postDelayed(pendingCameraSinglePress, CAMERA_DOUBLE_PRESS_MS);
+    }
+
+    private void cancelCameraSinglePress() {
+        if (pendingCameraSinglePress == null) return;
+        keyHandler.removeCallbacks(pendingCameraSinglePress);
+        pendingCameraSinglePress = null;
     }
 
     private BackgroundScoreController scoreController() {
@@ -213,6 +241,7 @@ public final class RemoteKeyAccessibilityService extends AccessibilityService {
     public void onDestroy() {
         cancelLongPress();
         cancelMissingKeyUpFallback();
+        cancelCameraSinglePress();
         super.onDestroy();
     }
 }
