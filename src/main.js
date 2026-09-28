@@ -89,7 +89,7 @@ const DEVICE_SYNC_CODE_KEY='bcmDeviceSyncCodeV1',DEVICE_SYNC_TOKEN_KEY='bcmDevic
 let state=initialState(), roomId='', roomRef=null, liveScoreRef=null, remoteControlRef=null, chatCollectionRef=null, isHost=false, hostToken='', adminPinHash='', unsubscribe=null, liveScoreUnsubscribe=null, remoteControlUnsubscribe=null, chatUnsubscribe=null, applying=false, saveTimer=null, liveScoreSaveTimer=null, matchAutoBackupTimer=null, editId=null;const expandedPlayerNotes=new Set();let profileOriginal=null,profileDirty={name:false,gender:false,memberType:false,voiceName:false,racket:false,racketTension:false,racketString:false,backupRacket:false,backupTension:false,backupString:false,note:false};let voiceEnabled=localStorage.getItem('bdV76Voice')!=='0';let dismissedResultKey='';const selfToken=localStorage.getItem(DEVICE_SYNC_TOKEN_KEY)||localStorage.getItem('bdV73SelfToken')||randomToken();localStorage.setItem('bdV73SelfToken',selfToken);let selfHash='',scoreViewRequested=false,expandedShuttleTubeId='';
 let deviceProfileUnsubscribe=null,deviceProfileApplying=false,deviceProfileSaveTimer=null,identitySyncing=false,roomConnectInProgress=false;
 let roomSnapshotFromCache=false,snapshotHasPendingWrites=false,pendingRoomWrites=0,roomWriteScheduled=false;
-let liveScoreSnapshotFromCache=false,liveScoreHasPendingWrites=false,pendingLiveScoreWrites=0,liveScoreWriteScheduled=false,liveScoreConnecting=false,liveScoreAvailable=true,liveScoreReady=false,liveScoreInitialSnapshot=true,remoteControlInitialSnapshot=true,liveScoreMigrationStarted=false,latestLiveMatch=null,lastRoomSnapshotData=null,lastRemoteFullscreenCommandId='',lastRemoteOfficialStartCommandId='',lastRemoteNextMatchCommandId='',lastRemoteUndoFinishedCommandId='',lastRemoteStartMatchCommandId='',lastRemoteActionCommandId='';
+let liveScoreSnapshotFromCache=false,liveScoreHasPendingWrites=false,pendingLiveScoreWrites=0,liveScoreWriteScheduled=false,liveScoreConnecting=false,liveScoreAvailable=true,liveScoreReady=false,liveScoreInitialSnapshot=true,remoteControlInitialSnapshot=true,liveScoreMigrationStarted=false,latestLiveMatch=null,lastRoomSnapshotData=null,lastRemoteFullscreenCommandId='',lastRemoteOfficialStartCommandId='',lastRemoteNextMatchCommandId='',lastRemoteUndoFinishedCommandId='',lastRemoteStartMatchCommandId='',lastRemoteActionCommandId='',androidOfficialStartPending=null;
 let chatMessages=[],chatMentionIds=new Set(),chatFirstRender=true,chatMessagesRenderKey='',chatLastSentAt=0,chatRequestRunning=false,chatSendRunning=false,chatPendingMedia=null;
 const requestParams=new URLSearchParams(location.search),requestedPage=requestParams.get('page'),requestedAndroidRemote=requestParams.get('androidRemote')==='1';
 if(requestedAndroidRemote){
@@ -145,6 +145,7 @@ function markMatchOfficialStarted(requestedAt){
   const match=state.match;
   if(!isHost||!match.active||match.winner!==null)return false;
   if(matchHasOfficiallyStarted(match)){showScoreRemoteIndicator('本場已正式開始',{duration:1400,icon:'✅'});return true}
+  androidOfficialStartPending=null;
   const now=Date.now(),requestedMillis=timestampMillis(requestedAt);
   match.startedAt=new Date(Number.isFinite(requestedMillis)?Math.min(requestedMillis,now):now).toISOString();
   saveLiveScoreSoon();saveSoon();renderDashboard();
@@ -1649,7 +1650,7 @@ async function connectRoom(id){
   liveScoreRef=doc(db,'badmintonRooms',id,'liveScore','current');
   remoteControlRef=doc(db,'badmintonRooms',id,'remoteControl','current');
   liveScoreReady=false;liveScoreInitialSnapshot=true;liveScoreMigrationStarted=false;liveScoreAvailable=true;liveScoreConnecting=true;latestLiveMatch=null;lastRoomSnapshotData=null;
-  remoteControlInitialSnapshot=true;lastRemoteFullscreenCommandId='';lastRemoteOfficialStartCommandId='';lastRemoteNextMatchCommandId='';lastRemoteUndoFinishedCommandId='';lastRemoteStartMatchCommandId='';lastRemoteActionCommandId='';
+  remoteControlInitialSnapshot=true;lastRemoteFullscreenCommandId='';lastRemoteOfficialStartCommandId='';lastRemoteNextMatchCommandId='';lastRemoteUndoFinishedCommandId='';lastRemoteStartMatchCommandId='';lastRemoteActionCommandId='';androidOfficialStartPending=null;
   liveScoreSnapshotFromCache=false;liveScoreHasPendingWrites=false;pendingLiveScoreWrites=0;liveScoreWriteScheduled=false;
   selfHash=await sha256(selfToken);
   setSync(navigator.onLine?'連線中':'讀取離線資料','pending');
@@ -1853,6 +1854,18 @@ function handleRemoteStartMatchCommand(data,{initial=false}={}){
   if(initial||requestedAndroidRemote||!isHost||state.match.active||$('page3').classList.contains('hidden'))return false;
   startMatch();showScoreRemoteIndicator('遙控器開始比賽');return true;
 }
+function handleAndroidOfficialStartPress(action,command){
+  if(!['teamAPlus','teamBPlus'].includes(action)||!state.match.active||state.match.winner!==null||matchHasOfficiallyStarted(state.match))return false;
+  const now=timestampMillis(command?.createdAt)||Date.now(),matchId=String(state.match.matchId||'');
+  if(androidOfficialStartPending&&androidOfficialStartPending.action===action&&androidOfficialStartPending.matchId===matchId&&now-androidOfficialStartPending.at<=SCORE_REMOTE_DOUBLE_PRESS_MS){
+    androidOfficialStartPending=null;
+    markMatchOfficialStarted(command?.createdAt||new Date().toISOString());
+    return true;
+  }
+  androidOfficialStartPending={action,matchId,at:now};
+  showScoreRemoteIndicator('再按一次正式開始',{duration:SCORE_REMOTE_DOUBLE_PRESS_MS,icon:'▶️'});
+  return true;
+}
 function handleRemoteActionCommand(data,{initial=false}={}){
   const command=data?.remoteActionCommand||{},id=String(command.id||''),action=String(command.action||'');
   if(!id||id===lastRemoteActionCommandId)return false;lastRemoteActionCommandId=id;
@@ -1863,6 +1876,7 @@ function handleRemoteActionCommand(data,{initial=false}={}){
     if(courtVisible&&['teamAPlus','teamBPlus'].includes(action)){
       if(state.match.active&&state.match.winner===null){scoreViewRequested=true;renderScore();showScoreRemoteIndicator('進入比分模式')}
       else{startMatch();showScoreRemoteIndicator('遙控器開始比賽')}
+      handleAndroidOfficialStartPress(action,command);
       return true;
     }
     return false;
@@ -1871,6 +1885,7 @@ function handleRemoteActionCommand(data,{initial=false}={}){
   if(action==='returnShuttle')return returnOneShuttle({source:'remote'});
   if(resultVisible){if(action==='undo')performScoreRemoteAction('undo',{announce:false});else startNext();return true}
   if(!state.match.active||state.match.winner!==null)return false;
+  if(handleAndroidOfficialStartPress(action,command))return true;
   if(performScoreRemoteAction(action))showScoreRemoteIndicator(SCORE_REMOTE_ACTION_LABELS[action]);
   return true;
 }

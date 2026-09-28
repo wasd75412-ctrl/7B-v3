@@ -28,6 +28,12 @@ test('web keyboard double press still starts the match while YUNTENG uses direct
   assert.doesNotMatch(controller,/updates\.put\(finished \? "undoFinishedCommand" : "fullscreenCommand"/);
 });
 
+test('YUNTENG score keys require a same-key double press only before official start',()=>{
+  assert.match(main,/function handleAndroidOfficialStartPress\(action,command\)[\s\S]*?matchHasOfficiallyStarted\(state\.match\)[\s\S]*?androidOfficialStartPending\.action===action[\s\S]*?SCORE_REMOTE_DOUBLE_PRESS_MS[\s\S]*?markMatchOfficialStarted\(command\?\.createdAt/);
+  assert.match(main,/handleAndroidOfficialStartPress\(action,command\)\)return true;[\s\S]*?performScoreRemoteAction\(action\)/);
+  assert.match(main,/androidOfficialStartPending=\{action,matchId,at:now\}[\s\S]*?再按一次正式開始/);
+});
+
 test('official start is idempotent and scoring waits for it',()=>{
   assert.match(main,/if\(matchHasOfficiallyStarted\(match\)\)\{showScoreRemoteIndicator\('本場已正式開始'/);
   assert.match(main,/if\(!matchHasOfficiallyStarted\(match\)\)\{showScoreRemoteIndicator\('請先按播放鍵正式開始'/);
