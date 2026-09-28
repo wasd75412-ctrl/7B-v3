@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { archivePollHistoryFirestoreValue, shouldOpenWeeklyPoll, taipeiWeekSchedule, weeklyPollFirestoreValue, weeklyPollPushPayload } from '../netlify/functions/lib/weekly-poll.mjs';
+import { archivePollHistoryFirestoreValue, shouldArchiveExpiredPoll, shouldOpenWeeklyPoll, taipeiWeekSchedule, weeklyPollFirestoreValue, weeklyPollPushPayload } from '../netlify/functions/lib/weekly-poll.mjs';
 
 test('builds next week Monday through Sunday with a Monday 08:00 open and Saturday 23:00 deadline in Taipei',()=>{
   const now=Date.parse('2026-08-09T16:00:00.000Z'); // Monday 00:00 in Taipei
@@ -44,4 +44,19 @@ test('archives the previous poll before a new weekly poll overwrites it',()=>{
   assert.equal(result.arrayValue.values.length,1);
   assert.equal(result.arrayValue.values[0].mapValue.fields.id.stringValue,'2026-08-24');
   assert.equal(result.arrayValue.values[0].mapValue.fields.votes.mapValue.fields.device.stringValue,'old-slot');
+});
+
+test('archives an expired poll once before the next weekly cycle starts',()=>{
+  const oldPoll={mapValue:{fields:{
+    createdAt:{stringValue:'2026-09-21T00:00:00.000Z'},
+    autoCycle:{stringValue:'2026-09-21'},
+    deadlineAt:{stringValue:'2026-09-26T15:00:00.000Z'},
+    status:{stringValue:'open'},
+    options:{arrayValue:{values:[{mapValue:{fields:{id:{stringValue:'future-slot'}}}}]}}
+  }}};
+  const document={fields:{schedulePoll:oldPoll,pollHistory:{arrayValue:{values:[]}}}};
+  assert.equal(shouldArchiveExpiredPoll(document,Date.parse('2026-09-26T14:59:59.999Z')),false);
+  assert.equal(shouldArchiveExpiredPoll(document,Date.parse('2026-09-26T15:00:00.000Z')),true);
+  document.fields.pollHistory=archivePollHistoryFirestoreValue(document,Date.parse('2026-09-26T15:00:00.000Z'));
+  assert.equal(shouldArchiveExpiredPoll(document,Date.parse('2026-09-26T15:05:00.000Z')),false);
 });
