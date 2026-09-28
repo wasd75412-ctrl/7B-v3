@@ -101,7 +101,7 @@ if(requestedAndroidRemote){
   $('landingJoinDivider').textContent='連接目前球局';
   $('joinRoom').textContent='連接球局';
 }
-const SCORE_REMOTE_ENABLED_KEY='bcmScoreRemoteEnabledV1',SCORE_REMOTE_BINDINGS_KEY='bcmScoreRemoteBindingsV1',SCORE_REMOTE_DOUBLE_PRESS_MS=700,ANDROID_OFFICIAL_START_CONFIRM_MS=3000;
+const SCORE_REMOTE_ENABLED_KEY='bcmScoreRemoteEnabledV1',SCORE_REMOTE_BINDINGS_KEY='bcmScoreRemoteBindingsV1',SCORE_REMOTE_DOUBLE_PRESS_MS=700;
 const SCORE_REMOTE_ACTION_LABELS={teamAPlus:'A隊 ＋1',teamBPlus:'B隊 ＋1',undo:'撤銷上一分',teamAMinus:'A隊 −1',teamBMinus:'B隊 −1'};
 const SCORE_REMOTE_BINDING_IDS={teamAPlus:'remoteBindingTeamAPlus',teamBPlus:'remoteBindingTeamBPlus',undo:'remoteBindingUndo',teamAMinus:'remoteBindingTeamAMinus',teamBMinus:'remoteBindingTeamBMinus'};
 let scoreRemoteEnabled=localStorage.getItem(SCORE_REMOTE_ENABLED_KEY)==='1',scoreRemoteBindings=loadScoreRemoteBindings(),scoreRemoteLearningAction='',scoreRemoteLastInputAt=0,scoreRemoteIndicatorTimer=null,scoreRemoteLearningTimer=null,scoreRemoteStatusMessage='',scoreRemoteStatusKind='',scoreRemotePressedCodes=new Set(),scoreRemotePendingPress=null;
@@ -1864,13 +1864,13 @@ function handleRemoteStartMatchCommand(data,{initial=false}={}){
 function handleAndroidOfficialStartPress(action,command){
   if(!['teamAPlus','teamBPlus'].includes(action)||!state.match.active||state.match.winner!==null||matchHasOfficiallyStarted(state.match))return false;
   const now=timestampMillis(command?.createdAt)||Date.now(),matchId=String(state.match.matchId||'');
-  if(androidOfficialStartPending&&androidOfficialStartPending.action===action&&androidOfficialStartPending.matchId===matchId&&now-androidOfficialStartPending.at<=ANDROID_OFFICIAL_START_CONFIRM_MS){
+  if(androidOfficialStartPending&&androidOfficialStartPending.action===action&&androidOfficialStartPending.matchId===matchId&&now-androidOfficialStartPending.at<=SCORE_REMOTE_DOUBLE_PRESS_MS){
     androidOfficialStartPending=null;
     markMatchOfficialStarted(command?.createdAt||new Date().toISOString());
     return true;
   }
   androidOfficialStartPending={action,matchId,at:now};
-  showScoreRemoteIndicator('3 秒內再按同一鍵正式開始',{duration:ANDROID_OFFICIAL_START_CONFIRM_MS,icon:'▶️'});
+  showScoreRemoteIndicator('快速再按同一鍵正式開始',{duration:SCORE_REMOTE_DOUBLE_PRESS_MS,icon:'▶️'});
   return true;
 }
 function handleRemoteActionCommand(data,{initial=false}={}){

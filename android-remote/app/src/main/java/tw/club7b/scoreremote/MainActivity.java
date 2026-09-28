@@ -89,7 +89,7 @@ public final class MainActivity extends Activity {
         settings.setDisplayZoomControls(false);
         settings.setMediaPlaybackRequiresUserGesture(false);
         settings.setMixedContentMode(WebSettings.MIXED_CONTENT_NEVER_ALLOW);
-        settings.setUserAgentString(settings.getUserAgentString() + " 7BAndroidRemote/1.3.33");
+        settings.setUserAgentString(settings.getUserAgentString() + " 7BAndroidRemote/1.3.34");
         CookieManager.getInstance().setAcceptCookie(true);
         CookieManager.getInstance().setAcceptThirdPartyCookies(view, true);
         view.setRendererPriorityPolicy(WebView.RENDERER_PRIORITY_IMPORTANT, true);
@@ -315,12 +315,12 @@ public final class MainActivity extends Activity {
     private void handleCameraShortPress() {
         if (pendingCameraSinglePress != null) {
             cancelCameraSinglePress();
-            sendRemoteAction(VolumeKeyInterpreter.Action.UNDO);
+            sendRemoteUseShuttleCommand();
             return;
         }
         pendingCameraSinglePress = () -> {
             pendingCameraSinglePress = null;
-            sendRemoteUseShuttleCommand();
+            sendRemoteAction(VolumeKeyInterpreter.Action.UNDO);
         };
         keyHandler.postDelayed(pendingCameraSinglePress, CAMERA_DOUBLE_PRESS_MS);
     }
