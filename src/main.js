@@ -90,7 +90,7 @@ const DEVICE_SYNC_CODE_KEY='bcmDeviceSyncCodeV1',DEVICE_SYNC_TOKEN_KEY='bcmDevic
 let state=initialState(), roomId='', roomRef=null, liveScoreRef=null, remoteControlRef=null, chatCollectionRef=null, isHost=false, hostToken='', adminPinHash='', unsubscribe=null, liveScoreUnsubscribe=null, remoteControlUnsubscribe=null, chatUnsubscribe=null, applying=false, saveTimer=null, liveScoreSaveTimer=null, matchAutoBackupTimer=null, editId=null;const expandedPlayerNotes=new Set();let profileOriginal=null,profileDirty={name:false,gender:false,memberType:false,voiceName:false,racket:false,racketTension:false,racketString:false,backupRacket:false,backupTension:false,backupString:false,note:false};let voiceEnabled=localStorage.getItem('bdV76Voice')!=='0';let dismissedResultKey='';const selfToken=localStorage.getItem(DEVICE_SYNC_TOKEN_KEY)||localStorage.getItem('bdV73SelfToken')||randomToken();localStorage.setItem('bdV73SelfToken',selfToken);let selfHash='',scoreViewRequested=false,expandedShuttleTubeId='';
 let deviceProfileUnsubscribe=null,deviceProfileApplying=false,deviceProfileSaveTimer=null,identitySyncing=false,roomConnectInProgress=false;
 let roomSnapshotFromCache=false,snapshotHasPendingWrites=false,pendingRoomWrites=0,roomWriteScheduled=false;
-let liveScoreSnapshotFromCache=false,liveScoreHasPendingWrites=false,pendingLiveScoreWrites=0,liveScoreWriteScheduled=false,liveScoreConnecting=false,liveScoreAvailable=true,liveScoreReady=false,liveScoreInitialSnapshot=true,remoteControlInitialSnapshot=true,liveScoreMigrationStarted=false,latestLiveMatch=null,lastRoomSnapshotData=null,lastRemoteFullscreenCommandId='',lastRemoteOfficialStartCommandId='',lastRemoteNextMatchCommandId='',lastRemoteUndoFinishedCommandId='',lastRemoteStartMatchCommandId='',lastRemoteActionCommandId='',androidOfficialStartPending=null;
+let liveScoreSnapshotFromCache=false,liveScoreHasPendingWrites=false,pendingLiveScoreWrites=0,liveScoreWriteScheduled=false,liveScoreConnecting=false,liveScoreAvailable=true,liveScoreReady=false,liveScoreInitialSnapshot=true,remoteControlInitialSnapshot=true,liveScoreMigrationStarted=false,latestLiveMatch=null,lastRoomSnapshotData=null,lastRemoteRecordingStartCommandId='',lastRemoteFullscreenCommandId='',lastRemoteOfficialStartCommandId='',lastRemoteNextMatchCommandId='',lastRemoteUndoFinishedCommandId='',lastRemoteStartMatchCommandId='',lastRemoteActionCommandId='',androidOfficialStartPending=null;
 let chatMessages=[],chatMentionIds=new Set(),chatFirstRender=true,chatMessagesRenderKey='',chatLastSentAt=0,chatRequestRunning=false,chatSendRunning=false,chatPendingMedia=null;
 const requestParams=new URLSearchParams(location.search),requestedPage=requestParams.get('page'),requestedAndroidRemote=requestParams.get('androidRemote')==='1';
 if(requestedAndroidRemote){
@@ -1757,6 +1757,7 @@ async function connectRoom(id){
       if(snapshot.metadata.fromCache||snapshot.metadata.hasPendingWrites)return;
       if(!snapshot.exists()){remoteControlInitialSnapshot=false;return}
       const commandData=snapshot.data(),initial=remoteControlInitialSnapshot;
+      handleRemoteRecordingStartCommand(commandData,{initial});
       handleRemoteFullscreenCommand(commandData,{initial});
       handleRemoteOfficialStartCommand(commandData,{initial});
       handleRemoteNextMatchCommand(commandData,{initial});
@@ -1831,14 +1832,26 @@ function handleRemoteFullscreenCommand(data,{initial=false}={}){
   lastRemoteFullscreenCommandId=id;
   if(!shouldAcceptRemoteCommand({command:data.fullscreenCommand,currentMatch:state.match,initial}))return false;
   if(initial||requestedAndroidRemote||!isHost)return false;
-  return markMatchOfficialStarted(data.fullscreenCommand.createdAt);
+  return markMatchOfficialStarted(data.fullscreenCommand.clientCreatedAt||data.fullscreenCommand.createdAt);
+}
+function handleRemoteRecordingStartCommand(data,{initial=false}={}){
+  const command=data?.recordingStartCommand||{},id=String(command.id||'');
+  if(!id||id===lastRemoteRecordingStartCommandId)return false;
+  lastRemoteRecordingStartCommandId=id;
+  if(!shouldAcceptRemoteCommand({command,currentMatch:{},initial:false})||requestedAndroidRemote||!isHost)return false;
+  const startedMillis=timestampMillis(command.clientCreatedAt)||timestampMillis(command.createdAt);
+  if(!Number.isFinite(startedMillis))return false;
+  const startedAt=new Date(startedMillis),dateKey=localDateKey(startedAt);
+  state.matchTimelineStarts={...(state.matchTimelineStarts||{}),[dateKey]:startedAt.toISOString()};
+  saveSoon();renderHistory();
+  return true;
 }
 function handleRemoteOfficialStartCommand(data,{initial=false}={}){
   const id=String(data?.officialStartCommand?.id||'');if(!id||id===lastRemoteOfficialStartCommandId)return false;
   lastRemoteOfficialStartCommandId=id;
   if(!shouldAcceptRemoteCommand({command:data.officialStartCommand,currentMatch:state.match,initial}))return false;
   if(initial||requestedAndroidRemote||!isHost)return false;
-  return markMatchOfficialStarted(data.officialStartCommand.createdAt);
+  return markMatchOfficialStarted(data.officialStartCommand.clientCreatedAt||data.officialStartCommand.createdAt);
 }
 function handleRemoteNextMatchCommand(data,{initial=false}={}){
   const id=String(data?.nextMatchCommand?.id||'');if(!id||id===lastRemoteNextMatchCommandId)return false;
@@ -1865,13 +1878,13 @@ function handleAndroidOfficialStartPress(action,command){
   if(!['teamAPlus','teamBPlus'].includes(action)||!state.match.active||state.match.winner!==null||matchHasOfficiallyStarted(state.match))return false;
   if(command?.doublePress===true){
     androidOfficialStartPending=null;
-    markMatchOfficialStarted(command?.createdAt||new Date().toISOString());
+    markMatchOfficialStarted(command?.clientCreatedAt||command?.createdAt||new Date().toISOString());
     return true;
   }
-  const now=timestampMillis(command?.createdAt)||Date.now(),matchId=String(state.match.matchId||'');
+  const now=timestampMillis(command?.clientCreatedAt)||timestampMillis(command?.createdAt)||Date.now(),matchId=String(state.match.matchId||'');
   if(androidOfficialStartPending&&androidOfficialStartPending.action===action&&androidOfficialStartPending.matchId===matchId&&now-androidOfficialStartPending.at<=SCORE_REMOTE_DOUBLE_PRESS_MS){
     androidOfficialStartPending=null;
-    markMatchOfficialStarted(command?.createdAt||new Date().toISOString());
+    markMatchOfficialStarted(command?.clientCreatedAt||command?.createdAt||new Date().toISOString());
     return true;
   }
   androidOfficialStartPending={action,matchId,at:now};

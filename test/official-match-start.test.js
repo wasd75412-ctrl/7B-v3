@@ -29,7 +29,7 @@ test('web keyboard double press still starts the match while YUNTENG uses direct
 });
 
 test('YUNTENG score keys require a same-key double press only before official start',()=>{
-  assert.match(main,/function handleAndroidOfficialStartPress\(action,command\)[\s\S]*?matchHasOfficiallyStarted\(state\.match\)[\s\S]*?androidOfficialStartPending\.action===action[\s\S]*?SCORE_REMOTE_DOUBLE_PRESS_MS[\s\S]*?markMatchOfficialStarted\(command\?\.createdAt/);
+  assert.match(main,/function handleAndroidOfficialStartPress\(action,command\)[\s\S]*?matchHasOfficiallyStarted\(state\.match\)[\s\S]*?androidOfficialStartPending\.action===action[\s\S]*?SCORE_REMOTE_DOUBLE_PRESS_MS[\s\S]*?markMatchOfficialStarted\(command\?\.clientCreatedAt\|\|command\?\.createdAt/);
   assert.match(main,/handleAndroidOfficialStartPress\(action,command\)\)return true;[\s\S]*?performScoreRemoteAction\(action\)/);
   assert.match(main,/androidOfficialStartPending=\{action,matchId,at:now\}[\s\S]*?快速再按同一鍵正式開始/);
 });
@@ -42,16 +42,25 @@ test('Android queues rapid score commands long enough for the iPad listener to o
 test('Android marks the second same-key press so one observed command can start the match',()=>{
   assert.match(controller,/OFFICIAL_START_DOUBLE_PRESS_MS = 700L/);
   assert.match(controller,/boolean doublePress = scoreAction[\s\S]*?action == lastSubmittedScoreAction[\s\S]*?OFFICIAL_START_DOUBLE_PRESS_MS/);
-  assert.match(controller,/new Request\(action, callback, doublePress\)/);
+  assert.match(controller,/new Request\(action, callback, doublePress, clientCreatedAt\)/);
+  assert.match(controller,/long clientCreatedAt = doublePress \? lastSubmittedScoreWallAt : System\.currentTimeMillis\(\)/);
+  assert.match(controller,/command\.put\("clientCreatedAt", request\.clientCreatedAt\)/);
   assert.match(controller,/if \(request\.doublePress\) command\.put\("doublePress", true\)/);
-  assert.match(main,/if\(command\?\.doublePress===true\)[\s\S]*?androidOfficialStartPending=null;[\s\S]*?markMatchOfficialStarted\(command\?\.createdAt/);
+  assert.match(main,/if\(command\?\.doublePress===true\)[\s\S]*?androidOfficialStartPending=null;[\s\S]*?markMatchOfficialStarted\(command\?\.clientCreatedAt\|\|command\?\.createdAt/);
 });
 
 test('official start is idempotent and scoring waits for it',()=>{
   assert.match(main,/if\(matchHasOfficiallyStarted\(match\)\)\{showScoreRemoteIndicator\('本場已正式開始'/);
   assert.match(main,/if\(!matchHasOfficiallyStarted\(match\)\)\{showScoreRemoteIndicator\('請先按播放鍵正式開始'/);
-  assert.match(main,/function handleRemoteOfficialStartCommand[\s\S]*?markMatchOfficialStarted\(data\.officialStartCommand\.createdAt\)/);
-  assert.match(main,/function handleRemoteFullscreenCommand[\s\S]*?markMatchOfficialStarted\(data\.fullscreenCommand\.createdAt\)/);
+  assert.match(controller,/void startOfficialMatch[\s\S]*?long clientCreatedAt = System\.currentTimeMillis\(\)[\s\S]*?command\.put\("clientCreatedAt", clientCreatedAt\)/);
+  assert.match(main,/function handleRemoteOfficialStartCommand[\s\S]*?markMatchOfficialStarted\(data\.officialStartCommand\.clientCreatedAt\|\|data\.officialStartCommand\.createdAt\)/);
+  assert.match(main,/function handleRemoteFullscreenCommand[\s\S]*?markMatchOfficialStarted\(data\.fullscreenCommand\.clientCreatedAt\|\|data\.fullscreenCommand\.createdAt\)/);
+});
+
+test('camera recording start automatically becomes the millisecond timeline baseline',()=>{
+  assert.match(controller,/void markBroadcastRecordingStarted\(long clientStartedAt[\s\S]*?command\.put\("clientCreatedAt", clientStartedAt\)[\s\S]*?updates\.put\("recordingStartCommand", command\)/);
+  assert.match(main,/function handleRemoteRecordingStartCommand[\s\S]*?timestampMillis\(command\.clientCreatedAt\)\|\|timestampMillis\(command\.createdAt\)[\s\S]*?matchTimelineStarts=.*startedAt\.toISOString\(\)/);
+  assert.match(main,/handleRemoteRecordingStartCommand[\s\S]*?shouldAcceptRemoteCommand\(\{command,currentMatch:\{\},initial:false\}\)/);
 });
 
 test('score mode provides a play fallback for official start in both layouts',()=>{
