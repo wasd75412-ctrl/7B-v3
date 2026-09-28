@@ -29,6 +29,12 @@ public final class YuntengGestureInterpreterTest {
         assertEquals(VolumeKeyInterpreter.Action.TEAM_B_PLUS,
                 YuntengGestureInterpreter.classifyAxes("YUNTENG", 527f, 539f, 944f, 539f,
                         944f, 539f, 1079f, 2637f));
+        assertEquals(VolumeKeyInterpreter.Action.TEAM_A_PLUS,
+                YuntengGestureInterpreter.classifyAxes("YUNTENG", 539f, 527f, 539f, 923f,
+                        539f, 923f, 2637f, 1079f));
+        assertEquals(VolumeKeyInterpreter.Action.TEAM_B_PLUS,
+                YuntengGestureInterpreter.classifyAxes("YUNTENG", 539f, 527f, 539f, 944f,
+                        539f, 944f, 2637f, 1079f));
     }
 
     @Test
@@ -43,5 +49,13 @@ public final class YuntengGestureInterpreterTest {
     public void usesSeparateShortConfirmationAndTwoSecondLongThresholds() {
         assertEquals(700L, YuntengGestureInterpreter.SHORT_CONFIRM_MS);
         assertEquals(2000L, YuntengGestureInterpreter.LONG_PRESS_MS);
+    }
+
+    @Test
+    public void emitsOnlyOnceForAClusterOfSyntheticPointerEvents() {
+        assertEquals(true, YuntengGestureInterpreter.isNewPress(Long.MIN_VALUE, 1000L));
+        assertEquals(false, YuntengGestureInterpreter.isNewPress(1000L, 1060L));
+        assertEquals(false, YuntengGestureInterpreter.isNewPress(1060L, 1130L));
+        assertEquals(true, YuntengGestureInterpreter.isNewPress(1130L, 1320L));
     }
 }

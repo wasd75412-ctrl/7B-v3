@@ -11,12 +11,14 @@ final class YuntengGestureInterpreter {
     private static final float HORIZONTAL_TEAM_SPLIT = 0.865f;
     static final long SHORT_CONFIRM_MS = 700L;
     static final long LONG_PRESS_MS = 2000L;
+    static final long PRESS_QUIET_GAP_MS = 150L;
     private static final long POST_LONG_PRESS_IGNORE_MS = 500L;
     private VolumeKeyInterpreter.Action pendingAction = VolumeKeyInterpreter.Action.NONE;
     private long pressedAt;
     private float initialY;
     private boolean longGesture;
     private long ignoreEventsUntil;
+    private long lastPointerDownAt = Long.MIN_VALUE;
 
     boolean isYuntengEvent(MotionEvent event) {
         InputDevice device = event == null ? null : event.getDevice();
@@ -41,45 +43,30 @@ final class YuntengGestureInterpreter {
     VolumeKeyInterpreter.Action onTouchEvent(MotionEvent event) {
         if (!isYuntengEvent(event)) return VolumeKeyInterpreter.Action.NONE;
         int action = event.getActionMasked();
-        if (event.getEventTime() < ignoreEventsUntil) {
+        if (action != MotionEvent.ACTION_POINTER_DOWN || event.getPointerCount() < 2) {
             return VolumeKeyInterpreter.Action.NONE;
         }
-        if (action == MotionEvent.ACTION_DOWN) {
-            pendingAction = VolumeKeyInterpreter.Action.NONE;
-            pressedAt = event.getEventTime();
-            initialY = -1f;
-            longGesture = false;
-        }
-        if (event.getPointerCount() >= 2) {
-            int pointerIndex = event.getActionMasked() == MotionEvent.ACTION_POINTER_DOWN
-                    ? event.getActionIndex() : event.getPointerCount() - 1;
-            if (pendingAction == VolumeKeyInterpreter.Action.NONE) {
-                InputDevice.MotionRange xRange = event.getDevice().getMotionRange(MotionEvent.AXIS_X, event.getSource());
-                InputDevice.MotionRange yRange = event.getDevice().getMotionRange(MotionEvent.AXIS_Y, event.getSource());
-                pendingAction = classifyAxes(
-                        event.getDevice().getName(),
-                        event.getX(0), event.getY(0),
-                        event.getX(1), event.getY(1),
-                        event.getX(pointerIndex), event.getY(pointerIndex),
-                        xRange == null ? 0f : xRange.getMax(),
-                        yRange == null ? 0f : yRange.getMax()
-                );
-                initialY = event.getY(pointerIndex);
-                if (pressedAt <= 0L) pressedAt = event.getEventTime();
-            }
-        }
-        if (action == MotionEvent.ACTION_CANCEL) {
-            reset();
-            return VolumeKeyInterpreter.Action.NONE;
-        }
-        if (action == MotionEvent.ACTION_UP) {
-            VolumeKeyInterpreter.Action resolved = longGesture
-                    ? resolveLongPress(Math.max(0L, event.getEventTime() - pressedAt))
-                    : pendingAction;
-            reset();
-            return resolved;
-        }
-        return VolumeKeyInterpreter.Action.NONE;
+        long eventTime = event.getEventTime();
+        boolean newPress = isNewPress(lastPointerDownAt, eventTime);
+        lastPointerDownAt = eventTime;
+        if (!newPress) return VolumeKeyInterpreter.Action.NONE;
+        int pointerIndex = event.getActionIndex();
+        InputDevice.MotionRange xRange = event.getDevice().getMotionRange(MotionEvent.AXIS_X, event.getSource());
+        InputDevice.MotionRange yRange = event.getDevice().getMotionRange(MotionEvent.AXIS_Y, event.getSource());
+        return classifyAxes(
+                event.getDevice().getName(),
+                event.getX(0), event.getY(0),
+                event.getX(1), event.getY(1),
+                event.getX(pointerIndex), event.getY(pointerIndex),
+                xRange == null ? 0f : xRange.getMax(),
+                yRange == null ? 0f : yRange.getMax()
+        );
+    }
+
+    static boolean isNewPress(long previousPointerDownAt, long eventTime) {
+        return previousPointerDownAt == Long.MIN_VALUE
+                || eventTime < previousPointerDownAt
+                || eventTime - previousPointerDownAt > PRESS_QUIET_GAP_MS;
     }
 
     private void reset() {
@@ -132,8 +119,9 @@ final class YuntengGestureInterpreter {
             float xRangeMax, float yRangeMax
     ) {
         boolean horizontalGesture = Math.abs(x1 - x0) > Math.abs(y1 - y0);
-        return horizontalGesture
-                ? classify(deviceName, newX, xRangeMax, HORIZONTAL_TEAM_SPLIT)
-                : classify(deviceName, newY, yRangeMax);
+        float rangeMax = horizontalGesture ? xRangeMax : yRangeMax;
+        float value = horizontalGesture ? newX : newY;
+        float split = rangeMax < 1500f ? HORIZONTAL_TEAM_SPLIT : TEAM_SPLIT;
+        return classify(deviceName, value, rangeMax, split);
     }
 }
