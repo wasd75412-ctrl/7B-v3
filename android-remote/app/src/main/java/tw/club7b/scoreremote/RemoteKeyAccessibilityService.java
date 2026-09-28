@@ -135,12 +135,12 @@ public final class RemoteKeyAccessibilityService extends AccessibilityService {
     private void handleCameraShortPress() {
         if (pendingCameraSinglePress != null) {
             cancelCameraSinglePress();
-            sendBackgroundAction(VolumeKeyInterpreter.Action.UNDO);
+            sendBackgroundUseShuttle();
             return;
         }
         pendingCameraSinglePress = () -> {
             pendingCameraSinglePress = null;
-            sendBackgroundUseShuttle();
+            sendBackgroundAction(VolumeKeyInterpreter.Action.UNDO);
         };
         keyHandler.postDelayed(pendingCameraSinglePress, CAMERA_DOUBLE_PRESS_MS);
     }
