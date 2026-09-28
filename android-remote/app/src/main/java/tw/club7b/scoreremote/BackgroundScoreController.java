@@ -1,6 +1,8 @@
 package tw.club7b.scoreremote;
 
 import android.content.Context;
+import android.os.Handler;
+import android.os.Looper;
 import com.google.firebase.FirebaseApp;
 import com.google.firebase.FirebaseOptions;
 import com.google.firebase.firestore.DocumentReference;
@@ -20,6 +22,7 @@ final class BackgroundScoreController {
     private static final String FIREBASE_PROJECT_ID = "badminton-7a1c3";
     private static final String FIREBASE_API_KEY = "AIzaSyBrakbTPK7UqEChPBI6pM8-i03IcLq0IvM";
     private static final String FIREBASE_APP_ID = "1:883534015507:web:a7f6fb318151b6d07563e6";
+    private static final long COMMAND_DELIVERY_GAP_MS = 250L;
 
     interface Callback {
         void onComplete(boolean success, String message, VolumeKeyInterpreter.Action action);
@@ -62,6 +65,7 @@ final class BackgroundScoreController {
     private final Context context;
     private final FirebaseFirestore firestore;
     private final ArrayDeque<Request> pending = new ArrayDeque<>();
+    private final Handler commandHandler = new Handler(Looper.getMainLooper());
     private boolean processing;
 
     BackgroundScoreController(Context context) {
@@ -192,8 +196,11 @@ final class BackgroundScoreController {
     private void complete(Request request, boolean success, String message) {
         if (request.callback != null) request.callback.onComplete(success, message, request.action);
         synchronized (this) {
-            processing = false;
-            processNext();
+            if (pending.isEmpty()) {
+                processing = false;
+                return;
+            }
+            commandHandler.postDelayed(this::processNext, COMMAND_DELIVERY_GAP_MS);
         }
     }
 
