@@ -1863,6 +1863,11 @@ function handleRemoteStartMatchCommand(data,{initial=false}={}){
 }
 function handleAndroidOfficialStartPress(action,command){
   if(!['teamAPlus','teamBPlus'].includes(action)||!state.match.active||state.match.winner!==null||matchHasOfficiallyStarted(state.match))return false;
+  if(command?.doublePress===true){
+    androidOfficialStartPending=null;
+    markMatchOfficialStarted(command?.createdAt||new Date().toISOString());
+    return true;
+  }
   const now=timestampMillis(command?.createdAt)||Date.now(),matchId=String(state.match.matchId||'');
   if(androidOfficialStartPending&&androidOfficialStartPending.action===action&&androidOfficialStartPending.matchId===matchId&&now-androidOfficialStartPending.at<=SCORE_REMOTE_DOUBLE_PRESS_MS){
     androidOfficialStartPending=null;

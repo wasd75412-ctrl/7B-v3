@@ -39,6 +39,14 @@ test('Android queues rapid score commands long enough for the iPad listener to o
   assert.match(controller,/if \(pending\.isEmpty\(\)\)[\s\S]*?commandHandler\.postDelayed\(this::processNext, COMMAND_DELIVERY_GAP_MS\)/);
 });
 
+test('Android marks the second same-key press so one observed command can start the match',()=>{
+  assert.match(controller,/OFFICIAL_START_DOUBLE_PRESS_MS = 700L/);
+  assert.match(controller,/boolean doublePress = scoreAction[\s\S]*?action == lastSubmittedScoreAction[\s\S]*?OFFICIAL_START_DOUBLE_PRESS_MS/);
+  assert.match(controller,/new Request\(action, callback, doublePress\)/);
+  assert.match(controller,/if \(request\.doublePress\) command\.put\("doublePress", true\)/);
+  assert.match(main,/if\(command\?\.doublePress===true\)[\s\S]*?androidOfficialStartPending=null;[\s\S]*?markMatchOfficialStarted\(command\?\.createdAt/);
+});
+
 test('official start is idempotent and scoring waits for it',()=>{
   assert.match(main,/if\(matchHasOfficiallyStarted\(match\)\)\{showScoreRemoteIndicator\('本場已正式開始'/);
   assert.match(main,/if\(!matchHasOfficiallyStarted\(match\)\)\{showScoreRemoteIndicator\('請先按播放鍵正式開始'/);
