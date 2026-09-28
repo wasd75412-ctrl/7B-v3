@@ -2,5 +2,5 @@
 <resources>
     <string name="app_name">7B 比分遙控器</string>
     <string name="key_access_service_name">7B 比分遙控器按鍵存取</string>
-    <string name="accessibility_service_description">攔截已配對藍牙快門的音量鍵，將按鍵轉為 A隊、B隊加分或撤銷；不讀取畫面內容。</string>
+    <string name="accessibility_service_description">攔截已配對 YUNTENG 遙控器的加減與相機鍵，控制計分、撤銷及球數；不讀取畫面內容。</string>
 </resources>

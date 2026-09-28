@@ -17,8 +17,6 @@ public final class RemoteKeyAccessibilityService extends AccessibilityService {
     private static final long MISSING_KEY_UP_DELAY_MS = 575L;
     private static final long ACTION_DEBOUNCE_MS = 300L;
     private static final long UNDO_DEBOUNCE_MS = 600L;
-    private static final long DOUBLE_PRESS_MS = 700L;
-    private static final long SHUTTLE_SEQUENCE_MS = 1500L;
     private static final long SHUTTLE_PRESS_COOLDOWN_MS = 2000L;
 
     private final VolumeKeyInterpreter backgroundKeys = new VolumeKeyInterpreter();
@@ -26,12 +24,7 @@ public final class RemoteKeyAccessibilityService extends AccessibilityService {
     private BackgroundScoreController scoreController;
     private Runnable pendingLongPress;
     private Runnable pendingKeyFallback;
-    private Runnable pendingShortPress;
-    private int pendingShortPressKey = KeyEvent.KEYCODE_UNKNOWN;
-    private long pendingShortPressAt;
     private long lastShuttleActionAt;
-    private int pendingShortPressCount;
-    private VolumeKeyInterpreter.Action pendingShortPressAction = VolumeKeyInterpreter.Action.NONE;
     private long lastPointActionAt;
     private long lastUndoActionAt;
 
@@ -68,7 +61,7 @@ public final class RemoteKeyAccessibilityService extends AccessibilityService {
                 scheduleLongPress(keyCode, event.getEventTime());
                 scheduleMissingKeyUpFallback(keyCode);
             }
-            if (action == VolumeKeyInterpreter.Action.UNDO) {
+            if (action == VolumeKeyInterpreter.Action.UNDO || action == VolumeKeyInterpreter.Action.RETURN_SHUTTLE) {
                 cancelLongPress();
                 cancelMissingKeyUpFallback();
             }
@@ -119,37 +112,15 @@ public final class RemoteKeyAccessibilityService extends AccessibilityService {
     }
 
     private void handleResolvedBackgroundAction(VolumeKeyInterpreter.Action action, int keyCode, long eventTime) {
-        if (action == VolumeKeyInterpreter.Action.UNDO) {
-            cancelPendingShortPress();
-            sendBackgroundAction(action);
+        if (action == VolumeKeyInterpreter.Action.USE_SHUTTLE || action == VolumeKeyInterpreter.Action.RETURN_SHUTTLE) {
+            long now = SystemClock.uptimeMillis();
+            if (now - lastShuttleActionAt < SHUTTLE_PRESS_COOLDOWN_MS) return;
+            lastShuttleActionAt = now;
+            if (action == VolumeKeyInterpreter.Action.USE_SHUTTLE) sendBackgroundUseShuttle();
+            else sendBackgroundReturnShuttle();
             return;
         }
-        if (pendingShortPress == null || pendingShortPressKey != keyCode || eventTime - pendingShortPressAt > DOUBLE_PRESS_MS) {
-            cancelPendingShortPress();pendingShortPressKey = keyCode;pendingShortPressCount = 0;pendingShortPressAction = action;
-        }
-        pendingShortPressCount++;pendingShortPressAt = eventTime;
-        if (pendingShortPress != null) keyHandler.removeCallbacks(pendingShortPress);
-        pendingShortPress = () -> {
-            int count=pendingShortPressCount;VolumeKeyInterpreter.Action resolved=pendingShortPressAction;
-            cancelPendingShortPress();
-            if(count==1)sendBackgroundAction(resolved);else if(count==2)sendBackgroundOfficialStart();else if(count==3){
-                long now=SystemClock.uptimeMillis();
-                if(now-lastShuttleActionAt>=SHUTTLE_PRESS_COOLDOWN_MS){lastShuttleActionAt=now;sendBackgroundUseShuttle();}
-            }else if(count==4){
-                long now=SystemClock.uptimeMillis();
-                if(now-lastShuttleActionAt>=SHUTTLE_PRESS_COOLDOWN_MS){lastShuttleActionAt=now;sendBackgroundReturnShuttle();}
-            }
-        };
-        keyHandler.postDelayed(pendingShortPress, pendingShortPressCount >= 3 ? SHUTTLE_SEQUENCE_MS : DOUBLE_PRESS_MS);
-    }
-
-    private void cancelPendingShortPress() {
-        if (pendingShortPress != null) keyHandler.removeCallbacks(pendingShortPress);
-        pendingShortPress = null;
-        pendingShortPressKey = KeyEvent.KEYCODE_UNKNOWN;
-        pendingShortPressAt = 0L;
-        pendingShortPressCount = 0;
-        pendingShortPressAction = VolumeKeyInterpreter.Action.NONE;
+        sendBackgroundAction(action);
     }
 
     private BackgroundScoreController scoreController() {
@@ -242,7 +213,6 @@ public final class RemoteKeyAccessibilityService extends AccessibilityService {
     public void onDestroy() {
         cancelLongPress();
         cancelMissingKeyUpFallback();
-        cancelPendingShortPress();
         super.onDestroy();
     }
 }

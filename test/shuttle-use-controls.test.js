@@ -8,6 +8,7 @@ const styles=readFileSync(new URL('../src/styles.css',import.meta.url),'utf8');
 const activity=readFileSync(new URL('../android-remote/app/src/main/java/tw/club7b/scoreremote/MainActivity.java',import.meta.url),'utf8');
 const service=readFileSync(new URL('../android-remote/app/src/main/java/tw/club7b/scoreremote/RemoteKeyAccessibilityService.java',import.meta.url),'utf8');
 const controller=readFileSync(new URL('../android-remote/app/src/main/java/tw/club7b/scoreremote/BackgroundScoreController.java',import.meta.url),'utf8');
+const interpreter=readFileSync(new URL('../android-remote/app/src/main/java/tw/club7b/scoreremote/VolumeKeyInterpreter.java',import.meta.url),'utf8');
 
 test('shows one-shuttle controls in scoring and next-match result views plus dashboard summary',()=>{
   for(const id of ['homeShuttleSummary','scoreUseShuttle','resultUseShuttle','resultReturnShuttle'])assert.match(html,new RegExp(`id="${id}"`));
@@ -42,15 +43,18 @@ test('shows one-shuttle controls in scoring and next-match result views plus das
   assert.match(styles,/#resultModal \.next-team/);
 });
 
-test('routes exactly three short presses to shuttle use with a quiet-window and cooldown guard',()=>{
+test('routes YUNTENG keys directly without multi-press delay',()=>{
   for(const source of [activity,service]){
     assert.match(source,/Action previousAction = \w+Keys\.onMissingKeyUp\(keyCode\);[\s\S]*?handleResolved\w+Action\(previousAction, keyCode, event\.getEventTime\(\)\);/);
-    assert.match(source,/if\(count==1\).*Action\(resolved\);else if\(count==2\).*OfficialStart.*\(\);else if\(count==3\).*else if\(count==4\)/s);
     assert.match(source,/SHUTTLE_PRESS_COOLDOWN_MS = 2000L/);
-    assert.match(source,/now-lastShuttleActionAt>=SHUTTLE_PRESS_COOLDOWN_MS/);
-    assert.doesNotMatch(source,/pendingShortPressCount == 5/);
+    assert.match(source,/Action\.USE_SHUTTLE[\s\S]*?Action\.RETURN_SHUTTLE/);
+    assert.doesNotMatch(source,/pendingShortPressCount|SHUTTLE_SEQUENCE_MS|DOUBLE_PRESS_MS/);
     assert.match(source,/action == VolumeKeyInterpreter\.Action\.UNDO/);
   }
+  assert.match(interpreter,/KEYCODE_VOLUME_UP:[\s\S]*?TEAM_A_PLUS/);
+  assert.match(interpreter,/KEYCODE_VOLUME_DOWN:[\s\S]*?TEAM_B_PLUS/);
+  assert.match(interpreter,/KEYCODE_CAMERA:[\s\S]*?USE_SHUTTLE/);
+  assert.match(interpreter,/longPressAction[\s\S]*?KEYCODE_VOLUME_UP[\s\S]*?Action\.UNDO[\s\S]*?Action\.RETURN_SHUTTLE/);
   assert.match(activity,/bcmAndroidRemoteUseShuttle/);
   assert.match(activity,/bcmAndroidRemoteReturnShuttle/);
   assert.match(service,/useOneShuttle/);
@@ -68,11 +72,4 @@ test('routes exactly three short presses to shuttle use with a quiet-window and 
   assert.match(main,/if\(action==='useShuttle'\)return useOneShuttle/);
   assert.match(main,/if\(action==='returnShuttle'\)return returnOneShuttle/);
   assert.match(main,/if\(resultVisible\)\{if\(action==='undo'\)performScoreRemoteAction\('undo',\{announce:false\}\);else startNext\(\);return true\}/);
-});
-
-test('waits longer after the third press so a fourth press cannot spend a shuttle first',()=>{
-  assert.match(activity,/SHUTTLE_SEQUENCE_MS = 1500L/);
-  assert.match(activity,/pendingShortPressCount >= 3 \? SHUTTLE_SEQUENCE_MS : DOUBLE_PRESS_MS/);
-  assert.match(service,/SHUTTLE_SEQUENCE_MS = 1500L/);
-  assert.match(service,/pendingShortPressCount >= 3 \? SHUTTLE_SEQUENCE_MS : DOUBLE_PRESS_MS/);
 });

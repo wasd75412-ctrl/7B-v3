@@ -154,7 +154,7 @@ function markMatchOfficialStarted(requestedAt){
 function performScoreRemoteAction(action,{announce=true}={}){
   const match=state.match;
   if(action==='teamAPlus'||action==='teamBPlus'){
-    if(!matchHasOfficiallyStarted(match)){showScoreRemoteIndicator('請先連按兩下正式開始',{duration:1600,icon:'⏱️'});return false}
+    if(!matchHasOfficiallyStarted(match)){showScoreRemoteIndicator('請先按播放鍵正式開始',{duration:1600,icon:'▶️'});return false}
     if(match.winner!==null)return false;
     match.rallies.push(action==='teamAPlus'?0:1);replay();if(announce&&voiceEnabled)setTimeout(announceScore,80);return true;
   }
@@ -3012,7 +3012,7 @@ function guardUnofficialTouchScoring(event){
   const target=event.target;
   if(!scoreSideA.contains(target)&&!scoreSideB.contains(target)&&!$('scoreA').contains(target)&&!$('scoreB').contains(target))return;
   event.preventDefault();event.stopImmediatePropagation();
-  showScoreRemoteIndicator('請先連按兩下正式開始',{duration:1600,icon:'⏱️'});
+  showScoreRemoteIndicator('請先按播放鍵正式開始',{duration:1600,icon:'▶️'});
 }
 document.addEventListener('click',guardUnofficialTouchScoring,{capture:true});
 $('genderGrouping').onchange=()=>{state.rules.genderGroupingEnabled=$('genderGrouping').value==='1';saveSoon()};
