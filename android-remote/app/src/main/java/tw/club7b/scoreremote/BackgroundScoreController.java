@@ -3,6 +3,7 @@ package tw.club7b.scoreremote;
 import android.content.Context;
 import android.os.Handler;
 import android.os.Looper;
+import android.os.SystemClock;
 import com.google.firebase.FirebaseApp;
 import com.google.firebase.FirebaseOptions;
 import com.google.firebase.firestore.DocumentReference;
@@ -23,6 +24,7 @@ final class BackgroundScoreController {
     private static final String FIREBASE_API_KEY = "AIzaSyBrakbTPK7UqEChPBI6pM8-i03IcLq0IvM";
     private static final String FIREBASE_APP_ID = "1:883534015507:web:a7f6fb318151b6d07563e6";
     private static final long COMMAND_DELIVERY_GAP_MS = 250L;
+    private static final long OFFICIAL_START_DOUBLE_PRESS_MS = 700L;
 
     interface Callback {
         void onComplete(boolean success, String message, VolumeKeyInterpreter.Action action);
@@ -67,6 +69,8 @@ final class BackgroundScoreController {
     private final ArrayDeque<Request> pending = new ArrayDeque<>();
     private final Handler commandHandler = new Handler(Looper.getMainLooper());
     private boolean processing;
+    private VolumeKeyInterpreter.Action lastSubmittedScoreAction = VolumeKeyInterpreter.Action.NONE;
+    private long lastSubmittedScoreAt;
 
     BackgroundScoreController(Context context) {
         this.context = context.getApplicationContext();
@@ -91,7 +95,20 @@ final class BackgroundScoreController {
 
     synchronized void submit(VolumeKeyInterpreter.Action action, Callback callback) {
         if (action == null || action == VolumeKeyInterpreter.Action.NONE) return;
-        pending.addLast(new Request(action, callback));
+        boolean scoreAction = action == VolumeKeyInterpreter.Action.TEAM_A_PLUS
+                || action == VolumeKeyInterpreter.Action.TEAM_B_PLUS;
+        long now = SystemClock.uptimeMillis();
+        boolean doublePress = scoreAction
+                && action == lastSubmittedScoreAction
+                && now - lastSubmittedScoreAt <= OFFICIAL_START_DOUBLE_PRESS_MS;
+        if (doublePress || !scoreAction) {
+            lastSubmittedScoreAction = VolumeKeyInterpreter.Action.NONE;
+            lastSubmittedScoreAt = 0L;
+        } else {
+            lastSubmittedScoreAction = action;
+            lastSubmittedScoreAt = now;
+        }
+        pending.addLast(new Request(action, callback, doublePress));
         if (!processing) processNext();
     }
 
@@ -169,6 +186,7 @@ final class BackgroundScoreController {
             command.put("action", request.action == VolumeKeyInterpreter.Action.UNDO ? "undo" : request.action == VolumeKeyInterpreter.Action.TEAM_A_PLUS ? "teamAPlus" : "teamBPlus");
             command.put("matchId", String.valueOf(matchId));
             command.put("createdAt", FieldValue.serverTimestamp());
+            if (request.doublePress) command.put("doublePress", true);
             Map<String, Object> commandUpdates = new HashMap<>();
             commandUpdates.put("remoteActionCommand", command);
             commandUpdates.put("updatedAt", FieldValue.serverTimestamp());
@@ -242,10 +260,12 @@ final class BackgroundScoreController {
     private static final class Request {
         final VolumeKeyInterpreter.Action action;
         final Callback callback;
+        final boolean doublePress;
 
-        Request(VolumeKeyInterpreter.Action action, Callback callback) {
+        Request(VolumeKeyInterpreter.Action action, Callback callback, boolean doublePress) {
             this.action = action;
             this.callback = callback;
+            this.doublePress = doublePress;
         }
     }
 }
