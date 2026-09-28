@@ -52,6 +52,8 @@ import androidx.camera.video.VideoCapture;
 import androidx.camera.video.VideoRecordEvent;
 import androidx.camera.view.PreviewView;
 import androidx.core.content.ContextCompat;
+import androidx.core.view.ViewCompat;
+import androidx.core.view.WindowInsetsCompat;
 import com.google.common.util.concurrent.ListenableFuture;
 import java.io.File;
 import java.nio.ByteBuffer;
@@ -180,16 +182,31 @@ public final class LoopCameraActivity extends ComponentActivity {
         root.addView(previewView, new FrameLayout.LayoutParams(-1, -1));
         LinearLayout bar = new LinearLayout(this);
         bar.setGravity(Gravity.CENTER_VERTICAL); bar.setPadding(22, 14, 22, 14); bar.setBackgroundColor(0xB0000000);
+        ViewCompat.setOnApplyWindowInsetsListener(bar, (view, windowInsets) -> {
+            androidx.core.graphics.Insets systemBars = windowInsets.getInsets(WindowInsetsCompat.Type.systemBars());
+            view.setPadding(22 + systemBars.left, 14, 22 + systemBars.right, 14 + systemBars.bottom);
+            return windowInsets;
+        });
         status = new TextView(this); status.setTextColor(Color.WHITE); status.setTextSize(17f); status.setText("相機準備中…");
         bar.addView(status, new LinearLayout.LayoutParams(0, -2, 1f));
         if (broadcastMode) {
-            Button save = new Button(this); save.setText("保存並繼續"); save.setOnClickListener(v -> saveBroadcastAndContinue()); bar.addView(save);
+            Button save = new Button(this); save.setText("保存並繼續"); prepareActionButton(save); save.setOnClickListener(v -> saveBroadcastAndContinue()); bar.addView(save);
         } else {
-            Button save = new Button(this); save.setText("保存最近 3 分鐘"); save.setOnClickListener(v -> saveRecentVideo()); bar.addView(save);
+            Button save = new Button(this); save.setText("保存最近 3 分鐘"); prepareActionButton(save); save.setOnClickListener(v -> saveRecentVideo()); bar.addView(save);
         }
-        Button close = new Button(this); close.setText("結束"); close.setOnClickListener(v -> exitRecording()); bar.addView(close);
+        Button close = new Button(this); close.setText("結束"); prepareActionButton(close); close.setOnClickListener(v -> {
+            close.setEnabled(false);
+            close.setText("結束中…");
+            exitRecording();
+        }); bar.addView(close);
         root.addView(bar, new FrameLayout.LayoutParams(-1, -2, Gravity.BOTTOM));
         setContentView(root, new ViewGroup.LayoutParams(-1, -1));
+    }
+
+    private void prepareActionButton(Button button) {
+        float density = getResources().getDisplayMetrics().density;
+        button.setMinHeight(Math.round(56f * density));
+        button.setMinWidth(Math.round(88f * density));
     }
 
     private boolean hasPermission(String permission) {

@@ -56,3 +56,10 @@ test('saves broadcast video and immediately continues without opening a media vi
   assert.doesNotMatch(broadcastFinalize,/openSavedVideo/);
   assert.match(camera,/persistSegments\([\s\S]*?if \(success\) openSavedVideo\(savedVideoUri\)/);
 });
+
+test('keeps recording controls above Android system bars with reliable touch targets',()=>{
+  assert.match(camera,/WindowInsetsCompat\.Type\.systemBars\(\)/);
+  assert.match(camera,/14 \+ systemBars\.bottom/);
+  assert.match(camera,/setMinHeight\(Math\.round\(56f \* density\)\)/);
+  assert.match(camera,/close\.setEnabled\(false\);\s*close\.setText\("結束中…"\);\s*exitRecording\(\)/);
+});
