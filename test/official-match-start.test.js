@@ -34,6 +34,11 @@ test('YUNTENG score keys require a same-key double press only before official st
   assert.match(main,/androidOfficialStartPending=\{action,matchId,at:now\}[\s\S]*?快速再按同一鍵正式開始/);
 });
 
+test('Android queues rapid score commands long enough for the iPad listener to observe both',()=>{
+  assert.match(controller,/COMMAND_DELIVERY_GAP_MS = 250L/);
+  assert.match(controller,/if \(pending\.isEmpty\(\)\)[\s\S]*?commandHandler\.postDelayed\(this::processNext, COMMAND_DELIVERY_GAP_MS\)/);
+});
+
 test('official start is idempotent and scoring waits for it',()=>{
   assert.match(main,/if\(matchHasOfficiallyStarted\(match\)\)\{showScoreRemoteIndicator\('本場已正式開始'/);
   assert.match(main,/if\(!matchHasOfficiallyStarted\(match\)\)\{showScoreRemoteIndicator\('請先按播放鍵正式開始'/);
