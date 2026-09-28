@@ -4,6 +4,7 @@ import android.annotation.SuppressLint;
 import android.graphics.Color;
 import android.os.Bundle;
 import android.view.View;
+import android.view.MotionEvent;
 import android.webkit.WebChromeClient;
 import android.webkit.WebSettings;
 import android.webkit.WebView;
@@ -15,10 +16,25 @@ public final class MainActivity extends ComponentActivity {
     private static final String START_URL = "https://frolicking-taffy-4c3e5b.netlify.app/";
     private WebView webView;
 
+    private static final class ScrollWebView extends WebView {
+        private float lastY;
+        private boolean moved;
+        ScrollWebView(MainActivity context) { super(context); }
+        @Override public boolean onTouchEvent(MotionEvent event) {
+            if (event.getActionMasked() == MotionEvent.ACTION_DOWN) {
+                lastY = event.getY(); moved = false;
+            } else if (event.getActionMasked() == MotionEvent.ACTION_MOVE) {
+                float dy = lastY - event.getY();
+                if (Math.abs(dy) > 1f) { scrollBy(0, Math.round(dy)); moved = true; lastY = event.getY(); }
+            }
+            return super.onTouchEvent(event);
+        }
+    }
+
     @SuppressLint("SetJavaScriptEnabled")
     @Override public void onCreate(Bundle state) {
         super.onCreate(state);
-        webView = new WebView(this);
+        webView = new ScrollWebView(this);
         webView.setBackgroundColor(Color.rgb(3, 21, 35));
         webView.setWebViewClient(new WebViewClient() {
             @Override public void onPageFinished(WebView view, String url) {
