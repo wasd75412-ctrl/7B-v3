@@ -55,11 +55,11 @@ public final class VolumeKeyInterpreterTest {
     }
 
     @Test
-    public void commonCameraRemoteKeysAreSupported() {
+    public void cameraButtonUsesAndReturnsShuttle() {
         VolumeKeyInterpreter interpreter = new VolumeKeyInterpreter();
         interpreter.onKeyDown(KeyEvent.KEYCODE_CAMERA, 100L, 0);
-        assertEquals(VolumeKeyInterpreter.Action.TEAM_A_PLUS, interpreter.onKeyUp(KeyEvent.KEYCODE_CAMERA, 180L));
+        assertEquals(VolumeKeyInterpreter.Action.USE_SHUTTLE, interpreter.onKeyUp(KeyEvent.KEYCODE_CAMERA, 180L));
         interpreter.onKeyDown(KeyEvent.KEYCODE_ENTER, 300L, 0);
-        assertEquals(VolumeKeyInterpreter.Action.TEAM_B_PLUS, interpreter.onKeyUp(KeyEvent.KEYCODE_ENTER, 380L));
+        assertEquals(VolumeKeyInterpreter.Action.RETURN_SHUTTLE, interpreter.onKeyUp(KeyEvent.KEYCODE_ENTER, 900L));
     }
 }

@@ -39,8 +39,6 @@ public final class MainActivity extends Activity {
     private static final long MISSING_KEY_UP_DELAY_MS = 575L;
     private static final long ACTION_DEBOUNCE_MS = 300L;
     private static final long UNDO_DEBOUNCE_MS = 600L;
-    private static final long DOUBLE_PRESS_MS = 700L;
-    private static final long SHUTTLE_SEQUENCE_MS = 1500L;
     private static final long SHUTTLE_PRESS_COOLDOWN_MS = 2000L;
     private static final long CAMERA_PRECONNECT_TIMEOUT_MS = 5000L;
 
@@ -50,12 +48,7 @@ public final class MainActivity extends Activity {
     private WebView webView;
     private Runnable pendingLongPress;
     private Runnable pendingKeyFallback;
-    private Runnable pendingShortPress;
-    private int pendingShortPressKey = KeyEvent.KEYCODE_UNKNOWN;
-    private long pendingShortPressAt;
     private long lastShuttleActionAt;
-    private int pendingShortPressCount;
-    private VolumeKeyInterpreter.Action pendingShortPressAction = VolumeKeyInterpreter.Action.NONE;
     private long lastPointActionAt;
     private long lastUndoActionAt;
     private volatile boolean activityStarted;
@@ -90,7 +83,7 @@ public final class MainActivity extends Activity {
         settings.setDisplayZoomControls(false);
         settings.setMediaPlaybackRequiresUserGesture(false);
         settings.setMixedContentMode(WebSettings.MIXED_CONTENT_NEVER_ALLOW);
-        settings.setUserAgentString(settings.getUserAgentString() + " 7BAndroidRemote/1.3.16");
+        settings.setUserAgentString(settings.getUserAgentString() + " 7BAndroidRemote/1.3.31");
         CookieManager.getInstance().setAcceptCookie(true);
         CookieManager.getInstance().setAcceptThirdPartyCookies(view, true);
         view.setRendererPriorityPolicy(WebView.RENDERER_PRIORITY_IMPORTANT, true);
@@ -188,7 +181,7 @@ public final class MainActivity extends Activity {
                 scheduleLongPress(keyCode, event.getEventTime());
                 scheduleMissingKeyUpFallback(keyCode);
             }
-            if (action == VolumeKeyInterpreter.Action.UNDO) {
+            if (action == VolumeKeyInterpreter.Action.UNDO || action == VolumeKeyInterpreter.Action.RETURN_SHUTTLE) {
                 cancelLongPress();
                 cancelMissingKeyUpFallback();
             }
@@ -211,7 +204,7 @@ public final class MainActivity extends Activity {
             );
             if (action == VolumeKeyInterpreter.Action.NONE) return;
             cancelMissingKeyUpFallback();
-            sendRemoteAction(action);
+            handleResolvedRemoteAction(action, keyCode, pressedAt + VolumeKeyInterpreter.LONG_PRESS_MS);
         };
         keyHandler.postDelayed(pendingLongPress, VolumeKeyInterpreter.LONG_PRESS_MS);
     }
@@ -239,37 +232,15 @@ public final class MainActivity extends Activity {
     }
 
     private void handleResolvedRemoteAction(VolumeKeyInterpreter.Action action, int keyCode, long eventTime) {
-        if (action == VolumeKeyInterpreter.Action.UNDO) {
-            cancelPendingShortPress();
-            sendRemoteAction(action);
+        if (action == VolumeKeyInterpreter.Action.USE_SHUTTLE || action == VolumeKeyInterpreter.Action.RETURN_SHUTTLE) {
+            long now = SystemClock.uptimeMillis();
+            if (now - lastShuttleActionAt < SHUTTLE_PRESS_COOLDOWN_MS) return;
+            lastShuttleActionAt = now;
+            if (action == VolumeKeyInterpreter.Action.USE_SHUTTLE) sendRemoteUseShuttleCommand();
+            else sendRemoteReturnShuttleCommand();
             return;
         }
-        if (pendingShortPress == null || pendingShortPressKey != keyCode || eventTime - pendingShortPressAt > DOUBLE_PRESS_MS) {
-            cancelPendingShortPress();pendingShortPressKey = keyCode;pendingShortPressCount = 0;pendingShortPressAction = action;
-        }
-        pendingShortPressCount++;pendingShortPressAt = eventTime;
-        if (pendingShortPress != null) keyHandler.removeCallbacks(pendingShortPress);
-        pendingShortPress = () -> {
-            int count=pendingShortPressCount;VolumeKeyInterpreter.Action resolved=pendingShortPressAction;
-            cancelPendingShortPress();
-            if(count==1)sendRemoteAction(resolved);else if(count==2)sendRemoteOfficialStartCommand();else if(count==3){
-                long now=SystemClock.uptimeMillis();
-                if(now-lastShuttleActionAt>=SHUTTLE_PRESS_COOLDOWN_MS){lastShuttleActionAt=now;sendRemoteUseShuttleCommand();}
-            }else if(count==4){
-                long now=SystemClock.uptimeMillis();
-                if(now-lastShuttleActionAt>=SHUTTLE_PRESS_COOLDOWN_MS){lastShuttleActionAt=now;sendRemoteReturnShuttleCommand();}
-            }
-        };
-        keyHandler.postDelayed(pendingShortPress, pendingShortPressCount >= 3 ? SHUTTLE_SEQUENCE_MS : DOUBLE_PRESS_MS);
-    }
-
-    private void cancelPendingShortPress() {
-        if (pendingShortPress != null) keyHandler.removeCallbacks(pendingShortPress);
-        pendingShortPress = null;
-        pendingShortPressKey = KeyEvent.KEYCODE_UNKNOWN;
-        pendingShortPressAt = 0L;
-        pendingShortPressCount = 0;
-        pendingShortPressAction = VolumeKeyInterpreter.Action.NONE;
+        sendRemoteAction(action);
     }
 
     private void sendRemoteUseShuttleCommand() {
@@ -521,7 +492,6 @@ public final class MainActivity extends Activity {
     protected void onDestroy() {
         cancelLongPress();
         cancelMissingKeyUpFallback();
-        cancelPendingShortPress();
         RemoteKeyRelay.clearListener(remoteKeyListener);
         if (webView != null) {
             webView.stopLoading();

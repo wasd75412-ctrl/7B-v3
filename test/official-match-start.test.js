@@ -19,20 +19,18 @@ test('new score screens wait for the explicit official start timestamp',()=>{
   assert.match(main,/function markMatchOfficialStarted\(requestedAt\)[\s\S]*?requestedMillis=timestampMillis\(requestedAt\)[\s\S]*?Math\.min\(requestedMillis,now\)[\s\S]*?saveLiveScoreSoon\(\);saveSoon\(\)/);
 });
 
-test('double press starts the match without changing the other press counts',()=>{
+test('web keyboard double press still starts the match while YUNTENG uses direct keys',()=>{
   assert.match(main,/requestedAt=scoreRemotePendingPress\.requestedAt[\s\S]*?scoreRemotePendingPress=null;markMatchOfficialStarted\(requestedAt\);return/);
   assert.match(main,/scoreRemotePendingPress=\{code,action,at:now,requestedAt:new Date\(\)\.toISOString\(\)/);
   assert.doesNotMatch(main,/scoreRemotePendingPress=null;toggleScoreFullscreen\(\)/);
-  for(const source of [activity,service]){
-    assert.match(source,/count==1[\s\S]*?count==2[\s\S]*?OfficialStart[\s\S]*?count==3[\s\S]*?UseShuttle[\s\S]*?count==4[\s\S]*?ReturnShuttle/);
-  }
+  for(const source of [activity,service])assert.doesNotMatch(source,/pendingShortPressCount|SHUTTLE_SEQUENCE_MS/);
   assert.match(controller,/updates\.put\("officialStartCommand", command\)/);
   assert.doesNotMatch(controller,/updates\.put\(finished \? "undoFinishedCommand" : "fullscreenCommand"/);
 });
 
 test('official start is idempotent and scoring waits for it',()=>{
   assert.match(main,/if\(matchHasOfficiallyStarted\(match\)\)\{showScoreRemoteIndicator\('本場已正式開始'/);
-  assert.match(main,/if\(!matchHasOfficiallyStarted\(match\)\)\{showScoreRemoteIndicator\('請先連按兩下正式開始'/);
+  assert.match(main,/if\(!matchHasOfficiallyStarted\(match\)\)\{showScoreRemoteIndicator\('請先按播放鍵正式開始'/);
   assert.match(main,/function handleRemoteOfficialStartCommand[\s\S]*?markMatchOfficialStarted\(data\.officialStartCommand\.createdAt\)/);
   assert.match(main,/function handleRemoteFullscreenCommand[\s\S]*?markMatchOfficialStarted\(data\.fullscreenCommand\.createdAt\)/);
 });
@@ -46,7 +44,7 @@ test('score mode provides a play fallback for official start in both layouts',()
 });
 
 test('touchscreen scoring cannot bypass the official start timestamp',()=>{
-  assert.match(main,/function guardUnofficialTouchScoring\(event\)[\s\S]*?matchHasOfficiallyStarted\(state\.match\)[\s\S]*?scoreSideA\.contains\(target\)[\s\S]*?\$\('scoreA'\)\.contains\(target\)[\s\S]*?\$\('scoreB'\)\.contains\(target\)[\s\S]*?event\.stopImmediatePropagation\(\)[\s\S]*?請先連按兩下正式開始/);
+  assert.match(main,/function guardUnofficialTouchScoring\(event\)[\s\S]*?matchHasOfficiallyStarted\(state\.match\)[\s\S]*?scoreSideA\.contains\(target\)[\s\S]*?\$\('scoreA'\)\.contains\(target\)[\s\S]*?\$\('scoreB'\)\.contains\(target\)[\s\S]*?event\.stopImmediatePropagation\(\)[\s\S]*?請先按播放鍵正式開始/);
   assert.match(main,/document\.addEventListener\('click',guardUnofficialTouchScoring,\{capture:true\}\)/);
 });
 

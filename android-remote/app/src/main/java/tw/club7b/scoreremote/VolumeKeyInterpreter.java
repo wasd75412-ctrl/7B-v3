@@ -7,7 +7,9 @@ final class VolumeKeyInterpreter {
         NONE,
         TEAM_A_PLUS,
         TEAM_B_PLUS,
-        UNDO
+        UNDO,
+        USE_SHUTTLE,
+        RETURN_SHUTTLE
     }
 
     private int activeKey = -1;
@@ -30,7 +32,7 @@ final class VolumeKeyInterpreter {
     Action onLongPressTimeout(int keyCode, long eventTime) {
         if (activeKey != keyCode || undoSent || eventTime - pressedAt < LONG_PRESS_MS) return Action.NONE;
         undoSent = true;
-        return Action.UNDO;
+        return longPressAction(keyCode);
     }
 
     Action onKeyUp(int keyCode, long eventTime) {
@@ -44,7 +46,7 @@ final class VolumeKeyInterpreter {
         boolean alreadyUndone = undoSent;
         resetActiveKey();
         if (alreadyUndone) return Action.NONE;
-        if (duration >= LONG_PRESS_MS) return Action.UNDO;
+        if (duration >= LONG_PRESS_MS) return longPressAction(keyCode);
         return shortPressAction(keyCode);
     }
 
@@ -65,11 +67,11 @@ final class VolumeKeyInterpreter {
     private static Action shortPressAction(int keyCode) {
         switch (keyCode) {
             case android.view.KeyEvent.KEYCODE_VOLUME_UP:
-            case android.view.KeyEvent.KEYCODE_CAMERA:
-            case android.view.KeyEvent.KEYCODE_ZOOM_IN:
-            case android.view.KeyEvent.KEYCODE_MEDIA_NEXT:
                 return Action.TEAM_A_PLUS;
             case android.view.KeyEvent.KEYCODE_VOLUME_DOWN:
+                return Action.TEAM_B_PLUS;
+            case android.view.KeyEvent.KEYCODE_CAMERA:
+            case android.view.KeyEvent.KEYCODE_ZOOM_IN:
             case android.view.KeyEvent.KEYCODE_FOCUS:
             case android.view.KeyEvent.KEYCODE_ENTER:
             case android.view.KeyEvent.KEYCODE_DPAD_CENTER:
@@ -77,11 +79,18 @@ final class VolumeKeyInterpreter {
             case android.view.KeyEvent.KEYCODE_ZOOM_OUT:
             case android.view.KeyEvent.KEYCODE_HEADSETHOOK:
             case android.view.KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE:
+            case android.view.KeyEvent.KEYCODE_MEDIA_NEXT:
             case android.view.KeyEvent.KEYCODE_MEDIA_PREVIOUS:
-                return Action.TEAM_B_PLUS;
+                return Action.USE_SHUTTLE;
             default:
                 return Action.NONE;
         }
+    }
+
+    private static Action longPressAction(int keyCode) {
+        if (keyCode == android.view.KeyEvent.KEYCODE_VOLUME_UP
+                || keyCode == android.view.KeyEvent.KEYCODE_VOLUME_DOWN) return Action.UNDO;
+        return shortPressAction(keyCode) == Action.USE_SHUTTLE ? Action.RETURN_SHUTTLE : Action.NONE;
     }
 
     static boolean isSupportedRemoteKey(int keyCode) {
