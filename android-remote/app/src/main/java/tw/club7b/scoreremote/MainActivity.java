@@ -41,7 +41,7 @@ public final class MainActivity extends Activity {
     private static final long ACTION_DEBOUNCE_MS = 300L;
     private static final long UNDO_DEBOUNCE_MS = 600L;
     private static final long SHUTTLE_PRESS_COOLDOWN_MS = 2000L;
-    private static final long CAMERA_DOUBLE_PRESS_MS = 800L;
+    private static final long CAMERA_DOUBLE_PRESS_MS = 500L;
     private static final long CAMERA_PRECONNECT_TIMEOUT_MS = 5000L;
 
     private final VolumeKeyInterpreter volumeKeys = new VolumeKeyInterpreter();
@@ -89,7 +89,7 @@ public final class MainActivity extends Activity {
         settings.setDisplayZoomControls(false);
         settings.setMediaPlaybackRequiresUserGesture(false);
         settings.setMixedContentMode(WebSettings.MIXED_CONTENT_NEVER_ALLOW);
-        settings.setUserAgentString(settings.getUserAgentString() + " 7BAndroidRemote/1.3.34");
+        settings.setUserAgentString(settings.getUserAgentString() + " 7BAndroidRemote/1.3.35");
         CookieManager.getInstance().setAcceptCookie(true);
         CookieManager.getInstance().setAcceptThirdPartyCookies(view, true);
         view.setRendererPriorityPolicy(WebView.RENDERER_PRIORITY_IMPORTANT, true);
