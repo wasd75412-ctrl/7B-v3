@@ -2264,8 +2264,8 @@ body:before{
 /* Android Chrome/PWA：讓頁面本身負責垂直捲動，避免固定卡片的 overflow
    截斷觸控捲動手勢；彈出視窗仍由 body.*-modal-open 保持鎖定。 */
 @media (max-width:700px){
-  html,body{overflow-x:hidden;overflow-y:auto;min-height:100%;height:auto}
-  #app .top,#app .tabs,#app .page{overflow:visible}
+  html,body{overflow-x:hidden;overflow-y:auto;min-height:100%;height:auto;touch-action:pan-y}
+  #app,.shell,#app .top,#app .tabs,#app .page{overflow:visible;touch-action:pan-y}
 }
 #app .top:after,#app .page:before,#app .page:after,#app .tabs:before{
   content:"";
