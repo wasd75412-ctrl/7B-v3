@@ -1,2 +1,0 @@
-int drawable icon_512 0x0
-int style AppTheme 0x0
