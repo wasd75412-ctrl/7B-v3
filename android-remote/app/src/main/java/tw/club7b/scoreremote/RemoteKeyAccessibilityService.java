@@ -18,7 +18,7 @@ public final class RemoteKeyAccessibilityService extends AccessibilityService {
     private static final long ACTION_DEBOUNCE_MS = 300L;
     private static final long UNDO_DEBOUNCE_MS = 600L;
     private static final long SHUTTLE_PRESS_COOLDOWN_MS = 2000L;
-    private static final long CAMERA_DOUBLE_PRESS_MS = 450L;
+    private static final long CAMERA_DOUBLE_PRESS_MS = 800L;
 
     private final VolumeKeyInterpreter backgroundKeys = new VolumeKeyInterpreter();
     private final Handler keyHandler = new Handler(Looper.getMainLooper());
