@@ -189,6 +189,12 @@ test('checkpoint failure reports the error and releases the pending write guard'
   assert.deepEqual(calls.errors,['offline']);
 });
 
+test('new-match checkpoint does not queue a full room write behind opening score commands',()=>{
+  const checkpointFlow=main.match(/function checkpointNewMatch\(\)\{[\s\S]*?\n\}/)?.[0]||'';
+  assert.match(checkpointFlow,/saveNewMatchCheckpointNow\(\)/);
+  assert.doesNotMatch(checkpointFlow,/saveSoon/);
+});
+
 test('Android remote cannot publish a match checkpoint',async()=>{
   const {context,calls}=harness(current,{requestedAndroidRemote:true});
   await context.saveNewMatchCheckpointNow();
