@@ -57,6 +57,13 @@ test('official start is idempotent and scoring waits for it',()=>{
   assert.match(main,/function handleRemoteFullscreenCommand[\s\S]*?markMatchOfficialStarted\(data\.fullscreenCommand\.clientCreatedAt\|\|data\.fullscreenCommand\.createdAt\)/);
 });
 
+test('official start discards score presses for three seconds',()=>{
+  assert.match(main,/OFFICIAL_START_SCORE_LOCK_MS=3000/);
+  assert.match(main,/officialStartScoreUnlockAt=now\+OFFICIAL_START_SCORE_LOCK_MS/);
+  assert.match(main,/Date\.now\(\)<officialStartScoreUnlockAt[\s\S]*?正式開始保護中[\s\S]*?return false/);
+  assert.match(main,/比賽正式開始 · 3 秒後可計分[\s\S]*?duration:OFFICIAL_START_SCORE_LOCK_MS/);
+});
+
 test('camera recording start automatically becomes the millisecond timeline baseline',()=>{
   assert.match(controller,/void markBroadcastRecordingStarted\(long clientStartedAt[\s\S]*?command\.put\("clientCreatedAt", clientStartedAt\)[\s\S]*?updates\.put\("recordingStartCommand", command\)/);
   assert.match(main,/function handleRemoteRecordingStartCommand[\s\S]*?timestampMillis\(command\.clientCreatedAt\)\|\|timestampMillis\(command\.createdAt\)[\s\S]*?matchTimelineStarts=.*startedAt\.toISOString\(\)/);
@@ -77,6 +84,6 @@ test('touchscreen scoring cannot bypass the official start timestamp',()=>{
 });
 
 test('official start indicator is emphasized and centered for everyone to see',()=>{
-  assert.match(main,/showScoreRemoteIndicator\('比賽正式開始',\{duration:700,icon:'✅',emphasis:'official'\}\)/);
+  assert.match(main,/showScoreRemoteIndicator\('比賽正式開始 · 3 秒後可計分',\{duration:OFFICIAL_START_SCORE_LOCK_MS,icon:'✅',emphasis:'official'\}\)/);
   assert.match(styles,/\.score-remote-indicator\.official-start\{[^}]*top:50%;[^}]*left:50%;[^}]*transform:translate\(-50%,-50%\);[^}]*font-size:clamp\(2rem,7vw,5rem\)/);
 });

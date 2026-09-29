@@ -102,10 +102,10 @@ if(requestedAndroidRemote){
   $('landingJoinDivider').textContent='連接目前球局';
   $('joinRoom').textContent='連接球局';
 }
-const SCORE_REMOTE_ENABLED_KEY='bcmScoreRemoteEnabledV1',SCORE_REMOTE_BINDINGS_KEY='bcmScoreRemoteBindingsV1',SCORE_REMOTE_DOUBLE_PRESS_MS=700;
+const SCORE_REMOTE_ENABLED_KEY='bcmScoreRemoteEnabledV1',SCORE_REMOTE_BINDINGS_KEY='bcmScoreRemoteBindingsV1',SCORE_REMOTE_DOUBLE_PRESS_MS=700,OFFICIAL_START_SCORE_LOCK_MS=3000;
 const SCORE_REMOTE_ACTION_LABELS={teamAPlus:'A隊 ＋1',teamBPlus:'B隊 ＋1',undo:'撤銷上一分',teamAMinus:'A隊 −1',teamBMinus:'B隊 −1'};
 const SCORE_REMOTE_BINDING_IDS={teamAPlus:'remoteBindingTeamAPlus',teamBPlus:'remoteBindingTeamBPlus',undo:'remoteBindingUndo',teamAMinus:'remoteBindingTeamAMinus',teamBMinus:'remoteBindingTeamBMinus'};
-let scoreRemoteEnabled=localStorage.getItem(SCORE_REMOTE_ENABLED_KEY)==='1',scoreRemoteBindings=loadScoreRemoteBindings(),scoreRemoteLearningAction='',scoreRemoteLastInputAt=0,scoreRemoteIndicatorTimer=null,scoreRemoteLearningTimer=null,scoreRemoteStatusMessage='',scoreRemoteStatusKind='',scoreRemotePressedCodes=new Set(),scoreRemotePendingPress=null;
+let scoreRemoteEnabled=localStorage.getItem(SCORE_REMOTE_ENABLED_KEY)==='1',scoreRemoteBindings=loadScoreRemoteBindings(),scoreRemoteLearningAction='',scoreRemoteLastInputAt=0,scoreRemoteIndicatorTimer=null,scoreRemoteLearningTimer=null,scoreRemoteStatusMessage='',scoreRemoteStatusKind='',scoreRemotePressedCodes=new Set(),scoreRemotePendingPress=null,officialStartScoreUnlockAt=0;
 
 function loadScoreRemoteBindings(){
   try{return normalizeRemoteBindings(JSON.parse(localStorage.getItem(SCORE_REMOTE_BINDINGS_KEY)||'{}'))}catch{return normalizeRemoteBindings()}
@@ -149,14 +149,16 @@ function markMatchOfficialStarted(requestedAt){
   androidOfficialStartPending=null;
   const now=Date.now(),requestedMillis=timestampMillis(requestedAt);
   match.startedAt=new Date(Number.isFinite(requestedMillis)?Math.min(requestedMillis,now):now).toISOString();
+  officialStartScoreUnlockAt=now+OFFICIAL_START_SCORE_LOCK_MS;
   saveLiveScoreSoon();saveSoon();renderDashboard();
-  showScoreRemoteIndicator('比賽正式開始',{duration:700,icon:'✅',emphasis:'official'});
+  showScoreRemoteIndicator('比賽正式開始 · 3 秒後可計分',{duration:OFFICIAL_START_SCORE_LOCK_MS,icon:'✅',emphasis:'official'});
   return true;
 }
 function performScoreRemoteAction(action,{announce=true}={}){
   const match=state.match;
   if(action==='teamAPlus'||action==='teamBPlus'){
     if(!matchHasOfficiallyStarted(match)){showScoreRemoteIndicator('請先按播放鍵正式開始',{duration:1600,icon:'▶️'});return false}
+    if(Date.now()<officialStartScoreUnlockAt){const seconds=Math.max(1,Math.ceil((officialStartScoreUnlockAt-Date.now())/1000));showScoreRemoteIndicator(`正式開始保護中 · ${seconds} 秒後可計分`,{duration:900,icon:'⏳'});return false}
     if(match.winner!==null)return false;
     match.rallies.push(action==='teamAPlus'?0:1);replay();if(announce&&voiceEnabled)setTimeout(announceScore,80);return true;
   }
