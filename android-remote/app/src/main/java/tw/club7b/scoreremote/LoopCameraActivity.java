@@ -83,6 +83,7 @@ public final class LoopCameraActivity extends ComponentActivity {
     private Runnable pendingYuntengPress;
     private BackgroundScoreController remoteScoreController;
     private PreviewView previewView;
+    private android.view.View scorePreviewOverlay;
     private TextView status;
     private VideoCapture<Recorder> videoCapture;
     private OverlayEffect scoreOverlayEffect;
@@ -105,7 +106,7 @@ public final class LoopCameraActivity extends ComponentActivity {
         broadcastMode = getIntent().getBooleanExtra(EXTRA_BROADCAST_MODE, false);
         RemoteSessionStore.setRecordingEnabled(this, true);
         buildUi();
-        if (broadcastMode) liveMatchOverlay = new LiveMatchOverlayController(this, overlayState::set);
+        if (broadcastMode) liveMatchOverlay = new LiveMatchOverlayController(this, this::updateScoreOverlay);
         if (hasPermission(Manifest.permission.CAMERA)) startCamera();
         else requestPermissions(new String[]{Manifest.permission.CAMERA, Manifest.permission.RECORD_AUDIO}, CAMERA_PERMISSION_REQUEST);
     }
@@ -152,6 +153,16 @@ public final class LoopCameraActivity extends ComponentActivity {
         previewView = new PreviewView(this);
         previewView.setScaleType(PreviewView.ScaleType.FILL_CENTER);
         root.addView(previewView, new FrameLayout.LayoutParams(-1, -1));
+        if (broadcastMode) {
+            scorePreviewOverlay = new android.view.View(this) {
+                @Override protected void onDraw(android.graphics.Canvas canvas) {
+                    super.onDraw(canvas);
+                    drawScoreBoard(canvas, 0f, 0f, getWidth(), getHeight(), overlayState.get());
+                }
+            };
+            scorePreviewOverlay.setClickable(false);
+            root.addView(scorePreviewOverlay, new FrameLayout.LayoutParams(-1, -1));
+        }
         LinearLayout bar = new LinearLayout(this);
         bar.setGravity(Gravity.CENTER_VERTICAL); bar.setPadding(22, 14, 22, 14); bar.setBackgroundColor(0xB0000000);
         ViewCompat.setOnApplyWindowInsetsListener(bar, (view, windowInsets) -> {
@@ -218,7 +229,7 @@ public final class LoopCameraActivity extends ComponentActivity {
 
     private OverlayEffect createScoreOverlayEffect() {
         OverlayEffect effect = new OverlayEffect(
-                CameraEffect.PREVIEW | CameraEffect.VIDEO_CAPTURE,
+                CameraEffect.VIDEO_CAPTURE,
                 0,
                 handler,
                 error -> Log.e("7BRecording", "Score overlay failed", error)
@@ -233,7 +244,6 @@ public final class LoopCameraActivity extends ComponentActivity {
     private void drawScoreOverlay(android.graphics.Canvas canvas, Rect cropRect, int rotationDegrees, LiveMatchOverlayController.OverlayState match) {
         canvas.drawColor(Color.TRANSPARENT, android.graphics.PorterDuff.Mode.CLEAR);
         if (match == null || !match.active) return;
-        int save = canvas.save();
         float width = cropRect.width(), height = cropRect.height();
         float viewportLeft = cropRect.left, viewportTop = cropRect.top;
         float targetAspect = 16f / 9f;
@@ -246,6 +256,17 @@ public final class LoopCameraActivity extends ComponentActivity {
             viewportLeft += (width - viewportWidth) / 2f;
             width = viewportWidth;
         }
+        drawScoreBoard(canvas, viewportLeft, viewportTop, width, height, match);
+    }
+
+    private void updateScoreOverlay(LiveMatchOverlayController.OverlayState match) {
+        overlayState.set(match);
+        if (scorePreviewOverlay != null) scorePreviewOverlay.postInvalidate();
+    }
+
+    private void drawScoreBoard(android.graphics.Canvas canvas, float viewportLeft, float viewportTop, float width, float height, LiveMatchOverlayController.OverlayState match) {
+        if (match == null || !match.active || width <= 0f || height <= 0f) return;
+        int save = canvas.save();
         canvas.translate(viewportLeft, viewportTop);
         float margin = Math.max(12f, width * 0.012f);
         float boardWidth = Math.min(width * 0.28f, height * 0.64f);
