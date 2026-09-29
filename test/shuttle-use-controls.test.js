@@ -82,9 +82,11 @@ test('converts YUNTENG zoom gestures into score keys in remote and recording scr
   assert.match(yuntengGestures,/horizontalGesture[\s\S]*?Math\.max\(x0, x1\)[\s\S]*?Math\.max\(y0, y1\)/);
   assert.match(yuntengGestures,/HORIZONTAL_TEAM_SPLIT = 0\.865f/);
   assert.match(yuntengGestures,/rangeMax < 1500f[\s\S]*?HORIZONTAL_TEAM_SPLIT/);
-  assert.match(yuntengGestures,/ACTION_POINTER_DOWN[\s\S]*?pendingAction = classifyAxes/);
+  assert.match(yuntengGestures,/ACTION_POINTER_DOWN[\s\S]*?pendingAxisStart/);
   assert.match(yuntengGestures,/GESTURE_SETTLE_MS = 40L/);
-  assert.match(yuntengGestures,/ACTION_MOVE[\s\S]*?pendingAction = classifyAxes/);
+  assert.match(yuntengGestures,/ACTION_MOVE[\s\S]*?gestureAction = candidate/);
+  assert.match(yuntengGestures,/ACTION_POINTER_UP[\s\S]*?ACTION_UP[\s\S]*?pendingAction = gestureAction/);
+  assert.match(yuntengGestures,/delta > 0f[\s\S]*?TEAM_A_PLUS[\s\S]*?TEAM_B_PLUS/);
   assert.match(yuntengGestures,/Math\.max\(x0, x1\)[\s\S]*?Math\.max\(y0, y1\)/);
   assert.match(yuntengGestures,/onSettledPress\(\)/);
   assert.match(activity,/dispatchTouchEvent\(MotionEvent event\)[\s\S]*?sendYuntengScoreAction\(action\)/);

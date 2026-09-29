@@ -12,7 +12,10 @@ final class YuntengGestureInterpreter {
     static final long GESTURE_SETTLE_MS = 40L;
     static final long PRESS_QUIET_GAP_MS = 150L;
     private VolumeKeyInterpreter.Action pendingAction = VolumeKeyInterpreter.Action.NONE;
+    private VolumeKeyInterpreter.Action gestureAction = VolumeKeyInterpreter.Action.NONE;
     private long lastPointerDownAt = Long.MIN_VALUE;
+    private boolean pendingHorizontal;
+    private float pendingAxisStart = Float.NaN;
 
     boolean isYuntengEvent(MotionEvent event) {
         InputDevice device = event == null ? null : event.getDevice();
@@ -37,24 +40,37 @@ final class YuntengGestureInterpreter {
     VolumeKeyInterpreter.Action onTouchEvent(MotionEvent event) {
         if (!isYuntengEvent(event)) return VolumeKeyInterpreter.Action.NONE;
         int action = event.getActionMasked();
-        if (event.getPointerCount() < 2) return VolumeKeyInterpreter.Action.NONE;
         if (action == MotionEvent.ACTION_POINTER_DOWN) {
+            if (event.getPointerCount() < 2) return VolumeKeyInterpreter.Action.NONE;
             long eventTime = event.getEventTime();
             boolean newPress = isNewPress(lastPointerDownAt, eventTime);
             lastPointerDownAt = eventTime;
             if (!newPress) return VolumeKeyInterpreter.Action.NONE;
-        } else if (action != MotionEvent.ACTION_MOVE || !hasPendingPress()) {
+            pendingHorizontal = Math.abs(event.getX(1) - event.getX(0))
+                    > Math.abs(event.getY(1) - event.getY(0));
+            pendingAxisStart = pendingHorizontal ? event.getX(1) : event.getY(1);
+            pendingAction = VolumeKeyInterpreter.Action.NONE;
+            gestureAction = VolumeKeyInterpreter.Action.NONE;
             return VolumeKeyInterpreter.Action.NONE;
         }
-        InputDevice.MotionRange xRange = event.getDevice().getMotionRange(MotionEvent.AXIS_X, event.getSource());
-        InputDevice.MotionRange yRange = event.getDevice().getMotionRange(MotionEvent.AXIS_Y, event.getSource());
-        pendingAction = classifyAxes(
-                event.getDevice().getName(),
-                event.getX(0), event.getY(0),
-                event.getX(1), event.getY(1),
-                xRange == null ? 0f : xRange.getMax(),
-                yRange == null ? 0f : yRange.getMax()
-        );
+        if (action == MotionEvent.ACTION_MOVE && event.getPointerCount() >= 2
+                && !Float.isNaN(pendingAxisStart)) {
+            float currentAxis = pendingHorizontal ? event.getX(1) : event.getY(1);
+            VolumeKeyInterpreter.Action candidate = classifyDirection(
+                    event.getDevice().getName(), currentAxis - pendingAxisStart);
+            if (candidate != VolumeKeyInterpreter.Action.NONE) gestureAction = candidate;
+            return VolumeKeyInterpreter.Action.NONE;
+        }
+        if (action != MotionEvent.ACTION_POINTER_UP && action != MotionEvent.ACTION_UP) {
+            return VolumeKeyInterpreter.Action.NONE;
+        }
+        pendingAxisStart = Float.NaN;
+        if (gestureAction == VolumeKeyInterpreter.Action.NONE || hasPendingPress()) {
+            gestureAction = VolumeKeyInterpreter.Action.NONE;
+            return VolumeKeyInterpreter.Action.NONE;
+        }
+        pendingAction = gestureAction;
+        gestureAction = VolumeKeyInterpreter.Action.NONE;
         return VolumeKeyInterpreter.Action.NONE;
     }
 
@@ -66,6 +82,8 @@ final class YuntengGestureInterpreter {
 
     private void reset() {
         pendingAction = VolumeKeyInterpreter.Action.NONE;
+        gestureAction = VolumeKeyInterpreter.Action.NONE;
+        pendingAxisStart = Float.NaN;
     }
 
     boolean hasPendingPress() {
@@ -102,5 +120,13 @@ final class YuntengGestureInterpreter {
         float value = horizontalGesture ? Math.max(x0, x1) : Math.max(y0, y1);
         float split = rangeMax < 1500f ? HORIZONTAL_TEAM_SPLIT : TEAM_SPLIT;
         return classify(deviceName, value, rangeMax, split);
+    }
+
+    static VolumeKeyInterpreter.Action classifyDirection(String deviceName, float delta) {
+        if (deviceName == null || !deviceName.toUpperCase(Locale.ROOT).contains("YUNTENG")
+                || Math.abs(delta) < 5f) return VolumeKeyInterpreter.Action.NONE;
+        return delta > 0f
+                ? VolumeKeyInterpreter.Action.TEAM_A_PLUS
+                : VolumeKeyInterpreter.Action.TEAM_B_PLUS;
     }
 }
