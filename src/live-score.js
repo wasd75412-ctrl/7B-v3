@@ -66,10 +66,6 @@ export function createMatchCheckpointData(match){
   return{liveScore,room:{match:liveScore.match,liveScoreEnabled:true,liveScoreMatchKey:liveMatchKey(match)}};
 }
 
-export function syncActivity({roomPending=false,livePending=false}={}){
-  return{roomPending:!!roomPending,livePending:!!livePending,anyPending:!!roomPending||!!livePending};
-}
-
 export function generalRoomStateWithoutMatch(encodedState={}){
   const {match:_liveMatch,...generalState}=encodedState&&typeof encodedState==='object'?encodedState:{};
   return generalState;

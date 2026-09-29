@@ -73,7 +73,7 @@ function harness(liveMatch=current,overrides={}){
     return{...general,liveScoreEnabled:true};
   };
   for(const name of ['decodeState','cleanState','matchScoreSignature','canApplyMatch','applyState',
-    'applyLiveScoreState','rememberLatestLiveMatch','newMatchRoomPayload','saveNewMatchCheckpointNow','adoptRestoredState']){
+    'applyLiveScoreState','rememberLatestLiveMatch','saveNewMatchCheckpointNow','adoptRestoredState']){
     vm.runInContext(productionFunction(name),context,{filename:`main.js:${name}`});
   }
   return{context,calls};
@@ -172,8 +172,6 @@ test('checkpoint commits matching room and live epochs together with the new rot
   for(const key of ['court','nextCall','waitingQueue','queueDraftChosen','priority']){
     assert.deepEqual(structuredClone(room.data[key]),rotation[key],key);
   }
-  assert.equal('history' in room.data,false);
-  assert.equal('roster' in room.data,false);
   context.state.match=structuredClone(future);
   resolveCommit();await saving;
   assert.equal(context.pendingLiveScoreWrites,0);
@@ -187,12 +185,6 @@ test('checkpoint failure reports the error and releases the pending write guard'
   await assert.rejects(context.saveNewMatchCheckpointNow(),failure);
   assert.equal(context.pendingLiveScoreWrites,0);
   assert.deepEqual(calls.errors,['offline']);
-});
-
-test('new-match checkpoint does not queue a full room write behind opening score commands',()=>{
-  const checkpointFlow=main.match(/function checkpointNewMatch\(\)\{[\s\S]*?\n\}/)?.[0]||'';
-  assert.match(checkpointFlow,/saveNewMatchCheckpointNow\(\)/);
-  assert.doesNotMatch(checkpointFlow,/saveSoon/);
 });
 
 test('Android remote cannot publish a match checkpoint',async()=>{

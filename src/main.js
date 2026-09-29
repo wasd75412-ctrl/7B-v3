@@ -5,7 +5,7 @@ import { calculateCombinedPerPersonFee, calculatePerPersonFee, shouldShowNextEve
 import { shouldShowNotificationPrompt } from './notifications.js';
 import { normalizeMatchReplayTitle, normalizeYouTubePlaylistUrl } from './youtube.js';
 import { DEFAULT_SCORE_REMOTE_BINDINGS, VIRTUAL_REMOTE_CLICK_CODE, advanceRemotePressState, assignRemoteBinding, isEditableRemoteTarget, normalizeRemoteBindings, remoteActionForCode, remoteEventCode, shouldHandleRemoteInput } from './score-remote.js';
-import { createLiveScoreData, createMatchCheckpointData, decodeLiveMatch, generalRoomStateWithoutMatch, liveMatchKey, nextMatchEpoch, shouldAnnounceSyncedLiveScore, shouldApplyIncomingLiveMatch, shouldShowScoreView, syncActivity } from './live-score.js';
+import { createLiveScoreData, createMatchCheckpointData, decodeLiveMatch, generalRoomStateWithoutMatch, liveMatchKey, nextMatchEpoch, shouldAnnounceSyncedLiveScore, shouldApplyIncomingLiveMatch, shouldShowScoreView } from './live-score.js';
 import { shouldAcceptRemoteCommand, timestampMillis } from './remote-command.js';
 import { canAutoSyncPlayerIdentity } from './device-sync.js';
 import { shouldRequestNativeWakeLock, wakeLockButtonIntent, wakeLockControlIsActive } from './wake-lock.js';
@@ -1530,17 +1530,9 @@ function setSync(text,type=''){
 }
 function updateSyncBadge(){
   if(!roomRef)return;
-  const activity=syncActivity({
-    roomPending:roomWriteScheduled||pendingRoomWrites>0||snapshotHasPendingWrites,
-    livePending:liveScoreWriteScheduled||pendingLiveScoreWrites>0||liveScoreHasPendingWrites||liveScoreConnecting
-  });
+  const pending=roomWriteScheduled||liveScoreWriteScheduled||pendingRoomWrites>0||pendingLiveScoreWrites>0||snapshotHasPendingWrites||liveScoreHasPendingWrites||liveScoreConnecting;
   if(!navigator.onLine||roomSnapshotFromCache||(liveScoreReady&&liveScoreSnapshotFromCache))return setSync(isHost?'離線計分中':'離線瀏覽中','offline');
-  if(activity.livePending)return setSync('正在同步比分','pending');
-  if(activity.roomPending){
-    setSync('背景同步中','pending');
-    const scoreBadge=$('scoreSyncBadge');if(scoreBadge){scoreBadge.textContent='即時連線';scoreBadge.className='score-sync-badge online'}
-    return;
-  }
+  if(pending)return setSync('正在補同步','pending');
   setSync('已同步','online');
 }
 window.addEventListener('offline',()=>{updateSyncBadge();renderChat()});
@@ -1962,20 +1954,6 @@ function completedMatchSyncPayload(){
     updatedAt:serverTimestamp()
   }
 }
-function newMatchRoomPayload(){
-  const encoded=payload(),checkpoint=createMatchCheckpointData(state.match);
-  return{
-    ...checkpoint.room,
-    court:encoded.court,
-    waitingQueue:encoded.waitingQueue,
-    queueDraftChosen:encoded.queueDraftChosen,
-    priority:encoded.priority,
-    lastLoserReplayPlayerId:encoded.lastLoserReplayPlayerId,
-    nextCall:encoded.nextCall,
-    matchRollback:encoded.matchRollback,
-    updatedAt:serverTimestamp()
-  };
-}
 async function saveCompletedMatchStatsNow(){
   if(requestedAndroidRemote||!isHost||applying||!roomRef)return false;
   clearTimeout(saveTimer);saveTimer=null;roomWriteScheduled=false;
@@ -2057,15 +2035,13 @@ async function saveNewMatchCheckpointNow(){
   rememberLatestLiveMatch();liveScoreReady=true;
   const checkpoint=createMatchCheckpointData(state.match),batch=writeBatch(db);
   batch.set(liveScoreRef,{...checkpoint.liveScore,updatedAt:serverTimestamp()},{merge:true});
-  batch.set(roomRef,newMatchRoomPayload(),{merge:true});
+  batch.set(roomRef,{...payload(),...checkpoint.room},{merge:true});
   pendingLiveScoreWrites++;updateSyncBadge();
   try{await batch.commit()}
   catch(error){setSync('比分同步失敗','error');setError(formatError(error));throw error}
   finally{pendingLiveScoreWrites=Math.max(0,pendingLiveScoreWrites-1);updateSyncBadge()}
 }
-function checkpointNewMatch(){
-  void saveNewMatchCheckpointNow().catch(error=>console.warn('比賽切換同步失敗',error));
-}
+function checkpointNewMatch(){void saveNewMatchCheckpointNow().catch(error=>console.warn('比賽切換同步失敗',error))}
 function adoptRestoredState(data){
   const nextEpoch=nextMatchEpoch(state.match);
   state=cleanState(data);
