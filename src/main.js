@@ -2064,7 +2064,9 @@ async function saveNewMatchCheckpointNow(){
   finally{pendingLiveScoreWrites=Math.max(0,pendingLiveScoreWrites-1);updateSyncBadge()}
 }
 function checkpointNewMatch(){
-  void saveNewMatchCheckpointNow().catch(error=>console.warn('比賽切換同步失敗',error));
+  void saveNewMatchCheckpointNow()
+    .then(()=>saveSoon(900))
+    .catch(error=>console.warn('比賽切換同步失敗',error));
 }
 function adoptRestoredState(data){
   const nextEpoch=nextMatchEpoch(state.match);
