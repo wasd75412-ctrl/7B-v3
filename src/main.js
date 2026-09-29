@@ -266,6 +266,10 @@ function handleScoreRemoteCode(event,code){
   if(correctingFinishedMatch&&(!scoreRemoteEnabled||!isHost||$('scoreView').classList.contains('hidden')||event.repeat||isEditableRemoteTarget(event.target)))return;
   const now=performance.now();if(now-scoreRemoteLastInputAt<120)return;scoreRemoteLastInputAt=now;
   event.preventDefault();
+  if(['teamAPlus','teamBPlus'].includes(action)&&state.match.active&&state.match.winner===null&&!matchHasOfficiallyStarted(state.match)){
+    if(scoreRemotePendingPress){clearTimeout(scoreRemotePendingPress.timer);scoreRemotePendingPress=null}
+    markMatchOfficialStarted(new Date().toISOString());return;
+  }
   if(scoreRemotePendingPress&&scoreRemotePendingPress.code===code&&now-scoreRemotePendingPress.at<=SCORE_REMOTE_DOUBLE_PRESS_MS){
     const requestedAt=scoreRemotePendingPress.requestedAt;
     clearTimeout(scoreRemotePendingPress.timer);scoreRemotePendingPress=null;markMatchOfficialStarted(requestedAt);return;
@@ -1876,19 +1880,8 @@ function handleRemoteStartMatchCommand(data,{initial=false}={}){
 }
 function handleAndroidOfficialStartPress(action,command){
   if(!['teamAPlus','teamBPlus'].includes(action)||!state.match.active||state.match.winner!==null||matchHasOfficiallyStarted(state.match))return false;
-  if(command?.doublePress===true){
-    androidOfficialStartPending=null;
-    markMatchOfficialStarted(command?.clientCreatedAt||command?.createdAt||new Date().toISOString());
-    return true;
-  }
-  const now=timestampMillis(command?.clientCreatedAt)||timestampMillis(command?.createdAt)||Date.now(),matchId=String(state.match.matchId||'');
-  if(androidOfficialStartPending&&androidOfficialStartPending.action===action&&androidOfficialStartPending.matchId===matchId&&now-androidOfficialStartPending.at<=SCORE_REMOTE_DOUBLE_PRESS_MS){
-    androidOfficialStartPending=null;
-    markMatchOfficialStarted(command?.clientCreatedAt||command?.createdAt||new Date().toISOString());
-    return true;
-  }
-  androidOfficialStartPending={action,matchId,at:now};
-  showScoreRemoteIndicator('快速再按同一鍵正式開始',{duration:SCORE_REMOTE_DOUBLE_PRESS_MS,icon:'▶️'});
+  androidOfficialStartPending=null;
+  markMatchOfficialStarted(command?.clientCreatedAt||command?.createdAt||new Date().toISOString());
   return true;
 }
 function handleRemoteActionCommand(data,{initial=false}={}){
