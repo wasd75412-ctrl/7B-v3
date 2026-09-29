@@ -151,7 +151,7 @@ function markMatchOfficialStarted(requestedAt){
   match.startedAt=new Date(Number.isFinite(requestedMillis)?Math.min(requestedMillis,now):now).toISOString();
   officialStartScoreUnlockAt=now+OFFICIAL_START_SCORE_LOCK_MS;
   saveLiveScoreSoon();saveSoon();renderDashboard();
-  showScoreRemoteIndicator('比賽正式開始',{duration:OFFICIAL_START_SCORE_LOCK_MS,icon:'✅',emphasis:'official'});
+  showScoreRemoteIndicator('比賽正式開始',{duration:500,icon:'✅',emphasis:'official'});
   return true;
 }
 function performScoreRemoteAction(action,{announce=true}={}){

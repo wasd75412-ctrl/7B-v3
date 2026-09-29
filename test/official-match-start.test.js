@@ -61,7 +61,7 @@ test('official start discards score presses for three seconds',()=>{
   assert.match(main,/OFFICIAL_START_SCORE_LOCK_MS=3000/);
   assert.match(main,/officialStartScoreUnlockAt=now\+OFFICIAL_START_SCORE_LOCK_MS/);
   assert.match(main,/Date\.now\(\)<officialStartScoreUnlockAt[\s\S]*?正式開始保護中[\s\S]*?return false/);
-  assert.match(main,/showScoreRemoteIndicator\('比賽正式開始',\{duration:OFFICIAL_START_SCORE_LOCK_MS/);
+  assert.match(main,/showScoreRemoteIndicator\('比賽正式開始',\{duration:500/);
 });
 
 test('camera recording start automatically becomes the millisecond timeline baseline',()=>{
@@ -84,6 +84,6 @@ test('touchscreen scoring cannot bypass the official start timestamp',()=>{
 });
 
 test('official start indicator is emphasized and centered for everyone to see',()=>{
-  assert.match(main,/showScoreRemoteIndicator\('比賽正式開始',\{duration:OFFICIAL_START_SCORE_LOCK_MS,icon:'✅',emphasis:'official'\}\)/);
+  assert.match(main,/showScoreRemoteIndicator\('比賽正式開始',\{duration:500,icon:'✅',emphasis:'official'\}\)/);
   assert.match(styles,/\.score-remote-indicator\.official-start\{[^}]*top:50%;[^}]*left:50%;[^}]*transform:translate\(-50%,-50%\);[^}]*font-size:clamp\(2rem,7vw,5rem\)/);
 });
