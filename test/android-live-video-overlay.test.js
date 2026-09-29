@@ -7,8 +7,12 @@ const overlay=readFileSync(new URL('../android-remote/app/src/main/java/tw/club7
 const accessibility=readFileSync(new URL('../android-remote/app/src/main/java/tw/club7b/scoreremote/RemoteKeyAccessibilityService.java',import.meta.url),'utf8');
 const main=readFileSync(new URL('../src/main.js',import.meta.url),'utf8');
 
-test('burns the live player and score overlay into both preview and recorded video',()=>{
-  assert.match(camera,/CameraEffect\.PREVIEW \| CameraEffect\.VIDEO_CAPTURE/);
+test('shows the live score in the visible recording preview and burns it into recorded video',()=>{
+  assert.match(camera,/scorePreviewOverlay = new android\.view\.View/);
+  assert.match(camera,/drawScoreBoard\(canvas, 0f, 0f, getWidth\(\), getHeight\(\), overlayState\.get\(\)\)/);
+  assert.match(camera,/scorePreviewOverlay\.postInvalidate\(\)/);
+  assert.match(camera,/new OverlayEffect\(\s*CameraEffect\.VIDEO_CAPTURE/);
+  assert.doesNotMatch(camera,/CameraEffect\.PREVIEW \| CameraEffect\.VIDEO_CAPTURE/);
   assert.match(camera,/\.addEffect\(scoreOverlayEffect\)/);
   assert.match(camera,/drawScoreOverlay\(frame\.getOverlayCanvas\(\), frame\.getCropRect\(\), frame\.getRotationDegrees\(\), overlayState\.get\(\)\)/);
   assert.match(camera,/fitTeamLabel\(match\.teamA, names, nameMaxWidth\)/);
