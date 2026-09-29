@@ -80,8 +80,7 @@ public final class LoopCameraActivity extends ComponentActivity {
     private final Runnable rotate = this::stopSegment;
     private final Runnable recoverRecording = this::startSegmentIfVisible;
     private final YuntengGestureInterpreter yuntengGestures = new YuntengGestureInterpreter();
-    private Runnable pendingYuntengLongPress;
-    private Runnable pendingYuntengShortPress;
+    private Runnable pendingYuntengPress;
     private BackgroundScoreController remoteScoreController;
     private PreviewView previewView;
     private TextView status;
@@ -120,53 +119,25 @@ public final class LoopCameraActivity extends ComponentActivity {
 
     @Override public boolean dispatchTouchEvent(MotionEvent event) {
         if (!yuntengGestures.isYuntengEvent(event)) return super.dispatchTouchEvent(event);
-        VolumeKeyInterpreter.Action action = yuntengGestures.onTouchEvent(event);
-        if (yuntengGestures.hasPendingPress()) scheduleYuntengPressTimers();
-        else cancelYuntengPressTimers();
-        if (action != VolumeKeyInterpreter.Action.NONE) sendYuntengScore(action);
+        yuntengGestures.onTouchEvent(event);
+        if (yuntengGestures.hasPendingPress()) scheduleYuntengPress();
         return true;
     }
 
-    private void scheduleYuntengPressTimers() {
-        if (pendingYuntengShortPress == null) {
-            pendingYuntengShortPress = () -> {
-                pendingYuntengShortPress = null;
-                VolumeKeyInterpreter.Action action = yuntengGestures.onShortPressTimeout();
-                if (action != VolumeKeyInterpreter.Action.NONE) {
-                    cancelYuntengLongPress();
-                    sendYuntengScore(action);
-                }
-            };
-            handler.postDelayed(pendingYuntengShortPress, YuntengGestureInterpreter.SHORT_CONFIRM_MS);
-        }
-        if (pendingYuntengLongPress == null) {
-            pendingYuntengLongPress = () -> {
-                pendingYuntengLongPress = null;
-                VolumeKeyInterpreter.Action action = yuntengGestures.onLongPressTimeout();
-                if (action != VolumeKeyInterpreter.Action.NONE) {
-                    cancelYuntengShortPress();
-                    sendYuntengScore(action);
-                }
-            };
-            handler.postDelayed(pendingYuntengLongPress, YuntengGestureInterpreter.LONG_PRESS_MS);
-        }
+    private void scheduleYuntengPress() {
+        if (pendingYuntengPress != null) return;
+        pendingYuntengPress = () -> {
+            pendingYuntengPress = null;
+            VolumeKeyInterpreter.Action action = yuntengGestures.onSettledPress();
+            if (action != VolumeKeyInterpreter.Action.NONE) sendYuntengScore(action);
+        };
+        handler.postDelayed(pendingYuntengPress, YuntengGestureInterpreter.GESTURE_SETTLE_MS);
     }
 
     private void cancelYuntengPressTimers() {
-        cancelYuntengShortPress();
-        cancelYuntengLongPress();
-    }
-
-    private void cancelYuntengShortPress() {
-        if (pendingYuntengShortPress == null) return;
-        handler.removeCallbacks(pendingYuntengShortPress);
-        pendingYuntengShortPress = null;
-    }
-
-    private void cancelYuntengLongPress() {
-        if (pendingYuntengLongPress == null) return;
-        handler.removeCallbacks(pendingYuntengLongPress);
-        pendingYuntengLongPress = null;
+        if (pendingYuntengPress == null) return;
+        handler.removeCallbacks(pendingYuntengPress);
+        pendingYuntengPress = null;
     }
 
     private void sendYuntengScore(VolumeKeyInterpreter.Action action) {
