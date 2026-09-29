@@ -136,6 +136,7 @@ public final class MainActivity extends Activity {
     protected void onResume() {
         super.onResume();
         activityResumed = true;
+        scoreController().warmUp((success, message) -> { });
         if (webView == null) createWebView();
         if (webView != null) {
             webView.resumeTimers();

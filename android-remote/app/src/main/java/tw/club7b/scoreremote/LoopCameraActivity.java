@@ -105,6 +105,8 @@ public final class LoopCameraActivity extends ComponentActivity {
         getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
         broadcastMode = getIntent().getBooleanExtra(EXTRA_BROADCAST_MODE, false);
         RemoteSessionStore.setRecordingEnabled(this, true);
+        remoteScoreController = new BackgroundScoreController(this);
+        remoteScoreController.warmUp((success, message) -> { });
         buildUi();
         if (broadcastMode) liveMatchOverlay = new LiveMatchOverlayController(this, this::updateScoreOverlay);
         if (hasPermission(Manifest.permission.CAMERA)) startCamera();

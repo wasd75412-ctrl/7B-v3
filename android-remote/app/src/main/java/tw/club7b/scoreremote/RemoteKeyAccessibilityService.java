@@ -37,6 +37,7 @@ public final class RemoteKeyAccessibilityService extends AccessibilityService {
         if (info == null) return;
         info.flags |= AccessibilityServiceInfo.FLAG_REQUEST_FILTER_KEY_EVENTS;
         setServiceInfo(info);
+        scoreController().warmUp((success, message) -> { });
     }
 
     @Override
