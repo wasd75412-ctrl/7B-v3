@@ -77,6 +77,6 @@ test('touchscreen scoring cannot bypass the official start timestamp',()=>{
 });
 
 test('official start indicator is emphasized and centered for everyone to see',()=>{
-  assert.match(main,/showScoreRemoteIndicator\('比賽正式開始',\{duration:2600,icon:'✅',emphasis:'official'\}\)/);
+  assert.match(main,/showScoreRemoteIndicator\('比賽正式開始',\{duration:700,icon:'✅',emphasis:'official'\}\)/);
   assert.match(styles,/\.score-remote-indicator\.official-start\{[^}]*top:50%;[^}]*left:50%;[^}]*transform:translate\(-50%,-50%\);[^}]*font-size:clamp\(2rem,7vw,5rem\)/);
 });
