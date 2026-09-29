@@ -125,7 +125,7 @@ public final class LoopCameraActivity extends ComponentActivity {
     }
 
     private void scheduleYuntengPress() {
-        if (pendingYuntengPress != null) return;
+        if (pendingYuntengPress != null) handler.removeCallbacks(pendingYuntengPress);
         pendingYuntengPress = () -> {
             pendingYuntengPress = null;
             VolumeKeyInterpreter.Action action = yuntengGestures.onSettledPress();

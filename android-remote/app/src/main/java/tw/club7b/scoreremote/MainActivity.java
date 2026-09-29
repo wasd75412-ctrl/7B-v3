@@ -88,7 +88,7 @@ public final class MainActivity extends Activity {
         settings.setDisplayZoomControls(false);
         settings.setMediaPlaybackRequiresUserGesture(false);
         settings.setMixedContentMode(WebSettings.MIXED_CONTENT_NEVER_ALLOW);
-        settings.setUserAgentString(settings.getUserAgentString() + " 7BAndroidRemote/1.3.40");
+        settings.setUserAgentString(settings.getUserAgentString() + " 7BAndroidRemote/1.3.41");
         CookieManager.getInstance().setAcceptCookie(true);
         CookieManager.getInstance().setAcceptThirdPartyCookies(view, true);
         view.setRendererPriorityPolicy(WebView.RENDERER_PRIORITY_IMPORTANT, true);
@@ -178,7 +178,7 @@ public final class MainActivity extends Activity {
     }
 
     private void scheduleYuntengPress() {
-        if (pendingYuntengPress != null) return;
+        if (pendingYuntengPress != null) keyHandler.removeCallbacks(pendingYuntengPress);
         pendingYuntengPress = () -> {
             pendingYuntengPress = null;
             VolumeKeyInterpreter.Action action = yuntengGestures.onSettledPress();
