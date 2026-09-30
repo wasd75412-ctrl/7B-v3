@@ -16,7 +16,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 
 final class HomeWifi {
-    static final String SSID = "AAA";
+    static final String SSID = "AAA-5G";
 
     private HomeWifi() { }
 

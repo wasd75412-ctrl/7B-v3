@@ -15,8 +15,8 @@ const recordings=read(`${javaDir}RecordingsActivity.java`);
 const index=readFileSync(new URL('../index.html',import.meta.url),'utf8');
 const main=readFileSync(new URL('../src/main.js',import.meta.url),'utf8');
 
-test('uploads only on the AAA home Wi-Fi',()=>{
-  assert.match(wifi,/static final String SSID = "AAA";/);
+test('uploads only on the AAA-5G home Wi-Fi',()=>{
+  assert.match(wifi,/static final String SSID = "AAA-5G";/);
   assert.match(wifi,/FLAG_INCLUDE_LOCATION_INFO/);
   assert.match(worker,/if \(!HomeWifi\.isConnected\(context\)\) \{[\s\S]*?Status\.WAITING/);
   assert.match(worker,/if \(isStopped\(\) \|\| !HomeWifi\.isConnected\(context\)\) break;/);
