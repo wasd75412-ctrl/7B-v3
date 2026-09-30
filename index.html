@@ -16,6 +16,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link href="https://fonts.googleapis.com/css2?family=LXGW+WenKai+TC&display=swap" rel="stylesheet"></head>
 <body>
 <div id="splash" class="splash"><div class="splash-inner"><img class="splash-logo" src="icons/icon-512.png?v=20260910-opaque-install-icon" alt="7B 羽球社"><h1>7B 羽球社</h1><p>BADMINTON CLUB MANAGER</p></div></div>
+<script>if(new URLSearchParams(location.search).get('androidRemote')==='1'){const logo=document.querySelector('.splash-logo');if(logo){logo.src='icons/console-icon.svg';logo.alt='7B 控制台'}const heading=document.querySelector('#splash h1');if(heading)heading.textContent='7B 控制台';document.querySelector('#splash p')?.remove();document.title='7B 控制台'}</script>
 <div id="landing" class="shell landing">
   <section class="card landing-card">
     <div class="landing-brand"><img src="icons/icon-512.png?v=20260910-opaque-install-icon" alt="7B 羽球社"><h2 id="landingTitle">7B 羽球社</h2><div id="landingProduct" class="sub">Badminton Club Manager · BCM <span data-bcm-version></span></div></div>
@@ -259,9 +260,9 @@
   <footer class="score-foot"><div class="server-control host-only"><span class="server-control-label">選擇發球員</span><div id="serverButtons" class="server-buttons"></div></div><span id="serveText">準備開賽</span><div class="score-actions host-only"><button id="scoreUseShuttle" class="btn" aria-label="使用一顆球" title="使用一顆球">−1</button><button id="minusA" class="btn">A −1</button><button id="minusB" class="btn">B −1</button></div></footer>
 </section>
 
-<section id="androidRemoteView" class="android-remote-view hidden" aria-label="7B Android 比分遙控器">
+<section id="androidRemoteView" class="android-remote-view hidden" aria-label="7B 控制台">
   <header class="android-remote-head">
-    <div class="android-remote-brand"><img src="/icons/icon-192.png?v=20260910-opaque-install-icon" alt="7B"><div><strong>7B 比分遙控器</strong><span>Android 快門接收器 · <span data-bcm-version></span></span></div></div>
+    <div class="android-remote-brand"><img src="/icons/console-icon.svg" alt="7B 控制台"><div><strong>7B 控制台</strong><span>Android 快門接收器 · <span data-bcm-version></span></span></div></div>
     <button id="androidRemoteRefresh" class="android-remote-icon-btn" type="button" aria-label="重新整理" title="重新整理">↻</button>
   </header>
   <div class="android-remote-roombar"><span>房號 <strong id="androidRemoteRoom">—</strong></span><span id="androidRemoteConnection" class="android-remote-connection">連線中</span></div>

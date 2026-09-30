@@ -95,8 +95,11 @@ let chatMessages=[],chatMentionIds=new Set(),chatFirstRender=true,chatMessagesRe
 const requestParams=new URLSearchParams(location.search),requestedPage=requestParams.get('page'),requestedAndroidRemote=requestParams.get('androidRemote')==='1';
 if(requestedAndroidRemote){
   document.documentElement.classList.add('android-remote-mode');
-  document.title=`7B 比分遙控器 ${BCM_VERSION}`;
-  $('landingTitle').textContent='7B 比分遙控器';
+  document.title=`7B 控制台 ${BCM_VERSION}`;
+  $('landingTitle').textContent='7B 控制台';
+  for(const image of [document.querySelector('.splash-logo'),document.querySelector('#landing .landing-brand img'),document.querySelector('.android-remote-brand img')]){if(!image)continue;image.src='icons/console-icon.svg';image.alt='7B 控制台'}
+  const splashHeading=document.querySelector('#splash h1');if(splashHeading)splashHeading.textContent='7B 控制台';
+  document.querySelector('#splash p')?.remove();
   $('landingProduct').innerHTML=`Android 快門接收器 · BCM <span data-bcm-version>${esc(BCM_VERSION)}</span>`;
   $('landingDescription').textContent='輸入 iPad 正在使用的球局房號，讓藍牙快門控制比分。';
   $('landingJoinDivider').textContent='連接目前球局';
