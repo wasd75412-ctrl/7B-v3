@@ -36,29 +36,17 @@ final class BackgroundScoreController {
     }
 
     void useOneShuttle(FullscreenCallback callback) {
-        sendShuttleCommand("useShuttle", "已使用 1 顆球", callback);
+        sendShuttleCommand(VolumeKeyInterpreter.Action.USE_SHUTTLE, "已使用 1 顆球", callback);
     }
 
     void returnOneShuttle(FullscreenCallback callback) {
-        sendShuttleCommand("returnShuttle", "已加回 1 顆球", callback);
+        sendShuttleCommand(VolumeKeyInterpreter.Action.RETURN_SHUTTLE, "已加回 1 顆球", callback);
     }
 
-    private void sendShuttleCommand(String action, String successMessage, FullscreenCallback callback) {
-        RemoteSessionStore.Session session=RemoteSessionStore.getSession(context);
-        if(!session.isAuthorized()){callback.onComplete(false,"請先連接球局並登入管理員");return;}
-        DocumentReference liveScore=liveScoreReference(session),remoteControl=remoteControlReference(session);
-        firestore.runTransaction(transaction -> {
-            DocumentSnapshot snapshot=transaction.get(liveScore);
-            if(!snapshot.exists())throw new IllegalStateException("找不到即時比分");
-            Map<String,Object> match=mapValue(snapshot.get("match")),command=new HashMap<>(),updates=new HashMap<>();
-            Object matchId=match.get("matchId");
-            if(!Boolean.TRUE.equals(match.get("active"))||matchId==null||String.valueOf(matchId).isEmpty())throw new IllegalStateException("目前沒有進行中的比賽");
-            command.put("id",java.util.UUID.randomUUID().toString());command.put("action",action);
-            command.put("matchId",String.valueOf(matchId));command.put("createdAt",FieldValue.serverTimestamp());
-            updates.put("remoteActionCommand",command);updates.put("updatedAt",FieldValue.serverTimestamp());
-            transaction.set(remoteControl,updates,SetOptions.merge());return true;
-        }).addOnSuccessListener(done->callback.onComplete(true,successMessage))
-          .addOnFailureListener(error->callback.onComplete(false,errorMessage(error)));
+    private void sendShuttleCommand(VolumeKeyInterpreter.Action action, String successMessage, FullscreenCallback callback) {
+        sendAction(new Request(action, (success, message, ignored) -> {
+            if (callback != null) callback.onComplete(success, success ? successMessage : message);
+        }, System.currentTimeMillis()));
     }
 
     private final Context context;
@@ -332,10 +320,27 @@ final class BackgroundScoreController {
     private static Map<String, Object> actionCommand(Request request, String matchId, String id) {
         Map<String, Object> command = new HashMap<>();
         command.put("id", id);
-        command.put("action", request.action == VolumeKeyInterpreter.Action.UNDO ? "undo" : request.action == VolumeKeyInterpreter.Action.TEAM_A_PLUS ? "teamAPlus" : request.action == VolumeKeyInterpreter.Action.TEAM_B_PLUS ? "teamBPlus" : "");
+        command.put("action", actionName(request.action));
         command.put("matchId", matchId);
         command.put("clientCreatedAt", request.clientCreatedAt);
         return command;
+    }
+
+    private static String actionName(VolumeKeyInterpreter.Action action) {
+        switch (action) {
+            case UNDO:
+                return "undo";
+            case TEAM_A_PLUS:
+                return "teamAPlus";
+            case TEAM_B_PLUS:
+                return "teamBPlus";
+            case USE_SHUTTLE:
+                return "useShuttle";
+            case RETURN_SHUTTLE:
+                return "returnShuttle";
+            default:
+                return "";
+        }
     }
 
     private DocumentReference liveScoreReference(RemoteSessionStore.Session session) {

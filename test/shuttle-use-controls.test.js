@@ -64,10 +64,12 @@ test('routes YUNTENG keys directly without multi-press delay',()=>{
   assert.match(activity,/sendRemoteOfficialStartCommand\(\).*backgroundScoreController\.startOfficialMatch/s);
   assert.match(controller,/startOfficialMatch\(FullscreenCallback callback\).*transaction\.get\(liveScore\).*transaction\.set\(remoteControl, officialStartUpdates\(String\.valueOf\(matchId\), clientCreatedAt\)/s);
   assert.match(controller,/officialStartUpdates\(String matchId, long clientCreatedAt\)[\s\S]*?updates\.put\("officialStartCommand", command\)/);
-  assert.match(controller,/sendShuttleCommand\("useShuttle"/);
-  assert.match(controller,/sendShuttleCommand\("returnShuttle"/);
-  assert.match(controller,/sendShuttleCommand[\s\S]*?if\(!session\.isAuthorized\(\)\)[\s\S]*?transaction\.get\(liveScore\)[\s\S]*?Boolean\.TRUE\.equals\(match\.get\("active"\)\)/);
-  assert.doesNotMatch(controller,/sendShuttleCommand[\s\S]*?if\(!session\.isReady\(\)\)/);
+  assert.match(controller,/sendShuttleCommand\(VolumeKeyInterpreter\.Action\.USE_SHUTTLE, "已使用 1 顆球"/);
+  assert.match(controller,/sendShuttleCommand\(VolumeKeyInterpreter\.Action\.RETURN_SHUTTLE, "已加回 1 顆球"/);
+  assert.match(controller,/sendShuttleCommand[\s\S]*?sendAction\(new Request\(action/);
+  assert.match(controller,/case USE_SHUTTLE:[\s\S]*?return "useShuttle"/);
+  assert.match(controller,/case RETURN_SHUTTLE:[\s\S]*?return "returnShuttle"/);
+  assert.doesNotMatch(controller,/remoteActionCommand/);
   assert.match(controller,/startOfficialMatch[\s\S]*?if \(!session\.isAuthorized\(\)\)[\s\S]*?transaction\.get\(liveScore\)/);
   assert.match(controller,/private void sendAction\(Request request\).*knownMatchId\(\).*deliverAction\(remoteControl, request, cachedMatchId\)/s);
   assert.match(controller,/remoteControl\.getParent\(\)\.document\("score-" \+ id\)\.set\(command\)/);
