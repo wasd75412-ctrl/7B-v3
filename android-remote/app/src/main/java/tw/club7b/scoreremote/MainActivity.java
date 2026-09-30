@@ -66,6 +66,7 @@ public final class MainActivity extends Activity {
         super.onCreate(savedInstanceState);
         getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
         recordingModeEnabled = RemoteSessionStore.isRecordingEnabled(this);
+        YouTubeUploadScheduler.scheduleIfPending(this);
 
         createWebView();
     }
@@ -545,6 +546,11 @@ public final class MainActivity extends Activity {
         @JavascriptInterface
         public void openBroadcastCamera() {
             runOnUiThread(MainActivity.this::openBroadcastCamera);
+        }
+
+        @JavascriptInterface
+        public void openRecordings() {
+            runOnUiThread(() -> startActivity(new Intent(MainActivity.this, RecordingsActivity.class)));
         }
     }
 
