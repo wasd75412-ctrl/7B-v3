@@ -59,7 +59,7 @@ public final class YuntengGestureInterpreterTest {
 
     @Test
     public void remapsYuntengCameraVolumeKeyOnly() {
-        assertEquals(KeyEvent.KEYCODE_VOLUME_UP,
+        assertEquals(KeyEvent.KEYCODE_CAMERA,
                 YuntengGestureInterpreter.remapKeyCode("YUNTENG Consumer Control", KeyEvent.KEYCODE_VOLUME_UP));
         assertEquals(KeyEvent.KEYCODE_VOLUME_UP,
                 YuntengGestureInterpreter.remapKeyCode("Other Remote", KeyEvent.KEYCODE_VOLUME_UP));

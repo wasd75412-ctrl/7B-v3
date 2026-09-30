@@ -30,6 +30,10 @@ final class YuntengGestureInterpreter {
     }
 
     static int remapKeyCode(String deviceName, int keyCode) {
+        if (keyCode == KeyEvent.KEYCODE_VOLUME_UP && deviceName != null
+                && deviceName.toUpperCase(Locale.ROOT).contains("YUNTENG")) {
+            return KeyEvent.KEYCODE_CAMERA;
+        }
         return keyCode;
     }
 
