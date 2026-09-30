@@ -74,6 +74,14 @@ final class YuntengGestureInterpreter {
         return VolumeKeyInterpreter.Action.NONE;
     }
 
+    VolumeKeyInterpreter.Action takePendingPressBeforeNewPress(MotionEvent event) {
+        if (!hasPendingPress() || !isYuntengEvent(event)
+                || event.getActionMasked() != MotionEvent.ACTION_POINTER_DOWN
+                || event.getPointerCount() < 2
+                || !isNewPress(lastPointerDownAt, event.getEventTime())) return VolumeKeyInterpreter.Action.NONE;
+        return onSettledPress();
+    }
+
     static boolean isNewPress(long previousPointerDownAt, long eventTime) {
         return previousPointerDownAt == Long.MIN_VALUE
                 || eventTime < previousPointerDownAt

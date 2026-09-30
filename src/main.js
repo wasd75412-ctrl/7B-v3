@@ -102,10 +102,10 @@ if(requestedAndroidRemote){
   $('landingJoinDivider').textContent='連接目前球局';
   $('joinRoom').textContent='連接球局';
 }
-const SCORE_REMOTE_ENABLED_KEY='bcmScoreRemoteEnabledV1',SCORE_REMOTE_BINDINGS_KEY='bcmScoreRemoteBindingsV1',SCORE_REMOTE_DOUBLE_PRESS_MS=700,OFFICIAL_START_SCORE_LOCK_MS=3000;
+const SCORE_REMOTE_ENABLED_KEY='bcmScoreRemoteEnabledV1',SCORE_REMOTE_BINDINGS_KEY='bcmScoreRemoteBindingsV1',SCORE_REMOTE_DOUBLE_PRESS_MS=800,OFFICIAL_START_SCORE_LOCK_MS=3000;
 const SCORE_REMOTE_ACTION_LABELS={teamAPlus:'A隊 ＋1',teamBPlus:'B隊 ＋1',undo:'撤銷上一分',teamAMinus:'A隊 −1',teamBMinus:'B隊 −1'};
 const SCORE_REMOTE_BINDING_IDS={teamAPlus:'remoteBindingTeamAPlus',teamBPlus:'remoteBindingTeamBPlus',undo:'remoteBindingUndo',teamAMinus:'remoteBindingTeamAMinus',teamBMinus:'remoteBindingTeamBMinus'};
-let scoreRemoteEnabled=localStorage.getItem(SCORE_REMOTE_ENABLED_KEY)==='1',scoreRemoteBindings=loadScoreRemoteBindings(),scoreRemoteLearningAction='',scoreRemoteLastInputAt=0,scoreRemoteIndicatorTimer=null,scoreRemoteLearningTimer=null,scoreRemoteStatusMessage='',scoreRemoteStatusKind='',scoreRemotePressedCodes=new Set(),scoreRemotePendingPress=null,officialStartScoreUnlockAt=0;
+let scoreRemoteEnabled=localStorage.getItem(SCORE_REMOTE_ENABLED_KEY)==='1',scoreRemoteBindings=loadScoreRemoteBindings(),scoreRemoteLearningAction='',scoreRemoteLastInputAt=0,scoreRemoteIndicatorTimer=null,scoreRemoteLearningTimer=null,scoreRemoteStatusMessage='',scoreRemoteStatusKind='',scoreRemotePressedCodes=new Set(),scoreRemoteStartPressAt=0,officialStartScoreUnlockAt=0;
 
 function loadScoreRemoteBindings(){
   try{return normalizeRemoteBindings(JSON.parse(localStorage.getItem(SCORE_REMOTE_BINDINGS_KEY)||'{}'))}catch{return normalizeRemoteBindings()}
@@ -167,11 +167,6 @@ function performScoreRemoteAction(action,{announce=true}={}){
   }
   const team=action==='teamAMinus'?0:action==='teamBMinus'?1:-1,index=match.rallies.lastIndexOf(team);
   if(index<0)return false;match.rallies.splice(index,1);replay();return true;
-}
-function runPendingScoreRemoteAction(){
-  const pending=scoreRemotePendingPress;if(!pending)return;
-  clearTimeout(pending.timer);scoreRemotePendingPress=null;
-  if(performScoreRemoteAction(pending.action)){showScoreRemoteIndicator(SCORE_REMOTE_ACTION_LABELS[pending.action]);updateScoreRemoteUi()}
 }
 let androidRemoteFeedbackTimer=null,scoreSnapshotReady=false;
 function hasAndroidRemoteKeyAccessBridge(){
@@ -269,15 +264,11 @@ function handleScoreRemoteCode(event,code){
   const now=performance.now();if(now-scoreRemoteLastInputAt<120)return;scoreRemoteLastInputAt=now;
   event.preventDefault();
   if(['teamAPlus','teamBPlus'].includes(action)&&state.match.active&&state.match.winner===null&&!matchHasOfficiallyStarted(state.match)){
-    if(scoreRemotePendingPress){clearTimeout(scoreRemotePendingPress.timer);scoreRemotePendingPress=null}
-    markMatchOfficialStarted(new Date().toISOString());return;
+    if(scoreRemoteStartPressAt&&now-scoreRemoteStartPressAt<=SCORE_REMOTE_DOUBLE_PRESS_MS){scoreRemoteStartPressAt=0;markMatchOfficialStarted(new Date().toISOString());return}
+    scoreRemoteStartPressAt=now;showScoreRemoteIndicator('再按一下正式開始',{duration:SCORE_REMOTE_DOUBLE_PRESS_MS,icon:'▶️'});return;
   }
-  if(scoreRemotePendingPress&&scoreRemotePendingPress.code===code&&now-scoreRemotePendingPress.at<=SCORE_REMOTE_DOUBLE_PRESS_MS){
-    const requestedAt=scoreRemotePendingPress.requestedAt;
-    clearTimeout(scoreRemotePendingPress.timer);scoreRemotePendingPress=null;markMatchOfficialStarted(requestedAt);return;
-  }
-  if(scoreRemotePendingPress)runPendingScoreRemoteAction();
-  scoreRemotePendingPress={code,action,at:now,requestedAt:new Date().toISOString(),timer:setTimeout(runPendingScoreRemoteAction,SCORE_REMOTE_DOUBLE_PRESS_MS)};
+  scoreRemoteStartPressAt=0;
+  if(performScoreRemoteAction(action)){showScoreRemoteIndicator(SCORE_REMOTE_ACTION_LABELS[action]);updateScoreRemoteUi()}
 }
 function handleScoreRemoteKeyboard(event){
   const code=remoteEventCode(event),phase=event.type;
@@ -1873,7 +1864,9 @@ function handleRemoteOfficialStartCommand(data,{initial=false}={}){
   lastRemoteOfficialStartCommandId=id;
   if(!shouldAcceptRemoteCommand({command:data.officialStartCommand,currentMatch:state.match,initial}))return false;
   if(initial||requestedAndroidRemote||!isHost)return false;
-  return markMatchOfficialStarted(data.officialStartCommand.clientCreatedAt||data.officialStartCommand.createdAt);
+  const started=markMatchOfficialStarted(data.officialStartCommand.clientCreatedAt||data.officialStartCommand.createdAt);
+  if(started&&$('scoreView').classList.contains('hidden')&&$('resultModal').classList.contains('hidden')){scoreViewRequested=true;renderScore()}
+  return started;
 }
 function handleRemoteNextMatchCommand(data,{initial=false}={}){
   const id=String(data?.nextMatchCommand?.id||'');if(!id||id===lastRemoteNextMatchCommandId)return false;
@@ -1896,10 +1889,10 @@ function handleRemoteStartMatchCommand(data,{initial=false}={}){
   if(initial||requestedAndroidRemote||!isHost||state.match.active||$('page3').classList.contains('hidden'))return false;
   startMatch();showScoreRemoteIndicator('遙控器開始比賽');return true;
 }
-function handleAndroidOfficialStartPress(action,command){
+function handleAndroidPreStartPress(action,command){
   if(!['teamAPlus','teamBPlus'].includes(action)||!state.match.active||state.match.winner!==null||matchHasOfficiallyStarted(state.match))return false;
-  androidOfficialStartPending=null;
-  markMatchOfficialStarted(command?.clientCreatedAt||command?.createdAt||new Date().toISOString());
+  if(command?.doublePress===true){androidOfficialStartPending=null;markMatchOfficialStarted(command.clientCreatedAt||command.createdAt||new Date().toISOString());return true}
+  showScoreRemoteIndicator('按兩下＋／－正式開始',{duration:1600,icon:'▶️'});
   return true;
 }
 function handleRemoteActionCommand(data,{initial=false}={}){
@@ -1912,7 +1905,6 @@ function handleRemoteActionCommand(data,{initial=false}={}){
     if(courtVisible&&['teamAPlus','teamBPlus'].includes(action)){
       if(state.match.active&&state.match.winner===null){scoreViewRequested=true;renderScore();showScoreRemoteIndicator('進入比分模式')}
       else{startMatch();showScoreRemoteIndicator('遙控器開始比賽')}
-      handleAndroidOfficialStartPress(action,command);
       return true;
     }
     return false;
@@ -1921,7 +1913,7 @@ function handleRemoteActionCommand(data,{initial=false}={}){
   if(action==='returnShuttle')return returnOneShuttle({source:'remote'});
   if(resultVisible){if(action==='undo')performScoreRemoteAction('undo',{announce:false});else startNext();return true}
   if(!state.match.active||state.match.winner!==null)return false;
-  if(handleAndroidOfficialStartPress(action,command))return true;
+  if(handleAndroidPreStartPress(action,command))return true;
   if(performScoreRemoteAction(action))showScoreRemoteIndicator(SCORE_REMOTE_ACTION_LABELS[action]);
   return true;
 }

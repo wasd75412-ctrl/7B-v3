@@ -10,6 +10,7 @@ import com.google.firebase.firestore.DocumentReference;
 import com.google.firebase.firestore.DocumentSnapshot;
 import com.google.firebase.firestore.FieldValue;
 import com.google.firebase.firestore.FirebaseFirestore;
+import com.google.firebase.firestore.ListenerRegistration;
 import com.google.firebase.firestore.Source;
 import com.google.firebase.firestore.SetOptions;
 import java.util.ArrayDeque;
@@ -24,7 +25,6 @@ final class BackgroundScoreController {
     private static final String FIREBASE_API_KEY = "AIzaSyBrakbTPK7UqEChPBI6pM8-i03IcLq0IvM";
     private static final String FIREBASE_APP_ID = "1:883534015507:web:a7f6fb318151b6d07563e6";
     private static final long COMMAND_DELIVERY_GAP_MS = 250L;
-    private static final long OFFICIAL_START_DOUBLE_PRESS_MS = 700L;
 
     interface Callback {
         void onComplete(boolean success, String message, VolumeKeyInterpreter.Action action);
@@ -69,9 +69,15 @@ final class BackgroundScoreController {
     private final ArrayDeque<Request> pending = new ArrayDeque<>();
     private final Handler commandHandler = new Handler(Looper.getMainLooper());
     private boolean processing;
-    private VolumeKeyInterpreter.Action lastSubmittedScoreAction = VolumeKeyInterpreter.Action.NONE;
-    private long lastSubmittedScoreAt;
-    private long lastSubmittedScoreWallAt;
+    private final OfficialStartGate officialStartGate = new OfficialStartGate();
+    private ListenerRegistration matchListener;
+    private String listenedRoomId = "";
+    private boolean matchKnown;
+    private String matchId = "";
+    private boolean matchActive;
+    private boolean matchFinished;
+    private boolean matchStarted;
+    private String startRequestedMatchId = "";
 
     BackgroundScoreController(Context context) {
         this.context = context.getApplicationContext();
@@ -98,22 +104,79 @@ final class BackgroundScoreController {
         if (action == null || action == VolumeKeyInterpreter.Action.NONE) return;
         boolean scoreAction = action == VolumeKeyInterpreter.Action.TEAM_A_PLUS
                 || action == VolumeKeyInterpreter.Action.TEAM_B_PLUS;
-        long now = SystemClock.uptimeMillis();
-        boolean doublePress = scoreAction
-                && action == lastSubmittedScoreAction
-                && now - lastSubmittedScoreAt <= OFFICIAL_START_DOUBLE_PRESS_MS;
-        long clientCreatedAt = doublePress ? lastSubmittedScoreWallAt : System.currentTimeMillis();
-        if (doublePress || !scoreAction) {
-            lastSubmittedScoreAction = VolumeKeyInterpreter.Action.NONE;
-            lastSubmittedScoreAt = 0L;
-            lastSubmittedScoreWallAt = 0L;
-        } else {
-            lastSubmittedScoreAction = action;
-            lastSubmittedScoreAt = now;
-            lastSubmittedScoreWallAt = clientCreatedAt;
+        RemoteSessionStore.Session session = RemoteSessionStore.getSession(context);
+        ensureMatchListener(session);
+        if (scoreAction && session.isAuthorized() && !matchKnown) {
+            liveScoreReference(session).get().addOnCompleteListener(task -> {
+                if (task.isSuccessful() && task.getResult() != null) updateMatch(task.getResult());
+                submitResolved(action, callback);
+            });
+            return;
         }
-        pending.addLast(new Request(action, callback, doublePress, clientCreatedAt));
+        submitResolved(action, callback);
+    }
+
+    private synchronized void submitResolved(VolumeKeyInterpreter.Action action, Callback callback) {
+        boolean scoreAction = action == VolumeKeyInterpreter.Action.TEAM_A_PLUS
+                || action == VolumeKeyInterpreter.Action.TEAM_B_PLUS;
+        if (scoreAction) {
+            OfficialStartGate.Decision decision = officialStartGate.onScorePress(
+                    awaitingOfficialStart(), SystemClock.uptimeMillis());
+            if (decision == OfficialStartGate.Decision.WAIT_FOR_SECOND_PRESS) {
+                if (callback != null) callback.onComplete(true, "再按一下正式開始", action);
+                return;
+            }
+            if (decision == OfficialStartGate.Decision.OFFICIAL_START) {
+                String requestedMatchId = matchId;
+                startRequestedMatchId = requestedMatchId;
+                startOfficialMatch((success, message) -> {
+                    if (!success) clearStartRequest(requestedMatchId);
+                    if (callback != null) callback.onComplete(success, success ? "比賽正式開始" : message, action);
+                });
+                return;
+            }
+        }
+        pending.addLast(new Request(action, callback, System.currentTimeMillis()));
         if (!processing) processNext();
+    }
+
+    private synchronized boolean awaitingOfficialStart() {
+        return matchKnown && matchActive && !matchFinished && !matchStarted
+                && !matchId.isEmpty() && !matchId.equals(startRequestedMatchId);
+    }
+
+    private synchronized void clearStartRequest(String requestedMatchId) {
+        if (requestedMatchId.equals(startRequestedMatchId)) startRequestedMatchId = "";
+    }
+
+    private synchronized void ensureMatchListener(RemoteSessionStore.Session session) {
+        if (!session.isAuthorized()) return;
+        if (matchListener != null && session.roomId.equals(listenedRoomId)) return;
+        if (matchListener != null) matchListener.remove();
+        listenedRoomId = session.roomId;
+        matchKnown = false;
+        officialStartGate.reset();
+        matchListener = liveScoreReference(session).addSnapshotListener((snapshot, error) -> {
+            if (error == null && snapshot != null) updateMatch(snapshot);
+        });
+    }
+
+    private synchronized void updateMatch(DocumentSnapshot snapshot) {
+        Map<String, Object> match = snapshot.exists() ? mapValue(snapshot.get("match")) : new HashMap<>();
+        Object id = match.get("matchId");
+        Object startedAt = match.get("startedAt");
+        matchId = id == null ? "" : String.valueOf(id);
+        matchActive = Boolean.TRUE.equals(match.get("active"));
+        matchFinished = match.get("winner") != null;
+        matchStarted = startedAt != null && !String.valueOf(startedAt).isEmpty();
+        matchKnown = true;
+    }
+
+    synchronized void release() {
+        if (matchListener != null) matchListener.remove();
+        matchListener = null;
+        listenedRoomId = "";
+        matchKnown = false;
     }
 
     void warmUp(WarmUpCallback callback) {
@@ -122,6 +185,7 @@ final class BackgroundScoreController {
             callback.onComplete(false, "請先連接球局並登入管理員");
             return;
         }
+        ensureMatchListener(session);
         liveScoreReference(session).get(Source.SERVER)
                 .addOnSuccessListener(snapshot -> callback.onComplete(
                         snapshot.exists(),
@@ -211,7 +275,6 @@ final class BackgroundScoreController {
             command.put("matchId", String.valueOf(matchId));
             command.put("clientCreatedAt", request.clientCreatedAt);
             command.put("createdAt", FieldValue.serverTimestamp());
-            if (request.doublePress) command.put("doublePress", true);
             Map<String, Object> commandUpdates = new HashMap<>();
             commandUpdates.put("remoteActionCommand", command);
             commandUpdates.put("updatedAt", FieldValue.serverTimestamp());
@@ -243,9 +306,7 @@ final class BackgroundScoreController {
                 processing = false;
                 return;
             }
-            Request next = pending.peekFirst();
-            commandHandler.postDelayed(this::processNext,
-                    next != null && next.doublePress ? 0L : COMMAND_DELIVERY_GAP_MS);
+            commandHandler.postDelayed(this::processNext, COMMAND_DELIVERY_GAP_MS);
         }
     }
 
@@ -287,13 +348,11 @@ final class BackgroundScoreController {
     private static final class Request {
         final VolumeKeyInterpreter.Action action;
         final Callback callback;
-        final boolean doublePress;
         final long clientCreatedAt;
 
-        Request(VolumeKeyInterpreter.Action action, Callback callback, boolean doublePress, long clientCreatedAt) {
+        Request(VolumeKeyInterpreter.Action action, Callback callback, long clientCreatedAt) {
             this.action = action;
             this.callback = callback;
-            this.doublePress = doublePress;
             this.clientCreatedAt = clientCreatedAt;
         }
     }
