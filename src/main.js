@@ -102,7 +102,7 @@ if(requestedAndroidRemote){
   $('landingJoinDivider').textContent='連接目前球局';
   $('joinRoom').textContent='連接球局';
 }
-const SCORE_REMOTE_ENABLED_KEY='bcmScoreRemoteEnabledV1',SCORE_REMOTE_BINDINGS_KEY='bcmScoreRemoteBindingsV1',SCORE_REMOTE_DOUBLE_PRESS_MS=200;
+const SCORE_REMOTE_ENABLED_KEY='bcmScoreRemoteEnabledV1',SCORE_REMOTE_BINDINGS_KEY='bcmScoreRemoteBindingsV1',SCORE_REMOTE_DOUBLE_PRESS_MS=200,OFFICIAL_START_ECHO_MS=500;
 const SCORE_REMOTE_ACTION_LABELS={teamAPlus:'A隊 ＋1',teamBPlus:'B隊 ＋1',undo:'撤銷上一分',teamAMinus:'A隊 −1',teamBMinus:'B隊 −1'};
 const SCORE_REMOTE_BINDING_IDS={teamAPlus:'remoteBindingTeamAPlus',teamBPlus:'remoteBindingTeamBPlus',undo:'remoteBindingUndo',teamAMinus:'remoteBindingTeamAMinus',teamBMinus:'remoteBindingTeamBMinus'};
 let scoreRemoteEnabled=localStorage.getItem(SCORE_REMOTE_ENABLED_KEY)==='1',scoreRemoteBindings=loadScoreRemoteBindings(),scoreRemoteLearningAction='',scoreRemoteLastInputAt=0,scoreRemoteIndicatorTimer=null,scoreRemoteLearningTimer=null,scoreRemoteStatusMessage='',scoreRemoteStatusKind='',scoreRemotePressedCodes=new Set(),scoreRemoteStartPressAt=0;
@@ -1922,6 +1922,11 @@ function isReplacedMatchPreStartPress(command,action){
     &&Date.now()-replacedRemoteMatchAt<=REMOTE_COMMAND_MAX_AGE_MS&&String(command?.matchId??'')===replacedRemoteMatchId
     &&shouldAcceptRemoteCommand({command,currentMatch:{matchId:replacedRemoteMatchId}});
 }
+function isOfficialStartScoreEcho(action,command){
+  if(!['teamAPlus','teamBPlus'].includes(action)||!matchHasOfficiallyStarted(state.match)||(state.match.rallies||[]).length)return false;
+  const started=timestampMillis(state.match.startedAt),at=timestampMillis(command?.clientCreatedAt)||timestampMillis(command?.createdAt);
+  return Number.isFinite(started)&&Number.isFinite(at)&&Math.abs(at-started)<=OFFICIAL_START_ECHO_MS;
+}
 function handleAndroidPreStartPress(action,command){
   if(!['teamAPlus','teamBPlus'].includes(action)||!state.match.active||state.match.winner!==null||matchHasOfficiallyStarted(state.match))return false;
   const pressedAt=timestampMillis(command?.clientCreatedAt),at=Number.isFinite(pressedAt)?pressedAt:Date.now(),previous=androidOfficialStartPending;
@@ -1970,6 +1975,7 @@ function handleRemoteActionCommand(data,{initial=false,skipAge=false}={}){
   if(resultVisible){if(action==='undo')performScoreRemoteAction('undo',{announce:false});else startNext();return true}
   if(!state.match.active||state.match.winner!==null)return false;
   if(handleAndroidPreStartPress(action,command))return true;
+  if(isOfficialStartScoreEcho(action,command))return true;
   if(performScoreRemoteAction(action))showScoreRemoteIndicator(SCORE_REMOTE_ACTION_LABELS[action]);
   return true;
 }
