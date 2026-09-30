@@ -109,7 +109,7 @@ test('converts YUNTENG zoom gestures into score keys in remote and recording scr
   assert.match(service,/void undo\(\) \{ sendBackgroundAction\(VolumeKeyInterpreter\.Action\.UNDO\); \}[\s\S]*?void useShuttle\(\) \{ sendBackgroundUseShuttle\(\); \}[\s\S]*?void returnShuttle\(\) \{ sendBackgroundReturnShuttle\(\); \}/);
   assert.match(cameraActivity,/CameraButtonGesture\.shared\(\)\.onShortPress\(event\.getEventTime\(\), recordingCameraCallbacks\)/);
   assert.match(cameraActivity,/CameraButtonGesture\.shared\(\)\.onLongPress\(pressedAt \+ VolumeKeyInterpreter\.LONG_PRESS_MS, recordingCameraCallbacks\)/);
-  assert.doesNotMatch(yuntengGestures,/KEYCODE_VOLUME_UP && deviceName/);
+  assert.match(yuntengGestures,/KEYCODE_VOLUME_UP && deviceName[\s\S]*?KEYCODE_CAMERA/);
   assert.match(cameraActivity,/dispatchTouchEvent\(MotionEvent event\)[\s\S]*?sendYuntengScore\(action\)/);
   assert.match(cameraActivity,/remoteScoreController\.submit\(action/);
 });

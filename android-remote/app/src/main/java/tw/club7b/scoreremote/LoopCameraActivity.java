@@ -125,7 +125,7 @@ public final class LoopCameraActivity extends ComponentActivity {
     }
 
     @Override public boolean onKeyDown(int keyCode, android.view.KeyEvent event) {
-        if (keyCode == android.view.KeyEvent.KEYCODE_CAMERA) {
+        if (YuntengGestureInterpreter.remapKeyCode(event) == android.view.KeyEvent.KEYCODE_CAMERA) {
             handleRecordingCameraKey(event);
             return true;
         }
@@ -134,7 +134,7 @@ public final class LoopCameraActivity extends ComponentActivity {
     }
 
     @Override public boolean onKeyUp(int keyCode, android.view.KeyEvent event) {
-        if (keyCode == android.view.KeyEvent.KEYCODE_CAMERA) {
+        if (YuntengGestureInterpreter.remapKeyCode(event) == android.view.KeyEvent.KEYCODE_CAMERA) {
             handleRecordingCameraKey(event);
             return true;
         }
@@ -143,7 +143,7 @@ public final class LoopCameraActivity extends ComponentActivity {
     }
 
     private void handleRecordingCameraKey(android.view.KeyEvent event) {
-        int keyCode = event.getKeyCode();
+        int keyCode = android.view.KeyEvent.KEYCODE_CAMERA;
         VolumeKeyInterpreter.Action action = VolumeKeyInterpreter.Action.NONE;
         if (event.getAction() == android.view.KeyEvent.ACTION_DOWN) {
             action = cameraKeys.onKeyDown(keyCode, event.getEventTime(), event.getRepeatCount());
