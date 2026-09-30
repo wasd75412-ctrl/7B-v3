@@ -35,6 +35,13 @@ export function updateEventPayment(event,playerId,status,at=''){
   return{...event,payments};
 }
 
+export function normalizeSessionFee(value){
+  if(!value||typeof value!=='object'||Array.isArray(value))return null;
+  const amount=Math.max(0,Math.round(Number(value.amount)||0)),noticeAt=cleanText(value.noticeAt,40);
+  const playerIds=[...new Set((Array.isArray(value.playerIds)?value.playerIds:[]).map(id=>cleanText(id,128)).filter(Boolean))].slice(0,80);
+  return amount&&playerIds.length&&noticeAt?{amount,playerIds,noticeAt}:null;
+}
+
 export function pendingEventPaymentPlayerIds(event){
   return Object.entries(normalizeEventPayments(event?.payments)).filter(([,payment])=>payment.status==='pending').map(([playerId])=>playerId);
 }

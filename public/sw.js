@@ -44,6 +44,7 @@ self.addEventListener('push',event=>{
     badge:data.badge||'./icons/icon-192.png',
     tag:data.tag||'7b-poll-reminder',
     renotify:true,
+    actions:Array.isArray(data.actions)?data.actions.slice(0,2):[],
     data:{url:data.url||'./'}
   }));
 });

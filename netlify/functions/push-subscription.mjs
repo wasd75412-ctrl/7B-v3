@@ -33,6 +33,8 @@ export default async request=>{
     lastReminderAt:existing?.lastReminderAt||'',
     lastEventPublishedAt:existing?.lastEventPublishedAt||'',
     lastEventAt:existing?.lastEventAt||'',
+    lastSessionFeeNoticeId:existing?.lastSessionFeeNoticeId||'',
+    lastSessionFeeAt:existing?.lastSessionFeeAt||'',
     packingReminderEnabled:typeof body.packingReminderEnabled==='boolean'?body.packingReminderEnabled:existing?.packingReminderEnabled===true,
     packingReminderMinutes,
     packingItems:Array.isArray(body.packingItems)?normalizePackingItems(body.packingItems):(existing?.packingItems||EVENT_PACKING_MEMO_ITEMS),

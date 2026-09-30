@@ -252,7 +252,7 @@ test('keeps and renders multiple upcoming events without overwriting older annou
   assert.match(mainSource,/state\.nextEvents=upsertNextEvent\(previousEvents,updatedEvent\)/);
   assert.match(mainSource,/tx\.update\(roomRef,\{nextEvent:finalEvent,nextEvents/);
   assert.match(mainSource,/state\.nextEvents=events\.filter\(event=>event\.id!==target\.id\);state\.nextEvent=primaryNextEvent/);
-  assert.match(mainSource,/events\.map\(e=>\{const participantIds=[\s\S]*?costs=sessionCombinedCosts\(e\)[\s\S]*?perPersonFee=costs\.applies\?costs\.share:wholeAmount\(e\.perPersonFee\),\{transferBankCode,transferAccount\}=cleanTransferDetails\(e\)/);
+  assert.match(mainSource,/events\.map\(e=>\{const participantIds=[\s\S]*?costs=sessionCombinedCosts\(e\)[\s\S]*?perPersonFee=e\.sessionFee\?\.amount\|\|\(costs\.applies\?costs\.share:wholeAmount\(e\.perPersonFee\)\),\{transferBankCode,transferAccount\}=cleanTransferDetails\(e\)/);
   assert.match(mainSource,/shuttleUsage=costs\.applies\?`<div class="next-event-shuttle-usage">🏸 本場使用 \$\{formatMoney\(costs\.used\)\} 顆<\/div>`:''/);
   assert.match(mainSource,/payment=perPersonFee\?`<div class="next-event-payment">場租及球費 <strong class="next-event-fee-amount">\$\{formatMoney\(perPersonFee\)\} 元<\/strong><\/div>`:''/);
   assert.match(mainSource,/data-copy-next-event="\$\{esc\(e\.id\)\}">複製帳號<\/button>/);
@@ -270,6 +270,17 @@ test('lets a claimed participant report an event payment and an admin confirm it
   assert.match(mainSource,/async function writeNextEventPayment\(eventId,playerId,status\)/);
   assert.match(mainSource,/decoded\.roster\.find\(item=>item\.id===playerId&&playerOwnerHashes\(item\)\.includes\(selfHash\)\)/);
   assert.match(styles,/#app \.event-payment-report\.confirmed\{[^}]*color:#bff6dc/);
+});
+
+test('ending the session notifies played players with a copyable account and payment report',()=>{
+  assert.match(mainSource,/const feeNotice=snapshotSessionFee\(\);\s*await saveNow\(\)/);
+  assert.match(mainSource,/const event=currentSessionEvent\(\),playerIds=sessionPlayedParticipantIds\(\),costs=sessionCombinedCosts\(event\)/);
+  assert.match(mainSource,/pushApi\('session-fee-notice',[\s\S]*?noticeId:notice\.noticeAt/);
+  assert.match(mainSource,/const feeMessage=await sessionFeePushMessage\(feeNotice\)/);
+  assert.match(mainSource,/if\(requestedPage==='payment'&&requestParams\.get\('event'\)\)openSessionFeeModal\(requestParams\.get\('event'\)\)/);
+  assert.match(mainSource,/function renderSessionFeeModal\(\)[\s\S]*?data-copy-next-event[\s\S]*?data-event-payment-report/);
+  assert.match(html,/id="sessionFeeModal"[\s\S]*?id="sessionFeeBody"[\s\S]*?id="closeSessionFee"/);
+  assert.match(readFileSync(new URL('../public/sw.js',import.meta.url),'utf8'),/actions:Array\.isArray\(data\.actions\)\?data\.actions\.slice\(0,2\):\[\]/);
 });
 
 test('club announcements blend into the dashboard with a visible accent',()=>{
