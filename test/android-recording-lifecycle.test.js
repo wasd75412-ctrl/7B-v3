@@ -31,13 +31,16 @@ test('uses the platform permission callback without requiring Fragment Activity 
   assert.doesNotMatch(camera,/registerForActivityResult|ActivityResultLauncher/);
 });
 
-test('keeps loop recording and score broadcast recording as separate camera modes',()=>{
-  assert.match(source,/openVideoCamera\(false\)/);
+test('opens score broadcast recording and can leave without saving',()=>{
+  assert.doesNotMatch(source,/openVideoCamera\(false\)|循環錄影/);
   assert.match(source,/openVideoCamera\(true\)/);
   assert.match(camera,/EXTRA_BROADCAST_MODE/);
-  assert.match(camera,/if \(broadcastMode\) \{/);
   assert.match(camera,/MediaStoreOutputOptions/);
-  assert.match(camera,/else \{[\s\S]*?保存最近 3 分鐘/);
+  assert.doesNotMatch(camera,/保存最近 3 分鐘/);
+  assert.match(camera,/back\.setText\("返回"\);\s*prepareActionButton\(back\);\s*back\.setOnClickListener\(v -> returnWithoutAction\(\)\)/);
+  assert.match(camera,/new FrameLayout\.LayoutParams\(-2, -2, Gravity\.BOTTOM \| Gravity\.START\)/);
+  assert.match(camera,/void returnWithoutAction\(\)[\s\S]*?abandonRecording = true;/);
+  assert.match(camera,/if \(abandonRecording\) \{[\s\S]*?getContentResolver\(\)\.delete\(savedUri, null, null\)/);
 });
 
 test('burns the live score only into broadcast recordings at the top-left',()=>{

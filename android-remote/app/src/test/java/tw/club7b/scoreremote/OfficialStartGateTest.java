@@ -13,6 +13,14 @@ public final class OfficialStartGateTest {
     }
 
     @Test
+    public void onePhysicalPressThatDoubleFiresDoesNotStartTheMatch() {
+        OfficialStartGate gate = new OfficialStartGate();
+        assertEquals(OfficialStartGate.Decision.WAIT_FOR_SECOND_PRESS, gate.onScorePress(true, 1000L));
+        assertEquals(OfficialStartGate.Decision.WAIT_FOR_SECOND_PRESS, gate.onScorePress(true, 1080L));
+        assertEquals(OfficialStartGate.Decision.OFFICIAL_START, gate.onScorePress(true, 1450L));
+    }
+
+    @Test
     public void doublePressStartsTheMatchOnce() {
         OfficialStartGate gate = new OfficialStartGate();
         assertEquals(OfficialStartGate.Decision.WAIT_FOR_SECOND_PRESS, gate.onScorePress(true, 1000L));

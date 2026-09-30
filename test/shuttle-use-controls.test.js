@@ -69,7 +69,8 @@ test('routes YUNTENG keys directly without multi-press delay',()=>{
   assert.match(controller,/sendShuttleCommand[\s\S]*?if\(!session\.isAuthorized\(\)\)[\s\S]*?transaction\.get\(liveScore\)[\s\S]*?Boolean\.TRUE\.equals\(match\.get\("active"\)\)/);
   assert.doesNotMatch(controller,/sendShuttleCommand[\s\S]*?if\(!session\.isReady\(\)\)/);
   assert.match(controller,/startOfficialMatch[\s\S]*?if \(!session\.isAuthorized\(\)\)[\s\S]*?transaction\.get\(liveScore\)/);
-  assert.match(controller,/private synchronized void processNext\(\).*transaction\.get\(liveScore\).*transaction\.set\(remoteControl, actionUpdates\(request, matchId == null \? "" : String\.valueOf\(matchId\)\)/s);
+  assert.match(controller,/private void sendAction\(Request request\).*knownMatchId\(\).*deliverAction\(remoteControl, request, cachedMatchId\)/s);
+  assert.match(controller,/remoteControl\.set\(actionUpdates\(request, matchId\), SetOptions\.merge\(\)\)/);
   assert.match(main,/\['teamAPlus','teamBPlus','undo','useShuttle','returnShuttle'\]/);
   assert.match(main,/if\(!scoreVisible&&!resultVisible\)\{\s*if\(courtVisible&&\['teamAPlus','teamBPlus'\]\.includes\(action\)\)/);
   assert.match(main,/if\(action==='useShuttle'\)return useOneShuttle/);

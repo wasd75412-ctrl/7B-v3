@@ -43,8 +43,8 @@ test('renders the 7B icon without a white frame',()=>{
   assert.match(styles,/\.splash-logo\{box-shadow:none!important;filter:drop-shadow\(/);
   assert.doesNotMatch(html,/20260820-icon-blue-black/);
   assert.doesNotMatch(manifest,/20260820-icon-blue-black/);
-  assert.match(html,/manifest\.webmanifest\?v=20260910-opaque-install-icon/);
-  assert.equal((manifest.match(/20260910-opaque-install-icon/g)||[]).length,3);
+  assert.match(html,/manifest\.webmanifest\?v=20260930-shuttle-icon/);
+  assert.equal((manifest.match(/20260930-shuttle-icon/g)||[]).length,3);
   assert.ok(installIcons.every(icon=>icon[25]===2),'install icons must be opaque RGB PNGs so iOS cannot add a white backing edge');
 });
 

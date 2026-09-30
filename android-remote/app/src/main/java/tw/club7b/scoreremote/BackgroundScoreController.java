@@ -1,8 +1,6 @@
 package tw.club7b.scoreremote;
 
 import android.content.Context;
-import android.os.Handler;
-import android.os.Looper;
 import android.os.SystemClock;
 import com.google.firebase.FirebaseApp;
 import com.google.firebase.FirebaseOptions;
@@ -13,8 +11,8 @@ import com.google.firebase.firestore.FirebaseFirestore;
 import com.google.firebase.firestore.ListenerRegistration;
 import com.google.firebase.firestore.Source;
 import com.google.firebase.firestore.SetOptions;
-import java.util.ArrayDeque;
 import java.util.ArrayList;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -24,7 +22,6 @@ final class BackgroundScoreController {
     private static final String FIREBASE_PROJECT_ID = "badminton-7a1c3";
     private static final String FIREBASE_API_KEY = "AIzaSyBrakbTPK7UqEChPBI6pM8-i03IcLq0IvM";
     private static final String FIREBASE_APP_ID = "1:883534015507:web:a7f6fb318151b6d07563e6";
-    private static final long COMMAND_DELIVERY_GAP_MS = 250L;
 
     interface Callback {
         void onComplete(boolean success, String message, VolumeKeyInterpreter.Action action);
@@ -66,9 +63,6 @@ final class BackgroundScoreController {
 
     private final Context context;
     private final FirebaseFirestore firestore;
-    private final ArrayDeque<Request> pending = new ArrayDeque<>();
-    private final Handler commandHandler = new Handler(Looper.getMainLooper());
-    private boolean processing;
     private final OfficialStartGate officialStartGate = new OfficialStartGate();
     private ListenerRegistration matchListener;
     private String listenedRoomId = "";
@@ -136,8 +130,7 @@ final class BackgroundScoreController {
                 return;
             }
         }
-        pending.addLast(new Request(action, callback, System.currentTimeMillis()));
-        if (!processing) processNext();
+        sendAction(new Request(action, callback, System.currentTimeMillis()));
     }
 
     private synchronized boolean awaitingOfficialStart() {
@@ -267,37 +260,41 @@ final class BackgroundScoreController {
                 .addOnFailureListener(error -> callback.onComplete(false, errorMessage(error)));
     }
 
-    private synchronized void processNext() {
-        Request request = pending.pollFirst();
-        if (request == null) {
-            processing = false;
-            return;
-        }
-        processing = true;
+    private void sendAction(Request request) {
         RemoteSessionStore.Session session = RemoteSessionStore.getSession(context);
         if (!session.isAuthorized()) {
-            complete(request, false, "請先連接球局並登入管理員");
+            if (request.callback != null) request.callback.onComplete(false, "請先連接球局並登入管理員", request.action);
             return;
         }
-
         DocumentReference liveScore = liveScoreReference(session);
         DocumentReference remoteControl = remoteControlReference(session);
         String cachedMatchId = knownMatchId();
         if (cachedMatchId != null) {
-            remoteControl.set(actionUpdates(request, cachedMatchId), SetOptions.merge())
-                    .addOnSuccessListener(unused -> complete(request, true, "已送出遙控器指令"))
-                    .addOnFailureListener(error -> complete(request, false, errorMessage(error)));
+            deliverAction(remoteControl, request, cachedMatchId);
             return;
         }
-        firestore.runTransaction(transaction -> {
-            DocumentSnapshot snapshot = transaction.get(liveScore);
-            if (!snapshot.exists()) throw new IllegalStateException("找不到即時比分");
-            Object matchId = mapValue(snapshot.get("match")).get("matchId");
-            transaction.set(remoteControl, actionUpdates(request, matchId == null ? "" : String.valueOf(matchId)), SetOptions.merge());
-            return true;
-        })
-                .addOnSuccessListener(unused -> complete(request, true, "已送出遙控器指令"))
-                .addOnFailureListener(error -> complete(request, false, errorMessage(error)));
+        liveScore.get().addOnCompleteListener(task -> {
+            String matchId = "";
+            if (task.isSuccessful() && task.getResult() != null && task.getResult().exists()) {
+                updateMatch(task.getResult());
+                String known = knownMatchId();
+                matchId = known == null ? "" : known;
+            }
+            deliverAction(remoteControl, request, matchId);
+        });
+    }
+
+    private void deliverAction(DocumentReference remoteControl, Request request, String matchId) {
+        AtomicBoolean reported = new AtomicBoolean(false);
+        remoteControl.set(actionUpdates(request, matchId), SetOptions.merge())
+                .addOnFailureListener(error -> {
+                    if (reported.compareAndSet(false, true) && request.callback != null) {
+                        request.callback.onComplete(false, errorMessage(error), request.action);
+                    }
+                });
+        if (reported.compareAndSet(false, true) && request.callback != null) {
+            request.callback.onComplete(true, "已送出遙控器指令", request.action);
+        }
     }
 
     private static Map<String, Object> actionUpdates(Request request, String matchId) {
@@ -306,9 +303,8 @@ final class BackgroundScoreController {
         command.put("action", request.action == VolumeKeyInterpreter.Action.UNDO ? "undo" : request.action == VolumeKeyInterpreter.Action.TEAM_A_PLUS ? "teamAPlus" : "teamBPlus");
         command.put("matchId", matchId);
         command.put("clientCreatedAt", request.clientCreatedAt);
-        command.put("createdAt", FieldValue.serverTimestamp());
         Map<String, Object> updates = new HashMap<>();
-        updates.put("remoteActionCommand", command);
+        updates.put("remoteActionLog", FieldValue.arrayUnion(command));
         updates.put("updatedAt", FieldValue.serverTimestamp());
         return updates;
     }
@@ -325,17 +321,6 @@ final class BackgroundScoreController {
                 .document(session.roomId)
                 .collection("remoteControl")
                 .document("current");
-    }
-
-    private void complete(Request request, boolean success, String message) {
-        if (request.callback != null) request.callback.onComplete(success, message, request.action);
-        synchronized (this) {
-            if (pending.isEmpty()) {
-                processing = false;
-                return;
-            }
-            commandHandler.postDelayed(this::processNext, COMMAND_DELIVERY_GAP_MS);
-        }
     }
 
     private static String successMessage(VolumeKeyInterpreter.Action action, ScoreReplay.Result result) {

@@ -1,6 +1,7 @@
 package tw.club7b.scoreremote;
 
 final class OfficialStartGate {
+    static final long MIN_CONFIRM_GAP_MS = 300L;
     static final long DOUBLE_PRESS_MS = 800L;
 
     enum Decision {
@@ -16,7 +17,13 @@ final class OfficialStartGate {
             reset();
             return Decision.SCORE;
         }
-        if (firstPressAt != Long.MIN_VALUE && now >= firstPressAt && now - firstPressAt <= DOUBLE_PRESS_MS) {
+        if (firstPressAt == Long.MIN_VALUE || now < firstPressAt) {
+            firstPressAt = now;
+            return Decision.WAIT_FOR_SECOND_PRESS;
+        }
+        long gap = now - firstPressAt;
+        if (gap < MIN_CONFIRM_GAP_MS) return Decision.WAIT_FOR_SECOND_PRESS;
+        if (gap <= DOUBLE_PRESS_MS) {
             reset();
             return Decision.OFFICIAL_START;
         }
