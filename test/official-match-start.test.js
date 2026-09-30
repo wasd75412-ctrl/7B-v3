@@ -64,17 +64,18 @@ test('Android gates the official start with a double press before sending anythi
   assert.match(activity,/TEAM_A_PLUS \|\| action == VolumeKeyInterpreter\.Action\.TEAM_B_PLUS\) \{\s*sendYuntengScoreAction\(action\);\s*return;/);
 });
 
-test('a later YUNTENG press drops an unsent score instead of adding both',()=>{
+test('an idle YUNTENG press still scores when a later touch does not',()=>{
   const loop=readFileSync(new URL('../android-remote/app/src/main/java/tw/club7b/scoreremote/LoopCameraActivity.java',import.meta.url),'utf8');
   const interpreter=readFileSync(new URL('../android-remote/app/src/main/java/tw/club7b/scoreremote/YuntengGestureInterpreter.java',import.meta.url),'utf8');
   const controller=readFileSync(new URL('../android-remote/app/src/main/java/tw/club7b/scoreremote/BackgroundScoreController.java',import.meta.url),'utf8');
-  assert.match(interpreter,/boolean discardUnsentPress\(MotionEvent event\) \{[\s\S]*?isNewPress\(lastPointerDownAt, event\.getEventTime\(\)\)\) return false;\s*reset\(\);\s*return true;/);
+  assert.doesNotMatch(interpreter,/discardUnsentPress|takePendingPressBeforeNewPress/);
+  assert.match(interpreter,/gestureAction = identifyPress\(event\);/);
+  assert.match(interpreter,/if \(gestureAction == VolumeKeyInterpreter\.Action\.NONE\) return false;\s*pendingAction = gestureAction;/);
   assert.match(interpreter,/if \(!gestureOpen\) return true;\s*return isNewPress\(previousPointerDownAt, eventTime\);/);
-  assert.doesNotMatch(interpreter,/takePendingPressBeforeNewPress/);
   assert.match(controller,/boolean allowsFastOfficialStartPress\(\) \{\s*return !matchKnown \|\| awaitingOfficialStart\(\);/);
-  assert.match(activity,/boolean officialStart = scoreController\(\)\.allowsFastOfficialStartPress\(\);\s*if \(!officialStart && yuntengGestures\.discardUnsentPress\(event\)\) cancelYuntengPressTimers\(\);\s*if \(!yuntengGestures\.onTouchEvent\(event, officialStart\)\) return true;\s*if \(officialStart\) deliverYuntengPress\(yuntengGestures\.onSettledPress\(\)\);\s*else scheduleYuntengPress\(\);/);
+  assert.match(activity,/if \(!yuntengGestures\.onTouchEvent\(event, officialStart\)\) return true;\s*if \(officialStart\) \{\s*deliverYuntengPress\(yuntengGestures\.onSettledPress\(\)\);\s*return true;\s*\}\s*cancelYuntengPressTimers\(\);\s*scheduleYuntengPress\(\);/);
   assert.doesNotMatch(activity,/deliverYuntengPress\(previousPress\)/);
-  assert.match(loop,/boolean officialStart = remoteScoreController\.allowsFastOfficialStartPress\(\);\s*if \(!officialStart && yuntengGestures\.discardUnsentPress\(event\)\) cancelYuntengPressTimers\(\);\s*if \(!yuntengGestures\.onTouchEvent\(event, officialStart\)\) return true;\s*if \(officialStart\) sendYuntengScore\(yuntengGestures\.onSettledPress\(\)\);\s*else scheduleYuntengPress\(\);/);
+  assert.match(loop,/if \(!yuntengGestures\.onTouchEvent\(event, officialStart\)\) return true;\s*if \(officialStart\) \{\s*sendYuntengScore\(yuntengGestures\.onSettledPress\(\)\);\s*return true;\s*\}\s*cancelYuntengPressTimers\(\);\s*scheduleYuntengPress\(\);/);
   assert.doesNotMatch(loop,/sendYuntengScore\(previousPress\)/);
 });
 
