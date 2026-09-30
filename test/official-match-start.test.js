@@ -114,6 +114,18 @@ test('official start is idempotent and scoring waits for it',()=>{
   assert.match(main,/function handleRemoteFullscreenCommand[\s\S]*?markMatchOfficialStarted\(data\.fullscreenCommand\.clientCreatedAt\|\|data\.fullscreenCommand\.createdAt\)/);
 });
 
+test('the score badge stays live while a room write is still syncing',()=>{
+  const badge=main.match(/function updateSyncBadge\(\)\{[\s\S]*?\n\}/)?.[0]||'';
+  assert.match(badge,/const livePending=liveScoreWriteScheduled\|\|pendingLiveScoreWrites>0\|\|liveScoreHasPendingWrites\|\|\(liveScoreConnecting&&!liveScoreReady\)/);
+  assert.match(badge,/if\(livePending\)\{scoreBadge\.textContent='同步中'/);
+  assert.match(badge,/scoreBadge\.textContent='即時連線'/);
+});
+
+test('a started match stays started when a later snapshot omits the start time',()=>{
+  assert.match(controller,/startedLatchMatchId = nextMatchId;\s*matchStarted = startedNow;/);
+  assert.match(controller,/else if \(!nextActive \|\| nextFinished\) \{\s*matchStarted = false;\s*\} else if \(startedNow\) \{\s*matchStarted = true;\s*\}/);
+});
+
 test('official start does not block the following score presses',()=>{
   assert.doesNotMatch(main,/OFFICIAL_START_SCORE_LOCK_MS|officialStartScoreUnlockAt|正式開始保護中/);
   assert.match(main,/showScoreRemoteIndicator\('比賽正式開始',\{duration:500/);

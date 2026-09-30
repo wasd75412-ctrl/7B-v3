@@ -10,7 +10,7 @@ final class YuntengGestureInterpreter {
     private static final float TEAM_SPLIT = 0.45f;
     private static final float HORIZONTAL_TEAM_SPLIT = 0.865f;
     static final long GESTURE_SETTLE_MS = 40L;
-    static final long PRESS_QUIET_GAP_MS = 150L;
+    static final long PRESS_QUIET_GAP_MS = 80L;
     private VolumeKeyInterpreter.Action pendingAction = VolumeKeyInterpreter.Action.NONE;
     private VolumeKeyInterpreter.Action gestureAction = VolumeKeyInterpreter.Action.NONE;
     private long lastPointerDownAt = Long.MIN_VALUE;
@@ -30,10 +30,6 @@ final class YuntengGestureInterpreter {
     }
 
     static int remapKeyCode(String deviceName, int keyCode) {
-        if (keyCode == KeyEvent.KEYCODE_VOLUME_UP && deviceName != null
-                && deviceName.toUpperCase(Locale.ROOT).contains("YUNTENG")) {
-            return KeyEvent.KEYCODE_CAMERA;
-        }
         return keyCode;
     }
 

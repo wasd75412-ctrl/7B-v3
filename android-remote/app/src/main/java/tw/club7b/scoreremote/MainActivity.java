@@ -41,7 +41,6 @@ public final class MainActivity extends Activity {
     private static final long SAME_POINT_ECHO_MS = 40L;
     private static final long UNDO_DEBOUNCE_MS = 600L;
     private static final long SHUTTLE_PRESS_COOLDOWN_MS = 2000L;
-    private static final long CAMERA_DOUBLE_PRESS_MS = 500L;
     private static final long CAMERA_PRECONNECT_TIMEOUT_MS = 5000L;
 
     private final VolumeKeyInterpreter volumeKeys = new VolumeKeyInterpreter();
@@ -52,7 +51,6 @@ public final class MainActivity extends Activity {
     private Runnable pendingLongPress;
     private Runnable pendingKeyFallback;
     private Runnable pendingYuntengPress;
-    private Runnable pendingCameraSinglePress;
     private long lastShuttleActionAt;
     private long lastPointActionAt;
     private VolumeKeyInterpreter.Action lastPointAction = VolumeKeyInterpreter.Action.NONE;
@@ -275,13 +273,6 @@ public final class MainActivity extends Activity {
     }
 
     private void handleResolvedRemoteAction(VolumeKeyInterpreter.Action action, int keyCode, long eventTime) {
-        if (keyCode == KeyEvent.KEYCODE_CAMERA && action == VolumeKeyInterpreter.Action.USE_SHUTTLE) {
-            handleCameraShortPress();
-            return;
-        }
-        if (keyCode == KeyEvent.KEYCODE_CAMERA && action == VolumeKeyInterpreter.Action.RETURN_SHUTTLE) {
-            cancelCameraSinglePress();
-        }
         if (action == VolumeKeyInterpreter.Action.USE_SHUTTLE || action == VolumeKeyInterpreter.Action.RETURN_SHUTTLE) {
             long now = SystemClock.uptimeMillis();
             if (now - lastShuttleActionAt < SHUTTLE_PRESS_COOLDOWN_MS) return;
@@ -291,25 +282,6 @@ public final class MainActivity extends Activity {
             return;
         }
         sendRemoteAction(action);
-    }
-
-    private void handleCameraShortPress() {
-        if (pendingCameraSinglePress != null) {
-            cancelCameraSinglePress();
-            sendRemoteUseShuttleCommand();
-            return;
-        }
-        pendingCameraSinglePress = () -> {
-            pendingCameraSinglePress = null;
-            sendRemoteAction(VolumeKeyInterpreter.Action.UNDO);
-        };
-        keyHandler.postDelayed(pendingCameraSinglePress, CAMERA_DOUBLE_PRESS_MS);
-    }
-
-    private void cancelCameraSinglePress() {
-        if (pendingCameraSinglePress == null) return;
-        keyHandler.removeCallbacks(pendingCameraSinglePress);
-        pendingCameraSinglePress = null;
     }
 
     private void sendRemoteUseShuttleCommand() {
@@ -571,7 +543,6 @@ public final class MainActivity extends Activity {
         cancelLongPress();
         cancelMissingKeyUpFallback();
         cancelYuntengPressTimers();
-        cancelCameraSinglePress();
         if (backgroundScoreController != null) backgroundScoreController.release();
         RemoteKeyRelay.clearListener(remoteKeyListener);
         if (webView != null) {

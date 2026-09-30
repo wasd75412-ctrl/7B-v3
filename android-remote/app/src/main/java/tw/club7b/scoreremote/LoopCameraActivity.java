@@ -122,6 +122,22 @@ public final class LoopCameraActivity extends ComponentActivity {
         else { Toast.makeText(this, "需要相機權限才能錄影", Toast.LENGTH_LONG).show(); exitRecording(); }
     }
 
+    @Override public boolean onKeyDown(int keyCode, android.view.KeyEvent event) {
+        if (isRecordingShutterKey(keyCode)) return true;
+        return super.onKeyDown(keyCode, event);
+    }
+
+    @Override public boolean onKeyUp(int keyCode, android.view.KeyEvent event) {
+        if (isRecordingShutterKey(keyCode)) return true;
+        return super.onKeyUp(keyCode, event);
+    }
+
+    private static boolean isRecordingShutterKey(int keyCode) {
+        return keyCode == android.view.KeyEvent.KEYCODE_VOLUME_UP
+                || keyCode == android.view.KeyEvent.KEYCODE_VOLUME_DOWN
+                || keyCode == android.view.KeyEvent.KEYCODE_CAMERA;
+    }
+
     @Override public boolean dispatchTouchEvent(MotionEvent event) {
         if (!yuntengGestures.isYuntengEvent(event)) return super.dispatchTouchEvent(event);
         VolumeKeyInterpreter.Action previousPress = yuntengGestures.takePendingPressBeforeNewPress(event);
@@ -161,6 +177,8 @@ public final class LoopCameraActivity extends ComponentActivity {
         root.setBackgroundColor(Color.BLACK);
         previewView = new PreviewView(this);
         previewView.setScaleType(PreviewView.ScaleType.FILL_CENTER);
+        previewView.setFocusable(false);
+        previewView.setFocusableInTouchMode(false);
         root.addView(previewView, new FrameLayout.LayoutParams(-1, -1));
         if (broadcastMode) {
             scorePreviewOverlay = new android.view.View(this) {

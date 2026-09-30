@@ -56,6 +56,13 @@ public final class VolumeKeyInterpreterTest {
     }
 
     @Test
+    public void keyUpAfterIdleStillScores() {
+        VolumeKeyInterpreter interpreter = new VolumeKeyInterpreter();
+        assertEquals(VolumeKeyInterpreter.Action.TEAM_A_PLUS, interpreter.onKeyUp(KeyEvent.KEYCODE_VOLUME_UP, 5000L));
+        assertEquals(VolumeKeyInterpreter.Action.TEAM_B_PLUS, interpreter.onKeyUp(KeyEvent.KEYCODE_VOLUME_DOWN, 8000L));
+    }
+
+    @Test
     public void missingKeyUpFallsBackToShortPressOnlyOnce() {
         VolumeKeyInterpreter interpreter = new VolumeKeyInterpreter();
         interpreter.onKeyDown(KeyEvent.KEYCODE_VOLUME_UP, 100L, 0);

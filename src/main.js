@@ -1542,10 +1542,16 @@ function setSync(text,type=''){
 }
 function updateSyncBadge(){
   if(!roomRef)return;
-  const pending=roomWriteScheduled||liveScoreWriteScheduled||pendingRoomWrites>0||pendingLiveScoreWrites>0||snapshotHasPendingWrites||liveScoreHasPendingWrites||liveScoreConnecting;
-  if(!navigator.onLine||roomSnapshotFromCache||(liveScoreReady&&liveScoreSnapshotFromCache))return setSync(isHost?'離線計分中':'離線瀏覽中','offline');
-  if(pending)return setSync('正在補同步','pending');
-  setSync('已同步','online');
+  const offline=!navigator.onLine||roomSnapshotFromCache||(liveScoreReady&&liveScoreSnapshotFromCache);
+  const livePending=liveScoreWriteScheduled||pendingLiveScoreWrites>0||liveScoreHasPendingWrites||(liveScoreConnecting&&!liveScoreReady);
+  const roomPending=roomWriteScheduled||pendingRoomWrites>0||snapshotHasPendingWrites;
+  if(offline)return setSync(isHost?'離線計分中':'離線瀏覽中','offline');
+  if(roomPending||livePending)setSync('正在補同步','pending');
+  else setSync('已同步','online');
+  const scoreBadge=$('scoreSyncBadge');
+  if(!scoreBadge)return;
+  if(livePending){scoreBadge.textContent='同步中';scoreBadge.className='score-sync-badge pending';return}
+  scoreBadge.textContent='即時連線';scoreBadge.className='score-sync-badge online';
 }
 window.addEventListener('offline',()=>{updateSyncBadge();renderChat()});
 window.addEventListener('online',()=>{if(roomRef){setSync('重新連線中','pending');setError('')}renderChat()});
@@ -2069,10 +2075,8 @@ async function persistLiveScoreState(){
   try{
     if(!liveScoreRef||!liveScoreAvailable)await setDoc(roomRef,fallbackPayload,{merge:true});
     else{
-      const batch=writeBatch(db);
-      batch.set(liveScoreRef,livePayload,{merge:true});
-      batch.set(roomRef,fallbackPayload,{merge:true});
-      await batch.commit();
+      await setDoc(liveScoreRef,livePayload,{merge:true});
+      setDoc(roomRef,fallbackPayload,{merge:true}).catch(error=>console.warn('比分房間備援寫入失敗',error));
     }
   }catch(error){
     if(state.match.matchId!==livePayload.match.matchId)return;

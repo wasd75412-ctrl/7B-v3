@@ -18,14 +18,12 @@ public final class RemoteKeyAccessibilityService extends AccessibilityService {
     private static final long SAME_POINT_ECHO_MS = 40L;
     private static final long UNDO_DEBOUNCE_MS = 600L;
     private static final long SHUTTLE_PRESS_COOLDOWN_MS = 2000L;
-    private static final long CAMERA_DOUBLE_PRESS_MS = 500L;
 
     private final VolumeKeyInterpreter backgroundKeys = new VolumeKeyInterpreter();
     private final Handler keyHandler = new Handler(Looper.getMainLooper());
     private BackgroundScoreController scoreController;
     private Runnable pendingLongPress;
     private Runnable pendingKeyFallback;
-    private Runnable pendingCameraSinglePress;
     private long lastShuttleActionAt;
     private long lastPointActionAt;
     private VolumeKeyInterpreter.Action lastPointAction = VolumeKeyInterpreter.Action.NONE;
@@ -116,13 +114,6 @@ public final class RemoteKeyAccessibilityService extends AccessibilityService {
     }
 
     private void handleResolvedBackgroundAction(VolumeKeyInterpreter.Action action, int keyCode, long eventTime) {
-        if (keyCode == KeyEvent.KEYCODE_CAMERA && action == VolumeKeyInterpreter.Action.USE_SHUTTLE) {
-            handleCameraShortPress();
-            return;
-        }
-        if (keyCode == KeyEvent.KEYCODE_CAMERA && action == VolumeKeyInterpreter.Action.RETURN_SHUTTLE) {
-            cancelCameraSinglePress();
-        }
         if (action == VolumeKeyInterpreter.Action.USE_SHUTTLE || action == VolumeKeyInterpreter.Action.RETURN_SHUTTLE) {
             long now = SystemClock.uptimeMillis();
             if (now - lastShuttleActionAt < SHUTTLE_PRESS_COOLDOWN_MS) return;
@@ -132,25 +123,6 @@ public final class RemoteKeyAccessibilityService extends AccessibilityService {
             return;
         }
         sendBackgroundAction(action);
-    }
-
-    private void handleCameraShortPress() {
-        if (pendingCameraSinglePress != null) {
-            cancelCameraSinglePress();
-            sendBackgroundUseShuttle();
-            return;
-        }
-        pendingCameraSinglePress = () -> {
-            pendingCameraSinglePress = null;
-            sendBackgroundAction(VolumeKeyInterpreter.Action.UNDO);
-        };
-        keyHandler.postDelayed(pendingCameraSinglePress, CAMERA_DOUBLE_PRESS_MS);
-    }
-
-    private void cancelCameraSinglePress() {
-        if (pendingCameraSinglePress == null) return;
-        keyHandler.removeCallbacks(pendingCameraSinglePress);
-        pendingCameraSinglePress = null;
     }
 
     private BackgroundScoreController scoreController() {
@@ -244,7 +216,6 @@ public final class RemoteKeyAccessibilityService extends AccessibilityService {
     public void onDestroy() {
         cancelLongPress();
         cancelMissingKeyUpFallback();
-        cancelCameraSinglePress();
         if (scoreController != null) scoreController.release();
         super.onDestroy();
     }
