@@ -203,6 +203,13 @@ final class BackgroundScoreController {
         DocumentReference liveScore = liveScoreReference(session);
         DocumentReference remoteControl = remoteControlReference(session);
         long clientCreatedAt = System.currentTimeMillis();
+        String cachedMatchId = cachedPreStartMatchId();
+        if (cachedMatchId != null) {
+            remoteControl.set(officialStartUpdates(cachedMatchId, clientCreatedAt), SetOptions.merge())
+                    .addOnSuccessListener(ignored -> callback.onComplete(true, "已送出正式開始比賽"))
+                    .addOnFailureListener(error -> callback.onComplete(false, errorMessage(error)));
+            return;
+        }
         firestore.runTransaction(transaction -> {
             DocumentSnapshot snapshot = transaction.get(liveScore);
             if (!snapshot.exists()) throw new IllegalStateException("找不到即時比分");
@@ -215,19 +222,31 @@ final class BackgroundScoreController {
             if (match.get("startedAt") != null && !String.valueOf(match.get("startedAt")).isEmpty()) {
                 throw new IllegalStateException("本場比賽已正式開始");
             }
-            Map<String, Object> command = new HashMap<>();
-            command.put("id", java.util.UUID.randomUUID().toString());
-            command.put("matchId", String.valueOf(matchId));
-            command.put("clientCreatedAt", clientCreatedAt);
-            command.put("createdAt", FieldValue.serverTimestamp());
-            Map<String, Object> updates = new HashMap<>();
-            updates.put("officialStartCommand", command);
-            updates.put("updatedAt", FieldValue.serverTimestamp());
-            transaction.set(remoteControl, updates, SetOptions.merge());
+            transaction.set(remoteControl, officialStartUpdates(String.valueOf(matchId), clientCreatedAt), SetOptions.merge());
             return true;
         })
                 .addOnSuccessListener(ignored -> callback.onComplete(true, "已送出正式開始比賽"))
                 .addOnFailureListener(error -> callback.onComplete(false, errorMessage(error)));
+    }
+
+    private static Map<String, Object> officialStartUpdates(String matchId, long clientCreatedAt) {
+        Map<String, Object> command = new HashMap<>();
+        command.put("id", java.util.UUID.randomUUID().toString());
+        command.put("matchId", matchId);
+        command.put("clientCreatedAt", clientCreatedAt);
+        command.put("createdAt", FieldValue.serverTimestamp());
+        Map<String, Object> updates = new HashMap<>();
+        updates.put("officialStartCommand", command);
+        updates.put("updatedAt", FieldValue.serverTimestamp());
+        return updates;
+    }
+
+    private synchronized String knownMatchId() {
+        return matchKnown ? matchId : null;
+    }
+
+    private synchronized String cachedPreStartMatchId() {
+        return matchKnown && matchActive && !matchFinished && !matchStarted && !matchId.isEmpty() ? matchId : null;
     }
 
     void markBroadcastRecordingStarted(long clientStartedAt, FullscreenCallback callback) {
@@ -263,26 +282,35 @@ final class BackgroundScoreController {
 
         DocumentReference liveScore = liveScoreReference(session);
         DocumentReference remoteControl = remoteControlReference(session);
+        String cachedMatchId = knownMatchId();
+        if (cachedMatchId != null) {
+            remoteControl.set(actionUpdates(request, cachedMatchId), SetOptions.merge())
+                    .addOnSuccessListener(unused -> complete(request, true, "已送出遙控器指令"))
+                    .addOnFailureListener(error -> complete(request, false, errorMessage(error)));
+            return;
+        }
         firestore.runTransaction(transaction -> {
             DocumentSnapshot snapshot = transaction.get(liveScore);
             if (!snapshot.exists()) throw new IllegalStateException("找不到即時比分");
-            Map<String, Object> match = mapValue(snapshot.get("match"));
-            Object matchId = match.get("matchId");
-            if (matchId == null || String.valueOf(matchId).isEmpty()) throw new IllegalStateException("目前沒有進行中的比賽");
-            Map<String, Object> command = new HashMap<>();
-            command.put("id", java.util.UUID.randomUUID().toString());
-            command.put("action", request.action == VolumeKeyInterpreter.Action.UNDO ? "undo" : request.action == VolumeKeyInterpreter.Action.TEAM_A_PLUS ? "teamAPlus" : "teamBPlus");
-            command.put("matchId", String.valueOf(matchId));
-            command.put("clientCreatedAt", request.clientCreatedAt);
-            command.put("createdAt", FieldValue.serverTimestamp());
-            Map<String, Object> commandUpdates = new HashMap<>();
-            commandUpdates.put("remoteActionCommand", command);
-            commandUpdates.put("updatedAt", FieldValue.serverTimestamp());
-            transaction.set(remoteControl, commandUpdates, SetOptions.merge());
+            Object matchId = mapValue(snapshot.get("match")).get("matchId");
+            transaction.set(remoteControl, actionUpdates(request, matchId == null ? "" : String.valueOf(matchId)), SetOptions.merge());
             return true;
         })
                 .addOnSuccessListener(unused -> complete(request, true, "已送出遙控器指令"))
                 .addOnFailureListener(error -> complete(request, false, errorMessage(error)));
+    }
+
+    private static Map<String, Object> actionUpdates(Request request, String matchId) {
+        Map<String, Object> command = new HashMap<>();
+        command.put("id", java.util.UUID.randomUUID().toString());
+        command.put("action", request.action == VolumeKeyInterpreter.Action.UNDO ? "undo" : request.action == VolumeKeyInterpreter.Action.TEAM_A_PLUS ? "teamAPlus" : "teamBPlus");
+        command.put("matchId", matchId);
+        command.put("clientCreatedAt", request.clientCreatedAt);
+        command.put("createdAt", FieldValue.serverTimestamp());
+        Map<String, Object> updates = new HashMap<>();
+        updates.put("remoteActionCommand", command);
+        updates.put("updatedAt", FieldValue.serverTimestamp());
+        return updates;
     }
 
     private DocumentReference liveScoreReference(RemoteSessionStore.Session session) {

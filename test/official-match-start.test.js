@@ -33,7 +33,9 @@ test('web score keys need a double press to start and never score while starting
 test('remote score commands before the official start only show the double-press hint',()=>{
   const preStart=main.match(/function handleAndroidPreStartPress\(action,command\)\{[\s\S]*?\n\}/)?.[0]||'';
   assert.match(preStart,/matchHasOfficiallyStarted\(state\.match\)\)return false/);
-  assert.match(preStart,/if\(command\?\.doublePress===true\)\{androidOfficialStartPending=null;markMatchOfficialStarted\(command\.clientCreatedAt\|\|command\.createdAt/);
+  assert.match(preStart,/pressedAt=timestampMillis\(command\?\.clientCreatedAt\)/);
+  assert.match(preStart,/if\(command\?\.doublePress===true\|\|\(previous\?\.matchId===state\.match\.matchId&&Math\.abs\(at-previous\.at\)<=SCORE_REMOTE_DOUBLE_PRESS_MS\)\)\{\s*androidOfficialStartPending=null;markMatchOfficialStarted\(/);
+  assert.match(preStart,/androidOfficialStartPending=\{matchId:state\.match\.matchId,at\}/);
   assert.match(preStart,/showScoreRemoteIndicator\('按兩下＋／－正式開始'/);
   assert.match(main,/handleAndroidPreStartPress\(action,command\)\)return true;[\s\S]*?performScoreRemoteAction\(action\)/);
   assert.doesNotMatch(main,/handleAndroidOfficialStartPress/);
@@ -68,6 +70,25 @@ test('Android keeps a live match listener so the first remote press is ready',()
   assert.match(activity,/backgroundScoreController\.release\(\)/);
   assert.match(service,/scoreController\.release\(\)/);
   assert.match(loop,/remoteScoreController\.release\(\)/);
+});
+
+test('presses stamped with the just-replaced match still count toward the official start',()=>{
+  const startMatch=main.match(/function startMatch\(\)\{[\s\S]*?\n/)?.[0]||'';
+  const startNext=main.match(/function startNext\(\)\{[\s\S]*?\n\}/)?.[0]||'';
+  for(const source of [startMatch,startNext])assert.match(source,/rememberReplacedRemoteMatch\(\);\s*state\.match=\{active:true/);
+  const replaced=main.match(/function isReplacedMatchPreStartPress\(command,action\)\{[\s\S]*?\n\}/)?.[0]||'';
+  assert.match(replaced,/!matchHasOfficiallyStarted\(match\)&&!match\.rallies\.length/);
+  assert.match(replaced,/Date\.now\(\)-replacedRemoteMatchAt<=REMOTE_COMMAND_MAX_AGE_MS&&String\(command\?\.matchId\?\?''\)===replacedRemoteMatchId/);
+  assert.match(replaced,/shouldAcceptRemoteCommand\(\{command,currentMatch:\{matchId:replacedRemoteMatchId\}\}\)/);
+  assert.match(main,/if\(!shouldAcceptRemoteCommand\(\{command,currentMatch:state\.match,initial\}\)\)\{\s*if\(initial\|\|requestedAndroidRemote\|\|!isHost\|\|\$\('scoreView'\)\.classList\.contains\('hidden'\)\|\|!isReplacedMatchPreStartPress\(command,action\)\)return false;\s*return handleAndroidPreStartPress\(action,command\);/);
+});
+
+test('Android sends remote commands without a transaction once the match is known',()=>{
+  const processNext=controller.match(/private synchronized void processNext\(\) \{[\s\S]*?\n    \}/)?.[0]||'';
+  assert.match(processNext,/String cachedMatchId = knownMatchId\(\);\s*if \(cachedMatchId != null\) \{\s*remoteControl\.set\(actionUpdates\(request, cachedMatchId\), SetOptions\.merge\(\)\)/);
+  assert.doesNotMatch(processNext,/目前沒有進行中的比賽/);
+  assert.match(controller,/void startOfficialMatch[\s\S]*?String cachedMatchId = cachedPreStartMatchId\(\);\s*if \(cachedMatchId != null\) \{\s*remoteControl\.set\(officialStartUpdates\(cachedMatchId, clientCreatedAt\)/);
+  assert.match(controller,/cachedPreStartMatchId\(\) \{\s*return matchKnown && matchActive && !matchFinished && !matchStarted && !matchId\.isEmpty\(\) \? matchId : null;/);
 });
 
 test('Android queues rapid score commands long enough for the iPad listener to observe both',()=>{
