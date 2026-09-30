@@ -71,6 +71,12 @@ public final class YuntengGestureInterpreterTest {
     }
 
     @Test
+    public void officialStartAcceptsASecondPressImmediatelyAfterTheGestureEnds() {
+        assertEquals(true, YuntengGestureInterpreter.isNewOfficialStartPress(false, 1000L, 1040L));
+        assertEquals(false, YuntengGestureInterpreter.isNewOfficialStartPress(true, 1000L, 1060L));
+    }
+
+    @Test
     public void emitsOnlyOnceForAClusterOfSyntheticPointerEvents() {
         assertEquals(true, YuntengGestureInterpreter.isNewPress(Long.MIN_VALUE, 1000L));
         assertEquals(false, YuntengGestureInterpreter.isNewPress(1000L, 1060L));

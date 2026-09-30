@@ -1,7 +1,7 @@
 package tw.club7b.scoreremote;
 
 final class OfficialStartGate {
-    static final long DOUBLE_PRESS_MS = 200L;
+    static final long DOUBLE_PRESS_MS = 500L;
 
     enum Decision {
         SCORE,

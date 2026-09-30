@@ -173,8 +173,11 @@ public final class MainActivity extends Activity {
     @Override
     public boolean dispatchTouchEvent(MotionEvent event) {
         if (!yuntengGestures.isYuntengEvent(event)) return super.dispatchTouchEvent(event);
-        if (yuntengGestures.discardUnsentPress(event)) cancelYuntengPressTimers();
-        if (yuntengGestures.onTouchEvent(event)) scheduleYuntengPress();
+        boolean officialStart = scoreController().allowsFastOfficialStartPress();
+        if (!officialStart && yuntengGestures.discardUnsentPress(event)) cancelYuntengPressTimers();
+        if (!yuntengGestures.onTouchEvent(event, officialStart)) return true;
+        if (officialStart) deliverYuntengPress(yuntengGestures.onSettledPress());
+        else scheduleYuntengPress();
         return true;
     }
 
