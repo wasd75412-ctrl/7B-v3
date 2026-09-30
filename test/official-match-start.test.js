@@ -52,7 +52,12 @@ test('Android gates the official start with a double press before sending anythi
   assert.doesNotMatch(gate,/MIN_CONFIRM_GAP_MS/);
   assert.match(gate,/DOUBLE_PRESS_MS = 200L/);
   assert.match(gate,/if \(gap <= DOUBLE_PRESS_MS\)/);
-  assert.match(controller,/officialStartGate\.onScorePress\(\s*awaitingOfficialStart\(\), SystemClock\.uptimeMillis\(\)\)/);
+  assert.match(controller,/officialStartGate\.onScorePress\(\s*awaitingOfficialStart\(\), now\)/);
+  assert.match(controller,/START_ECHO_SUPPRESS_MS = 500L/);
+  assert.match(controller,/if \(scoreAction && now < suppressScoreUntil\)/);
+  assert.match(controller,/suppressScoreUntil = now \+ START_ECHO_SUPPRESS_MS/);
+  assert.match(main,/function isOfficialStartScoreEcho\(action,command\)\{[\s\S]*?OFFICIAL_START_ECHO_MS/);
+  assert.match(main,/if\(isOfficialStartScoreEcho\(action,command\)\)return true;\s*if\(performScoreRemoteAction\(action\)\)/);
   assert.match(controller,/WAIT_FOR_SECOND_PRESS\) \{\s*if \(callback != null\) callback\.onComplete\(true, "再按一下正式開始", action\);\s*return;/);
   assert.match(controller,/OFFICIAL_START\) \{[\s\S]*?startOfficialMatch\(/);
   assert.doesNotMatch(controller,/doublePress|OFFICIAL_START_DOUBLE_PRESS_MS/);
@@ -122,8 +127,8 @@ test('the score badge stays live while a room write is still syncing',()=>{
 });
 
 test('a started match stays started when a later snapshot omits the start time',()=>{
-  assert.match(controller,/startedLatchMatchId = nextMatchId;\s*matchStarted = startedNow;/);
-  assert.match(controller,/else if \(!nextActive \|\| nextFinished\) \{\s*matchStarted = false;\s*\} else if \(startedNow\) \{\s*matchStarted = true;\s*\}/);
+  assert.match(controller,/startedLatchMatchId = nextMatchId;\s*suppressScoreUntil = startedNow \? now \+ START_ECHO_SUPPRESS_MS : Long\.MIN_VALUE;\s*matchStarted = startedNow;/);
+  assert.match(controller,/else if \(!nextActive \|\| nextFinished\) \{\s*matchStarted = false;\s*\} else if \(startedNow\) \{\s*if \(!matchStarted\) suppressScoreUntil = Math\.max\(suppressScoreUntil, now \+ START_ECHO_SUPPRESS_MS\);\s*matchStarted = true;\s*\}/);
 });
 
 test('official start does not block the following score presses',()=>{

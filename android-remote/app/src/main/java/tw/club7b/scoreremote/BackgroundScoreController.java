@@ -63,6 +63,7 @@ final class BackgroundScoreController {
 
     private final Context context;
     private final FirebaseFirestore firestore;
+    private static final long START_ECHO_SUPPRESS_MS = 500L;
     private final OfficialStartGate officialStartGate = new OfficialStartGate();
     private ListenerRegistration matchListener;
     private String listenedRoomId = "";
@@ -73,6 +74,7 @@ final class BackgroundScoreController {
     private boolean matchStarted;
     private String startedLatchMatchId = "";
     private String startRequestedMatchId = "";
+    private long suppressScoreUntil = Long.MIN_VALUE;
 
     BackgroundScoreController(Context context) {
         this.context = context.getApplicationContext();
@@ -114,14 +116,20 @@ final class BackgroundScoreController {
     private synchronized void submitResolved(VolumeKeyInterpreter.Action action, Callback callback) {
         boolean scoreAction = action == VolumeKeyInterpreter.Action.TEAM_A_PLUS
                 || action == VolumeKeyInterpreter.Action.TEAM_B_PLUS;
+        long now = SystemClock.uptimeMillis();
+        if (scoreAction && now < suppressScoreUntil) {
+            if (callback != null) callback.onComplete(true, "比賽正式開始", action);
+            return;
+        }
         if (scoreAction) {
             OfficialStartGate.Decision decision = officialStartGate.onScorePress(
-                    awaitingOfficialStart(), SystemClock.uptimeMillis());
+                    awaitingOfficialStart(), now);
             if (decision == OfficialStartGate.Decision.WAIT_FOR_SECOND_PRESS) {
                 if (callback != null) callback.onComplete(true, "再按一下正式開始", action);
                 return;
             }
             if (decision == OfficialStartGate.Decision.OFFICIAL_START) {
+                suppressScoreUntil = now + START_ECHO_SUPPRESS_MS;
                 String requestedMatchId = matchId;
                 startRequestedMatchId = requestedMatchId;
                 startOfficialMatch((success, message) -> {
@@ -151,6 +159,7 @@ final class BackgroundScoreController {
         matchKnown = false;
         matchStarted = false;
         startedLatchMatchId = "";
+        suppressScoreUntil = Long.MIN_VALUE;
         officialStartGate.reset();
         matchListener = liveScoreReference(session).addSnapshotListener((snapshot, error) -> {
             if (error == null && snapshot != null) updateMatch(snapshot);
@@ -158,6 +167,7 @@ final class BackgroundScoreController {
     }
 
     private synchronized void updateMatch(DocumentSnapshot snapshot) {
+        long now = SystemClock.uptimeMillis();
         Map<String, Object> match = snapshot.exists() ? mapValue(snapshot.get("match")) : new HashMap<>();
         Object id = match.get("matchId");
         Object startedAt = match.get("startedAt");
@@ -167,10 +177,12 @@ final class BackgroundScoreController {
         boolean startedNow = startedAt != null && !String.valueOf(startedAt).isEmpty();
         if (!nextMatchId.equals(startedLatchMatchId)) {
             startedLatchMatchId = nextMatchId;
+            suppressScoreUntil = startedNow ? now + START_ECHO_SUPPRESS_MS : Long.MIN_VALUE;
             matchStarted = startedNow;
         } else if (!nextActive || nextFinished) {
             matchStarted = false;
         } else if (startedNow) {
+            if (!matchStarted) suppressScoreUntil = Math.max(suppressScoreUntil, now + START_ECHO_SUPPRESS_MS);
             matchStarted = true;
         }
         matchId = nextMatchId;
