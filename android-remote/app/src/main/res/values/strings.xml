@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">7B 比分遙控器</string>
-    <string name="key_access_service_name">7B 比分遙控器按鍵存取</string>
+    <string name="app_name">7B 控制台</string>
+    <string name="key_access_service_name">7B 控制台按鍵</string>
     <string name="accessibility_service_description">攔截已配對 YUNTENG 遙控器的加減與相機鍵，控制計分、撤銷及球數；不讀取畫面內容。</string>
 </resources>
