@@ -14,6 +14,7 @@ final class YuntengGestureInterpreter {
     private VolumeKeyInterpreter.Action pendingAction = VolumeKeyInterpreter.Action.NONE;
     private VolumeKeyInterpreter.Action gestureAction = VolumeKeyInterpreter.Action.NONE;
     private long lastPointerDownAt = Long.MIN_VALUE;
+    private boolean gestureOpen;
     private boolean pendingHorizontal;
     private float pendingAxisStart = Float.NaN;
 
@@ -37,20 +38,23 @@ final class YuntengGestureInterpreter {
         return keyCode;
     }
 
-    boolean onTouchEvent(MotionEvent event) {
+    boolean onTouchEvent(MotionEvent event, boolean allowFastSecondPress) {
         if (!isYuntengEvent(event)) return false;
         int action = event.getActionMasked();
         if (action == MotionEvent.ACTION_POINTER_DOWN) {
             if (event.getPointerCount() < 2) return false;
             long eventTime = event.getEventTime();
-            boolean newPress = isNewPress(lastPointerDownAt, eventTime);
+            boolean newPress = allowFastSecondPress
+                    ? isNewOfficialStartPress(gestureOpen, lastPointerDownAt, eventTime)
+                    : isNewPress(lastPointerDownAt, eventTime);
             lastPointerDownAt = eventTime;
             if (!newPress) return false;
+            gestureOpen = true;
             pendingHorizontal = Math.abs(event.getX(1) - event.getX(0))
                     > Math.abs(event.getY(1) - event.getY(0));
             pendingAxisStart = pendingHorizontal ? event.getX(1) : event.getY(1);
             pendingAction = VolumeKeyInterpreter.Action.NONE;
-            gestureAction = VolumeKeyInterpreter.Action.NONE;
+            gestureAction = allowFastSecondPress ? identifyPress(event) : VolumeKeyInterpreter.Action.NONE;
             return false;
         }
         if (action == MotionEvent.ACTION_MOVE && event.getPointerCount() >= 2
@@ -64,6 +68,7 @@ final class YuntengGestureInterpreter {
         if (action != MotionEvent.ACTION_POINTER_UP && action != MotionEvent.ACTION_UP) {
             return false;
         }
+        if (action == MotionEvent.ACTION_UP) gestureOpen = false;
         pendingAxisStart = Float.NaN;
         if (gestureAction == VolumeKeyInterpreter.Action.NONE || hasPendingPress()) {
             gestureAction = VolumeKeyInterpreter.Action.NONE;
@@ -81,6 +86,21 @@ final class YuntengGestureInterpreter {
                 || !isNewPress(lastPointerDownAt, event.getEventTime())) return false;
         reset();
         return true;
+    }
+
+    static boolean isNewOfficialStartPress(boolean gestureOpen, long previousPointerDownAt, long eventTime) {
+        if (!gestureOpen) return true;
+        return isNewPress(previousPointerDownAt, eventTime);
+    }
+
+    private static VolumeKeyInterpreter.Action identifyPress(MotionEvent event) {
+        InputDevice device = event.getDevice();
+        if (device == null || event.getPointerCount() < 2) return VolumeKeyInterpreter.Action.NONE;
+        InputDevice.MotionRange xRange = device.getMotionRange(MotionEvent.AXIS_X, event.getSource());
+        InputDevice.MotionRange yRange = device.getMotionRange(MotionEvent.AXIS_Y, event.getSource());
+        float xMax = xRange == null ? 0f : xRange.getMax();
+        float yMax = yRange == null ? 0f : yRange.getMax();
+        return classifyAxes(device.getName(), event.getX(0), event.getY(0), event.getX(1), event.getY(1), xMax, yMax);
     }
 
     static boolean isNewPress(long previousPointerDownAt, long eventTime) {

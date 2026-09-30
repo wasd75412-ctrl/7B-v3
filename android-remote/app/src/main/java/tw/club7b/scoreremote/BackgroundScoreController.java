@@ -130,6 +130,10 @@ final class BackgroundScoreController {
         sendAction(new Request(action, callback, System.currentTimeMillis()));
     }
 
+    synchronized boolean allowsFastOfficialStartPress() {
+        return !matchKnown || awaitingOfficialStart();
+    }
+
     private synchronized boolean awaitingOfficialStart() {
         return matchKnown && matchActive && !matchFinished && !matchStarted
                 && !matchId.isEmpty() && !matchId.equals(startRequestedMatchId);

@@ -207,8 +207,12 @@ public final class LoopCameraActivity extends ComponentActivity {
 
     @Override public boolean dispatchTouchEvent(MotionEvent event) {
         if (!yuntengGestures.isYuntengEvent(event)) return super.dispatchTouchEvent(event);
-        if (yuntengGestures.discardUnsentPress(event)) cancelYuntengPressTimers();
-        if (yuntengGestures.onTouchEvent(event)) scheduleYuntengPress();
+        if (remoteScoreController == null) remoteScoreController = new BackgroundScoreController(this);
+        boolean officialStart = remoteScoreController.allowsFastOfficialStartPress();
+        if (!officialStart && yuntengGestures.discardUnsentPress(event)) cancelYuntengPressTimers();
+        if (!yuntengGestures.onTouchEvent(event, officialStart)) return true;
+        if (officialStart) sendYuntengScore(yuntengGestures.onSettledPress());
+        else scheduleYuntengPress();
         return true;
     }
 

@@ -21,7 +21,7 @@ test('new score screens wait for the explicit official start timestamp',()=>{
 
 test('web score keys need a double press to start and never score while starting',()=>{
   const handler=main.match(/function handleScoreRemoteCode\(event,code\)\{[\s\S]*?\n\}/)?.[0]||'';
-  assert.match(main,/SCORE_REMOTE_DOUBLE_PRESS_MS=200/);
+  assert.match(main,/SCORE_REMOTE_DOUBLE_PRESS_MS=500/);
   assert.doesNotMatch(main,/SCORE_REMOTE_DOUBLE_PRESS_MIN_MS/);
   assert.match(handler,/awaitingOfficialStart[\s\S]*?if\(scoreRemoteStartPressAt&&now-scoreRemoteStartPressAt<=SCORE_REMOTE_DOUBLE_PRESS_MS\)\{scoreRemoteStartPressAt=0;markMatchOfficialStarted\(new Date\(\)\.toISOString\(\)\);return\}\s*scoreRemoteStartPressAt=now;showScoreRemoteIndicator\('再按一下正式開始'/);
   assert.match(handler,/scoreRemoteStartPressAt=0;\s*if\(performScoreRemoteAction\(action\)\)/);
@@ -50,7 +50,7 @@ test('remote score commands before the official start only show the double-press
 test('Android gates the official start with a double press before sending anything',()=>{
   const gate=readFileSync(new URL('../android-remote/app/src/main/java/tw/club7b/scoreremote/OfficialStartGate.java',import.meta.url),'utf8');
   assert.doesNotMatch(gate,/MIN_CONFIRM_GAP_MS/);
-  assert.match(gate,/DOUBLE_PRESS_MS = 200L/);
+  assert.match(gate,/DOUBLE_PRESS_MS = 500L/);
   assert.match(gate,/if \(gap <= DOUBLE_PRESS_MS\)/);
   assert.match(controller,/officialStartGate\.onScorePress\(\s*awaitingOfficialStart\(\), now\)/);
   assert.match(controller,/START_ECHO_SUPPRESS_MS = 500L/);
@@ -67,11 +67,14 @@ test('Android gates the official start with a double press before sending anythi
 test('a later YUNTENG press drops an unsent score instead of adding both',()=>{
   const loop=readFileSync(new URL('../android-remote/app/src/main/java/tw/club7b/scoreremote/LoopCameraActivity.java',import.meta.url),'utf8');
   const interpreter=readFileSync(new URL('../android-remote/app/src/main/java/tw/club7b/scoreremote/YuntengGestureInterpreter.java',import.meta.url),'utf8');
+  const controller=readFileSync(new URL('../android-remote/app/src/main/java/tw/club7b/scoreremote/BackgroundScoreController.java',import.meta.url),'utf8');
   assert.match(interpreter,/boolean discardUnsentPress\(MotionEvent event\) \{[\s\S]*?isNewPress\(lastPointerDownAt, event\.getEventTime\(\)\)\) return false;\s*reset\(\);\s*return true;/);
+  assert.match(interpreter,/if \(!gestureOpen\) return true;\s*return isNewPress\(previousPointerDownAt, eventTime\);/);
   assert.doesNotMatch(interpreter,/takePendingPressBeforeNewPress/);
-  assert.match(activity,/if \(yuntengGestures\.discardUnsentPress\(event\)\) cancelYuntengPressTimers\(\);\s*if \(yuntengGestures\.onTouchEvent\(event\)\) scheduleYuntengPress\(\);/);
+  assert.match(controller,/boolean allowsFastOfficialStartPress\(\) \{\s*return !matchKnown \|\| awaitingOfficialStart\(\);/);
+  assert.match(activity,/boolean officialStart = scoreController\(\)\.allowsFastOfficialStartPress\(\);\s*if \(!officialStart && yuntengGestures\.discardUnsentPress\(event\)\) cancelYuntengPressTimers\(\);\s*if \(!yuntengGestures\.onTouchEvent\(event, officialStart\)\) return true;\s*if \(officialStart\) deliverYuntengPress\(yuntengGestures\.onSettledPress\(\)\);\s*else scheduleYuntengPress\(\);/);
   assert.doesNotMatch(activity,/deliverYuntengPress\(previousPress\)/);
-  assert.match(loop,/if \(yuntengGestures\.discardUnsentPress\(event\)\) cancelYuntengPressTimers\(\);\s*if \(yuntengGestures\.onTouchEvent\(event\)\) scheduleYuntengPress\(\);/);
+  assert.match(loop,/boolean officialStart = remoteScoreController\.allowsFastOfficialStartPress\(\);\s*if \(!officialStart && yuntengGestures\.discardUnsentPress\(event\)\) cancelYuntengPressTimers\(\);\s*if \(!yuntengGestures\.onTouchEvent\(event, officialStart\)\) return true;\s*if \(officialStart\) sendYuntengScore\(yuntengGestures\.onSettledPress\(\)\);\s*else scheduleYuntengPress\(\);/);
   assert.doesNotMatch(loop,/sendYuntengScore\(previousPress\)/);
 });
 
