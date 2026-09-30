@@ -30,6 +30,7 @@ import { EVENT_PACKING_MEMO_ITEMS, eventPackingMemoProgress, mergePackingMemos, 
 import { ensureShuttleCostNotice, moveAdminNotice, normalizeAdminNotices } from './admin-notices.js';
 import { canReportEventPayment, eventPaymentStatus, normalizeEventPayments, normalizeSessionFee, updateEventPayment } from './event-payment.js';
 import { defaultRecordingStartLocalValue, groupHistoryDatesByMonth, groupMatchHistoryByDate, youtubeTimelineText } from './match-history.js';
+import { ROOM_HISTORY_KEEP, archiveDocId, decodeArchivedMatch, encodeArchivedMatch, mergeMatchHistory, normalizeSyncMode, overflowHistory, readPendingArchives, recentHistory, shouldSkipFullRoomSync, writePendingArchives } from './match-archive.js';
 import { POLL_UNAVAILABLE, prunePollHistoryRows } from './poll-history.js';
 
 const firebaseConfig={apiKey:'AIzaSyBrakbTPK7UqEChPBI6pM8-i03IcLq0IvM',authDomain:'badminton-7a1c3.firebaseapp.com',projectId:'badminton-7a1c3',storageBucket:'badminton-7a1c3.firebasestorage.app',messagingSenderId:'883534015507',appId:'1:883534015507:web:a7f6fb318151b6d07563e6',measurementId:'G-C97B98H7YW'};
@@ -89,7 +90,8 @@ const initialState=()=>({version:9.8,matchFormat:'doubles',testMode:false,testMo
 const DEVICE_SYNC_CODE_KEY='bcmDeviceSyncCodeV1',DEVICE_SYNC_TOKEN_KEY='bcmDeviceSyncTokenV1',DEVICE_SYNC_NAME_KEY='bcmDeviceSyncNameV1',DEVICE_SYNC_PLAYER_KEY='bcmDeviceSyncPlayerV1';
 let state=initialState(), roomId='', roomRef=null, liveScoreRef=null, remoteControlRef=null, chatCollectionRef=null, isHost=false, hostToken='', adminPinHash='', unsubscribe=null, liveScoreUnsubscribe=null, remoteControlUnsubscribe=null, remoteActionUnsubscribe=null, chatUnsubscribe=null, applying=false, saveTimer=null, liveScoreSaveTimer=null, matchAutoBackupTimer=null, editId=null;const expandedPlayerNotes=new Set();let profileOriginal=null,profileDirty={name:false,gender:false,memberType:false,voiceName:false,racket:false,racketTension:false,racketString:false,backupRacket:false,backupTension:false,backupString:false,note:false};let voiceEnabled=localStorage.getItem('bdV76Voice')!=='0';let dismissedResultKey='';const selfToken=localStorage.getItem(DEVICE_SYNC_TOKEN_KEY)||localStorage.getItem('bdV73SelfToken')||randomToken();localStorage.setItem('bdV73SelfToken',selfToken);let selfHash='',scoreViewRequested=false,expandedShuttleTubeId='';
 let deviceProfileUnsubscribe=null,deviceProfileApplying=false,deviceProfileSaveTimer=null,identitySyncing=false,roomConnectInProgress=false;
-let roomSnapshotFromCache=false,snapshotHasPendingWrites=false,pendingRoomWrites=0,roomWriteScheduled=false;
+let roomSnapshotFromCache=false,snapshotHasPendingWrites=false,pendingRoomWrites=0,roomWriteScheduled=false,archivedHistory=[],removedMatchIds=new Set();
+const SYNC_MODE_KEY='bcmRoomSyncModeV1';
 let liveScoreSnapshotFromCache=false,liveScoreHasPendingWrites=false,pendingLiveScoreWrites=0,liveScoreWriteScheduled=false,liveScoreConnecting=false,liveScoreAvailable=true,liveScoreReady=false,liveScoreInitialSnapshot=true,remoteControlInitialSnapshot=true,remoteActionInitialSnapshot=true,liveScoreMigrationStarted=false,latestLiveMatch=null,lastRoomSnapshotData=null,lastRemoteRecordingStartCommandId='',lastRemoteFullscreenCommandId='',lastRemoteOfficialStartCommandId='',lastRemoteNextMatchCommandId='',lastRemoteUndoFinishedCommandId='',lastRemoteStartMatchCommandId='',lastRemoteActionCommandId='',seenRemoteActionIds=new Set(),androidOfficialStartPending=null,replacedRemoteMatchId='',replacedRemoteMatchAt=0;
 let chatMessages=[],chatMentionIds=new Set(),chatFirstRender=true,chatMessagesRenderKey='',chatLastSentAt=0,chatRequestRunning=false,chatSendRunning=false,chatPendingMedia=null;
 const requestParams=new URLSearchParams(location.search),requestedPage=requestParams.get('page'),requestedAndroidRemote=requestParams.get('androidRemote')==='1';
@@ -1674,6 +1676,7 @@ async function connectRoom(id){
   scoreSnapshotReady=false;
   scoreViewRequested=false;
   roomId=id;
+  archivedHistory=[];removedMatchIds=new Set();
   state=initialState();
   roomRef=doc(db,'badmintonRooms',id);
   liveScoreRef=doc(db,'badmintonRooms',id,'liveScore','current');
@@ -1810,6 +1813,7 @@ async function connectRoom(id){
     },error=>console.warn('遙控控制通道無法連線',error));
     updateSyncBadge();
     if(isHost&&navigator.onLine)setTimeout(ensureGenesisAndDaily,900);
+    void loadMatchArchive();
   }catch(e){
     liveScoreConnecting=false;
     chatUnsubscribe?.();chatUnsubscribe=null;chatCollectionRef=null;
@@ -1852,6 +1856,7 @@ function canApplyMatch(match){
 function applyState(data){
   const before=matchScoreSignature(),next=cleanState(data);
   if(Number(next.testModeRevision)<Number(state.testModeRevision)){next.testMode=state.testMode;next.testModeRevision=state.testModeRevision}
+  if(typeof mergeMatchHistory==='function')next.history=mergeMatchHistory(next.history,archivedHistory,removedMatchIds);
   if(!canApplyMatch(next.match)){
     next.match=structuredClone(state.match);
     for(const key of['court','nextCall','matchRollback','waitingQueue','queueDraftChosen','priority','lastLoserReplayPlayerId'])next[key]=structuredClone(state[key]);
@@ -1982,7 +1987,73 @@ function handleRemoteActionCommand(data,{initial=false,skipAge=false}={}){
   if(performScoreRemoteAction(action))showScoreRemoteIndicator(SCORE_REMOTE_ACTION_LABELS[action]);
   return true;
 }
-function payload(){return {...generalRoomStateWithoutMatch(encodeState(state)),liveScoreEnabled:true,updatedAt:serverTimestamp()}}
+function currentSyncMode(){return normalizeSyncMode(localStorage.getItem(SYNC_MODE_KEY))}
+function renderSyncMode(){const mode=currentSyncMode(),lite=$('syncModeLite'),full=$('syncModeFull');lite?.classList.toggle('primary',mode==='lite');full?.classList.toggle('primary',mode==='full');lite?.setAttribute('aria-pressed',mode==='lite'?'true':'false');full?.setAttribute('aria-pressed',mode==='full'?'true':'false')}
+function setSyncMode(mode){localStorage.setItem(SYNC_MODE_KEY,normalizeSyncMode(mode));renderSyncMode();if(shouldSkipFullRoomSync({mode:currentSyncMode(),matchActive:!!state.match?.active,matchOpen:state.match?.winner==null})){clearTimeout(saveTimer);saveTimer=null;roomWriteScheduled=false;updateSyncBadge()}}
+function roomEncodedState(){const encoded=encodeState(state);encoded.history=recentHistory(encoded.history);return encoded}
+function payload(){return {...generalRoomStateWithoutMatch(roomEncodedState()),liveScoreEnabled:true,updatedAt:serverTimestamp()}}
+function matchHistoryCollection(){return collection(db,'badmintonRooms',roomId,'matchHistory')}
+function matchHistoryDoc(matchId){return doc(db,'badmintonRooms',roomId,'matchHistory',archiveDocId(matchId))}
+async function writeArchivedMatches(rows){
+  const pending=(rows||[]).filter(row=>row?.matchId&&!row.testMode);
+  for(let index=0;index<pending.length;index+=400){
+    const batch=writeBatch(db);
+    for(const row of pending.slice(index,index+400))batch.set(matchHistoryDoc(row.matchId),encodeArchivedMatch(row),{merge:true});
+    await batch.commit();
+  }
+}
+function rememberFailedArchives(rows){
+  const existing=readPendingArchives(localStorage,roomId),seen=new Set(existing.map(row=>row.matchId)),next=existing.slice();
+  for(const row of rows||[]){if(!row?.matchId||row.testMode||seen.has(row.matchId)||removedMatchIds.has(row.matchId))continue;next.push(encodeArchivedMatch(row));seen.add(row.matchId)}
+  writePendingArchives(localStorage,roomId,next);
+}
+async function publishMatchArchive(rows){
+  const pending=(rows||[]).filter(row=>row?.matchId&&!row.testMode&&!removedMatchIds.has(row.matchId));
+  if(!pending.length||!roomId)return;
+  try{
+    await writeArchivedMatches(pending);
+    for(const row of pending){
+      const decoded=decodeArchivedMatch(encodeArchivedMatch(row)),index=archivedHistory.findIndex(item=>item.matchId===row.matchId);
+      if(index>=0)archivedHistory[index]=decoded;else archivedHistory.push(decoded);
+    }
+    const queued=readPendingArchives(localStorage,roomId).filter(row=>!pending.some(item=>item.matchId===row.matchId));
+    writePendingArchives(localStorage,roomId,queued);
+  }catch(error){
+    rememberFailedArchives(pending);
+    console.warn('戰績封存失敗，已保留本機稍後重試',error);
+  }
+}
+async function flushPendingArchives(){
+  const pending=readPendingArchives(localStorage,roomId).map(decodeArchivedMatch).filter(row=>row.matchId&&!removedMatchIds.has(row.matchId));
+  if(!pending.length)return;
+  await publishMatchArchive(pending);
+}
+async function slimRoomHistoryIfNeeded(){
+  if(!isHost||!roomRef)return;
+  const missing=overflowHistory(state.history).filter(row=>!archivedHistory.some(item=>item.matchId===row.matchId));
+  if(missing.length)await publishMatchArchive(missing);
+  if(Array.isArray(lastRoomSnapshotData?.history)&&lastRoomSnapshotData.history.length>ROOM_HISTORY_KEEP)saveSoon();
+}
+async function loadMatchArchive(){
+  if(!roomId)return;
+  try{
+    const snaps=await getDocs(matchHistoryCollection());
+    archivedHistory=snaps.docs.map(item=>decodeArchivedMatch({matchId:item.id,...item.data()})).filter(row=>!removedMatchIds.has(row.matchId));
+    const merged=mergeMatchHistory(state.history,archivedHistory,removedMatchIds);
+    if(merged.length!==state.history.length||merged.some((row,index)=>row.matchId!==state.history[index]?.matchId)){
+      applying=true;state.history=merged;applying=false;renderHistory();renderStats();renderDashboard();
+    }
+    if(isHost){await flushPendingArchives();await slimRoomHistoryIfNeeded()}
+  }catch(error){console.warn('完整戰績讀取失敗，先使用房間內的最近場次',error)}
+}
+async function deleteArchivedMatches(matchIds){
+  const ids=[...new Set((matchIds||[]).filter(Boolean))];
+  for(let index=0;index<ids.length;index+=400){
+    const batch=writeBatch(db);
+    for(const id of ids.slice(index,index+400))batch.delete(matchHistoryDoc(id));
+    await batch.commit();
+  }
+}
 function liveScorePayload(){return {...createLiveScoreData(state.match),updatedAt:serverTimestamp()}}
 function liveScoreFallbackPayload(){const encoded=encodeState(state);return{match:encoded.match,liveScoreEnabled:true,liveScoreMatchKey:liveMatchKey(state.match),updatedAt:serverTimestamp()}}
 function rememberLatestLiveMatch(){latestLiveMatch=structuredClone(state.match)}
@@ -2007,7 +2078,7 @@ async function persistFullState(){
   await setDoc(roomRef,payload(),{merge:true});
 }
 function completedMatchSyncPayload(){
-  const encoded=encodeState(state);
+  const encoded=roomEncodedState();
   return{
     history:encoded.history,
     match:encoded.match,
@@ -2048,6 +2119,7 @@ async function saveCompletedMatchStatsNow(){
 }
 function saveSoon(delay=120){
   if(!isHost||applying||!roomRef)return;
+  if(shouldSkipFullRoomSync({mode:currentSyncMode(),matchActive:!!state.match?.active,matchOpen:state.match?.winner==null}))return;
   clearTimeout(saveTimer);
   roomWriteScheduled=true;
   updateSyncBadge();
@@ -2273,7 +2345,7 @@ function replay(){
   renderScore();
   if(m.winner!==null){finishMatch();return}
   if(reopened&&isHost)void saveCompletedMatchStatsNow().catch(error=>console.warn('撤回比賽同步失敗，已排入完整資料重試',error));
-  saveLiveScoreSoon();if(reopened)saveSoon(180)
+  saveLiveScoreSoon();if(reopened||currentSyncMode()==='full')saveSoon(reopened?180:80)
 }
 function gamePoint(){const m=state.match;if(m.winner!==null)return false;for(let t=0;t<2;t++){const test=[...m.scores];test[t]++;if(winFor(test)===t)return true}return false}
 function currentResultKey(){const m=state.match;if(m.winner===null)return'';return m.matchId||[m.winner,(m.scores||[]).join('-'),...(m.players||[]).flat()].join('|')}
@@ -2584,8 +2656,9 @@ function renderHistory(){
   all('[data-timeline-now]').forEach(button=>button.onclick=()=>setTimelineStart(button.dataset.timelineNow,new Date()));
   all('[data-copy-timeline]').forEach(button=>button.onclick=()=>copyTimeline(button.dataset.copyTimeline));
 }
-function deleteHistoryRecord(index){if(!isHost)return;const h=state.history[index];if(!h)return;const title=`${(h.teams?.[0]||[]).map(pname).join('／')} ${h.scores?.[0]??0}：${h.scores?.[1]??0} ${(h.teams?.[1]||[]).map(pname).join('／')}`;if(!confirm(`確定刪除這筆比賽紀錄？\n\n${title}\n${h.time||''}`))return;state.history.splice(index,1);renderAll();saveSoon()}
-function clearAllHistory(){if(!isHost)return;if(!state.history.length)return alert('目前沒有比賽紀錄。');if(!confirm(`即將刪除全部 ${state.history.length} 筆比賽紀錄。\n球員名單與目前比分不會被刪除。`))return;const text=prompt('為避免誤刪，請輸入「清空」：','');if(text!=='清空')return alert('輸入不正確，已取消清空。');state.history=[];renderAll();saveSoon();alert('全部比賽紀錄已清空。')}
+function forgetArchivedMatch(matchId){if(!matchId)return;removedMatchIds.add(matchId);archivedHistory=archivedHistory.filter(row=>row.matchId!==matchId);writePendingArchives(localStorage,roomId,readPendingArchives(localStorage,roomId).filter(row=>row.matchId!==matchId))}
+function deleteHistoryRecord(index){if(!isHost)return;const h=state.history[index];if(!h)return;const title=`${(h.teams?.[0]||[]).map(pname).join('／')} ${h.scores?.[0]??0}：${h.scores?.[1]??0} ${(h.teams?.[1]||[]).map(pname).join('／')}`;if(!confirm(`確定刪除這筆比賽紀錄？\n\n${title}\n${h.time||''}`))return;forgetArchivedMatch(h.matchId);state.history.splice(index,1);renderAll();saveSoon();if(roomId&&h.matchId)void deleteArchivedMatches([h.matchId]).catch(error=>console.warn('封存戰績刪除失敗',error))}
+function clearAllHistory(){if(!isHost)return;if(!state.history.length)return alert('目前沒有比賽紀錄。');if(!confirm(`即將刪除全部 ${state.history.length} 筆比賽紀錄。\n球員名單與目前比分不會被刪除。`))return;const text=prompt('為避免誤刪，請輸入「清空」：','');if(text!=='清空')return alert('輸入不正確，已取消清空。');const ids=state.history.map(row=>row.matchId).filter(Boolean);ids.forEach(forgetArchivedMatch);archivedHistory=[];writePendingArchives(localStorage,roomId,[]);state.history=[];renderAll();saveSoon();if(roomId&&ids.length)void deleteArchivedMatches(ids).catch(error=>console.warn('封存戰績清空失敗',error));alert('全部比賽紀錄已清空。')}
 function renderAll(){renderRoster();renderAttendance();renderCourt();renderHistory();renderScore();renderDashboard();renderStats();renderPoll();renderChat();renderTestMode();if(!$('shuttleTubeModal')?.classList.contains('hidden'))renderShuttleTubeManager();applyRole();renderAndroidRemote()}
 function currentTestModeEnabled(){
   return !!state.testMode||!!state.match?.active&&state.match?.winner===null&&!!state.match?.testMode;
@@ -2666,6 +2739,9 @@ function finishMatch(){
   renderAll();
   if(newlyRecorded&&isTestMatch)saveLiveScoreSoon();
   if(newlyRecorded&&isHost&&!isTestMatch){
+    const recorded=state.history.at(-1);
+    if(recorded)void publishMatchArchive([recorded]);
+    void slimRoomHistoryIfNeeded();
     void saveCompletedMatchStatsNow().catch(error=>console.warn('賽後戰績優先同步失敗，已排入完整資料重試',error));
     saveSoon(420);
     clearTimeout(matchAutoBackupTimer);matchAutoBackupTimer=setTimeout(()=>{matchAutoBackupTimer=null;createCloudBackup('auto',{id:`auto_${m.matchId}`,silent:true,system:true,replace:true}).then(loadBackups).catch(e=>console.warn('賽後備份失敗',e))},1200)
@@ -3396,7 +3472,7 @@ roomMoreMenu.addEventListener('click',e=>{const button=e.target.closest('button'
 document.addEventListener('click',e=>{if(!roomMoreMenu.classList.contains('hidden')&&!e.target.closest('.roombar'))setRoomMoreOpen(false)});
 document.addEventListener('keydown',e=>{if(e.key==='Escape')setRoomMoreOpen(false)});
 
-const tomorrow=new Date();tomorrow.setDate(tomorrow.getDate()+7);$('pollDate').value=localDateKey(tomorrow);updateVoiceButton();$('backupExportBtn').onclick=exportBackup;$('backupImportBtn').onclick=()=>$('backupImportFile').click();$('backupImportFile').onchange=e=>{if(e.target.files?.[0])importBackup(e.target.files[0]);e.target.value=''};$('createCloudBackup').onclick=()=>createCloudBackup('manual').catch(e=>alert(formatError(e)));$('refreshBackups').onclick=loadBackups;renderRoomLibrary();$('autoReturnRoom').checked=localStorage.getItem(ROOM_AUTO_KEY)==='1';const q=new URLSearchParams(location.search),rid=(q.get('room')||'').toUpperCase().replace(/[^A-Z0-9]/g,'').slice(0,6);const skipAutoOnce=sessionStorage.getItem(ROOM_SKIP_AUTO_ONCE)==='1';if(skipAutoOnce)sessionStorage.removeItem(ROOM_SKIP_AUTO_ONCE);if(rid)connectRoom(rid);else if(!skipAutoOnce&&localStorage.getItem(ROOM_AUTO_KEY)==='1'){const lastId=lastRoomId();if(lastId)setTimeout(()=>openSavedRoom(lastId),180)}
+const tomorrow=new Date();tomorrow.setDate(tomorrow.getDate()+7);$('pollDate').value=localDateKey(tomorrow);updateVoiceButton();$('backupExportBtn').onclick=exportBackup;$('backupImportBtn').onclick=()=>$('backupImportFile').click();$('backupImportFile').onchange=e=>{if(e.target.files?.[0])importBackup(e.target.files[0]);e.target.value=''};$('createCloudBackup').onclick=()=>createCloudBackup('manual').catch(e=>alert(formatError(e)));$('syncModeLite').onclick=()=>setSyncMode('lite');$('syncModeFull').onclick=()=>setSyncMode('full');renderSyncMode();$('refreshBackups').onclick=loadBackups;renderRoomLibrary();$('autoReturnRoom').checked=localStorage.getItem(ROOM_AUTO_KEY)==='1';const q=new URLSearchParams(location.search),rid=(q.get('room')||'').toUpperCase().replace(/[^A-Z0-9]/g,'').slice(0,6);const skipAutoOnce=sessionStorage.getItem(ROOM_SKIP_AUTO_ONCE)==='1';if(skipAutoOnce)sessionStorage.removeItem(ROOM_SKIP_AUTO_ONCE);if(rid)connectRoom(rid);else if(!skipAutoOnce&&localStorage.getItem(ROOM_AUTO_KEY)==='1'){const lastId=lastRoomId();if(lastId)setTimeout(()=>openSavedRoom(lastId),180)}
 function exportBackup(){const data={schemaVersion:1,appVersion:BCM_VERSION,createdAt:new Date().toISOString(),roomId,counts:backupCounts(),data:encodeState(state)};downloadJson(data,`BCM_Backup_${roomId||'LOCAL'}_${new Date().toISOString().slice(0,19).replace(/[:T]/g,'-')}.json`)}
 function importBackup(file){const fr=new FileReader();fr.onload=async()=>{try{const b=JSON.parse(fr.result),data=b.data||b;if(!data||!Array.isArray(data.roster)||!Array.isArray(data.history))throw new Error('備份檔缺少球員或歷史資料');if(!roomRef||!isHost)throw new Error('請先以管理員身分進入球局');if(!confirm(`準備還原本機備份：\n球員 ${data.roster.length} 人\n紀錄 ${data.history.length} 場\n\n還原前會先建立 Emergency Backup。`))return;const typed=prompt('請輸入「還原」：','');if(typed!=='還原')return;await createCloudBackup('emergency',{silent:true});adoptRestoredState(data);await saveNewMatchCheckpointNow();renderAll();alert('本機備份還原成功。');await loadBackups()}catch(e){alert('無法還原：'+(e.message||e))}};fr.readAsText(file)}
 const refreshAppButtons=all('[data-refresh-app]');
