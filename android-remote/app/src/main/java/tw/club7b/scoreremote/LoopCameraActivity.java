@@ -99,6 +99,7 @@ public final class LoopCameraActivity extends ComponentActivity {
     private boolean broadcastSaveRequested;
     private boolean broadcastExitRequested;
     private boolean broadcastStartReported;
+    private long broadcastFileStartedAt;
 
     @Override protected void onCreate(Bundle state) {
         super.onCreate(state);
@@ -406,7 +407,9 @@ public final class LoopCameraActivity extends ComponentActivity {
     private void stopSegment() { handler.removeCallbacks(rotate); if (recording != null) recording.stop(); }
 
     private void onVideoEvent(@NonNull VideoRecordEvent event) {
-        if (event instanceof VideoRecordEvent.Start && broadcastMode && !broadcastStartReported) {
+        if (event instanceof VideoRecordEvent.Start && broadcastMode) {
+            broadcastFileStartedAt = System.currentTimeMillis();
+            if (broadcastStartReported) return;
             broadcastStartReported = true;
             if (remoteScoreController == null) remoteScoreController = new BackgroundScoreController(this);
             remoteScoreController.markBroadcastRecordingStarted(System.currentTimeMillis(), (success, message) -> {
@@ -420,6 +423,11 @@ public final class LoopCameraActivity extends ComponentActivity {
         if (broadcastMode) {
             android.net.Uri savedUri = finalized.getOutputResults().getOutputUri();
             boolean success = !finalized.hasError() && savedUri != null && !android.net.Uri.EMPTY.equals(savedUri);
+            if (success && RecordingUploadStore.add(this, savedUri, RemoteSessionStore.getSession(this).roomId,
+                    broadcastFileStartedAt, System.currentTimeMillis())) {
+                YouTubeUploadScheduler.schedule(this);
+            }
+            broadcastFileStartedAt = 0L;
             if (broadcastExitRequested) {
                 RemoteSessionStore.setRecordingEnabled(this, false);
                 Toast.makeText(this, success ? "比分轉播影片已保存" : "影片保存失敗", Toast.LENGTH_LONG).show();

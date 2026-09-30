@@ -204,6 +204,7 @@ function renderAndroidRemote(){
   $('androidRemoteRecording').classList.toggle('hidden',!hasRecordingBridge);
   $('androidRemoteOpenCamera').disabled=!keyAccessEnabled||!isHost;
   $('androidRemoteOpenBroadcast').disabled=!keyAccessEnabled||!isHost;
+  $('androidRemoteOpenRecordings').classList.toggle('hidden',typeof window.BcmAndroid?.openRecordings!=='function');
   $('androidRemotePermission').classList.toggle('hidden',isHost);
   $('androidRemoteIdle').classList.toggle('hidden',isHost&&match.active&&match.winner===null);
   $('androidRemoteIdle').querySelector('strong').textContent=!isHost?'🔒 尚未取得管理員權限':match.winner!==null?'🏁 本場比賽結束':'🏸 等待比賽開始';
@@ -3297,6 +3298,9 @@ $('androidRemoteOpenBroadcast').onclick=()=>{
   if(!isHost){setAndroidRemoteFeedback('請先完成管理員登入','error');return}
   if(!isAndroidRemoteKeyAccessEnabled()){setAndroidRemoteFeedback('請先開啟按鍵存取權限','error');return}
   try{window.BcmAndroid?.openBroadcastCamera?.()}catch{setAndroidRemoteFeedback('無法開啟比分轉播錄影','error')}
+};
+$('androidRemoteOpenRecordings').onclick=()=>{
+  try{window.BcmAndroid?.openRecordings?.()}catch{setAndroidRemoteFeedback('無法開啟錄影上傳','error')}
 };
 $('androidRemoteRefresh').onclick=()=>location.reload();
 $('scoreRemoteBtn')?.addEventListener('click',openScoreRemoteSettings);

@@ -1,0 +1,316 @@
+package tw.club7b.scoreremote;
+
+import android.Manifest;
+import android.content.ClipData;
+import android.content.ClipboardManager;
+import android.content.Intent;
+import android.graphics.Color;
+import android.graphics.Typeface;
+import android.graphics.drawable.GradientDrawable;
+import android.os.Build;
+import android.os.Bundle;
+import android.os.Handler;
+import android.os.Looper;
+import android.provider.Settings;
+import android.view.View;
+import android.widget.Button;
+import android.widget.LinearLayout;
+import android.widget.ScrollView;
+import android.widget.TextView;
+import android.widget.Toast;
+import androidx.activity.ComponentActivity;
+import androidx.activity.result.ActivityResultLauncher;
+import androidx.activity.result.IntentSenderRequest;
+import androidx.activity.result.contract.ActivityResultContracts;
+import com.google.android.gms.auth.api.identity.Identity;
+import com.google.android.gms.common.api.ApiException;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+
+public final class RecordingsActivity extends ComponentActivity {
+    private static final long REFRESH_MS = 2000L;
+
+    private final Handler handler = new Handler(Looper.getMainLooper());
+    private final Map<String, List<RecordingTimeline.Match>> roomMatches = new HashMap<>();
+    private final List<String> loadingRooms = new ArrayList<>();
+    private LinearLayout list;
+    private TextView youtubeStatus;
+    private Button youtubeButton;
+    private TextView wifiStatus;
+    private Button wifiButton;
+    private boolean youtubeLinked;
+    private String renderedSignature = "";
+
+    private final Runnable refresh = new Runnable() {
+        @Override public void run() {
+            renderList(false);
+            handler.postDelayed(this, REFRESH_MS);
+        }
+    };
+
+    private final ActivityResultLauncher<IntentSenderRequest> authLauncher = registerForActivityResult(
+            new ActivityResultContracts.StartIntentSenderForResult(), result -> {
+                try {
+                    Identity.getAuthorizationClient(this).getAuthorizationResultFromIntent(result.getData());
+                    onYouTubeLinked();
+                } catch (ApiException error) {
+                    Toast.makeText(this, "YouTube 連結失敗", Toast.LENGTH_SHORT).show();
+                }
+            });
+
+    private final ActivityResultLauncher<String> backgroundLocationLauncher = registerForActivityResult(
+            new ActivityResultContracts.RequestPermission(), granted -> renderWifi());
+
+    private final ActivityResultLauncher<String[]> locationLauncher = registerForActivityResult(
+            new ActivityResultContracts.RequestMultiplePermissions(), granted -> {
+                if (HomeWifi.hasLocationPermission(this) && !HomeWifi.hasBackgroundLocationPermission(this)
+                        && Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                    backgroundLocationLauncher.launch(Manifest.permission.ACCESS_BACKGROUND_LOCATION);
+                }
+                renderWifi();
+            });
+
+    @Override protected void onCreate(Bundle state) {
+        super.onCreate(state);
+        buildUi();
+        checkYouTube();
+    }
+
+    @Override protected void onResume() {
+        super.onResume();
+        renderWifi();
+        renderList(true);
+        handler.postDelayed(refresh, REFRESH_MS);
+    }
+
+    @Override protected void onPause() {
+        handler.removeCallbacks(refresh);
+        super.onPause();
+    }
+
+    private void buildUi() {
+        ScrollView scroll = new ScrollView(this);
+        scroll.setBackgroundColor(Color.rgb(11, 41, 65));
+        LinearLayout root = new LinearLayout(this);
+        root.setOrientation(LinearLayout.VERTICAL);
+        int pad = dp(18);
+        root.setPadding(pad, pad, pad, pad);
+        scroll.addView(root);
+
+        TextView title = text("錄影上傳", 22, true);
+        root.addView(title);
+
+        LinearLayout youtubeCard = card();
+        youtubeStatus = text("YouTube 檢查中…", 15, true);
+        youtubeButton = button("連結 YouTube", v -> connectYouTube());
+        youtubeCard.addView(youtubeStatus);
+        youtubeCard.addView(youtubeButton);
+        root.addView(youtubeCard);
+
+        LinearLayout wifiCard = card();
+        wifiStatus = text("", 15, true);
+        wifiButton = button("", v -> fixWifiDetection());
+        wifiCard.addView(wifiStatus);
+        wifiCard.addView(wifiButton);
+        root.addView(wifiCard);
+
+        list = new LinearLayout(this);
+        list.setOrientation(LinearLayout.VERTICAL);
+        root.addView(list);
+        setContentView(scroll);
+    }
+
+    private void checkYouTube() {
+        Identity.getAuthorizationClient(this).authorize(YouTubeAuth.request())
+                .addOnSuccessListener(result -> {
+                    youtubeLinked = !result.hasResolution();
+                    renderYouTube();
+                })
+                .addOnFailureListener(error -> {
+                    youtubeLinked = false;
+                    renderYouTube();
+                });
+    }
+
+    private void connectYouTube() {
+        Identity.getAuthorizationClient(this).authorize(YouTubeAuth.request())
+                .addOnSuccessListener(result -> {
+                    if (result.hasResolution() && result.getPendingIntent() != null) {
+                        authLauncher.launch(new IntentSenderRequest.Builder(
+                                result.getPendingIntent().getIntentSender()).build());
+                    } else {
+                        onYouTubeLinked();
+                    }
+                })
+                .addOnFailureListener(error -> Toast.makeText(this, "YouTube 連結失敗", Toast.LENGTH_SHORT).show());
+    }
+
+    private void onYouTubeLinked() {
+        youtubeLinked = true;
+        for (RecordingUploadStore.Entry entry : RecordingUploadStore.all(this)) {
+            if (entry.status == RecordingUploadStore.Status.AUTH_REQUIRED) RecordingUploadStore.retry(this, entry.id);
+        }
+        YouTubeUploadScheduler.scheduleIfPending(this);
+        renderYouTube();
+        renderList(true);
+    }
+
+    private void renderYouTube() {
+        youtubeStatus.setText(youtubeLinked ? "YouTube 已連結" : "YouTube 未連結");
+        youtubeButton.setVisibility(youtubeLinked ? View.GONE : View.VISIBLE);
+    }
+
+    private void renderWifi() {
+        if (!HomeWifi.hasLocationPermission(this) || !HomeWifi.hasBackgroundLocationPermission(this)) {
+            wifiStatus.setText("辨識 " + HomeWifi.SSID + " 需要位置權限「一律允許」");
+            wifiButton.setText("允許位置權限");
+            wifiButton.setVisibility(View.VISIBLE);
+        } else if (!HomeWifi.isLocationEnabled(this)) {
+            wifiStatus.setText("辨識 " + HomeWifi.SSID + " 需要開啟定位");
+            wifiButton.setText("開啟定位");
+            wifiButton.setVisibility(View.VISIBLE);
+        } else {
+            wifiStatus.setText("連上 " + HomeWifi.SSID + " 自動上傳");
+            wifiButton.setVisibility(View.GONE);
+        }
+    }
+
+    private void fixWifiDetection() {
+        if (!HomeWifi.hasLocationPermission(this)) {
+            List<String> permissions = new ArrayList<>();
+            permissions.add(Manifest.permission.ACCESS_FINE_LOCATION);
+            permissions.add(Manifest.permission.ACCESS_COARSE_LOCATION);
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) permissions.add(Manifest.permission.POST_NOTIFICATIONS);
+            locationLauncher.launch(permissions.toArray(new String[0]));
+        } else if (!HomeWifi.hasBackgroundLocationPermission(this)) {
+            backgroundLocationLauncher.launch(Manifest.permission.ACCESS_BACKGROUND_LOCATION);
+        } else {
+            startActivity(new Intent(Settings.ACTION_LOCATION_SOURCE_SETTINGS));
+        }
+    }
+
+    private void renderList(boolean force) {
+        List<RecordingUploadStore.Entry> entries = RecordingUploadStore.all(this);
+        StringBuilder signature = new StringBuilder();
+        for (RecordingUploadStore.Entry entry : entries) {
+            signature.append(entry.id).append(entry.status).append(entry.progress).append(entry.message)
+                    .append(entry.description.length()).append(roomMatches.containsKey(entry.roomId)).append(';');
+        }
+        if (!force && signature.toString().equals(renderedSignature)) return;
+        renderedSignature = signature.toString();
+        list.removeAllViews();
+        if (entries.isEmpty()) {
+            list.addView(text("尚無比分轉播錄影", 15, false));
+            return;
+        }
+        for (RecordingUploadStore.Entry entry : entries) list.addView(recordingCard(entry));
+    }
+
+    private View recordingCard(RecordingUploadStore.Entry entry) {
+        LinearLayout card = card();
+        String title = entry.title.isEmpty()
+                ? RecordingTimeline.title(entry.startMs, RecordingUploadStore.ordinal(this, entry)) : entry.title;
+        card.addView(text(title, 17, true));
+        card.addView(text(statusText(entry), 14, false));
+        String timeline = timeline(entry);
+        TextView timelineView = text(timeline == null ? "讀取時間軸…" : timeline, 13, false);
+        timelineView.setTypeface(Typeface.MONOSPACE);
+        timelineView.setTextIsSelectable(true);
+        card.addView(timelineView);
+        LinearLayout actions = new LinearLayout(this);
+        actions.setOrientation(LinearLayout.HORIZONTAL);
+        if (timeline != null) actions.addView(button("複製時間軸", v -> copy(timeline)));
+        if (entry.status == RecordingUploadStore.Status.FAILED || entry.status == RecordingUploadStore.Status.AUTH_REQUIRED) {
+            actions.addView(button("重試", v -> {
+                RecordingUploadStore.retry(this, entry.id);
+                YouTubeUploadScheduler.schedule(this);
+                renderList(true);
+            }));
+        }
+        card.addView(actions);
+        return card;
+    }
+
+    private String statusText(RecordingUploadStore.Entry entry) {
+        switch (entry.status) {
+            case UPLOADING: return "上傳中 " + entry.progress + "%";
+            case UPLOADED: return "已上傳";
+            case AUTH_REQUIRED: return "需要連結 YouTube";
+            case FAILED: return "上傳失敗" + (entry.message.isEmpty() ? "" : "：" + entry.message);
+            case MISSING: return "影片已不存在";
+            default: return entry.message.isEmpty() ? "等待 " + HomeWifi.SSID + " Wi-Fi" : entry.message;
+        }
+    }
+
+    private String timeline(RecordingUploadStore.Entry entry) {
+        if (!entry.description.isEmpty()) return entry.description;
+        List<RecordingTimeline.Match> matches = roomMatches.get(entry.roomId);
+        if (matches != null) return RecordingTimeline.timeline(matches, entry.startMs, entry.endMs);
+        loadRoom(entry.roomId);
+        return null;
+    }
+
+    private void loadRoom(String roomId) {
+        if (roomId.isEmpty()) {
+            roomMatches.put(roomId, new ArrayList<>());
+            return;
+        }
+        if (loadingRooms.contains(roomId)) return;
+        loadingRooms.add(roomId);
+        BackgroundScoreController.firestore(this).collection("badmintonRooms").document(roomId).get()
+                .addOnCompleteListener(task -> {
+                    loadingRooms.remove(roomId);
+                    Map<String, Object> room = task.isSuccessful() && task.getResult() != null
+                            ? task.getResult().getData() : null;
+                    roomMatches.put(roomId, RecordingTimeline.matchesFromRoom(room));
+                    renderList(true);
+                });
+    }
+
+    private void copy(String timeline) {
+        ClipboardManager clipboard = (ClipboardManager) getSystemService(CLIPBOARD_SERVICE);
+        if (clipboard == null) return;
+        clipboard.setPrimaryClip(ClipData.newPlainText("時間軸", timeline));
+        Toast.makeText(this, "已複製時間軸", Toast.LENGTH_SHORT).show();
+    }
+
+    private LinearLayout card() {
+        LinearLayout card = new LinearLayout(this);
+        card.setOrientation(LinearLayout.VERTICAL);
+        int pad = dp(14);
+        card.setPadding(pad, pad, pad, pad);
+        GradientDrawable background = new GradientDrawable();
+        background.setColor(Color.argb(28, 255, 255, 255));
+        background.setCornerRadius(dp(16));
+        card.setBackground(background);
+        LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(-1, -2);
+        params.topMargin = dp(12);
+        card.setLayoutParams(params);
+        return card;
+    }
+
+    private TextView text(String value, int sp, boolean bold) {
+        TextView view = new TextView(this);
+        view.setText(value);
+        view.setTextColor(Color.WHITE);
+        view.setTextSize(sp);
+        view.setLineSpacing(0f, 1.2f);
+        if (bold) view.setTypeface(Typeface.DEFAULT_BOLD);
+        view.setPadding(0, dp(3), 0, dp(3));
+        return view;
+    }
+
+    private Button button(String label, View.OnClickListener listener) {
+        Button button = new Button(this);
+        button.setText(label);
+        button.setAllCaps(false);
+        button.setOnClickListener(listener);
+        return button;
+    }
+
+    private int dp(int value) {
+        return Math.round(value * getResources().getDisplayMetrics().density);
+    }
+}
