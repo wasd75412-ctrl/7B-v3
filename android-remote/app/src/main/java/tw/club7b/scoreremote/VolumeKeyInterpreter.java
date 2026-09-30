@@ -41,7 +41,13 @@ final class VolumeKeyInterpreter {
             ignoredKeyUp = -1;
             return Action.NONE;
         }
-        if (activeKey != keyCode) return Action.NONE;
+        if (activeKey != keyCode) {
+            if (activeKey < 0 && ignoredKeyUp < 0) {
+                Action orphan = shortPressAction(keyCode);
+                if (orphan == Action.TEAM_A_PLUS || orphan == Action.TEAM_B_PLUS) return orphan;
+            }
+            return Action.NONE;
+        }
         long duration = Math.max(0L, eventTime - pressedAt);
         boolean alreadyUndone = undoSent;
         resetActiveKey();

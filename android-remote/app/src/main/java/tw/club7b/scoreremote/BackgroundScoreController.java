@@ -71,6 +71,7 @@ final class BackgroundScoreController {
     private boolean matchActive;
     private boolean matchFinished;
     private boolean matchStarted;
+    private String startedLatchMatchId = "";
     private String startRequestedMatchId = "";
 
     BackgroundScoreController(Context context) {
@@ -148,6 +149,8 @@ final class BackgroundScoreController {
         if (matchListener != null) matchListener.remove();
         listenedRoomId = session.roomId;
         matchKnown = false;
+        matchStarted = false;
+        startedLatchMatchId = "";
         officialStartGate.reset();
         matchListener = liveScoreReference(session).addSnapshotListener((snapshot, error) -> {
             if (error == null && snapshot != null) updateMatch(snapshot);
@@ -158,10 +161,21 @@ final class BackgroundScoreController {
         Map<String, Object> match = snapshot.exists() ? mapValue(snapshot.get("match")) : new HashMap<>();
         Object id = match.get("matchId");
         Object startedAt = match.get("startedAt");
-        matchId = id == null ? "" : String.valueOf(id);
-        matchActive = Boolean.TRUE.equals(match.get("active"));
-        matchFinished = match.get("winner") != null;
-        matchStarted = startedAt != null && !String.valueOf(startedAt).isEmpty();
+        String nextMatchId = id == null ? "" : String.valueOf(id);
+        boolean nextActive = Boolean.TRUE.equals(match.get("active"));
+        boolean nextFinished = match.get("winner") != null;
+        boolean startedNow = startedAt != null && !String.valueOf(startedAt).isEmpty();
+        if (!nextMatchId.equals(startedLatchMatchId)) {
+            startedLatchMatchId = nextMatchId;
+            matchStarted = startedNow;
+        } else if (!nextActive || nextFinished) {
+            matchStarted = false;
+        } else if (startedNow) {
+            matchStarted = true;
+        }
+        matchId = nextMatchId;
+        matchActive = nextActive;
+        matchFinished = nextFinished;
         matchKnown = true;
     }
 

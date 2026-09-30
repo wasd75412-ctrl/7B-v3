@@ -53,11 +53,13 @@ test('keeps the recording overlay on the newest mirrored score source',()=>{
 });
 
 test('mirrors every live score write for the recording fallback listener',()=>{
-  assert.match(main,/batch\.set\(liveScoreRef,livePayload,\{merge:true\}\);\s*batch\.set\(roomRef,fallbackPayload,\{merge:true\}\);\s*await batch\.commit\(\)/);
+  assert.match(main,/await setDoc\(liveScoreRef,livePayload,\{merge:true\}\);[\s\S]*?setDoc\(roomRef,fallbackPayload,\{merge:true\}\)/);
 });
 
 test('keeps Bluetooth scoring in the accessibility background controller path',()=>{
   assert.match(accessibility,/scoreController\.submit\(action/);
   assert.match(accessibility,/RemoteKeyRelay\.dispatch\(event\)/);
   assert.doesNotMatch(camera,/dispatchKeyEvent\(/);
+  assert.match(camera,/onKeyDown\(int keyCode[\s\S]*?KEYCODE_CAMERA[\s\S]*?return true/);
+  assert.doesNotMatch(camera,/onKeyDown[\s\S]{0,500}submit\(/);
 });
