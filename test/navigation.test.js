@@ -260,7 +260,11 @@ test('keeps and renders multiple upcoming events without overwriting older annou
 });
 
 test('lets a claimed participant report an event payment and an admin confirm it',()=>{
+  assert.match(mainSource,/paymentOpen=canReportEventPayment\(e\.date,localDateKey\(\)\)/);
+  assert.match(mainSource,/\$\{!paymentOpen\|\|myStatus==='confirmed'\?'disabled':''\}/);
+  assert.match(mainSource,/if\(!event\|\|!canReportEventPayment\(event\.date,localDateKey\(\)\)\)return/);
   assert.match(mainSource,/data-event-payment-report/);
+  assert.match(styles,/#app \.event-payment-report:disabled:not\(\.confirmed\)\{opacity:\.45\}/);
   assert.match(mainSource,/data-event-payment-confirm/);
   assert.match(mainSource,/data-event-payment-reject/);
   assert.match(mainSource,/async function writeNextEventPayment\(eventId,playerId,status\)/);
