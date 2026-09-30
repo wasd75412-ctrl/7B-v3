@@ -13,19 +13,18 @@ public final class OfficialStartGateTest {
     }
 
     @Test
-    public void onePhysicalPressThatDoubleFiresDoesNotStartTheMatch() {
+    public void quickSecondPressStartsTheMatch() {
         OfficialStartGate gate = new OfficialStartGate();
         assertEquals(OfficialStartGate.Decision.WAIT_FOR_SECOND_PRESS, gate.onScorePress(true, 1000L));
-        assertEquals(OfficialStartGate.Decision.WAIT_FOR_SECOND_PRESS, gate.onScorePress(true, 1080L));
-        assertEquals(OfficialStartGate.Decision.OFFICIAL_START, gate.onScorePress(true, 1450L));
+        assertEquals(OfficialStartGate.Decision.OFFICIAL_START, gate.onScorePress(true, 1180L));
     }
 
     @Test
     public void doublePressStartsTheMatchOnce() {
         OfficialStartGate gate = new OfficialStartGate();
         assertEquals(OfficialStartGate.Decision.WAIT_FOR_SECOND_PRESS, gate.onScorePress(true, 1000L));
-        assertEquals(OfficialStartGate.Decision.OFFICIAL_START, gate.onScorePress(true, 1350L));
-        assertEquals(OfficialStartGate.Decision.WAIT_FOR_SECOND_PRESS, gate.onScorePress(true, 1500L));
+        assertEquals(OfficialStartGate.Decision.OFFICIAL_START, gate.onScorePress(true, 1150L));
+        assertEquals(OfficialStartGate.Decision.WAIT_FOR_SECOND_PRESS, gate.onScorePress(true, 1300L));
     }
 
     @Test

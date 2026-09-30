@@ -102,7 +102,7 @@ if(requestedAndroidRemote){
   $('landingJoinDivider').textContent='連接目前球局';
   $('joinRoom').textContent='連接球局';
 }
-const SCORE_REMOTE_ENABLED_KEY='bcmScoreRemoteEnabledV1',SCORE_REMOTE_BINDINGS_KEY='bcmScoreRemoteBindingsV1',SCORE_REMOTE_DOUBLE_PRESS_MIN_MS=300,SCORE_REMOTE_DOUBLE_PRESS_MS=800,OFFICIAL_START_SCORE_LOCK_MS=3000;
+const SCORE_REMOTE_ENABLED_KEY='bcmScoreRemoteEnabledV1',SCORE_REMOTE_BINDINGS_KEY='bcmScoreRemoteBindingsV1',SCORE_REMOTE_DOUBLE_PRESS_MS=200,OFFICIAL_START_SCORE_LOCK_MS=3000;
 const SCORE_REMOTE_ACTION_LABELS={teamAPlus:'A隊 ＋1',teamBPlus:'B隊 ＋1',undo:'撤銷上一分',teamAMinus:'A隊 −1',teamBMinus:'B隊 −1'};
 const SCORE_REMOTE_BINDING_IDS={teamAPlus:'remoteBindingTeamAPlus',teamBPlus:'remoteBindingTeamBPlus',undo:'remoteBindingUndo',teamAMinus:'remoteBindingTeamAMinus',teamBMinus:'remoteBindingTeamBMinus'};
 let scoreRemoteEnabled=localStorage.getItem(SCORE_REMOTE_ENABLED_KEY)==='1',scoreRemoteBindings=loadScoreRemoteBindings(),scoreRemoteLearningAction='',scoreRemoteLastInputAt=0,scoreRemoteIndicatorTimer=null,scoreRemoteLearningTimer=null,scoreRemoteStatusMessage='',scoreRemoteStatusKind='',scoreRemotePressedCodes=new Set(),scoreRemoteStartPressAt=0,officialStartScoreUnlockAt=0;
@@ -261,12 +261,13 @@ function handleScoreRemoteCode(event,code){
   const correctingFinishedMatch=state.match.winner!==null&&['undo','teamAMinus','teamBMinus'].includes(action);
   if(!action||(!correctingFinishedMatch&&!shouldHandleRemoteInput({enabled:scoreRemoteEnabled,isHost,scoreVisible:!$('scoreView').classList.contains('hidden'),matchActive:state.match.active,matchFinished:state.match.winner!==null,repeat:event.repeat,editable:isEditableRemoteTarget(event.target)})))return;
   if(correctingFinishedMatch&&(!scoreRemoteEnabled||!isHost||$('scoreView').classList.contains('hidden')||event.repeat||isEditableRemoteTarget(event.target)))return;
-  const now=performance.now();if(now-scoreRemoteLastInputAt<120)return;scoreRemoteLastInputAt=now;
+  const now=performance.now();
+  const awaitingOfficialStart=['teamAPlus','teamBPlus'].includes(action)&&state.match.active&&state.match.winner===null&&!matchHasOfficiallyStarted(state.match);
+  if(!awaitingOfficialStart&&now-scoreRemoteLastInputAt<120)return;scoreRemoteLastInputAt=now;
   event.preventDefault();
-  if(['teamAPlus','teamBPlus'].includes(action)&&state.match.active&&state.match.winner===null&&!matchHasOfficiallyStarted(state.match)){
-    if(scoreRemoteStartPressAt&&now-scoreRemoteStartPressAt<SCORE_REMOTE_DOUBLE_PRESS_MIN_MS){showScoreRemoteIndicator('再按一下正式開始',{duration:SCORE_REMOTE_DOUBLE_PRESS_MS,icon:'▶️'});return}
+  if(awaitingOfficialStart){
     if(scoreRemoteStartPressAt&&now-scoreRemoteStartPressAt<=SCORE_REMOTE_DOUBLE_PRESS_MS){scoreRemoteStartPressAt=0;markMatchOfficialStarted(new Date().toISOString());return}
-    scoreRemoteStartPressAt=now;showScoreRemoteIndicator('再按一下正式開始',{duration:SCORE_REMOTE_DOUBLE_PRESS_MS,icon:'▶️'});return;
+    scoreRemoteStartPressAt=now;showScoreRemoteIndicator('再按一下正式開始',{duration:1200,icon:'▶️'});return;
   }
   scoreRemoteStartPressAt=0;
   if(performScoreRemoteAction(action)){showScoreRemoteIndicator(SCORE_REMOTE_ACTION_LABELS[action]);updateScoreRemoteUi()}
@@ -1904,7 +1905,6 @@ function handleAndroidPreStartPress(action,command){
   if(command?.doublePress===true){androidOfficialStartPending=null;markMatchOfficialStarted(command?.clientCreatedAt||command?.createdAt||new Date().toISOString());return true}
   if(previous?.matchId===state.match.matchId){
     const gap=Math.abs(at-previous.at);
-    if(gap<SCORE_REMOTE_DOUBLE_PRESS_MIN_MS){showScoreRemoteIndicator('再按一下正式開始',{duration:1600,icon:'▶️'});return true}
     if(gap<=SCORE_REMOTE_DOUBLE_PRESS_MS){androidOfficialStartPending=null;markMatchOfficialStarted(command?.clientCreatedAt||command?.createdAt||new Date().toISOString());return true}
   }
   androidOfficialStartPending={matchId:state.match.matchId,at};
