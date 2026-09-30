@@ -53,8 +53,7 @@ final class YuntengGestureInterpreter {
             pendingHorizontal = Math.abs(event.getX(1) - event.getX(0))
                     > Math.abs(event.getY(1) - event.getY(0));
             pendingAxisStart = pendingHorizontal ? event.getX(1) : event.getY(1);
-            pendingAction = VolumeKeyInterpreter.Action.NONE;
-            gestureAction = allowFastSecondPress ? identifyPress(event) : VolumeKeyInterpreter.Action.NONE;
+            gestureAction = identifyPress(event);
             return false;
         }
         if (action == MotionEvent.ACTION_MOVE && event.getPointerCount() >= 2
@@ -70,21 +69,9 @@ final class YuntengGestureInterpreter {
         }
         if (action == MotionEvent.ACTION_UP) gestureOpen = false;
         pendingAxisStart = Float.NaN;
-        if (gestureAction == VolumeKeyInterpreter.Action.NONE || hasPendingPress()) {
-            gestureAction = VolumeKeyInterpreter.Action.NONE;
-            return false;
-        }
+        if (gestureAction == VolumeKeyInterpreter.Action.NONE) return false;
         pendingAction = gestureAction;
         gestureAction = VolumeKeyInterpreter.Action.NONE;
-        return true;
-    }
-
-    boolean discardUnsentPress(MotionEvent event) {
-        if (!hasPendingPress() || !isYuntengEvent(event)
-                || event.getActionMasked() != MotionEvent.ACTION_POINTER_DOWN
-                || event.getPointerCount() < 2
-                || !isNewPress(lastPointerDownAt, event.getEventTime())) return false;
-        reset();
         return true;
     }
 
@@ -109,12 +96,6 @@ final class YuntengGestureInterpreter {
                 || eventTime - previousPointerDownAt > PRESS_QUIET_GAP_MS;
     }
 
-    private void reset() {
-        pendingAction = VolumeKeyInterpreter.Action.NONE;
-        gestureAction = VolumeKeyInterpreter.Action.NONE;
-        pendingAxisStart = Float.NaN;
-    }
-
     boolean hasPendingPress() {
         return pendingAction != VolumeKeyInterpreter.Action.NONE;
     }
@@ -122,7 +103,11 @@ final class YuntengGestureInterpreter {
     VolumeKeyInterpreter.Action onSettledPress() {
         if (!hasPendingPress()) return VolumeKeyInterpreter.Action.NONE;
         VolumeKeyInterpreter.Action action = pendingAction;
-        reset();
+        pendingAction = VolumeKeyInterpreter.Action.NONE;
+        if (!gestureOpen) {
+            gestureAction = VolumeKeyInterpreter.Action.NONE;
+            pendingAxisStart = Float.NaN;
+        }
         return action;
     }
 
