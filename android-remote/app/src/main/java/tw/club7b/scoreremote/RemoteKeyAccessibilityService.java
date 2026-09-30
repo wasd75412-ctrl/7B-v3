@@ -61,7 +61,9 @@ public final class RemoteKeyAccessibilityService extends AccessibilityService {
             if (event.getRepeatCount() == 0) {
                 vibrate(18L);
                 scheduleLongPress(keyCode, event.getEventTime());
-                scheduleMissingKeyUpFallback(keyCode);
+                if (keyCode == KeyEvent.KEYCODE_VOLUME_UP || keyCode == KeyEvent.KEYCODE_VOLUME_DOWN) {
+                    scheduleMissingKeyUpFallback(keyCode);
+                }
             }
             if (action == VolumeKeyInterpreter.Action.UNDO || action == VolumeKeyInterpreter.Action.RETURN_SHUTTLE) {
                 cancelLongPress();
@@ -114,6 +116,14 @@ public final class RemoteKeyAccessibilityService extends AccessibilityService {
     }
 
     private void handleResolvedBackgroundAction(VolumeKeyInterpreter.Action action, int keyCode, long eventTime) {
+        if (keyCode == KeyEvent.KEYCODE_CAMERA && action == VolumeKeyInterpreter.Action.USE_SHUTTLE) {
+            CameraButtonGesture.shared().onShortPress(eventTime, cameraButtonCallbacks);
+            return;
+        }
+        if (keyCode == KeyEvent.KEYCODE_CAMERA && action == VolumeKeyInterpreter.Action.RETURN_SHUTTLE) {
+            CameraButtonGesture.shared().onLongPress(eventTime, cameraButtonCallbacks);
+            return;
+        }
         if (action == VolumeKeyInterpreter.Action.USE_SHUTTLE || action == VolumeKeyInterpreter.Action.RETURN_SHUTTLE) {
             long now = SystemClock.uptimeMillis();
             if (now - lastShuttleActionAt < SHUTTLE_PRESS_COOLDOWN_MS) return;
@@ -124,6 +134,12 @@ public final class RemoteKeyAccessibilityService extends AccessibilityService {
         }
         sendBackgroundAction(action);
     }
+
+    private final CameraButtonGesture.Callbacks cameraButtonCallbacks = new CameraButtonGesture.Callbacks() {
+        @Override public void undo() { sendBackgroundAction(VolumeKeyInterpreter.Action.UNDO); }
+        @Override public void useShuttle() { sendBackgroundUseShuttle(); }
+        @Override public void returnShuttle() { sendBackgroundReturnShuttle(); }
+    };
 
     private BackgroundScoreController scoreController() {
         if (scoreController == null) scoreController = new BackgroundScoreController(this);
