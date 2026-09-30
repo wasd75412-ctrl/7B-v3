@@ -8,9 +8,9 @@ import org.junit.Test;
 public final class HomeWifiTest {
     @Test
     public void matchesOnlyTheHomeNetwork() {
-        assertTrue(HomeWifi.matches("\"AAA\""));
-        assertTrue(HomeWifi.matches("AAA"));
-        assertFalse(HomeWifi.matches("\"AAA-5G\""));
+        assertTrue(HomeWifi.matches("\"AAA-5G\""));
+        assertTrue(HomeWifi.matches("AAA-5G"));
+        assertFalse(HomeWifi.matches("\"AAA\""));
         assertFalse(HomeWifi.matches("\"aaa\""));
         assertFalse(HomeWifi.matches("<unknown ssid>"));
         assertFalse(HomeWifi.matches(null));
