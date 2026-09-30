@@ -14,8 +14,8 @@ import android.view.accessibility.AccessibilityEvent;
 import android.widget.Toast;
 
 public final class RemoteKeyAccessibilityService extends AccessibilityService {
-    private static final long MISSING_KEY_UP_DELAY_MS = 575L;
-    private static final long ACTION_DEBOUNCE_MS = 300L;
+    private static final long MISSING_KEY_UP_DELAY_MS = 160L;
+    private static final long SAME_POINT_ECHO_MS = 40L;
     private static final long UNDO_DEBOUNCE_MS = 600L;
     private static final long SHUTTLE_PRESS_COOLDOWN_MS = 2000L;
     private static final long CAMERA_DOUBLE_PRESS_MS = 500L;
@@ -28,6 +28,7 @@ public final class RemoteKeyAccessibilityService extends AccessibilityService {
     private Runnable pendingCameraSinglePress;
     private long lastShuttleActionAt;
     private long lastPointActionAt;
+    private VolumeKeyInterpreter.Action lastPointAction = VolumeKeyInterpreter.Action.NONE;
     private long lastUndoActionAt;
 
     @Override
@@ -196,8 +197,9 @@ public final class RemoteKeyAccessibilityService extends AccessibilityService {
         if (action == VolumeKeyInterpreter.Action.UNDO) {
             if (now - lastUndoActionAt < UNDO_DEBOUNCE_MS) return;
             lastUndoActionAt = now;
-        } else {
-            if (now - lastPointActionAt < ACTION_DEBOUNCE_MS) return;
+        } else if (action == VolumeKeyInterpreter.Action.TEAM_A_PLUS || action == VolumeKeyInterpreter.Action.TEAM_B_PLUS) {
+            if (action == lastPointAction && now - lastPointActionAt < SAME_POINT_ECHO_MS) return;
+            lastPointAction = action;
             lastPointActionAt = now;
         }
         if (scoreController == null) {

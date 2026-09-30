@@ -70,7 +70,7 @@ test('routes YUNTENG keys directly without multi-press delay',()=>{
   assert.doesNotMatch(controller,/sendShuttleCommand[\s\S]*?if\(!session\.isReady\(\)\)/);
   assert.match(controller,/startOfficialMatch[\s\S]*?if \(!session\.isAuthorized\(\)\)[\s\S]*?transaction\.get\(liveScore\)/);
   assert.match(controller,/private void sendAction\(Request request\).*knownMatchId\(\).*deliverAction\(remoteControl, request, cachedMatchId\)/s);
-  assert.match(controller,/remoteControl\.getParent\(\)\.document\("score-" \+ id\)\.set\(actionCommand\(request, matchId, id\)\)/);
+  assert.match(controller,/remoteControl\.getParent\(\)\.document\("score-" \+ id\)\.set\(command\)/);
   assert.match(main,/\['teamAPlus','teamBPlus','undo','useShuttle','returnShuttle'\]/);
   assert.match(main,/if\(!scoreVisible&&!resultVisible\)\{\s*if\(courtVisible&&\['teamAPlus','teamBPlus'\]\.includes\(action\)\)/);
   assert.match(main,/if\(action==='useShuttle'\)return useOneShuttle/);

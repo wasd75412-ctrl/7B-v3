@@ -41,7 +41,7 @@ final class VolumeKeyInterpreter {
             ignoredKeyUp = -1;
             return Action.NONE;
         }
-        if (activeKey != keyCode) return shortPressAction(keyCode);
+        if (activeKey != keyCode) return Action.NONE;
         long duration = Math.max(0L, eventTime - pressedAt);
         boolean alreadyUndone = undoSent;
         resetActiveKey();

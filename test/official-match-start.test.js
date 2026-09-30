@@ -98,10 +98,12 @@ test('Android sends remote commands without a transaction once the match is know
 
 test('Android appends every score press immediately instead of holding later presses',()=>{
   assert.doesNotMatch(controller,/COMMAND_DELIVERY_GAP_MS|commandHandler\.postDelayed\(this::processNext|remoteActionLog/);
-  assert.match(controller,/remoteControl\.getParent\(\)\.document\("score-" \+ id\)\.set\(actionCommand\(request, matchId, id\)\)/);
+  assert.match(controller,/Map<String, Object> command = actionCommand\(request, matchId, id\);[\s\S]*?if \(""\.equals\(command\.get\("action"\)\)\)[\s\S]*?remoteControl\.getParent\(\)\.document\("score-" \+ id\)\.set\(command\)/);
   assert.match(controller,/command\.put\("clientCreatedAt", request\.clientCreatedAt\)/);
   assert.match(controller,/reported\.compareAndSet\(false, true\) && request\.callback != null\) \{\s*request\.callback\.onComplete\(true, "已送出遙控器指令", request\.action\);/);
   assert.match(main,/onSnapshot\(collection\(db,'badmintonRooms',id,'remoteControl'\)[\s\S]*?change\.doc\.id\.startsWith\('score-'\)[\s\S]*?handleRemoteActionCommand\(\{remoteActionCommand:item\.command\},\{initial:false,skipAge:true\}\)/);
+  assert.match(main,/if\(!id\|\|seenRemoteActionIds\.has\(id\)\)return false;\s*seenRemoteActionIds\.add\(id\)/);
+  assert.match(main,/function replay\(\)\{[\s\S]*?m\.syncEpoch=Math\.max\(Date\.now\(\),\(Number\(m\.syncEpoch\)\|\|0\)\+1\)/);
 });
 
 test('official start is idempotent and scoring waits for it',()=>{
