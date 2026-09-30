@@ -28,7 +28,7 @@ import { deletePlayerFromState, normalizeRetiredPlayers } from './player-deletio
 import { normalizeScoreFont, randomScoreFont } from './score-font.js';
 import { EVENT_PACKING_MEMO_ITEMS, eventPackingMemoProgress, mergePackingMemos, normalizeEventPackingMemo, remainingPackingItems } from './event-packing-memo.js';
 import { ensureShuttleCostNotice, moveAdminNotice, normalizeAdminNotices } from './admin-notices.js';
-import { canReportEventPayment, eventPaymentStatus, normalizeEventPayments, updateEventPayment } from './event-payment.js';
+import { canReportEventPayment, eventPaymentStatus, normalizeEventPayments, normalizeSessionFee, updateEventPayment } from './event-payment.js';
 import { defaultRecordingStartLocalValue, groupHistoryDatesByMonth, groupMatchHistoryByDate, youtubeTimelineText } from './match-history.js';
 import { POLL_UNAVAILABLE, prunePollHistoryRows } from './poll-history.js';
 
@@ -535,7 +535,7 @@ function cleanEventParticipantIds(ids){return[...new Set((Array.isArray(ids)?ids
 function normalizeVenueName(value){const name=String(value||'');return name.trim()==='飛颺'?'飛颺羽球館':name}
 function cleanPollOption(option={}){return{...option,id:option.id||randomToken(),date:option.date||'',time:option.time||'',endTime:option.endTime||'',note:normalizeVenueName(option.note)}}
 function nextEventIdentity(event={}){const explicit=String(event.id||event.optionId||event.publishedAt||'').trim();return(explicit||`${event.date||''}_${event.time||''}_${event.endTime||''}_${event.location||''}`).slice(0,180)}
-function cleanNextEvent(event){if(!event||typeof event!=='object'||!event.date)return null;return{...event,id:nextEventIdentity(event),optionId:String(event.optionId||''),date:String(event.date||''),time:String(event.time||''),endTime:String(event.endTime||''),location:normalizeVenueName(event.location),note:String(event.note||''),participantIds:cleanEventParticipantIds(event.participantIds),payments:normalizeEventPayments(event.payments),...cleanTransferDetails(event),rentalTotal:wholeAmount(event.rentalTotal),participantCount:wholeAmount(event.participantCount),perPersonFee:wholeAmount(event.perPersonFee),publishedAt:String(event.publishedAt||'')}}
+function cleanNextEvent(event){if(!event||typeof event!=='object'||!event.date)return null;return{...event,id:nextEventIdentity(event),optionId:String(event.optionId||''),date:String(event.date||''),time:String(event.time||''),endTime:String(event.endTime||''),location:normalizeVenueName(event.location),note:String(event.note||''),participantIds:cleanEventParticipantIds(event.participantIds),payments:normalizeEventPayments(event.payments),sessionFee:normalizeSessionFee(event.sessionFee),...cleanTransferDetails(event),rentalTotal:wholeAmount(event.rentalTotal),participantCount:wholeAmount(event.participantCount),perPersonFee:wholeAmount(event.perPersonFee),publishedAt:String(event.publishedAt||'')}}
 function normalizeNextEvents(source={}){const rows=[...(Array.isArray(source.nextEvents)?source.nextEvents:[]),source.nextEvent].map(cleanNextEvent).filter(Boolean),seen=new Set();return rows.filter(event=>{const key=nextEventIdentity(event);if(seen.has(key))return false;seen.add(key);return true}).sort((a,b)=>(a.date+a.time).localeCompare(b.date+b.time)).slice(0,30)}
 function upsertNextEvent(rows,event){const clean=cleanNextEvent(event);if(!clean)return normalizeNextEvents({nextEvents:rows});return normalizeNextEvents({nextEvents:[...(Array.isArray(rows)?rows:[]).filter(row=>nextEventIdentity(row)!==clean.id),clean]})}
 function primaryNextEvent(source=state){const events=normalizeNextEvents(source);return events.find(event=>shouldShowNextEventAnnouncement(event.date,localDateKey()))||events.at(-1)||null}
@@ -577,7 +577,7 @@ function renderNextEventAnnouncement(){
   box.classList.toggle('hidden',!visible);
   if(!visible){box.innerHTML='';return}
   const claimedId=ownedPlayerId(),sessionPlayers=new Set(sessionPlayedParticipantIds());
-  const cards=events.map(e=>{const participantIds=cleanEventParticipantIds(e.participantIds),plannedCount=wholeAmount(e.participantCount),costs=sessionCombinedCosts(e),participantCount=costs.applies?costs.players:plannedCount,perPersonFee=costs.applies?costs.share:wholeAmount(e.perPersonFee),{transferBankCode,transferAccount}=cleanTransferDetails(e),participantText=participantCount?`${costs.applies?'實際出賽':'預計參與'} ${formatMoney(participantCount)} 人`:costs.applies?'尚無完成比賽的球員':'預計參與人數待確認',playerNames=participantIds.map(pname).filter(name=>name!=='未知球員'),players=playerNames.length?`<div class="next-event-player-list"><strong>參與球員</strong>${esc(playerNames.join('、'))}</div>`:'',payment=perPersonFee?`<div class="next-event-payment">場租及球費 <strong class="next-event-fee-amount">${formatMoney(perPersonFee)} 元</strong></div>`:'',shuttleUsage=costs.applies?`<div class="next-event-shuttle-usage">🏸 本場使用 ${formatMoney(costs.used)} 顆</div>`:'',transfer=transferAccount?`<div class="next-event-transfer"><span>${transferBankCode?`<span><strong>銀行代碼</strong>${esc(transferBankCode)}</span>`:''}<span><strong>轉帳帳號</strong>${esc(transferAccount)}</span></span><button class="btn" type="button" data-copy-next-event="${esc(e.id)}">複製帳號</button></div>`:'',actions=isHost?`<div class="next-event-entry-actions"><button class="btn next-event-edit-btn" type="button" data-edit-next-event="${esc(e.id)}">✏️ 編輯</button><button class="btn danger-outline" type="button" data-delete-next-event="${esc(e.id)}">刪除</button></div>`:'',paymentOpen=canReportEventPayment(e.date,localDateKey()),eligible=claimedId&&(participantIds.includes(claimedId)||sessionPlayers.has(claimedId)||(e.date===localDateKey()&&state.attendance.includes(claimedId))),myStatus=eligible?eventPaymentStatus(e,claimedId):'unpaid',reportButton=eligible&&perPersonFee?`<button class="btn event-payment-report ${myStatus}" type="button" data-event-payment-report="${esc(e.id)}" ${!paymentOpen||myStatus==='confirmed'?'disabled':''}>${myStatus==='confirmed'?'✓ 已繳費':myStatus==='pending'?'⌛ 待確認':'回報已繳費'}</button>`:'',paymentRows=isHost?Object.entries(normalizeEventPayments(e.payments)):[],adminPayments=paymentRows.length?`<div class="event-payment-admin"><strong>繳費確認</strong>${paymentRows.map(([id,row])=>`<span><b>${esc(pname(id))}</b><em class="${row.status}">${row.status==='confirmed'?'已繳費':'待確認'}</em>${row.status==='pending'?`<button class="btn primary" type="button" data-event-payment-confirm="${esc(e.id)}" data-player-id="${esc(id)}">確認</button><button class="btn danger-outline" type="button" data-event-payment-reject="${esc(e.id)}" data-player-id="${esc(id)}">駁回</button>`:`<button class="btn danger-outline" type="button" data-event-payment-reject="${esc(e.id)}" data-player-id="${esc(id)}">取消</button>`}</span>`).join('')}</div>`:'';return`<article class="next-event-entry"><div class="next-event-entry-head"><div class="next-event-main">${esc(formatEventDate(e.date,e.time,e.endTime))}</div>${actions}</div><div class="next-event-place"><span>📍 ${esc(e.location||'場地待公告')}</span>${e.location?googleMapsLink(e.location,'開啟地圖'):''}</div>${e.note?`<div class="next-event-note"><strong>🏸 場地備註：</strong>${esc(e.note)}</div>`:''}<div class="next-event-facts"><div class="next-event-participants">👥 ${participantText}</div>${payment}${shuttleUsage}</div>${players}${transfer}${reportButton?`<div class="event-payment-member">${reportButton}</div>`:''}${adminPayments}</article>`}).join('');
+  const cards=events.map(e=>{const participantIds=cleanEventParticipantIds(e.participantIds),plannedCount=wholeAmount(e.participantCount),costs=sessionCombinedCosts(e),participantCount=costs.applies?costs.players:plannedCount,perPersonFee=e.sessionFee?.amount||(costs.applies?costs.share:wholeAmount(e.perPersonFee)),{transferBankCode,transferAccount}=cleanTransferDetails(e),participantText=participantCount?`${costs.applies?'實際出賽':'預計參與'} ${formatMoney(participantCount)} 人`:costs.applies?'尚無完成比賽的球員':'預計參與人數待確認',playerNames=participantIds.map(pname).filter(name=>name!=='未知球員'),players=playerNames.length?`<div class="next-event-player-list"><strong>參與球員</strong>${esc(playerNames.join('、'))}</div>`:'',payment=perPersonFee?`<div class="next-event-payment">場租及球費 <strong class="next-event-fee-amount">${formatMoney(perPersonFee)} 元</strong></div>`:'',shuttleUsage=costs.applies?`<div class="next-event-shuttle-usage">🏸 本場使用 ${formatMoney(costs.used)} 顆</div>`:'',transfer=transferAccount?`<div class="next-event-transfer"><span>${transferBankCode?`<span><strong>銀行代碼</strong>${esc(transferBankCode)}</span>`:''}<span><strong>轉帳帳號</strong>${esc(transferAccount)}</span></span><button class="btn" type="button" data-copy-next-event="${esc(e.id)}">複製帳號</button></div>`:'',actions=isHost?`<div class="next-event-entry-actions"><button class="btn next-event-edit-btn" type="button" data-edit-next-event="${esc(e.id)}">✏️ 編輯</button><button class="btn danger-outline" type="button" data-delete-next-event="${esc(e.id)}">刪除</button></div>`:'',paymentOpen=canReportEventPayment(e.date,localDateKey()),eligible=claimedId&&(participantIds.includes(claimedId)||sessionPlayers.has(claimedId)||e.sessionFee?.playerIds.includes(claimedId)||(e.date===localDateKey()&&state.attendance.includes(claimedId))),myStatus=eligible?eventPaymentStatus(e,claimedId):'unpaid',reportButton=eligible&&perPersonFee?`<button class="btn event-payment-report ${myStatus}" type="button" data-event-payment-report="${esc(e.id)}" ${!paymentOpen||myStatus==='confirmed'?'disabled':''}>${myStatus==='confirmed'?'✓ 已繳費':myStatus==='pending'?'⌛ 待確認':'回報已繳費'}</button>`:'',paymentRows=isHost?Object.entries(normalizeEventPayments(e.payments)):[],adminPayments=paymentRows.length?`<div class="event-payment-admin"><strong>繳費確認</strong>${paymentRows.map(([id,row])=>`<span><b>${esc(pname(id))}</b><em class="${row.status}">${row.status==='confirmed'?'已繳費':'待確認'}</em>${row.status==='pending'?`<button class="btn primary" type="button" data-event-payment-confirm="${esc(e.id)}" data-player-id="${esc(id)}">確認</button><button class="btn danger-outline" type="button" data-event-payment-reject="${esc(e.id)}" data-player-id="${esc(id)}">駁回</button>`:`<button class="btn danger-outline" type="button" data-event-payment-reject="${esc(e.id)}" data-player-id="${esc(id)}">取消</button>`}</span>`).join('')}</div>`:'';return`<article class="next-event-entry"><div class="next-event-entry-head"><div class="next-event-main">${esc(formatEventDate(e.date,e.time,e.endTime))}</div>${actions}</div><div class="next-event-place"><span>📍 ${esc(e.location||'場地待公告')}</span>${e.location?googleMapsLink(e.location,'開啟地圖'):''}</div>${e.note?`<div class="next-event-note"><strong>🏸 場地備註：</strong>${esc(e.note)}</div>`:''}<div class="next-event-facts"><div class="next-event-participants">👥 ${participantText}</div>${payment}${shuttleUsage}</div>${players}${transfer}${reportButton?`<div class="event-payment-member">${reportButton}</div>`:''}${adminPayments}</article>`}).join('');
   box.innerHTML=`<div class="next-event-card-head"><h3>📣 下次打球時間</h3></div><div class="next-event-list">${cards}</div>`;
   box.querySelectorAll('[data-edit-next-event]').forEach(button=>button.onclick=()=>openNextEventEditor(button.dataset.editNextEvent));
   box.querySelectorAll('[data-delete-next-event]').forEach(button=>button.onclick=()=>clearNextEvent(button.dataset.deleteNextEvent));
@@ -585,6 +585,21 @@ function renderNextEventAnnouncement(){
   box.querySelectorAll('[data-event-payment-report]').forEach(button=>button.onclick=()=>reportNextEventPayment(button.dataset.eventPaymentReport));
   box.querySelectorAll('[data-event-payment-confirm]').forEach(button=>button.onclick=()=>moderateNextEventPayment(button.dataset.eventPaymentConfirm,button.dataset.playerId,'confirmed'));
   box.querySelectorAll('[data-event-payment-reject]').forEach(button=>button.onclick=()=>moderateNextEventPayment(button.dataset.eventPaymentReject,button.dataset.playerId,'unpaid'));
+  renderSessionFeeModal();
+}
+let sessionFeeModalEventId='';
+function openSessionFeeModal(eventId){sessionFeeModalEventId=String(eventId||'');renderSessionFeeModal();$('sessionFeeModal')?.classList.toggle('hidden',!sessionFeeModalEventId)}
+function closeSessionFeeModal(){sessionFeeModalEventId='';$('sessionFeeModal')?.classList.add('hidden')}
+function renderSessionFeeModal(){
+  const box=$('sessionFeeBody');if(!box||!sessionFeeModalEventId)return;
+  const event=normalizeNextEvents(state).find(row=>row.id===sessionFeeModalEventId),fee=event?.sessionFee;
+  if(!event||!fee){box.innerHTML='<p class="sub">找不到這場球局的繳費資料。</p>';return}
+  const claimedId=ownedPlayerId(),{transferBankCode,transferAccount}=cleanTransferDetails(event),status=claimedId?eventPaymentStatus(event,claimedId):'unpaid',eligible=!!claimedId&&fee.playerIds.includes(claimedId);
+  const transfer=transferAccount?`<div class="next-event-transfer"><span>${transferBankCode?`<span><strong>銀行代碼</strong>${esc(transferBankCode)}</span>`:''}<span><strong>轉帳帳號</strong>${esc(transferAccount)}</span></span><button class="btn" type="button" data-copy-next-event="${esc(event.id)}">複製帳號</button></div>`:'';
+  const report=!claimedId?'<p class="sub">請先認領自己的球員資料。</p>':eligible?`<div class="event-payment-member"><button class="btn event-payment-report ${status}" type="button" data-event-payment-report="${esc(event.id)}" ${status==='confirmed'?'disabled':''}>${status==='confirmed'?'✓ 已繳費':status==='pending'?'⌛ 待確認':'回報已繳費'}</button></div>`:'<p class="sub">你不在這場球局的繳費名單中。</p>';
+  box.innerHTML=`<div class="next-event-main">${esc(formatEventDate(event.date,event.time,event.endTime))}</div><div class="next-event-payment">今日繳費 <strong class="next-event-fee-amount">${formatMoney(fee.amount)} 元</strong></div>${transfer}${report}`;
+  box.querySelectorAll('[data-copy-next-event]').forEach(button=>button.onclick=()=>copyNextEventTransferAccount(button.dataset.copyNextEvent));
+  box.querySelectorAll('[data-event-payment-report]').forEach(button=>button.onclick=()=>reportNextEventPayment(button.dataset.eventPaymentReport));
 }
 async function writeNextEventPayment(eventId,playerId,status){
   if(!roomRef)return;
@@ -1713,6 +1728,7 @@ async function connectRoom(id){
     startChatSync();
     if(requestedPage==='poll')page(6);
     if(requestedPage==='chat')page(8);
+    if(requestedPage==='payment'&&requestParams.get('event'))openSessionFeeModal(requestParams.get('event'));
     unsubscribe=onSnapshot(roomRef,{includeMetadataChanges:true},s=>{
       if(!s.exists())return;
       if(s.metadata.fromCache&&(roomServerReady||requestedAndroidRemote))return;
@@ -3003,6 +3019,22 @@ async function deleteAdminNotice(id=''){
     setAdminNoticeFeedback(`刪除失敗，公告已保留：${formatError(error)}`,'error');
   }
 }
+function snapshotSessionFee(){
+  const event=currentSessionEvent(),playerIds=sessionPlayedParticipantIds(),costs=sessionCombinedCosts(event);
+  if(!event||!costs.share||!playerIds.length)return null;
+  const updated=cleanNextEvent({...event,sessionFee:{amount:costs.share,playerIds,noticeAt:new Date().toISOString()}});
+  state.nextEvents=upsertNextEvent(normalizeNextEvents(state),updated);
+  if(state.nextEvent&&nextEventIdentity(state.nextEvent)===updated.id)state.nextEvent=updated;
+  return{eventId:updated.id,noticeAt:updated.sessionFee.noticeAt};
+}
+async function sessionFeePushMessage(notice){
+  if(!notice)return'';
+  try{
+    const result=await pushApi('session-fee-notice',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({roomId,hostToken,noticeId:notice.noticeAt})});
+    if(result.failed)return `\n繳費通知已送達 ${result.sent} 台裝置，另有 ${result.failed} 台暫時未送達。`;
+    return result.sent?`\n已推送繳費通知給 ${result.sent} 台裝置。`:'\n出賽球員目前沒有已開啟通知的裝置。';
+  }catch(error){return `\n繳費通知暫時未送出：${error.message||'請稍後再試。'}`}
+}
 async function endTodaySession(triggerButton=null){
   if(!isHost)return;
   if(!confirm('確定結束今日球局？\n\n系統會先同步並建立完整備份，再清除目前比分、下一場叫號、出席與候場；已完成的比賽紀錄會保留。'))return;
@@ -3011,6 +3043,7 @@ async function endTodaySession(triggerButton=null){
   if(button){button.disabled=true;button.textContent='同步與備份中…'}
   try{
     setSync('同步與備份中');
+    const feeNotice=snapshotSessionFee();
     await saveNow();
     await createCloudBackup('session',{silent:true,system:true});
     backupCreated=true;
@@ -3028,7 +3061,8 @@ async function endTodaySession(triggerButton=null){
     await saveNewMatchCheckpointNow();
     setSync('已結束並備份','online');
     await loadBackups().catch(()=>{});
-    alert('今日球局已結束並完成同步備份，總覽已顯示目前沒有比賽。');
+    const feeMessage=await sessionFeePushMessage(feeNotice);
+    alert(`今日球局已結束並完成同步備份，總覽已顯示目前沒有比賽。${feeMessage}`);
   }catch(error){
     state=beforeEnd;
     rememberLatestLiveMatch();
@@ -3184,6 +3218,7 @@ $('closeAdminNotice').onclick=closeAdminNoticeManager;
 $('adminNoticeBody').addEventListener('keydown',event=>{if((event.ctrlKey||event.metaKey)&&event.key==='Enter')publishAdminNotice()});
 $('endSessionBtn').onclick=()=>endTodaySession($('endSessionBtn'));
 $('resultEndSessionBtn').onclick=()=>endTodaySession($('resultEndSessionBtn'));
+$('closeSessionFee').onclick=closeSessionFeeModal;
 if($('editNextEventFromPoll'))$('editNextEventFromPoll').onclick=()=>openNextEventEditor(primaryNextEvent()?.id||'');
 $('closeNextEventEditor').onclick=closeNextEventEditor;
 $('cancelNextEventEdits').onclick=closeNextEventEditor;
