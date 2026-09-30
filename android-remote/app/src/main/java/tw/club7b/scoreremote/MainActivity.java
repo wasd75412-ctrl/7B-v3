@@ -453,10 +453,6 @@ public final class MainActivity extends Activity {
         });
     }
 
-    private void openVideoCamera() {
-        openVideoCamera(false);
-    }
-
     private void openBroadcastCamera() {
         openVideoCamera(true);
     }
@@ -490,7 +486,7 @@ public final class MainActivity extends Activity {
             keyHandler.removeCallbacks(timeout);
             Toast.makeText(
                     this,
-                    success ? (broadcastMode ? "比分已連線，開始轉播錄影" : "開始循環錄影") : message,
+                    success ? "比分已連線，開始轉播錄影" : message,
                     success ? Toast.LENGTH_SHORT : Toast.LENGTH_LONG
             ).show();
             launchCamera.run();
@@ -536,11 +532,6 @@ public final class MainActivity extends Activity {
                     cap,
                     deuce
             );
-        }
-
-        @JavascriptInterface
-        public void openVideoCamera() {
-            runOnUiThread(MainActivity.this::openVideoCamera);
         }
 
         @JavascriptInterface

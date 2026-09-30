@@ -22,7 +22,8 @@ test('new score screens wait for the explicit official start timestamp',()=>{
 test('web score keys need a double press to start and never score while starting',()=>{
   const handler=main.match(/function handleScoreRemoteCode\(event,code\)\{[\s\S]*?\n\}/)?.[0]||'';
   assert.match(main,/SCORE_REMOTE_DOUBLE_PRESS_MS=800/);
-  assert.match(handler,/!matchHasOfficiallyStarted\(state\.match\)\)\{\s*if\(scoreRemoteStartPressAt&&now-scoreRemoteStartPressAt<=SCORE_REMOTE_DOUBLE_PRESS_MS\)\{scoreRemoteStartPressAt=0;markMatchOfficialStarted\(new Date\(\)\.toISOString\(\)\);return\}\s*scoreRemoteStartPressAt=now;showScoreRemoteIndicator\('再按一下正式開始'[^;]*;return;/);
+  assert.match(main,/SCORE_REMOTE_DOUBLE_PRESS_MIN_MS=300/);
+  assert.match(handler,/!matchHasOfficiallyStarted\(state\.match\)\)\{\s*if\(scoreRemoteStartPressAt&&now-scoreRemoteStartPressAt<SCORE_REMOTE_DOUBLE_PRESS_MIN_MS\)\{showScoreRemoteIndicator\('再按一下正式開始'[^;]*;return\}\s*if\(scoreRemoteStartPressAt&&now-scoreRemoteStartPressAt<=SCORE_REMOTE_DOUBLE_PRESS_MS\)\{scoreRemoteStartPressAt=0;markMatchOfficialStarted\(new Date\(\)\.toISOString\(\)\);return\}\s*scoreRemoteStartPressAt=now;showScoreRemoteIndicator\('再按一下正式開始'[^;]*;return;/);
   assert.match(handler,/scoreRemoteStartPressAt=0;\s*if\(performScoreRemoteAction\(action\)\)/);
   assert.doesNotMatch(main,/scoreRemotePendingPress|runPendingScoreRemoteAction/);
   for(const source of [activity,service])assert.doesNotMatch(source,/pendingShortPressCount|SHUTTLE_SEQUENCE_MS/);
@@ -34,7 +35,9 @@ test('remote score commands before the official start only show the double-press
   const preStart=main.match(/function handleAndroidPreStartPress\(action,command\)\{[\s\S]*?\n\}/)?.[0]||'';
   assert.match(preStart,/matchHasOfficiallyStarted\(state\.match\)\)return false/);
   assert.match(preStart,/pressedAt=timestampMillis\(command\?\.clientCreatedAt\)/);
-  assert.match(preStart,/if\(command\?\.doublePress===true\|\|\(previous\?\.matchId===state\.match\.matchId&&Math\.abs\(at-previous\.at\)<=SCORE_REMOTE_DOUBLE_PRESS_MS\)\)\{\s*androidOfficialStartPending=null;markMatchOfficialStarted\(/);
+  assert.match(preStart,/if\(command\?\.doublePress===true\)\{androidOfficialStartPending=null;markMatchOfficialStarted\(/);
+  assert.match(preStart,/if\(gap<SCORE_REMOTE_DOUBLE_PRESS_MIN_MS\)\{showScoreRemoteIndicator\('再按一下正式開始'/);
+  assert.match(preStart,/if\(gap<=SCORE_REMOTE_DOUBLE_PRESS_MS\)\{androidOfficialStartPending=null;markMatchOfficialStarted\(/);
   assert.match(preStart,/androidOfficialStartPending=\{matchId:state\.match\.matchId,at\}/);
   assert.match(preStart,/showScoreRemoteIndicator\('按兩下＋／－正式開始'/);
   assert.match(main,/handleAndroidPreStartPress\(action,command\)\)return true;[\s\S]*?performScoreRemoteAction\(action\)/);
@@ -46,7 +49,9 @@ test('remote score commands before the official start only show the double-press
 
 test('Android gates the official start with a double press before sending anything',()=>{
   const gate=readFileSync(new URL('../android-remote/app/src/main/java/tw/club7b/scoreremote/OfficialStartGate.java',import.meta.url),'utf8');
+  assert.match(gate,/MIN_CONFIRM_GAP_MS = 300L/);
   assert.match(gate,/DOUBLE_PRESS_MS = 800L/);
+  assert.match(gate,/if \(gap < MIN_CONFIRM_GAP_MS\) return Decision\.WAIT_FOR_SECOND_PRESS;/);
   assert.match(controller,/officialStartGate\.onScorePress\(\s*awaitingOfficialStart\(\), SystemClock\.uptimeMillis\(\)\)/);
   assert.match(controller,/WAIT_FOR_SECOND_PRESS\) \{\s*if \(callback != null\) callback\.onComplete\(true, "再按一下正式開始", action\);\s*return;/);
   assert.match(controller,/OFFICIAL_START\) \{[\s\S]*?startOfficialMatch\(/);
@@ -80,21 +85,23 @@ test('presses stamped with the just-replaced match still count toward the offici
   assert.match(replaced,/!matchHasOfficiallyStarted\(match\)&&!match\.rallies\.length/);
   assert.match(replaced,/Date\.now\(\)-replacedRemoteMatchAt<=REMOTE_COMMAND_MAX_AGE_MS&&String\(command\?\.matchId\?\?''\)===replacedRemoteMatchId/);
   assert.match(replaced,/shouldAcceptRemoteCommand\(\{command,currentMatch:\{matchId:replacedRemoteMatchId\}\}\)/);
-  assert.match(main,/if\(!shouldAcceptRemoteCommand\(\{command,currentMatch:state\.match,initial\}\)\)\{\s*if\(initial\|\|requestedAndroidRemote\|\|!isHost\|\|\$\('scoreView'\)\.classList\.contains\('hidden'\)\|\|!isReplacedMatchPreStartPress\(command,action\)\)return false;\s*return handleAndroidPreStartPress\(action,command\);/);
+  assert.match(main,/if\(!shouldAcceptRemoteCommand\(\{command,currentMatch:state\.match,initial,skipAge\}\)\)\{\s*if\(initial\|\|requestedAndroidRemote\|\|!isHost\|\|\$\('scoreView'\)\.classList\.contains\('hidden'\)\|\|!isReplacedMatchPreStartPress\(command,action\)\)return false;\s*return handleAndroidPreStartPress\(action,command\);/);
 });
 
 test('Android sends remote commands without a transaction once the match is known',()=>{
-  const processNext=controller.match(/private synchronized void processNext\(\) \{[\s\S]*?\n    \}/)?.[0]||'';
-  assert.match(processNext,/String cachedMatchId = knownMatchId\(\);\s*if \(cachedMatchId != null\) \{\s*remoteControl\.set\(actionUpdates\(request, cachedMatchId\), SetOptions\.merge\(\)\)/);
-  assert.doesNotMatch(processNext,/目前沒有進行中的比賽/);
+  const sendAction=controller.match(/private void sendAction\(Request request\) \{[\s\S]*?\n    \}/)?.[0]||'';
+  assert.match(sendAction,/String cachedMatchId = knownMatchId\(\);\s*if \(cachedMatchId != null\) \{\s*deliverAction\(remoteControl, request, cachedMatchId\);/);
+  assert.doesNotMatch(sendAction,/目前沒有進行中的比賽/);
   assert.match(controller,/void startOfficialMatch[\s\S]*?String cachedMatchId = cachedPreStartMatchId\(\);\s*if \(cachedMatchId != null\) \{\s*remoteControl\.set\(officialStartUpdates\(cachedMatchId, clientCreatedAt\)/);
   assert.match(controller,/cachedPreStartMatchId\(\) \{\s*return matchKnown && matchActive && !matchFinished && !matchStarted && !matchId\.isEmpty\(\) \? matchId : null;/);
 });
 
-test('Android queues rapid score commands long enough for the iPad listener to observe both',()=>{
-  assert.match(controller,/COMMAND_DELIVERY_GAP_MS = 250L/);
-  assert.match(controller,/commandHandler\.postDelayed\(this::processNext, COMMAND_DELIVERY_GAP_MS\)/);
+test('Android appends every score press immediately instead of holding later presses',()=>{
+  assert.doesNotMatch(controller,/COMMAND_DELIVERY_GAP_MS|commandHandler\.postDelayed\(this::processNext/);
+  assert.match(controller,/updates\.put\("remoteActionLog", FieldValue\.arrayUnion\(command\)\)/);
   assert.match(controller,/command\.put\("clientCreatedAt", request\.clientCreatedAt\)/);
+  assert.match(controller,/reported\.compareAndSet\(false, true\) && request\.callback != null\) \{\s*request\.callback\.onComplete\(true, "已送出遙控器指令", request\.action\);/);
+  assert.match(main,/function applyRemoteActionLog\(data,\{initial=false\}=\{\}\)\{[\s\S]*?seenRemoteActionIds\.add\(String\(command\.id\)\);[\s\S]*?handleRemoteActionCommand\(\{remoteActionCommand:command\},\{initial:false,skipAge:true\}\)/);
 });
 
 test('official start is idempotent and scoring waits for it',()=>{

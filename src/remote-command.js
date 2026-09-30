@@ -16,10 +16,11 @@ export function timestampMillis(value){
   return Number.isFinite(millis)&&millis>0&&millis<=8_640_000_000_000_000?millis:NaN;
 }
 
-export function shouldAcceptRemoteCommand({command,currentMatch,now=Date.now(),initial=false,fromCache=false,hasPendingWrites=false}={}){
+export function shouldAcceptRemoteCommand({command,currentMatch,now=Date.now(),initial=false,fromCache=false,hasPendingWrites=false,skipAge=false}={}){
   if(!command?.id||initial||fromCache||hasPendingWrites||!Number.isFinite(now))return false;
   const hasMatchId=Object.hasOwn(command,'matchId');
   if(hasMatchId&&(command.matchId??'')!==(currentMatch?.matchId??''))return false;
+  if(skipAge)return true;
 
   const startedAt=timestampMillis(currentMatch?.startedAt);
   const timestamps=[timestampMillis(command.createdAt)];

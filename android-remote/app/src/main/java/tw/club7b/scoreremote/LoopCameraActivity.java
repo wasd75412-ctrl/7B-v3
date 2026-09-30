@@ -98,6 +98,7 @@ public final class LoopCameraActivity extends ComponentActivity {
     private boolean broadcastMode;
     private boolean broadcastSaveRequested;
     private boolean broadcastExitRequested;
+    private boolean abandonRecording;
     private boolean broadcastStartReported;
     private long broadcastFileStartedAt;
 
@@ -172,25 +173,40 @@ public final class LoopCameraActivity extends ComponentActivity {
             root.addView(scorePreviewOverlay, new FrameLayout.LayoutParams(-1, -1));
         }
         LinearLayout bar = new LinearLayout(this);
-        bar.setGravity(Gravity.CENTER_VERTICAL); bar.setPadding(22, 14, 22, 14); bar.setBackgroundColor(0xB0000000);
-        ViewCompat.setOnApplyWindowInsetsListener(bar, (view, windowInsets) -> {
-            androidx.core.graphics.Insets systemBars = windowInsets.getInsets(WindowInsetsCompat.Type.systemBars());
-            view.setPadding(22 + systemBars.left, 14, 22 + systemBars.right, 14 + systemBars.bottom);
-            return windowInsets;
-        });
+        bar.setOrientation(LinearLayout.HORIZONTAL);
+        bar.setPadding(22, 14, 22, 14);
+        bar.setBackgroundColor(0xB0000000);
         status = new TextView(this); status.setTextColor(Color.WHITE); status.setTextSize(17f); status.setText("相機準備中…");
-        bar.addView(status, new LinearLayout.LayoutParams(0, -2, 1f));
+        status.setPadding(22, 14, 22, 14);
+        root.addView(status, new FrameLayout.LayoutParams(-2, -2, Gravity.TOP | Gravity.START));
         if (broadcastMode) {
             Button save = new Button(this); save.setText("保存並繼續"); prepareActionButton(save); save.setOnClickListener(v -> saveBroadcastAndContinue()); bar.addView(save);
-        } else {
-            Button save = new Button(this); save.setText("保存最近 3 分鐘"); prepareActionButton(save); save.setOnClickListener(v -> saveRecentVideo()); bar.addView(save);
         }
         Button close = new Button(this); close.setText("結束"); prepareActionButton(close); close.setOnClickListener(v -> {
             close.setEnabled(false);
             close.setText("結束中…");
             exitRecording();
         }); bar.addView(close);
-        root.addView(bar, new FrameLayout.LayoutParams(-1, -2, Gravity.BOTTOM));
+        bar.setGravity(Gravity.END | Gravity.CENTER_VERTICAL);
+        FrameLayout.LayoutParams actionParams = new FrameLayout.LayoutParams(-2, -2, Gravity.TOP | Gravity.END);
+        root.addView(bar, actionParams);
+        Button back = new Button(this);
+        back.setText("返回");
+        prepareActionButton(back);
+        back.setOnClickListener(v -> returnWithoutAction());
+        FrameLayout.LayoutParams backParams = new FrameLayout.LayoutParams(-2, -2, Gravity.BOTTOM | Gravity.START);
+        root.addView(back, backParams);
+        ViewCompat.setOnApplyWindowInsetsListener(root, (view, windowInsets) -> {
+            androidx.core.graphics.Insets systemBars = windowInsets.getInsets(WindowInsetsCompat.Type.systemBars());
+            status.setPadding(22 + systemBars.left, 14 + systemBars.top, 22 + systemBars.right, 14);
+            actionParams.topMargin = 14 + systemBars.top;
+            actionParams.rightMargin = systemBars.right;
+            backParams.leftMargin = 22 + systemBars.left;
+            backParams.bottomMargin = 14 + systemBars.bottom;
+            back.setLayoutParams(backParams);
+            bar.setLayoutParams(actionParams);
+            return windowInsets;
+        });
         setContentView(root, new ViewGroup.LayoutParams(-1, -1));
     }
 
@@ -348,23 +364,8 @@ public final class LoopCameraActivity extends ComponentActivity {
             startBroadcastRecording();
             return;
         }
-        File dir = new File(getCacheDir(), "rolling-video");
-        if (!dir.exists() && !dir.mkdirs()) { Toast.makeText(this, "無法建立暫存區", Toast.LENGTH_LONG).show(); return; }
-        activeFile = new File(dir, "segment-" + System.currentTimeMillis() + ".mp4");
-        try {
-            PendingRecording pending = videoCapture.getOutput().prepareRecording(this, new FileOutputOptions.Builder(activeFile).build());
-            if (hasPermission(Manifest.permission.RECORD_AUDIO)) pending = pending.withAudioEnabled();
-            recording = pending.start(ContextCompat.getMainExecutor(this), this::onVideoEvent);
-            status.setText("● 循環錄影中 · 僅暫存最近 3 分鐘");
-            handler.postDelayed(rotate, SEGMENT_MS);
-        } catch (RuntimeException error) {
-            Log.w("7BRecording", "Recording start interrupted", error);
-            recording = null;
-            if (activeFile != null) activeFile.delete();
-            activeFile = null;
-            status.setText("正在恢復錄影…");
-            scheduleRecordingRecovery();
-        }
+        closing = true;
+        finish();
     }
 
     private void startBroadcastRecording() {
@@ -422,6 +423,14 @@ public final class LoopCameraActivity extends ComponentActivity {
         recording = null;
         if (broadcastMode) {
             android.net.Uri savedUri = finalized.getOutputResults().getOutputUri();
+            if (abandonRecording) {
+                if (savedUri != null && !android.net.Uri.EMPTY.equals(savedUri)) {
+                    try { getContentResolver().delete(savedUri, null, null); } catch (RuntimeException ignored) { }
+                }
+                closing = true;
+                finish();
+                return;
+            }
             boolean success = !finalized.hasError() && savedUri != null && !android.net.Uri.EMPTY.equals(savedUri);
             if (success && RecordingUploadStore.add(this, savedUri, RemoteSessionStore.getSession(this).roomId,
                     broadcastFileStartedAt, System.currentTimeMillis())) {
@@ -453,6 +462,20 @@ public final class LoopCameraActivity extends ComponentActivity {
         if (!closing) scheduleRecordingRecovery();
     }
 
+    private void returnWithoutAction() {
+        if (abandonRecording || closing) return;
+        abandonRecording = true;
+        closing = true;
+        handler.removeCallbacks(recoverRecording);
+        handler.removeCallbacks(rotate);
+        if (recording != null) {
+            status.setText("返回中…");
+            recording.stop();
+            return;
+        }
+        finish();
+    }
+
     private void exitRecording() {
         explicitExit = true;
         if (broadcastMode && recording != null) {
@@ -478,7 +501,7 @@ public final class LoopCameraActivity extends ComponentActivity {
     }
 
     @Override public void onBackPressed() {
-        exitRecording();
+        returnWithoutAction();
     }
 
     @Override protected void onResume() {
