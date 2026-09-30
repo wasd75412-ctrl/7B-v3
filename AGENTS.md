@@ -40,6 +40,13 @@
 - 測試比賽不得寫入或保留在比賽紀錄中；既有的測試紀錄也必須在載入時排除。
 - 測試比賽不得計入任何戰績、勝率、場次、連勝、搭檔統計、排行榜、儀表板統計或球員生涯資料。
 
+## Android APK 安裝
+
+- 每次建立新的 Android 遙控器 APK，都必須在建置成功後直接安裝到已連線的手機，不得只留下下載連結。
+- 安裝 `7B-Score-Remote-release` 的簽章 release APK，執行 `adb install -r`。不要安裝 debug APK。
+- `adb` 不在 PATH 時使用 `%LOCALAPPDATA%\Android\Sdk\platform-tools\adb.exe`。
+- 沒有已連線裝置時必須如實回報，不可把未安裝說成已安裝。
+
 ## 分支合併門檻
 
 - 所有分支的 push 與 pull request 都必須通過共用 CI。

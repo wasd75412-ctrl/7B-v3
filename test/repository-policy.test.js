@@ -19,6 +19,12 @@ test('runs the shared policy workflow for every pushed branch and pull request',
   assert.match(workflow,/run: npm run build/);
 });
 
+test('installs each new Android remote APK on the connected phone',()=>{
+  assert.match(agents,/每次建立新的 Android 遙控器 APK，都必須在建置成功後直接安裝到已連線的手機/);
+  assert.match(agents,/adb install -r/);
+  assert.match(agents,/不要安裝 debug APK/);
+});
+
 test('keeps interface copy concise across current and future branches',()=>{
   assert.match(agents,/介面文字保持簡潔/);
   assert.match(agents,/不得自行新增教學式、重複式、宣傳式或長篇功能備註/);
