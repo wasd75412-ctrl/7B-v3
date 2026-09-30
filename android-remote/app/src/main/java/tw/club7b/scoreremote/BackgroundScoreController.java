@@ -286,7 +286,8 @@ final class BackgroundScoreController {
 
     private void deliverAction(DocumentReference remoteControl, Request request, String matchId) {
         AtomicBoolean reported = new AtomicBoolean(false);
-        remoteControl.set(actionUpdates(request, matchId), SetOptions.merge())
+        String id = java.util.UUID.randomUUID().toString();
+        remoteControl.getParent().document("score-" + id).set(actionCommand(request, matchId, id))
                 .addOnFailureListener(error -> {
                     if (reported.compareAndSet(false, true) && request.callback != null) {
                         request.callback.onComplete(false, errorMessage(error), request.action);
@@ -297,16 +298,13 @@ final class BackgroundScoreController {
         }
     }
 
-    private static Map<String, Object> actionUpdates(Request request, String matchId) {
+    private static Map<String, Object> actionCommand(Request request, String matchId, String id) {
         Map<String, Object> command = new HashMap<>();
-        command.put("id", java.util.UUID.randomUUID().toString());
+        command.put("id", id);
         command.put("action", request.action == VolumeKeyInterpreter.Action.UNDO ? "undo" : request.action == VolumeKeyInterpreter.Action.TEAM_A_PLUS ? "teamAPlus" : "teamBPlus");
         command.put("matchId", matchId);
         command.put("clientCreatedAt", request.clientCreatedAt);
-        Map<String, Object> updates = new HashMap<>();
-        updates.put("remoteActionLog", FieldValue.arrayUnion(command));
-        updates.put("updatedAt", FieldValue.serverTimestamp());
-        return updates;
+        return command;
     }
 
     private DocumentReference liveScoreReference(RemoteSessionStore.Session session) {

@@ -87,10 +87,10 @@ function wholeAmount(value){const n=Number(value);return Number.isFinite(n)&&n>0
 function setAdminNotices(rows){state.adminNotices=normalizeAdminNotices({adminNotices:rows});state.adminNotice=state.adminNotices[0]||null}
 const initialState=()=>({version:9.8,matchFormat:'doubles',testMode:false,testModeRevision:0,roster:[],retiredPlayers:[],adminPlayerIds:[],attendance:[],court:[],waitingQueue:[],queueDraftChosen:[],priority:null,lastLoserReplayPlayerId:null,match:{active:false,format:'doubles',players:[[],[]],scores:[0,0],rallies:[],serving:0,positions:[[0,1],[0,1]],winner:null,startedAt:''},matchRollback:null,rules:{target:11,cap:15,deuce:true,genderGroupingEnabled:true},history:[],matchTimelineStarts:{},matchReplayPlaylistTitle:'',matchReplayPlaylistUrl:'',nextCall:null,schedulePoll:{status:'open',createdAt:'',deadlineAt:'',autoCycle:'',options:[],votes:{},voterPlayers:{},manualParticipants:{}},pollHistory:[],nextEvent:null,nextEvents:[],adminNotice:null,adminNotices:[],shuttleTubes:[],shuttleLegacyActiveTubeId:'',shuttleNoTrackingTubeIds:[],updatedAt:null});
 const DEVICE_SYNC_CODE_KEY='bcmDeviceSyncCodeV1',DEVICE_SYNC_TOKEN_KEY='bcmDeviceSyncTokenV1',DEVICE_SYNC_NAME_KEY='bcmDeviceSyncNameV1',DEVICE_SYNC_PLAYER_KEY='bcmDeviceSyncPlayerV1';
-let state=initialState(), roomId='', roomRef=null, liveScoreRef=null, remoteControlRef=null, chatCollectionRef=null, isHost=false, hostToken='', adminPinHash='', unsubscribe=null, liveScoreUnsubscribe=null, remoteControlUnsubscribe=null, chatUnsubscribe=null, applying=false, saveTimer=null, liveScoreSaveTimer=null, matchAutoBackupTimer=null, editId=null;const expandedPlayerNotes=new Set();let profileOriginal=null,profileDirty={name:false,gender:false,memberType:false,voiceName:false,racket:false,racketTension:false,racketString:false,backupRacket:false,backupTension:false,backupString:false,note:false};let voiceEnabled=localStorage.getItem('bdV76Voice')!=='0';let dismissedResultKey='';const selfToken=localStorage.getItem(DEVICE_SYNC_TOKEN_KEY)||localStorage.getItem('bdV73SelfToken')||randomToken();localStorage.setItem('bdV73SelfToken',selfToken);let selfHash='',scoreViewRequested=false,expandedShuttleTubeId='';
+let state=initialState(), roomId='', roomRef=null, liveScoreRef=null, remoteControlRef=null, chatCollectionRef=null, isHost=false, hostToken='', adminPinHash='', unsubscribe=null, liveScoreUnsubscribe=null, remoteControlUnsubscribe=null, remoteActionUnsubscribe=null, chatUnsubscribe=null, applying=false, saveTimer=null, liveScoreSaveTimer=null, matchAutoBackupTimer=null, editId=null;const expandedPlayerNotes=new Set();let profileOriginal=null,profileDirty={name:false,gender:false,memberType:false,voiceName:false,racket:false,racketTension:false,racketString:false,backupRacket:false,backupTension:false,backupString:false,note:false};let voiceEnabled=localStorage.getItem('bdV76Voice')!=='0';let dismissedResultKey='';const selfToken=localStorage.getItem(DEVICE_SYNC_TOKEN_KEY)||localStorage.getItem('bdV73SelfToken')||randomToken();localStorage.setItem('bdV73SelfToken',selfToken);let selfHash='',scoreViewRequested=false,expandedShuttleTubeId='';
 let deviceProfileUnsubscribe=null,deviceProfileApplying=false,deviceProfileSaveTimer=null,identitySyncing=false,roomConnectInProgress=false;
 let roomSnapshotFromCache=false,snapshotHasPendingWrites=false,pendingRoomWrites=0,roomWriteScheduled=false;
-let liveScoreSnapshotFromCache=false,liveScoreHasPendingWrites=false,pendingLiveScoreWrites=0,liveScoreWriteScheduled=false,liveScoreConnecting=false,liveScoreAvailable=true,liveScoreReady=false,liveScoreInitialSnapshot=true,remoteControlInitialSnapshot=true,liveScoreMigrationStarted=false,latestLiveMatch=null,lastRoomSnapshotData=null,lastRemoteRecordingStartCommandId='',lastRemoteFullscreenCommandId='',lastRemoteOfficialStartCommandId='',lastRemoteNextMatchCommandId='',lastRemoteUndoFinishedCommandId='',lastRemoteStartMatchCommandId='',lastRemoteActionCommandId='',seenRemoteActionIds=new Set(),androidOfficialStartPending=null,replacedRemoteMatchId='',replacedRemoteMatchAt=0;
+let liveScoreSnapshotFromCache=false,liveScoreHasPendingWrites=false,pendingLiveScoreWrites=0,liveScoreWriteScheduled=false,liveScoreConnecting=false,liveScoreAvailable=true,liveScoreReady=false,liveScoreInitialSnapshot=true,remoteControlInitialSnapshot=true,remoteActionInitialSnapshot=true,liveScoreMigrationStarted=false,latestLiveMatch=null,lastRoomSnapshotData=null,lastRemoteRecordingStartCommandId='',lastRemoteFullscreenCommandId='',lastRemoteOfficialStartCommandId='',lastRemoteNextMatchCommandId='',lastRemoteUndoFinishedCommandId='',lastRemoteStartMatchCommandId='',lastRemoteActionCommandId='',seenRemoteActionIds=new Set(),androidOfficialStartPending=null,replacedRemoteMatchId='',replacedRemoteMatchAt=0;
 let chatMessages=[],chatMentionIds=new Set(),chatFirstRender=true,chatMessagesRenderKey='',chatLastSentAt=0,chatRequestRunning=false,chatSendRunning=false,chatPendingMedia=null;
 const requestParams=new URLSearchParams(location.search),requestedPage=requestParams.get('page'),requestedAndroidRemote=requestParams.get('androidRemote')==='1';
 if(requestedAndroidRemote){
@@ -102,10 +102,10 @@ if(requestedAndroidRemote){
   $('landingJoinDivider').textContent='連接目前球局';
   $('joinRoom').textContent='連接球局';
 }
-const SCORE_REMOTE_ENABLED_KEY='bcmScoreRemoteEnabledV1',SCORE_REMOTE_BINDINGS_KEY='bcmScoreRemoteBindingsV1',SCORE_REMOTE_DOUBLE_PRESS_MS=200,OFFICIAL_START_SCORE_LOCK_MS=3000;
+const SCORE_REMOTE_ENABLED_KEY='bcmScoreRemoteEnabledV1',SCORE_REMOTE_BINDINGS_KEY='bcmScoreRemoteBindingsV1',SCORE_REMOTE_DOUBLE_PRESS_MS=200;
 const SCORE_REMOTE_ACTION_LABELS={teamAPlus:'A隊 ＋1',teamBPlus:'B隊 ＋1',undo:'撤銷上一分',teamAMinus:'A隊 −1',teamBMinus:'B隊 −1'};
 const SCORE_REMOTE_BINDING_IDS={teamAPlus:'remoteBindingTeamAPlus',teamBPlus:'remoteBindingTeamBPlus',undo:'remoteBindingUndo',teamAMinus:'remoteBindingTeamAMinus',teamBMinus:'remoteBindingTeamBMinus'};
-let scoreRemoteEnabled=localStorage.getItem(SCORE_REMOTE_ENABLED_KEY)==='1',scoreRemoteBindings=loadScoreRemoteBindings(),scoreRemoteLearningAction='',scoreRemoteLastInputAt=0,scoreRemoteIndicatorTimer=null,scoreRemoteLearningTimer=null,scoreRemoteStatusMessage='',scoreRemoteStatusKind='',scoreRemotePressedCodes=new Set(),scoreRemoteStartPressAt=0,officialStartScoreUnlockAt=0;
+let scoreRemoteEnabled=localStorage.getItem(SCORE_REMOTE_ENABLED_KEY)==='1',scoreRemoteBindings=loadScoreRemoteBindings(),scoreRemoteLearningAction='',scoreRemoteLastInputAt=0,scoreRemoteIndicatorTimer=null,scoreRemoteLearningTimer=null,scoreRemoteStatusMessage='',scoreRemoteStatusKind='',scoreRemotePressedCodes=new Set(),scoreRemoteStartPressAt=0;
 
 function loadScoreRemoteBindings(){
   try{return normalizeRemoteBindings(JSON.parse(localStorage.getItem(SCORE_REMOTE_BINDINGS_KEY)||'{}'))}catch{return normalizeRemoteBindings()}
@@ -149,7 +149,6 @@ function markMatchOfficialStarted(requestedAt){
   androidOfficialStartPending=null;
   const now=Date.now(),requestedMillis=timestampMillis(requestedAt);
   match.startedAt=new Date(Number.isFinite(requestedMillis)?Math.min(requestedMillis,now):now).toISOString();
-  officialStartScoreUnlockAt=now+OFFICIAL_START_SCORE_LOCK_MS;
   saveLiveScoreSoon();saveSoon();renderDashboard();
   showScoreRemoteIndicator('比賽正式開始',{duration:500,icon:'✅',emphasis:'official'});
   return true;
@@ -158,7 +157,6 @@ function performScoreRemoteAction(action,{announce=true}={}){
   const match=state.match;
   if(action==='teamAPlus'||action==='teamBPlus'){
     if(!matchHasOfficiallyStarted(match)){showScoreRemoteIndicator('請先按播放鍵正式開始',{duration:1600,icon:'▶️'});return false}
-    if(Date.now()<officialStartScoreUnlockAt){const seconds=Math.max(1,Math.ceil((officialStartScoreUnlockAt-Date.now())/1000));showScoreRemoteIndicator(`正式開始保護中 · ${seconds} 秒後可計分`,{duration:900,icon:'⏳'});return false}
     if(match.winner!==null)return false;
     match.rallies.push(action==='teamAPlus'?0:1);replay();if(announce&&voiceEnabled)setTimeout(announceScore,80);return true;
   }
@@ -216,8 +214,8 @@ function handleAndroidRemoteAction(action){
   if(!requestedAndroidRemote)return false;
   if(!isHost){setAndroidRemoteFeedback('請先完成管理員登入','error');return false}
   if(!remoteControlRef){setAndroidRemoteFeedback('尚未連接遙控通道','error');return false}
-  const remoteActionCommand={id:randomToken(),action,matchId:state.match.matchId||'',createdAt:new Date().toISOString()};
-  setDoc(remoteControlRef,{remoteActionCommand,updatedAt:serverTimestamp()},{merge:true}).then(()=>setAndroidRemoteFeedback('已送出遙控器指令','success')).catch(()=>setAndroidRemoteFeedback('遙控器指令傳送失敗','error'));
+  const id=randomToken(),command={id,action,matchId:state.match.matchId||'',clientCreatedAt:Date.now()};
+  setDoc(doc(db,'badmintonRooms',roomId,'remoteControl',`score-${id}`),command).then(()=>setAndroidRemoteFeedback('已送出遙控器指令','success')).catch(()=>setAndroidRemoteFeedback('遙控器指令傳送失敗','error'));
   return true;
 }
 function sendRemoteStartMatchCommand(){
@@ -1658,6 +1656,7 @@ async function connectRoom(id){
   unsubscribe?.();unsubscribe=null;
   liveScoreUnsubscribe?.();liveScoreUnsubscribe=null;
   remoteControlUnsubscribe?.();remoteControlUnsubscribe=null;
+  remoteActionUnsubscribe?.();remoteActionUnsubscribe=null;
   chatUnsubscribe?.();chatUnsubscribe=null;
   clearChatPendingMedia();
   chatCollectionRef=null;chatMessages=[];chatMentionIds.clear();chatFirstRender=true;chatMessagesRenderKey='';chatRequestRunning=false;chatSendRunning=false;
@@ -1671,7 +1670,7 @@ async function connectRoom(id){
   liveScoreRef=doc(db,'badmintonRooms',id,'liveScore','current');
   remoteControlRef=doc(db,'badmintonRooms',id,'remoteControl','current');
   liveScoreReady=false;liveScoreInitialSnapshot=true;liveScoreMigrationStarted=false;liveScoreAvailable=true;liveScoreConnecting=true;latestLiveMatch=null;lastRoomSnapshotData=null;
-  remoteControlInitialSnapshot=true;lastRemoteFullscreenCommandId='';lastRemoteOfficialStartCommandId='';lastRemoteNextMatchCommandId='';lastRemoteUndoFinishedCommandId='';lastRemoteStartMatchCommandId='';lastRemoteActionCommandId='';seenRemoteActionIds=new Set();androidOfficialStartPending=null;replacedRemoteMatchId='';replacedRemoteMatchAt=0;
+  remoteControlInitialSnapshot=true;remoteActionInitialSnapshot=true;lastRemoteFullscreenCommandId='';lastRemoteOfficialStartCommandId='';lastRemoteNextMatchCommandId='';lastRemoteUndoFinishedCommandId='';lastRemoteStartMatchCommandId='';lastRemoteActionCommandId='';seenRemoteActionIds=new Set();androidOfficialStartPending=null;replacedRemoteMatchId='';replacedRemoteMatchAt=0;
   liveScoreSnapshotFromCache=false;liveScoreHasPendingWrites=false;pendingLiveScoreWrites=0;liveScoreWriteScheduled=false;
   selfHash=await sha256(selfToken);
   setSync(navigator.onLine?'連線中':'讀取離線資料','pending');
@@ -1767,6 +1766,25 @@ async function connectRoom(id){
       updateSyncBadge();
       console.warn('獨立即時比分無法連線，已切回完整房間同步',error);
     });
+    remoteActionUnsubscribe=onSnapshot(collection(db,'badmintonRooms',id,'remoteControl'),{includeMetadataChanges:true},snapshot=>{
+      if(snapshot.metadata.fromCache)return;
+      const initial=remoteActionInitialSnapshot;
+      remoteActionInitialSnapshot=false;
+      const added=[];
+      for(const change of snapshot.docChanges()){
+        if(change.type==='removed'||!change.doc.id.startsWith('score-')||change.doc.metadata.hasPendingWrites)continue;
+        const command={id:change.doc.id.slice(6),...change.doc.data()};
+        if(!command.id||seenRemoteActionIds.has(String(command.id)))continue;
+        if(initial){seenRemoteActionIds.add(String(command.id));deleteRemoteScore(change.doc.ref);continue}
+        added.push({command,ref:change.doc.ref});
+      }
+      added.sort((a,b)=>(Number(a.command.clientCreatedAt)||0)-(Number(b.command.clientCreatedAt)||0));
+      for(const item of added){
+        seenRemoteActionIds.add(String(item.command.id));
+        handleRemoteActionCommand({remoteActionCommand:item.command},{initial:false,skipAge:true});
+        deleteRemoteScore(item.ref);
+      }
+    },error=>console.warn('遙控計分通道無法連線',error));
     remoteControlUnsubscribe=onSnapshot(remoteControlRef,{includeMetadataChanges:true},snapshot=>{
       // Cache events cannot establish the command baseline. The first server event is skipped too.
       if(snapshot.metadata.fromCache||snapshot.metadata.hasPendingWrites)return;
@@ -1910,6 +1928,10 @@ function handleAndroidPreStartPress(action,command){
   androidOfficialStartPending={matchId:state.match.matchId,at};
   showScoreRemoteIndicator('按兩下＋／－正式開始',{duration:1600,icon:'▶️'});
   return true;
+}
+function deleteRemoteScore(ref){
+  if(requestedAndroidRemote||!isHost)return;
+  deleteDoc(ref).catch(()=>{});
 }
 function applyRemoteActionLog(data,{initial=false}={}){
   const log=Array.isArray(data?.remoteActionLog)?data.remoteActionLog:[];

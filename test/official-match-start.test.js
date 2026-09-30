@@ -97,11 +97,11 @@ test('Android sends remote commands without a transaction once the match is know
 });
 
 test('Android appends every score press immediately instead of holding later presses',()=>{
-  assert.doesNotMatch(controller,/COMMAND_DELIVERY_GAP_MS|commandHandler\.postDelayed\(this::processNext/);
-  assert.match(controller,/updates\.put\("remoteActionLog", FieldValue\.arrayUnion\(command\)\)/);
+  assert.doesNotMatch(controller,/COMMAND_DELIVERY_GAP_MS|commandHandler\.postDelayed\(this::processNext|remoteActionLog/);
+  assert.match(controller,/remoteControl\.getParent\(\)\.document\("score-" \+ id\)\.set\(actionCommand\(request, matchId, id\)\)/);
   assert.match(controller,/command\.put\("clientCreatedAt", request\.clientCreatedAt\)/);
   assert.match(controller,/reported\.compareAndSet\(false, true\) && request\.callback != null\) \{\s*request\.callback\.onComplete\(true, "已送出遙控器指令", request\.action\);/);
-  assert.match(main,/function applyRemoteActionLog\(data,\{initial=false\}=\{\}\)\{[\s\S]*?seenRemoteActionIds\.add\(String\(command\.id\)\);[\s\S]*?handleRemoteActionCommand\(\{remoteActionCommand:command\},\{initial:false,skipAge:true\}\)/);
+  assert.match(main,/onSnapshot\(collection\(db,'badmintonRooms',id,'remoteControl'\)[\s\S]*?change\.doc\.id\.startsWith\('score-'\)[\s\S]*?handleRemoteActionCommand\(\{remoteActionCommand:item\.command\},\{initial:false,skipAge:true\}\)/);
 });
 
 test('official start is idempotent and scoring waits for it',()=>{
@@ -112,10 +112,8 @@ test('official start is idempotent and scoring waits for it',()=>{
   assert.match(main,/function handleRemoteFullscreenCommand[\s\S]*?markMatchOfficialStarted\(data\.fullscreenCommand\.clientCreatedAt\|\|data\.fullscreenCommand\.createdAt\)/);
 });
 
-test('official start discards score presses for three seconds',()=>{
-  assert.match(main,/OFFICIAL_START_SCORE_LOCK_MS=3000/);
-  assert.match(main,/officialStartScoreUnlockAt=now\+OFFICIAL_START_SCORE_LOCK_MS/);
-  assert.match(main,/Date\.now\(\)<officialStartScoreUnlockAt[\s\S]*?正式開始保護中[\s\S]*?return false/);
+test('official start does not block the following score presses',()=>{
+  assert.doesNotMatch(main,/OFFICIAL_START_SCORE_LOCK_MS|officialStartScoreUnlockAt|正式開始保護中/);
   assert.match(main,/showScoreRemoteIndicator\('比賽正式開始',\{duration:500/);
 });
 
