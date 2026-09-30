@@ -37,21 +37,21 @@ final class YuntengGestureInterpreter {
         return keyCode;
     }
 
-    VolumeKeyInterpreter.Action onTouchEvent(MotionEvent event) {
-        if (!isYuntengEvent(event)) return VolumeKeyInterpreter.Action.NONE;
+    boolean onTouchEvent(MotionEvent event) {
+        if (!isYuntengEvent(event)) return false;
         int action = event.getActionMasked();
         if (action == MotionEvent.ACTION_POINTER_DOWN) {
-            if (event.getPointerCount() < 2) return VolumeKeyInterpreter.Action.NONE;
+            if (event.getPointerCount() < 2) return false;
             long eventTime = event.getEventTime();
             boolean newPress = isNewPress(lastPointerDownAt, eventTime);
             lastPointerDownAt = eventTime;
-            if (!newPress) return VolumeKeyInterpreter.Action.NONE;
+            if (!newPress) return false;
             pendingHorizontal = Math.abs(event.getX(1) - event.getX(0))
                     > Math.abs(event.getY(1) - event.getY(0));
             pendingAxisStart = pendingHorizontal ? event.getX(1) : event.getY(1);
             pendingAction = VolumeKeyInterpreter.Action.NONE;
             gestureAction = VolumeKeyInterpreter.Action.NONE;
-            return VolumeKeyInterpreter.Action.NONE;
+            return false;
         }
         if (action == MotionEvent.ACTION_MOVE && event.getPointerCount() >= 2
                 && !Float.isNaN(pendingAxisStart)) {
@@ -59,27 +59,28 @@ final class YuntengGestureInterpreter {
             VolumeKeyInterpreter.Action candidate = classifyDirection(
                     event.getDevice().getName(), currentAxis - pendingAxisStart);
             if (candidate != VolumeKeyInterpreter.Action.NONE) gestureAction = candidate;
-            return VolumeKeyInterpreter.Action.NONE;
+            return false;
         }
         if (action != MotionEvent.ACTION_POINTER_UP && action != MotionEvent.ACTION_UP) {
-            return VolumeKeyInterpreter.Action.NONE;
+            return false;
         }
         pendingAxisStart = Float.NaN;
         if (gestureAction == VolumeKeyInterpreter.Action.NONE || hasPendingPress()) {
             gestureAction = VolumeKeyInterpreter.Action.NONE;
-            return VolumeKeyInterpreter.Action.NONE;
+            return false;
         }
         pendingAction = gestureAction;
         gestureAction = VolumeKeyInterpreter.Action.NONE;
-        return VolumeKeyInterpreter.Action.NONE;
+        return true;
     }
 
-    VolumeKeyInterpreter.Action takePendingPressBeforeNewPress(MotionEvent event) {
+    boolean discardUnsentPress(MotionEvent event) {
         if (!hasPendingPress() || !isYuntengEvent(event)
                 || event.getActionMasked() != MotionEvent.ACTION_POINTER_DOWN
                 || event.getPointerCount() < 2
-                || !isNewPress(lastPointerDownAt, event.getEventTime())) return VolumeKeyInterpreter.Action.NONE;
-        return onSettledPress();
+                || !isNewPress(lastPointerDownAt, event.getEventTime())) return false;
+        reset();
+        return true;
     }
 
     static boolean isNewPress(long previousPointerDownAt, long eventTime) {

@@ -173,13 +173,8 @@ public final class MainActivity extends Activity {
     @Override
     public boolean dispatchTouchEvent(MotionEvent event) {
         if (!yuntengGestures.isYuntengEvent(event)) return super.dispatchTouchEvent(event);
-        VolumeKeyInterpreter.Action previousPress = yuntengGestures.takePendingPressBeforeNewPress(event);
-        if (previousPress != VolumeKeyInterpreter.Action.NONE) {
-            cancelYuntengPressTimers();
-            deliverYuntengPress(previousPress);
-        }
-        yuntengGestures.onTouchEvent(event);
-        if (yuntengGestures.hasPendingPress()) scheduleYuntengPress();
+        if (yuntengGestures.discardUnsentPress(event)) cancelYuntengPressTimers();
+        if (yuntengGestures.onTouchEvent(event)) scheduleYuntengPress();
         return true;
     }
 

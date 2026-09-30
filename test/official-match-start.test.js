@@ -64,12 +64,15 @@ test('Android gates the official start with a double press before sending anythi
   assert.match(activity,/TEAM_A_PLUS \|\| action == VolumeKeyInterpreter\.Action\.TEAM_B_PLUS\) \{\s*sendYuntengScoreAction\(action\);\s*return;/);
 });
 
-test('a quick second YUNTENG press flushes the first instead of being dropped',()=>{
+test('a later YUNTENG press drops an unsent score instead of adding both',()=>{
   const loop=readFileSync(new URL('../android-remote/app/src/main/java/tw/club7b/scoreremote/LoopCameraActivity.java',import.meta.url),'utf8');
   const interpreter=readFileSync(new URL('../android-remote/app/src/main/java/tw/club7b/scoreremote/YuntengGestureInterpreter.java',import.meta.url),'utf8');
-  assert.match(interpreter,/takePendingPressBeforeNewPress\(MotionEvent event\) \{[\s\S]*?ACTION_POINTER_DOWN[\s\S]*?isNewPress\(lastPointerDownAt, event\.getEventTime\(\)\)[\s\S]*?return onSettledPress\(\);/);
-  assert.match(activity,/takePendingPressBeforeNewPress\(event\);[\s\S]*?cancelYuntengPressTimers\(\);\s*deliverYuntengPress\(previousPress\);[\s\S]*?yuntengGestures\.onTouchEvent\(event\)/);
-  assert.match(loop,/takePendingPressBeforeNewPress\(event\);[\s\S]*?cancelYuntengPressTimers\(\);\s*sendYuntengScore\(previousPress\);[\s\S]*?yuntengGestures\.onTouchEvent\(event\)/);
+  assert.match(interpreter,/boolean discardUnsentPress\(MotionEvent event\) \{[\s\S]*?isNewPress\(lastPointerDownAt, event\.getEventTime\(\)\)\) return false;\s*reset\(\);\s*return true;/);
+  assert.doesNotMatch(interpreter,/takePendingPressBeforeNewPress/);
+  assert.match(activity,/if \(yuntengGestures\.discardUnsentPress\(event\)\) cancelYuntengPressTimers\(\);\s*if \(yuntengGestures\.onTouchEvent\(event\)\) scheduleYuntengPress\(\);/);
+  assert.doesNotMatch(activity,/deliverYuntengPress\(previousPress\)/);
+  assert.match(loop,/if \(yuntengGestures\.discardUnsentPress\(event\)\) cancelYuntengPressTimers\(\);\s*if \(yuntengGestures\.onTouchEvent\(event\)\) scheduleYuntengPress\(\);/);
+  assert.doesNotMatch(loop,/sendYuntengScore\(previousPress\)/);
 });
 
 test('Android keeps a live match listener so the first remote press is ready',()=>{
