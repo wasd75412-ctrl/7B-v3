@@ -21,9 +21,9 @@ test('new score screens wait for the explicit official start timestamp',()=>{
 
 test('web score keys need a double press to start and never score while starting',()=>{
   const handler=main.match(/function handleScoreRemoteCode\(event,code\)\{[\s\S]*?\n\}/)?.[0]||'';
-  assert.match(main,/SCORE_REMOTE_DOUBLE_PRESS_MS=800/);
-  assert.match(main,/SCORE_REMOTE_DOUBLE_PRESS_MIN_MS=300/);
-  assert.match(handler,/!matchHasOfficiallyStarted\(state\.match\)\)\{\s*if\(scoreRemoteStartPressAt&&now-scoreRemoteStartPressAt<SCORE_REMOTE_DOUBLE_PRESS_MIN_MS\)\{showScoreRemoteIndicator\('再按一下正式開始'[^;]*;return\}\s*if\(scoreRemoteStartPressAt&&now-scoreRemoteStartPressAt<=SCORE_REMOTE_DOUBLE_PRESS_MS\)\{scoreRemoteStartPressAt=0;markMatchOfficialStarted\(new Date\(\)\.toISOString\(\)\);return\}\s*scoreRemoteStartPressAt=now;showScoreRemoteIndicator\('再按一下正式開始'[^;]*;return;/);
+  assert.match(main,/SCORE_REMOTE_DOUBLE_PRESS_MS=200/);
+  assert.doesNotMatch(main,/SCORE_REMOTE_DOUBLE_PRESS_MIN_MS/);
+  assert.match(handler,/awaitingOfficialStart[\s\S]*?if\(scoreRemoteStartPressAt&&now-scoreRemoteStartPressAt<=SCORE_REMOTE_DOUBLE_PRESS_MS\)\{scoreRemoteStartPressAt=0;markMatchOfficialStarted\(new Date\(\)\.toISOString\(\)\);return\}\s*scoreRemoteStartPressAt=now;showScoreRemoteIndicator\('再按一下正式開始'/);
   assert.match(handler,/scoreRemoteStartPressAt=0;\s*if\(performScoreRemoteAction\(action\)\)/);
   assert.doesNotMatch(main,/scoreRemotePendingPress|runPendingScoreRemoteAction/);
   for(const source of [activity,service])assert.doesNotMatch(source,/pendingShortPressCount|SHUTTLE_SEQUENCE_MS/);
@@ -36,7 +36,7 @@ test('remote score commands before the official start only show the double-press
   assert.match(preStart,/matchHasOfficiallyStarted\(state\.match\)\)return false/);
   assert.match(preStart,/pressedAt=timestampMillis\(command\?\.clientCreatedAt\)/);
   assert.match(preStart,/if\(command\?\.doublePress===true\)\{androidOfficialStartPending=null;markMatchOfficialStarted\(/);
-  assert.match(preStart,/if\(gap<SCORE_REMOTE_DOUBLE_PRESS_MIN_MS\)\{showScoreRemoteIndicator\('再按一下正式開始'/);
+  assert.doesNotMatch(preStart,/SCORE_REMOTE_DOUBLE_PRESS_MIN_MS/);
   assert.match(preStart,/if\(gap<=SCORE_REMOTE_DOUBLE_PRESS_MS\)\{androidOfficialStartPending=null;markMatchOfficialStarted\(/);
   assert.match(preStart,/androidOfficialStartPending=\{matchId:state\.match\.matchId,at\}/);
   assert.match(preStart,/showScoreRemoteIndicator\('按兩下＋／－正式開始'/);
@@ -49,9 +49,9 @@ test('remote score commands before the official start only show the double-press
 
 test('Android gates the official start with a double press before sending anything',()=>{
   const gate=readFileSync(new URL('../android-remote/app/src/main/java/tw/club7b/scoreremote/OfficialStartGate.java',import.meta.url),'utf8');
-  assert.match(gate,/MIN_CONFIRM_GAP_MS = 300L/);
-  assert.match(gate,/DOUBLE_PRESS_MS = 800L/);
-  assert.match(gate,/if \(gap < MIN_CONFIRM_GAP_MS\) return Decision\.WAIT_FOR_SECOND_PRESS;/);
+  assert.doesNotMatch(gate,/MIN_CONFIRM_GAP_MS/);
+  assert.match(gate,/DOUBLE_PRESS_MS = 200L/);
+  assert.match(gate,/if \(gap <= DOUBLE_PRESS_MS\)/);
   assert.match(controller,/officialStartGate\.onScorePress\(\s*awaitingOfficialStart\(\), SystemClock\.uptimeMillis\(\)\)/);
   assert.match(controller,/WAIT_FOR_SECOND_PRESS\) \{\s*if \(callback != null\) callback\.onComplete\(true, "再按一下正式開始", action\);\s*return;/);
   assert.match(controller,/OFFICIAL_START\) \{[\s\S]*?startOfficialMatch\(/);
