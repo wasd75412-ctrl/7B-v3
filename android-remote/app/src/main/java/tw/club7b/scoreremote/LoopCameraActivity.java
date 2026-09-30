@@ -80,7 +80,9 @@ public final class LoopCameraActivity extends ComponentActivity {
     private final Runnable rotate = this::stopSegment;
     private final Runnable recoverRecording = this::startSegmentIfVisible;
     private final YuntengGestureInterpreter yuntengGestures = new YuntengGestureInterpreter();
+    private final VolumeKeyInterpreter cameraKeys = new VolumeKeyInterpreter();
     private Runnable pendingYuntengPress;
+    private Runnable pendingCameraLongPress;
     private BackgroundScoreController remoteScoreController;
     private PreviewView previewView;
     private android.view.View scorePreviewOverlay;
@@ -123,19 +125,84 @@ public final class LoopCameraActivity extends ComponentActivity {
     }
 
     @Override public boolean onKeyDown(int keyCode, android.view.KeyEvent event) {
-        if (isRecordingShutterKey(keyCode)) return true;
+        if (keyCode == android.view.KeyEvent.KEYCODE_CAMERA) {
+            handleRecordingCameraKey(event);
+            return true;
+        }
+        if (isRecordingVolumeKey(keyCode)) return true;
         return super.onKeyDown(keyCode, event);
     }
 
     @Override public boolean onKeyUp(int keyCode, android.view.KeyEvent event) {
-        if (isRecordingShutterKey(keyCode)) return true;
+        if (keyCode == android.view.KeyEvent.KEYCODE_CAMERA) {
+            handleRecordingCameraKey(event);
+            return true;
+        }
+        if (isRecordingVolumeKey(keyCode)) return true;
         return super.onKeyUp(keyCode, event);
     }
 
-    private static boolean isRecordingShutterKey(int keyCode) {
+    private void handleRecordingCameraKey(android.view.KeyEvent event) {
+        int keyCode = event.getKeyCode();
+        VolumeKeyInterpreter.Action action = VolumeKeyInterpreter.Action.NONE;
+        if (event.getAction() == android.view.KeyEvent.ACTION_DOWN) {
+            action = cameraKeys.onKeyDown(keyCode, event.getEventTime(), event.getRepeatCount());
+            if (event.getRepeatCount() == 0) scheduleRecordingCameraLongPress(event.getEventTime());
+            if (action == VolumeKeyInterpreter.Action.RETURN_SHUTTLE) cancelRecordingCameraLongPress();
+        } else if (event.getAction() == android.view.KeyEvent.ACTION_UP) {
+            cancelRecordingCameraLongPress();
+            action = cameraKeys.onKeyUp(keyCode, event.getEventTime());
+        }
+        if (action == VolumeKeyInterpreter.Action.USE_SHUTTLE) {
+            CameraButtonGesture.shared().onShortPress(event.getEventTime(), recordingCameraCallbacks);
+        } else if (action == VolumeKeyInterpreter.Action.RETURN_SHUTTLE) {
+            CameraButtonGesture.shared().onLongPress(event.getEventTime(), recordingCameraCallbacks);
+        }
+    }
+
+    private final CameraButtonGesture.Callbacks recordingCameraCallbacks = new CameraButtonGesture.Callbacks() {
+        @Override public void undo() { sendRecordingCameraAction(VolumeKeyInterpreter.Action.UNDO); }
+        @Override public void useShuttle() { sendRecordingCameraAction(VolumeKeyInterpreter.Action.USE_SHUTTLE); }
+        @Override public void returnShuttle() { sendRecordingCameraAction(VolumeKeyInterpreter.Action.RETURN_SHUTTLE); }
+    };
+
+    private void sendRecordingCameraAction(VolumeKeyInterpreter.Action action) {
+        if (remoteScoreController == null) remoteScoreController = new BackgroundScoreController(this);
+        if (action == VolumeKeyInterpreter.Action.UNDO) {
+            remoteScoreController.submit(action, (success, message, completedAction) -> handler.post(() ->
+                    Toast.makeText(LoopCameraActivity.this, message, Toast.LENGTH_SHORT).show()));
+            return;
+        }
+        BackgroundScoreController.FullscreenCallback callback = (success, message) -> handler.post(() ->
+                Toast.makeText(LoopCameraActivity.this, message, Toast.LENGTH_SHORT).show());
+        if (action == VolumeKeyInterpreter.Action.USE_SHUTTLE) remoteScoreController.useOneShuttle(callback);
+        else remoteScoreController.returnOneShuttle(callback);
+    }
+
+    private void scheduleRecordingCameraLongPress(long pressedAt) {
+        cancelRecordingCameraLongPress();
+        pendingCameraLongPress = () -> {
+            pendingCameraLongPress = null;
+            VolumeKeyInterpreter.Action action = cameraKeys.onLongPressTimeout(
+                    android.view.KeyEvent.KEYCODE_CAMERA,
+                    pressedAt + VolumeKeyInterpreter.LONG_PRESS_MS
+            );
+            if (action == VolumeKeyInterpreter.Action.RETURN_SHUTTLE) {
+                CameraButtonGesture.shared().onLongPress(pressedAt + VolumeKeyInterpreter.LONG_PRESS_MS, recordingCameraCallbacks);
+            }
+        };
+        handler.postDelayed(pendingCameraLongPress, VolumeKeyInterpreter.LONG_PRESS_MS);
+    }
+
+    private void cancelRecordingCameraLongPress() {
+        if (pendingCameraLongPress == null) return;
+        handler.removeCallbacks(pendingCameraLongPress);
+        pendingCameraLongPress = null;
+    }
+
+    private static boolean isRecordingVolumeKey(int keyCode) {
         return keyCode == android.view.KeyEvent.KEYCODE_VOLUME_UP
-                || keyCode == android.view.KeyEvent.KEYCODE_VOLUME_DOWN
-                || keyCode == android.view.KeyEvent.KEYCODE_CAMERA;
+                || keyCode == android.view.KeyEvent.KEYCODE_VOLUME_DOWN;
     }
 
     @Override public boolean dispatchTouchEvent(MotionEvent event) {
@@ -704,7 +771,7 @@ public final class LoopCameraActivity extends ComponentActivity {
     }
 
     @Override protected void onDestroy() {
-        closing = true; handler.removeCallbacks(rotate); handler.removeCallbacks(recoverRecording); cancelYuntengPressTimers(); if (recording != null) recording.stop(); io.shutdown();
+        closing = true; handler.removeCallbacks(rotate); handler.removeCallbacks(recoverRecording); cancelYuntengPressTimers(); cancelRecordingCameraLongPress(); if (recording != null) recording.stop(); io.shutdown();
         if (liveMatchOverlay != null) liveMatchOverlay.close();
         if (remoteScoreController != null) remoteScoreController.release();
         if (scoreOverlayEffect != null) scoreOverlayEffect.close();
