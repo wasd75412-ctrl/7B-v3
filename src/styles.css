@@ -4816,6 +4816,7 @@ body>.modal .event-packing-item-actions .danger-outline{border-color:#ff8798!imp
 #app .event-payment-report{min-width:150px;border-color:rgba(102,207,238,.42);background:rgba(12,75,108,.78);color:#eefaff}
 #app .event-payment-report.pending{border-color:#e2b64d;background:#6d5014;color:#ffe7a4}
 #app .event-payment-report.confirmed{border-color:#49c98d;background:#145f47;color:#bff6dc;opacity:1}
+#app .event-payment-report:disabled:not(.confirmed){opacity:.45}
 #app .event-payment-admin{display:grid;gap:8px;margin-top:13px;padding:12px;border:1px solid rgba(102,207,238,.24);border-radius:14px;background:rgba(2,23,38,.55)}
 #app .event-payment-admin>strong{color:#d8f4ff}
 #app .event-payment-admin>span{display:grid;grid-template-columns:minmax(90px,1fr) auto auto auto;align-items:center;gap:7px}

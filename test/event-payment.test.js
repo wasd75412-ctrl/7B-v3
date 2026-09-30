@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { eventPaymentStatus, normalizeEventPayments, pendingEventPaymentPlayerIds, updateEventPayment } from '../src/event-payment.js';
+import { canReportEventPayment, eventPaymentStatus, normalizeEventPayments, pendingEventPaymentPlayerIds, updateEventPayment } from '../src/event-payment.js';
 
 test('球友繳費回報綁定球局內的球員並先進入待確認',()=>{
   const event=updateEventPayment({id:'event-1'},'player-1','pending','2026-09-08T10:00:00.000Z');
@@ -16,6 +16,13 @@ test('管理員可確認或取消單一球員繳費且不影響其他人',()=>{
   event=updateEventPayment(event,'p1','unpaid');
   assert.equal(eventPaymentStatus(event,'p1'),'unpaid');
   assert.equal(eventPaymentStatus(event,'p2'),'confirmed');
+});
+
+test('球局當日才可回報繳費',()=>{
+  assert.equal(canReportEventPayment('2026-09-30','2026-09-29'),false);
+  assert.equal(canReportEventPayment('2026-09-30','2026-09-30'),true);
+  assert.equal(canReportEventPayment('2026-09-30','2026-10-01'),true);
+  assert.equal(canReportEventPayment('','2026-09-30'),false);
 });
 
 test('無效繳費資料不會進入球局狀態',()=>{

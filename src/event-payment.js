@@ -9,6 +9,13 @@ export function normalizeEventPayments(value){
   }).filter(Boolean).slice(0,80));
 }
 
+const DATE_KEY=/^\d{4}-\d{2}-\d{2}$/;
+
+export function canReportEventPayment(eventDate,todayDate){
+  const event=String(eventDate||''),today=String(todayDate||'');
+  return DATE_KEY.test(event)&&DATE_KEY.test(today)&&event<=today;
+}
+
 export function eventPaymentStatus(event,playerId){
   return normalizeEventPayments(event?.payments)[cleanText(playerId,128)]?.status||'unpaid';
 }
