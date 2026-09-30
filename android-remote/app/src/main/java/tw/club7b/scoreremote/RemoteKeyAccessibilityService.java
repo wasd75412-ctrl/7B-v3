@@ -243,6 +243,7 @@ public final class RemoteKeyAccessibilityService extends AccessibilityService {
         cancelLongPress();
         cancelMissingKeyUpFallback();
         cancelCameraSinglePress();
+        if (scoreController != null) scoreController.release();
         super.onDestroy();
     }
 }

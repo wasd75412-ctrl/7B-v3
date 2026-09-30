@@ -19,34 +19,61 @@ test('new score screens wait for the explicit official start timestamp',()=>{
   assert.match(main,/function markMatchOfficialStarted\(requestedAt\)[\s\S]*?requestedMillis=timestampMillis\(requestedAt\)[\s\S]*?Math\.min\(requestedMillis,now\)[\s\S]*?saveLiveScoreSoon\(\);saveSoon\(\)/);
 });
 
-test('the first web score-key press starts the match without scoring',()=>{
-  assert.match(main,/\['teamAPlus','teamBPlus'\]\.includes\(action\)[\s\S]*?!matchHasOfficiallyStarted\(state\.match\)[\s\S]*?markMatchOfficialStarted\(new Date\(\)\.toISOString\(\)\);return/);
-  assert.match(main,/scoreRemotePendingPress=\{code,action,at:now,requestedAt:new Date\(\)\.toISOString\(\)/);
-  assert.doesNotMatch(main,/scoreRemotePendingPress=null;toggleScoreFullscreen\(\)/);
+test('web score keys need a double press to start and never score while starting',()=>{
+  const handler=main.match(/function handleScoreRemoteCode\(event,code\)\{[\s\S]*?\n\}/)?.[0]||'';
+  assert.match(main,/SCORE_REMOTE_DOUBLE_PRESS_MS=800/);
+  assert.match(handler,/!matchHasOfficiallyStarted\(state\.match\)\)\{\s*if\(scoreRemoteStartPressAt&&now-scoreRemoteStartPressAt<=SCORE_REMOTE_DOUBLE_PRESS_MS\)\{scoreRemoteStartPressAt=0;markMatchOfficialStarted\(new Date\(\)\.toISOString\(\)\);return\}\s*scoreRemoteStartPressAt=now;showScoreRemoteIndicator\('再按一下正式開始'[^;]*;return;/);
+  assert.match(handler,/scoreRemoteStartPressAt=0;\s*if\(performScoreRemoteAction\(action\)\)/);
+  assert.doesNotMatch(main,/scoreRemotePendingPress|runPendingScoreRemoteAction/);
   for(const source of [activity,service])assert.doesNotMatch(source,/pendingShortPressCount|SHUTTLE_SEQUENCE_MS/);
   assert.match(controller,/updates\.put\("officialStartCommand", command\)/);
   assert.doesNotMatch(controller,/updates\.put\(finished \? "undoFinishedCommand" : "fullscreenCommand"/);
 });
 
-test('the first YUNTENG score-key press starts the match without scoring',()=>{
-  assert.match(main,/function handleAndroidOfficialStartPress\(action,command\)[\s\S]*?matchHasOfficiallyStarted\(state\.match\)[\s\S]*?markMatchOfficialStarted\(command\?\.clientCreatedAt\|\|command\?\.createdAt/);
-  assert.match(main,/handleAndroidOfficialStartPress\(action,command\)\)return true;[\s\S]*?performScoreRemoteAction\(action\)/);
-  assert.doesNotMatch(main,/快速再按同一鍵正式開始/);
+test('remote score commands before the official start only show the double-press hint',()=>{
+  const preStart=main.match(/function handleAndroidPreStartPress\(action,command\)\{[\s\S]*?\n\}/)?.[0]||'';
+  assert.match(preStart,/matchHasOfficiallyStarted\(state\.match\)\)return false/);
+  assert.match(preStart,/if\(command\?\.doublePress===true\)\{androidOfficialStartPending=null;markMatchOfficialStarted\(command\.clientCreatedAt\|\|command\.createdAt/);
+  assert.match(preStart,/showScoreRemoteIndicator\('按兩下＋／－正式開始'/);
+  assert.match(main,/handleAndroidPreStartPress\(action,command\)\)return true;[\s\S]*?performScoreRemoteAction\(action\)/);
+  assert.doesNotMatch(main,/handleAndroidOfficialStartPress/);
+  const court=main.match(/if\(courtVisible&&\['teamAPlus','teamBPlus'\]\.includes\(action\)\)\{[\s\S]*?return true;/)?.[0]||'';
+  assert.doesNotMatch(court,/markMatchOfficialStarted|PreStartPress/);
+  assert.match(main,/function handleRemoteOfficialStartCommand[\s\S]*?const started=markMatchOfficialStarted[\s\S]*?if\(started&&\$\('scoreView'\)\.classList\.contains\('hidden'\)&&\$\('resultModal'\)\.classList\.contains\('hidden'\)\)\{scoreViewRequested=true;renderScore\(\)\}/);
+});
+
+test('Android gates the official start with a double press before sending anything',()=>{
+  const gate=readFileSync(new URL('../android-remote/app/src/main/java/tw/club7b/scoreremote/OfficialStartGate.java',import.meta.url),'utf8');
+  assert.match(gate,/DOUBLE_PRESS_MS = 800L/);
+  assert.match(controller,/officialStartGate\.onScorePress\(\s*awaitingOfficialStart\(\), SystemClock\.uptimeMillis\(\)\)/);
+  assert.match(controller,/WAIT_FOR_SECOND_PRESS\) \{\s*if \(callback != null\) callback\.onComplete\(true, "再按一下正式開始", action\);\s*return;/);
+  assert.match(controller,/OFFICIAL_START\) \{[\s\S]*?startOfficialMatch\(/);
+  assert.doesNotMatch(controller,/doublePress|OFFICIAL_START_DOUBLE_PRESS_MS/);
+  assert.match(activity,/TEAM_A_PLUS \|\| action == VolumeKeyInterpreter\.Action\.TEAM_B_PLUS\) \{\s*sendYuntengScoreAction\(action\);\s*return;/);
+});
+
+test('a quick second YUNTENG press flushes the first instead of being dropped',()=>{
+  const loop=readFileSync(new URL('../android-remote/app/src/main/java/tw/club7b/scoreremote/LoopCameraActivity.java',import.meta.url),'utf8');
+  const interpreter=readFileSync(new URL('../android-remote/app/src/main/java/tw/club7b/scoreremote/YuntengGestureInterpreter.java',import.meta.url),'utf8');
+  assert.match(interpreter,/takePendingPressBeforeNewPress\(MotionEvent event\) \{[\s\S]*?ACTION_POINTER_DOWN[\s\S]*?isNewPress\(lastPointerDownAt, event\.getEventTime\(\)\)[\s\S]*?return onSettledPress\(\);/);
+  assert.match(activity,/takePendingPressBeforeNewPress\(event\);[\s\S]*?cancelYuntengPressTimers\(\);\s*deliverYuntengPress\(previousPress\);[\s\S]*?yuntengGestures\.onTouchEvent\(event\)/);
+  assert.match(loop,/takePendingPressBeforeNewPress\(event\);[\s\S]*?cancelYuntengPressTimers\(\);\s*sendYuntengScore\(previousPress\);[\s\S]*?yuntengGestures\.onTouchEvent\(event\)/);
+});
+
+test('Android keeps a live match listener so the first remote press is ready',()=>{
+  const loop=readFileSync(new URL('../android-remote/app/src/main/java/tw/club7b/scoreremote/LoopCameraActivity.java',import.meta.url),'utf8');
+  assert.match(controller,/matchListener = liveScoreReference\(session\)\.addSnapshotListener/);
+  assert.match(controller,/void warmUp\(WarmUpCallback callback\) \{[\s\S]*?ensureMatchListener\(session\);/);
+  assert.match(controller,/synchronized void release\(\) \{\s*if \(matchListener != null\) matchListener\.remove\(\)/);
+  assert.match(activity,/backgroundScoreController\.release\(\)/);
+  assert.match(service,/scoreController\.release\(\)/);
+  assert.match(loop,/remoteScoreController\.release\(\)/);
 });
 
 test('Android queues rapid score commands long enough for the iPad listener to observe both',()=>{
   assert.match(controller,/COMMAND_DELIVERY_GAP_MS = 250L/);
-  assert.match(controller,/Request next = pending\.peekFirst\(\)[\s\S]*?next != null && next\.doublePress \? 0L : COMMAND_DELIVERY_GAP_MS/);
-});
-
-test('legacy Android double-press metadata remains compatible with single-press start',()=>{
-  assert.match(controller,/OFFICIAL_START_DOUBLE_PRESS_MS = 700L/);
-  assert.match(controller,/boolean doublePress = scoreAction[\s\S]*?action == lastSubmittedScoreAction[\s\S]*?OFFICIAL_START_DOUBLE_PRESS_MS/);
-  assert.match(controller,/new Request\(action, callback, doublePress, clientCreatedAt\)/);
-  assert.match(controller,/long clientCreatedAt = doublePress \? lastSubmittedScoreWallAt : System\.currentTimeMillis\(\)/);
+  assert.match(controller,/commandHandler\.postDelayed\(this::processNext, COMMAND_DELIVERY_GAP_MS\)/);
   assert.match(controller,/command\.put\("clientCreatedAt", request\.clientCreatedAt\)/);
-  assert.match(controller,/if \(request\.doublePress\) command\.put\("doublePress", true\)/);
-  assert.match(main,/function handleAndroidOfficialStartPress\(action,command\)[\s\S]*?androidOfficialStartPending=null;[\s\S]*?markMatchOfficialStarted\(command\?\.clientCreatedAt\|\|command\?\.createdAt/);
 });
 
 test('official start is idempotent and scoring waits for it',()=>{

@@ -173,6 +173,11 @@ public final class MainActivity extends Activity {
     @Override
     public boolean dispatchTouchEvent(MotionEvent event) {
         if (!yuntengGestures.isYuntengEvent(event)) return super.dispatchTouchEvent(event);
+        VolumeKeyInterpreter.Action previousPress = yuntengGestures.takePendingPressBeforeNewPress(event);
+        if (previousPress != VolumeKeyInterpreter.Action.NONE) {
+            cancelYuntengPressTimers();
+            deliverYuntengPress(previousPress);
+        }
         yuntengGestures.onTouchEvent(event);
         if (yuntengGestures.hasPendingPress()) scheduleYuntengPress();
         return true;
@@ -182,13 +187,16 @@ public final class MainActivity extends Activity {
         if (pendingYuntengPress != null) keyHandler.removeCallbacks(pendingYuntengPress);
         pendingYuntengPress = () -> {
             pendingYuntengPress = null;
-            VolumeKeyInterpreter.Action action = yuntengGestures.onSettledPress();
-            if (action == VolumeKeyInterpreter.Action.NONE) return;
-            notifyKeyDetected(action == VolumeKeyInterpreter.Action.TEAM_A_PLUS
-                    ? KeyEvent.KEYCODE_VOLUME_UP : KeyEvent.KEYCODE_VOLUME_DOWN);
-            sendYuntengScoreAction(action);
+            deliverYuntengPress(yuntengGestures.onSettledPress());
         };
         keyHandler.postDelayed(pendingYuntengPress, YuntengGestureInterpreter.GESTURE_SETTLE_MS);
+    }
+
+    private void deliverYuntengPress(VolumeKeyInterpreter.Action action) {
+        if (action == VolumeKeyInterpreter.Action.NONE) return;
+        notifyKeyDetected(action == VolumeKeyInterpreter.Action.TEAM_A_PLUS
+                ? KeyEvent.KEYCODE_VOLUME_UP : KeyEvent.KEYCODE_VOLUME_DOWN);
+        sendYuntengScoreAction(action);
     }
 
     private void cancelYuntengPressTimers() {
@@ -356,6 +364,10 @@ public final class MainActivity extends Activity {
         } else {
             if (now - lastPointActionAt < ACTION_DEBOUNCE_MS) return;
             lastPointActionAt = now;
+        }
+        if (action == VolumeKeyInterpreter.Action.TEAM_A_PLUS || action == VolumeKeyInterpreter.Action.TEAM_B_PLUS) {
+            sendYuntengScoreAction(action);
+            return;
         }
         String command;
         String successMessage;
@@ -561,6 +573,7 @@ public final class MainActivity extends Activity {
         cancelMissingKeyUpFallback();
         cancelYuntengPressTimers();
         cancelCameraSinglePress();
+        if (backgroundScoreController != null) backgroundScoreController.release();
         RemoteKeyRelay.clearListener(remoteKeyListener);
         if (webView != null) {
             webView.stopLoading();

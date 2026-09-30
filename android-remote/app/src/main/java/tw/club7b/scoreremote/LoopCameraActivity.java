@@ -122,6 +122,11 @@ public final class LoopCameraActivity extends ComponentActivity {
 
     @Override public boolean dispatchTouchEvent(MotionEvent event) {
         if (!yuntengGestures.isYuntengEvent(event)) return super.dispatchTouchEvent(event);
+        VolumeKeyInterpreter.Action previousPress = yuntengGestures.takePendingPressBeforeNewPress(event);
+        if (previousPress != VolumeKeyInterpreter.Action.NONE) {
+            cancelYuntengPressTimers();
+            sendYuntengScore(previousPress);
+        }
         yuntengGestures.onTouchEvent(event);
         if (yuntengGestures.hasPendingPress()) scheduleYuntengPress();
         return true;
@@ -652,6 +657,7 @@ public final class LoopCameraActivity extends ComponentActivity {
     @Override protected void onDestroy() {
         closing = true; handler.removeCallbacks(rotate); handler.removeCallbacks(recoverRecording); cancelYuntengPressTimers(); if (recording != null) recording.stop(); io.shutdown();
         if (liveMatchOverlay != null) liveMatchOverlay.close();
+        if (remoteScoreController != null) remoteScoreController.release();
         if (scoreOverlayEffect != null) scoreOverlayEffect.close();
         if (explicitExit) RemoteSessionStore.setRecordingEnabled(this, false);
         super.onDestroy();
