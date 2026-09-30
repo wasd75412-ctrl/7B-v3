@@ -287,7 +287,12 @@ final class BackgroundScoreController {
     private void deliverAction(DocumentReference remoteControl, Request request, String matchId) {
         AtomicBoolean reported = new AtomicBoolean(false);
         String id = java.util.UUID.randomUUID().toString();
-        remoteControl.getParent().document("score-" + id).set(actionCommand(request, matchId, id))
+        Map<String, Object> command = actionCommand(request, matchId, id);
+        if ("".equals(command.get("action"))) {
+            if (request.callback != null) request.callback.onComplete(false, "無法辨識的計分鍵", request.action);
+            return;
+        }
+        remoteControl.getParent().document("score-" + id).set(command)
                 .addOnFailureListener(error -> {
                     if (reported.compareAndSet(false, true) && request.callback != null) {
                         request.callback.onComplete(false, errorMessage(error), request.action);
@@ -301,7 +306,7 @@ final class BackgroundScoreController {
     private static Map<String, Object> actionCommand(Request request, String matchId, String id) {
         Map<String, Object> command = new HashMap<>();
         command.put("id", id);
-        command.put("action", request.action == VolumeKeyInterpreter.Action.UNDO ? "undo" : request.action == VolumeKeyInterpreter.Action.TEAM_A_PLUS ? "teamAPlus" : "teamBPlus");
+        command.put("action", request.action == VolumeKeyInterpreter.Action.UNDO ? "undo" : request.action == VolumeKeyInterpreter.Action.TEAM_A_PLUS ? "teamAPlus" : request.action == VolumeKeyInterpreter.Action.TEAM_B_PLUS ? "teamBPlus" : "");
         command.put("matchId", matchId);
         command.put("clientCreatedAt", request.clientCreatedAt);
         return command;

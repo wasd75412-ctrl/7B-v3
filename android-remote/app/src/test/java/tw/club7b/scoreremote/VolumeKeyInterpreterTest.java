@@ -47,6 +47,15 @@ public final class VolumeKeyInterpreterTest {
     }
 
     @Test
+    public void strayKeyUpDoesNotScoreTheOtherTeam() {
+        VolumeKeyInterpreter interpreter = new VolumeKeyInterpreter();
+        interpreter.onKeyDown(KeyEvent.KEYCODE_VOLUME_UP, 100L, 0);
+        assertEquals(VolumeKeyInterpreter.Action.NONE, interpreter.onKeyUp(KeyEvent.KEYCODE_VOLUME_DOWN, 180L));
+        assertEquals(VolumeKeyInterpreter.Action.TEAM_A_PLUS, interpreter.onMissingKeyUp(KeyEvent.KEYCODE_VOLUME_UP));
+        assertEquals(VolumeKeyInterpreter.Action.NONE, interpreter.onKeyUp(KeyEvent.KEYCODE_VOLUME_DOWN, 400L));
+    }
+
+    @Test
     public void missingKeyUpFallsBackToShortPressOnlyOnce() {
         VolumeKeyInterpreter interpreter = new VolumeKeyInterpreter();
         interpreter.onKeyDown(KeyEvent.KEYCODE_VOLUME_UP, 100L, 0);

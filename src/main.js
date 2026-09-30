@@ -1780,7 +1780,6 @@ async function connectRoom(id){
       }
       added.sort((a,b)=>(Number(a.command.clientCreatedAt)||0)-(Number(b.command.clientCreatedAt)||0));
       for(const item of added){
-        seenRemoteActionIds.add(String(item.command.id));
         handleRemoteActionCommand({remoteActionCommand:item.command},{initial:false,skipAge:true});
         deleteRemoteScore(item.ref);
       }
@@ -1940,14 +1939,12 @@ function applyRemoteActionLog(data,{initial=false}={}){
     return;
   }
   const fresh=log.filter(command=>command?.id&&!seenRemoteActionIds.has(String(command.id))).sort((a,b)=>(Number(a.clientCreatedAt)||0)-(Number(b.clientCreatedAt)||0));
-  for(const command of fresh){
-    seenRemoteActionIds.add(String(command.id));
-    handleRemoteActionCommand({remoteActionCommand:command},{initial:false,skipAge:true});
-  }
+  for(const command of fresh)handleRemoteActionCommand({remoteActionCommand:command},{initial:false,skipAge:true});
 }
 function handleRemoteActionCommand(data,{initial=false,skipAge=false}={}){
   const command=data?.remoteActionCommand||{},id=String(command.id||''),action=String(command.action||'');
-  if(!id||id===lastRemoteActionCommandId)return false;lastRemoteActionCommandId=id;
+  if(!id||seenRemoteActionIds.has(id))return false;
+  seenRemoteActionIds.add(id);lastRemoteActionCommandId=id;
   if(!shouldAcceptRemoteCommand({command,currentMatch:state.match,initial,skipAge})){
     if(initial||requestedAndroidRemote||!isHost||$('scoreView').classList.contains('hidden')||!isReplacedMatchPreStartPress(command,action))return false;
     return handleAndroidPreStartPress(action,command);
@@ -2256,6 +2253,7 @@ function reopenRecordedMatch(){
 }
 function replay(){
   const m=state.match,reopened=m.winner!==null?reopenRecordedMatch():false;
+  m.syncEpoch=Math.max(Date.now(),(Number(m.syncEpoch)||0)+1);
   const singles=normalizeMatchFormat(m.format)===MATCH_FORMAT_SINGLES;
   m.scores=[0,0];m.serving=0;m.positions=singles?[[0],[0]]:[[0,1],[0,1]];m.winner=null;
   for(const t of m.rallies){if(m.winner!==null)break;const same=m.serving===t;m.scores[t]++;if(same&&!singles)m.positions[t].reverse();else if(!same)m.serving=t;m.winner=winFor(m.scores)}
