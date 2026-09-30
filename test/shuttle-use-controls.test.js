@@ -62,13 +62,14 @@ test('routes YUNTENG keys directly without multi-press delay',()=>{
   assert.match(service,/useOneShuttle/);
   assert.match(service,/returnOneShuttle/);
   assert.match(activity,/sendRemoteOfficialStartCommand\(\).*backgroundScoreController\.startOfficialMatch/s);
-  assert.match(controller,/startOfficialMatch\(FullscreenCallback callback\).*transaction\.get\(liveScore\).*command\.put\("matchId", String\.valueOf\(matchId\)\).*updates\.put\("officialStartCommand", command\).*transaction\.set\(remoteControl/s);
+  assert.match(controller,/startOfficialMatch\(FullscreenCallback callback\).*transaction\.get\(liveScore\).*transaction\.set\(remoteControl, officialStartUpdates\(String\.valueOf\(matchId\), clientCreatedAt\)/s);
+  assert.match(controller,/officialStartUpdates\(String matchId, long clientCreatedAt\)[\s\S]*?updates\.put\("officialStartCommand", command\)/);
   assert.match(controller,/sendShuttleCommand\("useShuttle"/);
   assert.match(controller,/sendShuttleCommand\("returnShuttle"/);
   assert.match(controller,/sendShuttleCommand[\s\S]*?if\(!session\.isAuthorized\(\)\)[\s\S]*?transaction\.get\(liveScore\)[\s\S]*?Boolean\.TRUE\.equals\(match\.get\("active"\)\)/);
   assert.doesNotMatch(controller,/sendShuttleCommand[\s\S]*?if\(!session\.isReady\(\)\)/);
   assert.match(controller,/startOfficialMatch[\s\S]*?if \(!session\.isAuthorized\(\)\)[\s\S]*?transaction\.get\(liveScore\)/);
-  assert.match(controller,/private synchronized void processNext\(\).*transaction\.get\(liveScore\).*command\.put\("matchId", String\.valueOf\(matchId\)\).*transaction\.set\(remoteControl/s);
+  assert.match(controller,/private synchronized void processNext\(\).*transaction\.get\(liveScore\).*transaction\.set\(remoteControl, actionUpdates\(request, matchId == null \? "" : String\.valueOf\(matchId\)\)/s);
   assert.match(main,/\['teamAPlus','teamBPlus','undo','useShuttle','returnShuttle'\]/);
   assert.match(main,/if\(!scoreVisible&&!resultVisible\)\{\s*if\(courtVisible&&\['teamAPlus','teamBPlus'\]\.includes\(action\)\)/);
   assert.match(main,/if\(action==='useShuttle'\)return useOneShuttle/);
