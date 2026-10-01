@@ -30,6 +30,7 @@ public final class RecordingsActivity extends ComponentActivity {
 
     private final Handler handler = new Handler(Looper.getMainLooper());
     private final Map<String, List<RecordingTimeline.Match>> roomMatches = new HashMap<>();
+    private final Map<String, Long> loadedAt = new HashMap<>();
     private final List<String> loadingRooms = new ArrayList<>();
     private LinearLayout list;
     private TextView youtubeStatus;
@@ -201,26 +202,27 @@ public final class RecordingsActivity extends ComponentActivity {
     }
 
     private String timeline(RecordingUploadStore.Entry entry) {
-        if (!entry.description.isEmpty()) return entry.description;
+        if (RecordingTimeline.hasGameChapter(entry.description)) return entry.description;
         List<RecordingTimeline.Match> matches = roomMatches.get(entry.roomId);
-        if (matches != null) return RecordingTimeline.timeline(matches, entry.startMs, entry.endMs);
-        loadRoom(entry.roomId);
-        return null;
+        String built = matches == null ? null : RecordingTimeline.timeline(matches, entry.startMs, entry.endMs);
+        long age = System.currentTimeMillis() - loadedAt.getOrDefault(entry.roomId, 0L);
+        if ((built == null || !RecordingTimeline.hasGameChapter(built)) && age > 15_000L) loadRoom(entry.roomId);
+        return built;
     }
 
     private void loadRoom(String roomId) {
         if (roomId.isEmpty()) {
             roomMatches.put(roomId, new ArrayList<>());
+            loadedAt.put(roomId, System.currentTimeMillis());
             return;
         }
         if (loadingRooms.contains(roomId)) return;
         loadingRooms.add(roomId);
-        BackgroundScoreController.firestore(this).collection("badmintonRooms").document(roomId).get()
+        MatchHistoryRooms.load(BackgroundScoreController.firestore(this), roomId)
                 .addOnCompleteListener(task -> {
                     loadingRooms.remove(roomId);
-                    Map<String, Object> room = task.isSuccessful() && task.getResult() != null
-                            ? task.getResult().getData() : null;
-                    roomMatches.put(roomId, RecordingTimeline.matchesFromRoom(room));
+                    roomMatches.put(roomId, RecordingTimeline.matchesFromRoom(task.isSuccessful() ? task.getResult() : null));
+                    loadedAt.put(roomId, System.currentTimeMillis());
                     renderList(true);
                 });
     }

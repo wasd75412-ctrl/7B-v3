@@ -147,6 +147,17 @@ final class YouTubeUploader {
         return postJson(API + "playlists?part=snippet,status", token, body).getString("id");
     }
 
+    static void updateDescription(String token, String videoId, String title, String description)
+            throws IOException, JSONException {
+        JSONObject body = new JSONObject()
+                .put("id", videoId)
+                .put("snippet", new JSONObject()
+                        .put("title", clean(title, 100))
+                        .put("description", clean(description, 4900))
+                        .put("categoryId", "17"));
+        putJson(API + "videos?part=snippet", token, body);
+    }
+
     static void addToPlaylist(String token, String playlistId, String videoId) throws IOException, JSONException {
         JSONObject body = new JSONObject().put("snippet", new JSONObject()
                 .put("playlistId", playlistId)
@@ -185,6 +196,15 @@ final class YouTubeUploader {
         int code = connection.getResponseCode();
         if (code != 200) throw new HttpError(code, readError(connection));
         return new JSONObject(read(connection.getInputStream()));
+    }
+
+    private static void putJson(String url, String token, JSONObject body) throws IOException {
+        HttpURLConnection connection = open(url, "PUT", token);
+        connection.setRequestProperty("Content-Type", "application/json; charset=UTF-8");
+        writeJson(connection, body);
+        int code = connection.getResponseCode();
+        if (code != 200) throw new HttpError(code, readError(connection));
+        connection.disconnect();
     }
 
     private static JSONObject postJson(String url, String token, JSONObject body) throws IOException, JSONException {

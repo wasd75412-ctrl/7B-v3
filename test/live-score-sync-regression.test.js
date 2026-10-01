@@ -3,8 +3,8 @@ import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import vm from 'node:vm';
 import {
-  createLiveScoreData,createMatchCheckpointData,decodeLiveMatch,encodeLiveMatch,
-  matchSessionEpoch,nextMatchEpoch,shouldApplyIncomingLiveMatch
+  checkpointMissedOfficialStart,createLiveScoreData,createMatchCheckpointData,decodeLiveMatch,encodeLiveMatch,
+  keepOfficialStart,matchSessionEpoch,nextMatchEpoch,shouldApplyIncomingLiveMatch
 } from '../src/live-score.js';
 
 const main=readFileSync(new URL('../src/main.js',import.meta.url),'utf8');
@@ -47,6 +47,7 @@ function harness(liveMatch=current,overrides={}){
     applying:false,liveScoreAvailable:true,liveScoreReady:false,latestLiveMatch:null,
     roomRef:'room/current',liveScoreRef:'room/current/liveScore/current',db:{},
     shouldApplyIncomingLiveMatch,decodeLiveMatch,createMatchCheckpointData,nextMatchEpoch,
+    keepOfficialStart,checkpointMissedOfficialStart,persistLiveScoreState:async()=>calls.publish++,
     normalizeFinishedMatchRollback:value=>value??null,
     normalizeRetiredPlayers:value=>value??[],normalizeMatchReplayTitle:value=>value??'',
     normalizeYouTubePlaylistUrl:value=>value??'',cleanManualPollParticipants:value=>value??{},

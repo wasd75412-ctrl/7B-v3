@@ -17,6 +17,8 @@ test('new score screens wait for the explicit official start timestamp',()=>{
   assert.match(startNext,/startedAt:''/);
   assert.doesNotMatch(startNext,/startedAt:new Date/);
   assert.match(main,/function markMatchOfficialStarted\(requestedAt\)[\s\S]*?requestedMillis=timestampMillis\(requestedAt\)[\s\S]*?Math\.min\(requestedMillis,now\)[\s\S]*?saveLiveScoreSoon\(\);saveSoon\(\)/);
+  assert.match(main,/keepOfficialStart\(beforeMatch,decodeLiveMatch\(data,beforeMatch\)\)/);
+  assert.match(main,/if\(checkpointMissedOfficialStart\(checkpoint\.liveScore\.match,state\.match\)\)await persistLiveScoreState\(\)/);
 });
 
 test('web score keys need a double press to start and never score while starting',()=>{

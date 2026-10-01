@@ -66,6 +66,17 @@ export function createMatchCheckpointData(match){
   return{liveScore,room:{match:liveScore.match,liveScoreEnabled:true,liveScoreMatchKey:liveMatchKey(match)}};
 }
 
+export function keepOfficialStart(currentMatch={},incomingMatch={}){
+  const currentId=String(currentMatch?.matchId||''),incomingId=String(incomingMatch?.matchId||'');
+  if(!currentMatch?.startedAt||incomingMatch?.startedAt||!currentId||currentId!==incomingId)return incomingMatch;
+  return {...incomingMatch,startedAt:currentMatch.startedAt};
+}
+
+export function checkpointMissedOfficialStart(capturedMatch={},currentMatch={}){
+  const capturedId=String(capturedMatch?.matchId||''),currentId=String(currentMatch?.matchId||'');
+  return Boolean(currentMatch?.startedAt)&&capturedId!==''&&capturedId===currentId&&currentMatch.startedAt!==(capturedMatch?.startedAt||'');
+}
+
 export function generalRoomStateWithoutMatch(encodedState={}){
   const {match:_liveMatch,...generalState}=encodedState&&typeof encodedState==='object'?encodedState:{};
   return generalState;

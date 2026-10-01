@@ -12,6 +12,7 @@ import org.json.JSONObject;
 
 final class RecordingUploadStore {
     static final long MIN_DURATION_MS = 30_000L;
+    static final long TIMELINE_REFRESH_MS = 36L * 60L * 60L * 1000L;
     private static final String PREFS = "youtube_uploads";
     private static final String KEY_ENTRIES = "entries";
     private static final String KEY_PLAYLIST_ID = "playlistId";
@@ -96,6 +97,17 @@ final class RecordingUploadStore {
         for (Entry entry : read(context)) if (entry.isPending()) pending.add(entry);
         Collections.reverse(pending);
         return pending;
+    }
+
+    static synchronized List<Entry> timelineRefresh(Context context, long nowMs) {
+        List<Entry> refresh = new ArrayList<>();
+        for (Entry entry : read(context)) {
+            if (entry.status != Status.UPLOADED || entry.videoId.isEmpty() || entry.roomId.isEmpty()) continue;
+            if (RecordingTimeline.hasGameChapter(entry.description)) continue;
+            if (nowMs - entry.endMs > TIMELINE_REFRESH_MS) continue;
+            refresh.add(entry);
+        }
+        return refresh;
     }
 
     static synchronized void save(Context context, Entry updated) {
