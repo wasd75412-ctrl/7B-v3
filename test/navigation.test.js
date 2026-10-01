@@ -16,11 +16,12 @@ test('startup uses only the imported event end-time helper',()=>{
   assert.match(mainSource,/pollEndTime'\)\.value=suggestedEventEndTime\(\$\('pollTime'\)\.value,0\)/);
 });
 
-test('automatically reloads once when a new service worker takes control',()=>{
-  assert.match(mainSource,/const swRevision=BCM_VERSION/);
-  assert.match(mainSource,/serviceWorker\.addEventListener\('controllerchange'/);
-  assert.match(mainSource,/sessionStorage\.getItem\(reloadKey\)==='1'/);
-  assert.match(mainSource,/sessionStorage\.setItem\(reloadKey,'1'\);\s*location\.reload\(\)/);
+test('a refresh does not reload itself when the service worker takes control',()=>{
+  const registration=mainSource.match(/if\('serviceWorker'in navigator&&location\.protocol\.startsWith\('http'\)\)\{[\s\S]*?\n\}/)?.[0]||'';
+  assert.match(registration,/const swRevision=BCM_VERSION/);
+  assert.match(registration,/serviceWorker\.register\(`\.\/sw\.js\?v=\$\{swRevision\}`/);
+  assert.doesNotMatch(registration,/controllerchange/);
+  assert.doesNotMatch(registration,/location\.reload\(\)/);
 });
 
 test('puts a live score board first on the dashboard and keeps support content compact',()=>{

@@ -48,6 +48,7 @@ function harness(liveMatch=current,overrides={}){
     roomRef:'room/current',liveScoreRef:'room/current/liveScore/current',db:{},
     shouldApplyIncomingLiveMatch,decodeLiveMatch,createMatchCheckpointData,nextMatchEpoch,
     keepOfficialStart,checkpointMissedOfficialStart,persistLiveScoreState:async()=>calls.publish++,
+    cleanTimelineDates:value=>Array.isArray(value)?value.filter(item=>/^\d{4}-\d{2}-\d{2}$/.test(String(item||''))):[],
     normalizeFinishedMatchRollback:value=>value??null,
     normalizeRetiredPlayers:value=>value??[],normalizeMatchReplayTitle:value=>value??'',
     normalizeYouTubePlaylistUrl:value=>value??'',cleanManualPollParticipants:value=>value??{},

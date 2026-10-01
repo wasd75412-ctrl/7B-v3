@@ -53,6 +53,17 @@ test('includes an official start in the timeline before that match ends',()=>{
   assert.deepEqual(withLiveTimelineDate([{dateKey:'2026-09-24',matches:[]}],{...live,dateKey:'2026-09-25'}).map(group=>group.dateKey),['2026-09-25','2026-09-24']);
 });
 
+test('lists one chapter when the same official start is loaded twice',()=>{
+  const start='2026-09-30T11:10:05.000Z';
+  const twice=[
+    {match:{matchId:'room',startedAt:start,teams:[['yoyo','jie'],['yu','xuan']],scores:[11,7]}},
+    {match:{matchId:'archive',startedAt:start,teams:[['yoyo','jie'],['yu','xuan']],scores:[11,7]}}
+  ];
+  const text=youtubeTimelineText(twice,'2026-09-30T11:00:00.000Z',id=>({yoyo:'Yoyo',jie:'澐緁',yu:'建昱',xuan:'于萱'})[id]);
+  assert.equal(text,'00:00:00 準備與熱身\n00:10:05 Game1 Yoyo／澐緁 11：7 建昱／于萱');
+  assert.equal(text.split('Game').length-1,1);
+});
+
 test('keeps legacy matches without start timestamps usable',()=>{
   const timeline=matchDayTimeline([{match:{endedAt:'2026-09-25T10:31:00.000Z'}}]);
   assert.equal(timeline.firstStart,null);
@@ -68,6 +79,9 @@ test('defaults overnight recordings to 01:00 and daytime recordings to 11:00',()
 test('saves a complete recording date and time only after explicit confirmation',()=>{
   const source=readFileSync(new URL('../src/main.js',import.meta.url),'utf8');
   assert.match(source,/data-save-timeline=/);
+  assert.match(source,/data-delete-timeline=/);
+  assert.match(source,/確定刪除這天的時間軸/);
+  assert.match(source,/hiddenTimelineDates=cleanTimelineDates\(\[\.\.\.previousDates,dateKey\]\)/);
   assert.match(source,/儲存時間/);
   assert.doesNotMatch(source,/\[data-timeline-start\][^\n]*\.onchange=/);
 });

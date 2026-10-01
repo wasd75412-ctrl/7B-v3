@@ -123,6 +123,20 @@ public final class RecordingTimelineTest {
     }
 
     @Test
+    public void listsAMatchOnceWhenRoomHistoryAndArchiveBothContainIt() {
+        Map<String, Object> room = room();
+        Map<String, Object> archived = match("2026-09-30T11:10:05.000Z", "2026-09-30T11:25:00.000Z", 11, 7, false);
+        archived.put("matchId", "different-id");
+        long start = Instant.parse("2026-09-30T11:00:00.000Z").toEpochMilli();
+        long end = Instant.parse("2026-09-30T12:10:00.000Z").toEpochMilli();
+        String text = RecordingTimeline.timeline(RecordingTimeline.matchesFromRoom(
+                RecordingTimeline.withArchivedHistory(room, Arrays.asList(archived))), start, end);
+        assertEquals("00:00:00 準備與熱身\n"
+                + "00:10:05 Game1 建昱／于萱 11：7 Yoyo／澐緁\n"
+                + "00:30:00 Game2 建昱／于萱 9：11 Yoyo／澐緁", text);
+    }
+
+    @Test
     public void titlesUseTheTaipeiDate() {
         long lateNight = Instant.parse("2026-09-30T16:30:00.000Z").toEpochMilli();
         assertEquals("2026年10月1日", RecordingTimeline.title(lateNight, 1));
