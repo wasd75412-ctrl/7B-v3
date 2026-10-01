@@ -15,14 +15,19 @@ const recordings=read(`${javaDir}RecordingsActivity.java`);
 const index=readFileSync(new URL('../index.html',import.meta.url),'utf8');
 const main=readFileSync(new URL('../src/main.js',import.meta.url),'utf8');
 
-test('uploads only on the AAA-5G home Wi-Fi',()=>{
-  assert.match(wifi,/static final String SSID = "AAA-5G";/);
-  assert.match(wifi,/FLAG_INCLUDE_LOCATION_INFO/);
-  assert.match(worker,/if \(!HomeWifi\.isConnected\(context\)\) \{[\s\S]*?Status\.WAITING/);
+test('uploads when any Wi-Fi is connected',()=>{
+  assert.match(wifi,/TRANSPORT_WIFI/);
+  assert.match(wifi,/NET_CAPABILITY_VALIDATED/);
+  assert.doesNotMatch(wifi,/AAA-5G/);
+  assert.match(worker,/if \(!HomeWifi\.isConnected\(context\)\) \{[\s\S]*?等待 Wi-Fi/);
   assert.match(worker,/if \(isStopped\(\) \|\| !HomeWifi\.isConnected\(context\)\) break;/);
-  assert.match(scheduler,/NetworkType\.UNMETERED/);
+  assert.match(scheduler,/NetworkType\.CONNECTED/);
+  assert.match(scheduler,/addTransportType\(NetworkCapabilities\.TRANSPORT_WIFI\)/);
+  assert.match(scheduler,/ExistingPeriodicWorkPolicy\.UPDATE/);
   assert.match(scheduler,/PeriodicWorkRequest\.Builder\(YouTubeUploadWorker\.class, 15, TimeUnit\.MINUTES\)/);
-  for(const permission of ['ACCESS_FINE_LOCATION','ACCESS_BACKGROUND_LOCATION','ACCESS_WIFI_STATE','FOREGROUND_SERVICE_DATA_SYNC'])assert.match(manifest,new RegExp(`android.permission.${permission}`));
+  assert.match(recordings,/連上 Wi-Fi 自動上傳/);
+  assert.doesNotMatch(recordings,/AAA-5G/);
+  for(const permission of ['ACCESS_WIFI_STATE','ACCESS_NETWORK_STATE','FOREGROUND_SERVICE_DATA_SYNC'])assert.match(manifest,new RegExp(`android.permission.${permission}`));
   assert.match(manifest,/SystemForegroundService"\s*android:foregroundServiceType="dataSync"/);
 });
 

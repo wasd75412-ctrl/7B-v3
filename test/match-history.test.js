@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { defaultRecordingStartLocalValue, formatDuration, formatTimelineOffset, groupHistoryDatesByMonth, groupMatchHistoryByDate, matchDayTimeline, youtubeTimelineText } from '../src/match-history.js';
+import { defaultRecordingStartLocalValue, formatDuration, formatTimelineOffset, groupHistoryDatesByMonth, groupMatchHistoryByDate, matchDayTimeline, withLiveTimelineDate, withLiveTimelineMatch, youtubeTimelineText } from '../src/match-history.js';
 
 test('groups match history by date newest first and preserves original indexes',()=>{
   const history=[
@@ -40,6 +40,17 @@ test('builds YouTube offsets and full session duration from recorded timestamps'
 test('creates a copyable YouTube chapter list from the recording start',()=>{
   const matches=[{match:{startedAt:'2026-09-25T01:22:34.000Z',teams:[['yoyo','jie'],['yu','xuan']],scores:[11,9]}}];
   assert.equal(youtubeTimelineText(matches,'2026-09-25T01:00:00.000Z',id=>({yoyo:'Yoyo',jie:'澐緁',yu:'建昱',xuan:'于萱'})[id]),'00:00:00 準備與熱身\n00:22:34 Game1 Yoyo／澐緁 11：9 建昱／于萱');
+});
+
+test('includes an official start in the timeline before that match ends',()=>{
+  const finished=[{match:{matchId:'done',startedAt:'2026-09-25T01:10:00.000Z',teams:[['yoyo','jie'],['yu','xuan']],scores:[11,8]}}];
+  const live={matchId:'live',startedAt:'2026-09-25T01:40:00.000Z',teams:[['yu','xuan'],['yoyo']],scores:[3,2]};
+  const rows=withLiveTimelineMatch(finished,live);
+  assert.equal(rows.length,2);
+  assert.equal(youtubeTimelineText(rows,'2026-09-25T01:00:00.000Z',id=>({yoyo:'Yoyo',jie:'澐緁',yu:'建昱',xuan:'于萱'})[id]),'00:00:00 準備與熱身\n00:10:00 Game1 Yoyo／澐緁 11：8 建昱／于萱\n00:40:00 Game2 建昱／于萱 3：2 Yoyo');
+  assert.equal(withLiveTimelineMatch(rows,live).length,2);
+  assert.deepEqual(withLiveTimelineMatch([],{startedAt:'2026-09-25T01:40:00.000Z',testMode:true}),[]);
+  assert.deepEqual(withLiveTimelineDate([{dateKey:'2026-09-24',matches:[]}],{...live,dateKey:'2026-09-25'}).map(group=>group.dateKey),['2026-09-25','2026-09-24']);
 });
 
 test('keeps legacy matches without start timestamps usable',()=>{

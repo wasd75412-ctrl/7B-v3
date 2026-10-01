@@ -43,7 +43,7 @@ public final class YouTubeUploadWorker extends Worker {
                 return Result.success();
             }
             if (!HomeWifi.isConnected(context)) {
-                for (RecordingUploadStore.Entry entry : pending) mark(entry, RecordingUploadStore.Status.WAITING, "");
+                for (RecordingUploadStore.Entry entry : pending) mark(entry, RecordingUploadStore.Status.WAITING, "等待 Wi-Fi");
                 return Result.success();
             }
             YouTubeAuth auth = new YouTubeAuth(context);

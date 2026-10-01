@@ -29,7 +29,7 @@ import { normalizeScoreFont, randomScoreFont } from './score-font.js';
 import { EVENT_PACKING_MEMO_ITEMS, eventPackingMemoProgress, mergePackingMemos, normalizeEventPackingMemo, remainingPackingItems } from './event-packing-memo.js';
 import { ensureShuttleCostNotice, moveAdminNotice, normalizeAdminNotices } from './admin-notices.js';
 import { canReportEventPayment, eventPaymentStatus, normalizeEventPayments, normalizeSessionFee, updateEventPayment } from './event-payment.js';
-import { defaultRecordingStartLocalValue, groupHistoryDatesByMonth, groupMatchHistoryByDate, youtubeTimelineText } from './match-history.js';
+import { defaultRecordingStartLocalValue, groupHistoryDatesByMonth, groupMatchHistoryByDate, withLiveTimelineDate, withLiveTimelineMatch, youtubeTimelineText } from './match-history.js';
 import { ROOM_HISTORY_KEEP, archiveDocId, decodeArchivedMatch, encodeArchivedMatch, mergeMatchHistory, normalizeSyncMode, overflowHistory, readPendingArchives, recentHistory, shouldSkipFullRoomSync, writePendingArchives } from './match-archive.js';
 import { POLL_UNAVAILABLE, prunePollHistoryRows } from './poll-history.js';
 
@@ -154,7 +154,7 @@ function markMatchOfficialStarted(requestedAt){
   androidOfficialStartPending=null;
   const now=Date.now(),requestedMillis=timestampMillis(requestedAt);
   match.startedAt=new Date(Number.isFinite(requestedMillis)?Math.min(requestedMillis,now):now).toISOString();
-  saveLiveScoreSoon();saveSoon();renderDashboard();
+  saveLiveScoreSoon();saveSoon();renderDashboard();renderHistory();
   showScoreRemoteIndicator('比賽正式開始',{duration:500,icon:'✅',emphasis:'official'});
   return true;
 }
@@ -2612,9 +2612,18 @@ async function clearMatchReplayPlaylist(){
 function historyDateLabel(dateKey){if(!/^\d{4}-\d{2}-\d{2}$/.test(dateKey))return dateKey;const d=new Date(`${dateKey}T12:00:00`);return `${d.getFullYear()} 年 ${d.getMonth()+1} 月 ${d.getDate()} 日（${'日一二三四五六'[d.getDay()]}）`}
 function historyMonthLabel(monthKey){if(!/^\d{4}-\d{2}$/.test(monthKey))return monthKey;const [year,month]=monthKey.split('-');return `${year} 年 ${Number(month)} 月`}
 function timelineLocalInputValue(value){const d=new Date(value||'');if(isNaN(d.getTime()))return '';return `${localDateKey(d)}T${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}:${String(d.getSeconds()).padStart(2,'0')}`}
+function liveOfficialMatch(dateKey=''){
+  const match=state.match;
+  if(!match?.active||!match.startedAt||match.testMode||state.testMode)return null;
+  const started=new Date(match.startedAt);
+  if(isNaN(started.getTime()))return null;
+  const key=localDateKey(started);
+  if(dateKey&&key!==dateKey)return null;
+  return {matchId:match.matchId||'',startedAt:match.startedAt,endedAt:'',dateKey:key,teams:match.players,scores:match.scores||[0,0],testMode:false};
+}
 function timelinePanel(group){
-  const savedStart=state.matchTimelineStarts?.[group.dateKey]||'',defaultLocal=defaultRecordingStartLocalValue(group.matches,group.dateKey),timelineStart=savedStart||(defaultLocal?new Date(defaultLocal).toISOString():'');
-  const text=timelineStart?youtubeTimelineText(group.matches,timelineStart,pname):'請先設定錄影開始時間。',feedback=savedStart?'已儲存，仍可修改後再次儲存。':defaultLocal?`已依場次預設為 ${defaultLocal.slice(11,16)}，仍可修改。`:'調整完整日期與時間後，請按「儲存時間」。';
+  const savedStart=state.matchTimelineStarts?.[group.dateKey]||'',timelineMatches=withLiveTimelineMatch(group.matches,liveOfficialMatch(group.dateKey)),defaultLocal=defaultRecordingStartLocalValue(timelineMatches,group.dateKey),timelineStart=savedStart||(defaultLocal?new Date(defaultLocal).toISOString():'');
+  const text=timelineStart?youtubeTimelineText(timelineMatches,timelineStart,pname):'請先設定錄影開始時間。',feedback=savedStart?'已儲存，仍可修改後再次儲存。':defaultLocal?`已依場次預設為 ${defaultLocal.slice(11,16)}，仍可修改。`:'調整完整日期與時間後，請按「儲存時間」。';
   return `<section class="youtube-timeline host-only"><div class="youtube-timeline-head"><strong>YouTube 比賽時間軸</strong><button class="btn primary" type="button" data-copy-timeline="${esc(group.dateKey)}" ${timelineStart?'':'disabled'}>複製全部</button></div><div class="youtube-timeline-start"><label class="field"><span>錄影開始時間</span><input class="input" type="datetime-local" step="1" value="${esc(timelineLocalInputValue(timelineStart))}" data-timeline-start="${esc(group.dateKey)}"></label><button class="btn primary" type="button" data-save-timeline="${esc(group.dateKey)}">儲存時間</button><button class="btn" type="button" data-timeline-now="${esc(group.dateKey)}">設為現在</button></div><div class="sub" data-timeline-feedback="${esc(group.dateKey)}">${esc(feedback)}</div><textarea class="youtube-timeline-text" readonly data-timeline-text="${esc(group.dateKey)}">${esc(text)}</textarea></section>`;
 }
 async function setTimelineStart(dateKey,value){
@@ -2641,11 +2650,12 @@ async function copyTimeline(dateKey){const text=document.querySelector(`[data-ti
 function renderHistory(){
   renderMatchReplay();
   const container=$('history'),existingMonths=all('.history-month-group'),existingDates=all('.history-date-group'),openMonths=new Set(existingMonths.filter(group=>group.open).map(group=>group.dataset.historyMonth)),openDates=new Set(existingDates.filter(group=>group.open).map(group=>group.dataset.historyDate));
-  const months=groupHistoryDatesByMonth(groupMatchHistoryByDate(state.history,historyDate));
+  const live=liveOfficialMatch(),months=groupHistoryDatesByMonth(withLiveTimelineDate(groupMatchHistoryByDate(state.history,historyDate),live));
   const renderDate=(group,dateIndex,monthIndex)=>{
     const open=openDates.has(group.dateKey)||(!existingDates.length&&monthIndex===0&&dateIndex===0);
+    const countText=group.matches.length?`${group.matches.length} 場`:live?.dateKey===group.dateKey?'進行中':'0 場';
     const matches=group.matches.map(({match:h,index})=>`<div class="history-item ${h.testMode?'test-record':''}"><div class="history-main"><strong><span class="match-format-badge">${historyFormat(h)===MATCH_FORMAT_SINGLES?'單打':'雙打'}</span>${h.testMode?'<span class="test-record-badge">測試</span> ':''}${esc((h.teams?.[0]||[]).map(pname).join('／'))} ${h.scores?.[0]??0}：${h.scores?.[1]??0} ${esc((h.teams?.[1]||[]).map(pname).join('／'))}</strong><div class="sub">${esc(h.time||'')}${h.testMode?' · 不計入戰績':''}</div></div><div class="history-actions host-only"><button class="btn danger-outline" data-delete-history="${index}">刪除</button></div></div>`).join('');
-    return `<details class="history-date-group" data-history-date="${esc(group.dateKey)}" ${open?'open':''}><summary><span>${esc(historyDateLabel(group.dateKey))}</span><span>${group.matches.length} 場</span></summary>${timelinePanel(group)}<div class="history-date-matches">${matches}</div></details>`;
+    return `<details class="history-date-group" data-history-date="${esc(group.dateKey)}" ${open?'open':''}><summary><span>${esc(historyDateLabel(group.dateKey))}</span><span>${countText}</span></summary>${timelinePanel(group)}<div class="history-date-matches">${matches}</div></details>`;
   };
   container.innerHTML=months.map((month,monthIndex)=>{
     const open=openMonths.has(month.monthKey)||(!existingMonths.length&&monthIndex===0),dates=month.dates.map((group,dateIndex)=>renderDate(group,dateIndex,monthIndex)).join('');

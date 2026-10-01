@@ -40,26 +40,40 @@ final class RecordingTimeline {
         collectNames(room.get("retiredPlayers"), names);
         collectNames(room.get("roster"), names);
         Object history = room.get("history");
-        if (!(history instanceof List)) return matches;
-        for (Object item : (List<?>) history) {
-            if (!(item instanceof Map)) continue;
-            Map<?, ?> entry = (Map<?, ?>) item;
-            if (Boolean.TRUE.equals(entry.get("testMode"))) continue;
-            long start = parseTime(entry.get("startedAt"));
-            if (start <= 0L) continue;
-            long end = parseTime(entry.get("endedAt"));
-            matches.add(new Match(start, end,
-                    team(names, entry.get("teamA1"), entry.get("teamA2")),
-                    team(names, entry.get("teamB1"), entry.get("teamB2")),
-                    intValue(entry.get("scoreA")), intValue(entry.get("scoreB"))));
+        if (history instanceof List) {
+            for (Object item : (List<?>) history) {
+                if (!(item instanceof Map)) continue;
+                matches.addAll(matchFrom((Map<?, ?>) item, names, true));
+            }
         }
+        Object current = room.get("match");
+        if (current instanceof Map) {
+            for (Match match : matchFrom((Map<?, ?>) current, names, false)) {
+                boolean duplicate = false;
+                for (Match existing : matches) if (existing.startMs == match.startMs) duplicate = true;
+                if (!duplicate) matches.add(match);
+            }
+        }
+        return matches;
+    }
+
+    private static List<Match> matchFrom(Map<?, ?> entry, Map<String, String> names, boolean historyScores) {
+        List<Match> matches = new ArrayList<>();
+        if (Boolean.TRUE.equals(entry.get("testMode"))) return matches;
+        long start = parseTime(entry.get("startedAt"));
+        if (start <= 0L) return matches;
+        int[] scores = scores(entry, historyScores);
+        matches.add(new Match(start, parseTime(entry.get("endedAt")),
+                side(names, entry.get("teamA"), entry.get("teamA1"), entry.get("teamA2")),
+                side(names, entry.get("teamB"), entry.get("teamB1"), entry.get("teamB2")),
+                scores[0], scores[1]));
         return matches;
     }
 
     static String timeline(List<Match> matches, long recordingStartMs, long recordingEndMs) {
         List<Match> included = new ArrayList<>();
         for (Match match : matches) {
-            long end = match.endMs > 0L ? match.endMs : match.startMs;
+            long end = match.endMs > 0L ? match.endMs : Long.MAX_VALUE;
             if (match.startMs < recordingEndMs && end > recordingStartMs) included.add(match);
         }
         Collections.sort(included, (a, b) -> Long.compare(a.startMs, b.startMs));
@@ -99,6 +113,31 @@ final class RecordingTimeline {
                 names.put(String.valueOf(id), String.valueOf(name).trim());
             }
         }
+    }
+
+    private static String side(Map<String, String> names, Object players, Object first, Object second) {
+        if (players instanceof List) {
+            List<String> labels = new ArrayList<>();
+            for (Object id : (List<?>) players) {
+                if (id == null || String.valueOf(id).isEmpty()) continue;
+                String key = String.valueOf(id);
+                labels.add(names.containsKey(key) ? names.get(key) : key);
+            }
+            if (!labels.isEmpty()) return String.join("／", labels);
+        }
+        return team(names, first, second);
+    }
+
+    private static int[] scores(Map<?, ?> entry, boolean historyScores) {
+        Object value = entry.get("scores");
+        if (!historyScores && value instanceof List) {
+            List<?> scores = (List<?>) value;
+            return new int[]{
+                    scores.isEmpty() ? 0 : intValue(scores.get(0)),
+                    scores.size() < 2 ? 0 : intValue(scores.get(1))
+            };
+        }
+        return new int[]{intValue(entry.get("scoreA")), intValue(entry.get("scoreB"))};
     }
 
     private static String team(Map<String, String> names, Object first, Object second) {
