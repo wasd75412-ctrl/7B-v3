@@ -34,8 +34,15 @@ test('uploads when any Wi-Fi is connected',()=>{
 test('uploads unlisted videos titled by date with the timeline as description',()=>{
   assert.match(uploader,/"privacyStatus", "unlisted"/);
   assert.match(uploader,/uploadType=resumable/);
-  assert.match(worker,/entry\.title = RecordingTimeline\.title\(entry\.startMs, RecordingUploadStore\.ordinal\(context, entry\)\);\s*entry\.description = timeline\(entry\);/);
+  assert.match(uploader,/videos\?part=snippet/);
+  assert.match(worker,/entry\.title = RecordingTimeline\.title\(entry\.startMs, RecordingUploadStore\.ordinal\(context, entry\)\);/);
+  assert.match(worker,/if \(!RecordingTimeline\.hasGameChapter\(entry\.description\)\) entry\.description = timeline\(entry\);/);
   assert.match(worker,/YouTubeUploader\.createSession\(token, entry\.title, entry\.description, length\)/);
+  assert.match(worker,/MatchHistoryRooms\.load/);
+  assert.match(worker,/YouTubeUploader\.updateDescription\(token, entry\.videoId, title, fresh\)/);
+  assert.match(read(`${javaDir}MatchHistoryRooms.java`),/collection\("matchHistory"\)/);
+  assert.match(recordings,/MatchHistoryRooms\.load/);
+  assert.doesNotMatch(recordings,/if \(!entry\.description\.isEmpty\(\)\) return entry\.description;/);
 });
 
 test('adds each upload to the 7B羽球社 playlist once',()=>{

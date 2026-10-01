@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {createLiveScoreData,decodeLiveMatch,encodeLiveMatch,generalRoomStateWithoutMatch,liveMatchKey,shouldAnnounceSyncedLiveScore,shouldApplyIncomingLiveMatch,shouldKeepLatestLiveMatch,shouldShowScoreView,LIVE_SCORE_SCHEMA_VERSION} from '../src/live-score.js';
+import {checkpointMissedOfficialStart,createLiveScoreData,decodeLiveMatch,encodeLiveMatch,generalRoomStateWithoutMatch,keepOfficialStart,liveMatchKey,shouldAnnounceSyncedLiveScore,shouldApplyIncomingLiveMatch,shouldKeepLatestLiveMatch,shouldShowScoreView,LIVE_SCORE_SCHEMA_VERSION} from '../src/live-score.js';
 
 test('encodes Firestore-safe live score without nested arrays',()=>{
   const data=createLiveScoreData({
@@ -80,6 +80,17 @@ test('keeps the live match authoritative when a stale room snapshot arrives',()=
 
 test('keeps general admin writes separate from the live match',()=>{
   assert.deepEqual(generalRoomStateWithoutMatch({roster:['p1'],match:{active:true},adminNotices:[]}),{roster:['p1'],adminNotices:[]});
+});
+
+test('a late checkpoint cannot erase an official start on the same match',()=>{
+  const current={matchId:'m1',startedAt:'2026-09-30T11:10:05.000Z',scores:[1,0]};
+  const cleared={matchId:'m1',startedAt:'',scores:[1,0]};
+  assert.equal(keepOfficialStart(current,cleared).startedAt,current.startedAt);
+  assert.equal(keepOfficialStart(current,{matchId:'m1',startedAt:'2026-09-30T11:11:00.000Z'}).startedAt,'2026-09-30T11:11:00.000Z');
+  assert.equal(keepOfficialStart(current,{matchId:'m2',startedAt:''}).startedAt,'');
+  assert.equal(checkpointMissedOfficialStart({matchId:'m1',startedAt:''},current),true);
+  assert.equal(checkpointMissedOfficialStart({matchId:'m1',startedAt:current.startedAt},current),false);
+  assert.equal(checkpointMissedOfficialStart({matchId:'m2',startedAt:''},current),false);
 });
 
 test('only opens the scoreboard on the admin device that requested it',()=>{

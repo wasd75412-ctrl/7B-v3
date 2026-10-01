@@ -57,6 +57,36 @@ final class RecordingTimeline {
         return matches;
     }
 
+    static Map<String, Object> withArchivedHistory(Map<String, Object> room, List<? extends Map<String, Object>> archived) {
+        Map<String, Object> merged = new HashMap<>();
+        if (room != null) merged.putAll(room);
+        List<Object> history = new ArrayList<>();
+        Object existing = merged.get("history");
+        if (existing instanceof List) history.addAll((List<?>) existing);
+        if (archived != null) {
+            for (Map<String, Object> row : archived) {
+                if (row == null || Boolean.TRUE.equals(row.get("testMode"))) continue;
+                Object id = row.get("matchId");
+                String matchId = id == null ? "" : String.valueOf(id);
+                if (!matchId.isEmpty() && historyContains(history, matchId)) continue;
+                history.add(row);
+            }
+        }
+        merged.put("history", history);
+        return merged;
+    }
+
+    static boolean hasGameChapter(String description) {
+        return description != null && description.contains("Game");
+    }
+
+    private static boolean historyContains(List<Object> history, String matchId) {
+        for (Object item : history) {
+            if (item instanceof Map && matchId.equals(String.valueOf(((Map<?, ?>) item).get("matchId")))) return true;
+        }
+        return false;
+    }
+
     private static List<Match> matchFrom(Map<?, ?> entry, Map<String, String> names, boolean historyScores) {
         List<Match> matches = new ArrayList<>();
         if (Boolean.TRUE.equals(entry.get("testMode"))) return matches;

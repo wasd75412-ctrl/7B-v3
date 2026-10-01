@@ -14,7 +14,6 @@ import androidx.work.ForegroundInfo;
 import androidx.work.Worker;
 import androidx.work.WorkerParameters;
 import com.google.android.gms.tasks.Tasks;
-import com.google.firebase.firestore.DocumentSnapshot;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.nio.channels.FileChannel;
@@ -38,7 +37,8 @@ public final class YouTubeUploadWorker extends Worker {
         try {
             Context context = getApplicationContext();
             List<RecordingUploadStore.Entry> pending = RecordingUploadStore.pending(context);
-            if (pending.isEmpty()) {
+            List<RecordingUploadStore.Entry> refresh = RecordingUploadStore.timelineRefresh(context, System.currentTimeMillis());
+            if (pending.isEmpty() && refresh.isEmpty()) {
                 YouTubeUploadScheduler.cancelPeriodic(context);
                 return Result.success();
             }
@@ -51,10 +51,15 @@ public final class YouTubeUploadWorker extends Worker {
                 for (RecordingUploadStore.Entry entry : pending) mark(entry, RecordingUploadStore.Status.AUTH_REQUIRED, "");
                 return Result.success();
             }
-            goForeground(pending.get(0).title);
+            String foregroundTitle = pending.isEmpty() ? refresh.get(0).title : pending.get(0).title;
+            goForeground(foregroundTitle);
             for (RecordingUploadStore.Entry entry : pending) {
                 if (isStopped() || !HomeWifi.isConnected(context)) break;
                 upload(entry, auth);
+            }
+            for (RecordingUploadStore.Entry entry : refresh) {
+                if (isStopped() || !HomeWifi.isConnected(context)) break;
+                refreshTimeline(entry, auth);
             }
             return Result.success();
         } finally {
@@ -68,8 +73,8 @@ public final class YouTubeUploadWorker extends Worker {
             if (entry.videoId.isEmpty()) {
                 if (entry.title.isEmpty()) {
                     entry.title = RecordingTimeline.title(entry.startMs, RecordingUploadStore.ordinal(context, entry));
-                    entry.description = timeline(entry);
                 }
+                if (!RecordingTimeline.hasGameChapter(entry.description)) entry.description = timeline(entry);
                 try (ParcelFileDescriptor descriptor = context.getContentResolver().openFileDescriptor(Uri.parse(entry.uri), "r");
                      FileInputStream input = new FileInputStream(descriptor.getFileDescriptor());
                      FileChannel channel = input.getChannel()) {
@@ -149,13 +154,32 @@ public final class YouTubeUploadWorker extends Worker {
         withToken(auth, token -> { YouTubeUploader.addToPlaylist(token, found, entry.videoId); return found; });
     }
 
+    private void refreshTimeline(RecordingUploadStore.Entry entry, YouTubeAuth auth) {
+        try {
+            String fresh = timeline(entry);
+            if (!RecordingTimeline.hasGameChapter(fresh) || fresh.equals(entry.description)) return;
+            Context context = getApplicationContext();
+            String title = entry.title.isEmpty()
+                    ? RecordingTimeline.title(entry.startMs, RecordingUploadStore.ordinal(context, entry)) : entry.title;
+            withToken(auth, token -> {
+                YouTubeUploader.updateDescription(token, entry.videoId, title, fresh);
+                return token;
+            });
+            entry.title = title;
+            entry.description = fresh;
+            RecordingUploadStore.save(context, entry);
+        } catch (Exception error) {
+            Log.w("7BYouTube", "Could not refresh timeline", error);
+        }
+    }
+
     private String timeline(RecordingUploadStore.Entry entry) {
         Map<String, Object> room = new HashMap<>();
         if (!entry.roomId.isEmpty()) {
             try {
-                DocumentSnapshot snapshot = Tasks.await(BackgroundScoreController.firestore(getApplicationContext())
-                        .collection("badmintonRooms").document(entry.roomId).get(), 30, TimeUnit.SECONDS);
-                if (snapshot.exists() && snapshot.getData() != null) room = snapshot.getData();
+                Map<String, Object> loaded = Tasks.await(MatchHistoryRooms.load(
+                        BackgroundScoreController.firestore(getApplicationContext()), entry.roomId), 30, TimeUnit.SECONDS);
+                if (loaded != null) room = loaded;
             } catch (Exception error) {
                 Log.w("7BYouTube", "Could not load match history", error);
             }

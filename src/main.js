@@ -5,7 +5,7 @@ import { calculateCombinedPerPersonFee, calculatePerPersonFee, shouldShowNextEve
 import { shouldShowNotificationPrompt } from './notifications.js';
 import { normalizeMatchReplayTitle, normalizeYouTubePlaylistUrl } from './youtube.js';
 import { DEFAULT_SCORE_REMOTE_BINDINGS, VIRTUAL_REMOTE_CLICK_CODE, advanceRemotePressState, assignRemoteBinding, isEditableRemoteTarget, normalizeRemoteBindings, remoteActionForCode, remoteEventCode, shouldHandleRemoteInput } from './score-remote.js';
-import { createLiveScoreData, createMatchCheckpointData, decodeLiveMatch, generalRoomStateWithoutMatch, liveMatchKey, nextMatchEpoch, shouldAnnounceSyncedLiveScore, shouldApplyIncomingLiveMatch, shouldShowScoreView } from './live-score.js';
+import { checkpointMissedOfficialStart, createLiveScoreData, createMatchCheckpointData, decodeLiveMatch, generalRoomStateWithoutMatch, keepOfficialStart, liveMatchKey, nextMatchEpoch, shouldAnnounceSyncedLiveScore, shouldApplyIncomingLiveMatch, shouldShowScoreView } from './live-score.js';
 import { REMOTE_COMMAND_MAX_AGE_MS, shouldAcceptRemoteCommand, timestampMillis } from './remote-command.js';
 import { canAutoSyncPlayerIdentity } from './device-sync.js';
 import { shouldRequestNativeWakeLock, wakeLockButtonIntent, wakeLockControlIsActive } from './wake-lock.js';
@@ -1867,7 +1867,7 @@ function applyState(data){
   // Receiving a room snapshot must never publish its fallback match back into liveScore.
 }
 function applyLiveScoreState(data,{announce=true}={}){
-  const before=matchScoreSignature(),beforeMatch=state.match,match=decodeLiveMatch(data,state.match);
+  const before=matchScoreSignature(),beforeMatch=state.match,match=keepOfficialStart(beforeMatch,decodeLiveMatch(data,beforeMatch));
   if(!canApplyMatch(match))return false;
   const shouldFinish=beforeMatch.matchId===match.matchId&&beforeMatch.winner===null&&match.winner!==null&&isHost&&!requestedAndroidRemote&&scoreViewRequested;
   liveScoreReady=true;latestLiveMatch=structuredClone(match);
@@ -2175,7 +2175,10 @@ async function saveNewMatchCheckpointNow(){
   batch.set(liveScoreRef,{...checkpoint.liveScore,updatedAt:serverTimestamp()},{merge:true});
   batch.set(roomRef,{...payload(),...checkpoint.room},{merge:true});
   pendingLiveScoreWrites++;updateSyncBadge();
-  try{await batch.commit()}
+  try{
+    await batch.commit();
+    if(checkpointMissedOfficialStart(checkpoint.liveScore.match,state.match))await persistLiveScoreState();
+  }
   catch(error){setSync('比分同步失敗','error');setError(formatError(error));throw error}
   finally{pendingLiveScoreWrites=Math.max(0,pendingLiveScoreWrites-1);updateSyncBadge()}
 }
