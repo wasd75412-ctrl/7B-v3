@@ -313,29 +313,46 @@ public final class LoopCameraActivity extends ComponentActivity {
             if (closing || isFinishing() || isDestroyed()) return;
             try {
                 ProcessCameraProvider provider = future.get();
-                int targetRotation = Surface.ROTATION_90;
-                Preview preview = new Preview.Builder().setTargetRotation(targetRotation).build();
-                preview.setSurfaceProvider(previewView.getSurfaceProvider());
-                QualitySelector qualitySelector = QualitySelector.from(
-                        Quality.FHD,
-                        FallbackStrategy.lowerQualityOrHigherThan(Quality.FHD));
-                Recorder recorder = new Recorder.Builder().setQualitySelector(qualitySelector).build();
-                videoCapture = new VideoCapture.Builder<>(recorder).setTargetRotation(targetRotation).build();
-                provider.unbindAll();
-                UseCaseGroup.Builder groupBuilder = new UseCaseGroup.Builder()
-                        .addUseCase(preview)
-                        .addUseCase(videoCapture);
-                if (broadcastMode) {
-                    scoreOverlayEffect = createScoreOverlayEffect();
-                    groupBuilder.addEffect(scoreOverlayEffect);
+                if (broadcastMode && scoreOverlayEffect == null) scoreOverlayEffect = createScoreOverlayEffect();
+                if (!bindRecording(provider, Quality.UHD) && !bindRecording(provider, Quality.FHD)) {
+                    status.setText("相機啟動失敗");
+                    return;
                 }
-                provider.bindToLifecycle(this, CameraSelector.DEFAULT_BACK_CAMERA, groupBuilder.build());
                 startSegmentIfVisible();
             } catch (Exception error) {
                 status.setText("相機啟動失敗");
                 Toast.makeText(this, String.valueOf(error.getMessage()), Toast.LENGTH_LONG).show();
             }
         }, ContextCompat.getMainExecutor(this));
+    }
+
+    private boolean bindRecording(ProcessCameraProvider provider, Quality quality) {
+        try {
+            int targetRotation = Surface.ROTATION_90;
+            Preview preview = new Preview.Builder().setTargetRotation(targetRotation).build();
+            preview.setSurfaceProvider(previewView.getSurfaceProvider());
+            FallbackStrategy fallback = quality == Quality.UHD
+                    ? FallbackStrategy.lowerQualityOrHigherThan(Quality.UHD)
+                    : FallbackStrategy.lowerQualityThan(Quality.FHD);
+            QualitySelector qualitySelector = QualitySelector.from(quality, fallback);
+            Recorder recorder = new Recorder.Builder()
+                    .setQualitySelector(qualitySelector)
+                    .setTargetVideoEncodingBitRate(quality == Quality.UHD ? 40_000_000 : 16_000_000)
+                    .build();
+            videoCapture = new VideoCapture.Builder<>(recorder).setTargetRotation(targetRotation).build();
+            provider.unbindAll();
+            UseCaseGroup.Builder groupBuilder = new UseCaseGroup.Builder()
+                    .addUseCase(preview)
+                    .addUseCase(videoCapture);
+            if (scoreOverlayEffect != null) groupBuilder.addEffect(scoreOverlayEffect);
+            provider.bindToLifecycle(this, CameraSelector.DEFAULT_BACK_CAMERA, groupBuilder.build());
+            return true;
+        } catch (Exception error) {
+            Log.w("7BRecording", "Unable to start recording at " + quality, error);
+            videoCapture = null;
+            try { provider.unbindAll(); } catch (Exception ignored) {}
+            return false;
+        }
     }
 
     private OverlayEffect createScoreOverlayEffect() {
