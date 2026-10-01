@@ -3587,12 +3587,5 @@ const exitScoreBtn=$('exitScore');if(exitScoreBtn)exitScoreBtn.addEventListener(
 window.bcmMarkBooted?.();
 if('serviceWorker'in navigator&&location.protocol.startsWith('http')){
   const swRevision=BCM_VERSION;
-  const reloadKey=`bcmSwReload:${swRevision}`;
-  const hadController=!!navigator.serviceWorker.controller;
-  navigator.serviceWorker.addEventListener('controllerchange',()=>{
-    if(!hadController||sessionStorage.getItem(reloadKey)==='1')return;
-    sessionStorage.setItem(reloadKey,'1');
-    location.reload();
-  });
   navigator.serviceWorker.register(`./sw.js?v=${swRevision}`,{updateViaCache:'none'}).then(registration=>registration.update()).catch(()=>{});
 }
