@@ -4,7 +4,10 @@ import { PUSH_STORE, jsonResponse, validRoomId, validSubscription } from './lib/
 
 const FIREBASE_PROJECT='badminton-7a1c3';
 const FIREBASE_API_KEY='AIzaSyBrakbTPK7UqEChPBI6pM8-i03IcLq0IvM';
-const REMINDER_WINDOW_MS=24*60*60*1000;
+const TAIPEI_OFFSET_MS=8*60*60*1000;
+const DEFAULT_REMINDER_LEAD_MS=24*60*60*1000;
+// Weekly polls close Saturday 23:00 in Taipei. The reminder starts Friday 12:00, 35 hours earlier.
+const WEEKLY_FRIDAY_NOON_LEAD_MS=35*60*60*1000;
 
 function fieldString(field){return field?.stringValue||field?.timestampValue||''}
 
@@ -17,9 +20,17 @@ export function firestorePollFromDocument(document){
   };
 }
 
+export function reminderLeadMs(deadlineAt){
+  const deadline=Date.parse(deadlineAt||'');
+  if(!Number.isFinite(deadline))return DEFAULT_REMINDER_LEAD_MS;
+  const local=new Date(deadline+TAIPEI_OFFSET_MS);
+  const weeklySaturdayNight=local.getUTCDay()===6&&local.getUTCHours()===23&&local.getUTCMinutes()===0&&local.getUTCSeconds()===0&&local.getUTCMilliseconds()===0;
+  return weeklySaturdayNight?WEEKLY_FRIDAY_NOON_LEAD_MS:DEFAULT_REMINDER_LEAD_MS;
+}
+
 export function isReminderDue(poll,lastReminderDeadline='',now=Date.now()){
   const deadline=Date.parse(poll?.deadlineAt||''),remaining=deadline-now;
-  return poll?.status!=='closed'&&poll?.optionCount>0&&Number.isFinite(deadline)&&remaining>0&&remaining<=REMINDER_WINDOW_MS&&lastReminderDeadline!==poll.deadlineAt;
+  return poll?.status!=='closed'&&poll?.optionCount>0&&Number.isFinite(deadline)&&remaining>0&&remaining<=reminderLeadMs(poll?.deadlineAt)&&lastReminderDeadline!==poll.deadlineAt;
 }
 
 async function getRoomPoll(roomId){
@@ -58,7 +69,7 @@ export default async()=>{
         tag:`7b-poll-${roomId}-${poll.deadlineAt}`
       });
       try{
-        await webpush.sendNotification(item.record.subscription,payload,{TTL:REMINDER_WINDOW_MS/1000,urgency:'normal',topic:`poll-${roomId}`});
+        await webpush.sendNotification(item.record.subscription,payload,{TTL:reminderLeadMs(poll.deadlineAt)/1000,urgency:'normal',topic:`poll-${roomId}`});
         item.record.lastReminderDeadline=poll.deadlineAt;
         item.record.lastReminderAt=new Date().toISOString();
         await store.setJSON(item.key,item.record);
