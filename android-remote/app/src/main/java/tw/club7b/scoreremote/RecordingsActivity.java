@@ -1,17 +1,13 @@
 package tw.club7b.scoreremote;
 
-import android.Manifest;
 import android.content.ClipData;
 import android.content.ClipboardManager;
-import android.content.Intent;
 import android.graphics.Color;
 import android.graphics.Typeface;
 import android.graphics.drawable.GradientDrawable;
-import android.os.Build;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
-import android.provider.Settings;
 import android.view.View;
 import android.widget.Button;
 import android.widget.LinearLayout;
@@ -39,7 +35,6 @@ public final class RecordingsActivity extends ComponentActivity {
     private TextView youtubeStatus;
     private Button youtubeButton;
     private TextView wifiStatus;
-    private Button wifiButton;
     private boolean youtubeLinked;
     private String renderedSignature = "";
 
@@ -58,18 +53,6 @@ public final class RecordingsActivity extends ComponentActivity {
                 } catch (ApiException error) {
                     Toast.makeText(this, "YouTube 連結失敗", Toast.LENGTH_SHORT).show();
                 }
-            });
-
-    private final ActivityResultLauncher<String> backgroundLocationLauncher = registerForActivityResult(
-            new ActivityResultContracts.RequestPermission(), granted -> renderWifi());
-
-    private final ActivityResultLauncher<String[]> locationLauncher = registerForActivityResult(
-            new ActivityResultContracts.RequestMultiplePermissions(), granted -> {
-                if (HomeWifi.hasLocationPermission(this) && !HomeWifi.hasBackgroundLocationPermission(this)
-                        && Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-                    backgroundLocationLauncher.launch(Manifest.permission.ACCESS_BACKGROUND_LOCATION);
-                }
-                renderWifi();
             });
 
     @Override protected void onCreate(Bundle state) {
@@ -110,10 +93,8 @@ public final class RecordingsActivity extends ComponentActivity {
         root.addView(youtubeCard);
 
         LinearLayout wifiCard = card();
-        wifiStatus = text("", 15, true);
-        wifiButton = button("", v -> fixWifiDetection());
+        wifiStatus = text("連上 Wi-Fi 自動上傳", 15, true);
         wifiCard.addView(wifiStatus);
-        wifiCard.addView(wifiButton);
         root.addView(wifiCard);
 
         list = new LinearLayout(this);
@@ -163,32 +144,7 @@ public final class RecordingsActivity extends ComponentActivity {
     }
 
     private void renderWifi() {
-        if (!HomeWifi.hasLocationPermission(this) || !HomeWifi.hasBackgroundLocationPermission(this)) {
-            wifiStatus.setText("辨識 " + HomeWifi.SSID + " 需要位置權限「一律允許」");
-            wifiButton.setText("允許位置權限");
-            wifiButton.setVisibility(View.VISIBLE);
-        } else if (!HomeWifi.isLocationEnabled(this)) {
-            wifiStatus.setText("辨識 " + HomeWifi.SSID + " 需要開啟定位");
-            wifiButton.setText("開啟定位");
-            wifiButton.setVisibility(View.VISIBLE);
-        } else {
-            wifiStatus.setText("連上 " + HomeWifi.SSID + " 自動上傳");
-            wifiButton.setVisibility(View.GONE);
-        }
-    }
-
-    private void fixWifiDetection() {
-        if (!HomeWifi.hasLocationPermission(this)) {
-            List<String> permissions = new ArrayList<>();
-            permissions.add(Manifest.permission.ACCESS_FINE_LOCATION);
-            permissions.add(Manifest.permission.ACCESS_COARSE_LOCATION);
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) permissions.add(Manifest.permission.POST_NOTIFICATIONS);
-            locationLauncher.launch(permissions.toArray(new String[0]));
-        } else if (!HomeWifi.hasBackgroundLocationPermission(this)) {
-            backgroundLocationLauncher.launch(Manifest.permission.ACCESS_BACKGROUND_LOCATION);
-        } else {
-            startActivity(new Intent(Settings.ACTION_LOCATION_SOURCE_SETTINGS));
-        }
+        wifiStatus.setText("連上 Wi-Fi 自動上傳");
     }
 
     private void renderList(boolean force) {
@@ -240,7 +196,7 @@ public final class RecordingsActivity extends ComponentActivity {
             case AUTH_REQUIRED: return "需要連結 YouTube";
             case FAILED: return "上傳失敗" + (entry.message.isEmpty() ? "" : "：" + entry.message);
             case MISSING: return "影片已不存在";
-            default: return entry.message.isEmpty() ? "等待 " + HomeWifi.SSID + " Wi-Fi" : entry.message;
+            default: return entry.message.isEmpty() ? "等待 Wi-Fi" : entry.message;
         }
     }
 

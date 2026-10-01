@@ -76,6 +76,36 @@ public final class RecordingTimelineTest {
     }
 
     @Test
+    public void includesAScreenOrRemoteOfficialStartBeforeTheMatchEnds() {
+        Map<String, Object> room = room();
+        Map<String, Object> live = new HashMap<>();
+        live.put("startedAt", "2026-09-30T11:55:00.000Z");
+        live.put("teamA", Arrays.asList("a", "b"));
+        live.put("teamB", Arrays.asList("c"));
+        live.put("scores", Arrays.asList(4L, 6L));
+        room.put("match", live);
+        long start = Instant.parse("2026-09-30T11:00:00.000Z").toEpochMilli();
+        long end = Instant.parse("2026-09-30T12:10:00.000Z").toEpochMilli();
+        String text = RecordingTimeline.timeline(RecordingTimeline.matchesFromRoom(room), start, end);
+        assertTrue(text.contains("00:55:00 Game3 建昱／于萱 4：6 Yoyo"));
+    }
+
+    @Test
+    public void doesNotRepeatAFinishedMatchAlreadyInHistory() {
+        Map<String, Object> room = room();
+        Map<String, Object> live = new HashMap<>();
+        live.put("startedAt", "2026-09-30T11:10:05.000Z");
+        live.put("teamA", Arrays.asList("a", "b"));
+        live.put("teamB", Arrays.asList("c", "old"));
+        live.put("scores", Arrays.asList(11L, 7L));
+        room.put("match", live);
+        long start = Instant.parse("2026-09-30T11:00:00.000Z").toEpochMilli();
+        long end = Instant.parse("2026-09-30T12:10:00.000Z").toEpochMilli();
+        String text = RecordingTimeline.timeline(RecordingTimeline.matchesFromRoom(room), start, end);
+        assertFalse(text.contains("Game3"));
+    }
+
+    @Test
     public void titlesUseTheTaipeiDate() {
         long lateNight = Instant.parse("2026-09-30T16:30:00.000Z").toEpochMilli();
         assertEquals("2026年10月1日", RecordingTimeline.title(lateNight, 1));

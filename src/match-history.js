@@ -65,6 +65,29 @@ export function formatTimelineOffset(seconds){
   return `${String(hours).padStart(2,'0')}:${String(minutes).padStart(2,'0')}:${String(secs).padStart(2,'0')}`;
 }
 
+export function withLiveTimelineMatch(matches=[],liveMatch=null){
+  if(!liveMatch?.startedAt||liveMatch.testMode)return matches;
+  const liveId=String(liveMatch.matchId||'');
+  const already=matches.some(entry=>{
+    const match=entry.match||entry;
+    return (liveId&&String(match.matchId||'')===liveId)||match.startedAt===liveMatch.startedAt;
+  });
+  if(already)return matches;
+  return [...matches,{match:{
+    matchId:liveId,
+    startedAt:liveMatch.startedAt,
+    endedAt:liveMatch.endedAt||'',
+    teams:liveMatch.teams||liveMatch.players||[[],[]],
+    scores:Array.isArray(liveMatch.scores)?liveMatch.scores:[0,0]
+  }}].sort((a,b)=>((Date.parse((a.match||a).startedAt||'')||0)-(Date.parse((b.match||b).startedAt||'')||0)));
+}
+
+export function withLiveTimelineDate(groups=[],liveMatch=null){
+  const dateKey=liveMatch?.dateKey||'';
+  if(!dateKey||!liveMatch?.startedAt||liveMatch.testMode||groups.some(group=>group.dateKey===dateKey))return groups;
+  return [{dateKey,matches:[]},...groups].sort((a,b)=>b.dateKey.localeCompare(a.dateKey));
+}
+
 export function youtubeTimelineText(matches=[],sessionStartedAt='',playerName=id=>id){
   const timeline=matchDayTimeline(matches,sessionStartedAt);
   const lines=['00:00:00 準備與熱身'];
