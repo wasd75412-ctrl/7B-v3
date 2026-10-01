@@ -86,7 +86,7 @@ const shuffle=a=>{a=[...a];const r=new Uint32Array(Math.max(1,a.length));crypto.
 function teammateSafeLineup(ids,{randomize=false,randomizeAll=false}={}){const values=ids.filter(Boolean);if(values.length!==4||new Set(values).size!==4)return values;const todayHistory=state.history.filter(h=>historyDate(h)===localDateKey()),genderGroupingEnabled=state.rules?.genderGroupingEnabled!==false,genderByPlayer=Object.fromEntries(state.roster.map(p=>[p.id,normalizePlayerGender(p.gender)])),malePresentCount=selectablePlayerIds().filter(id=>genderByPlayer[id]===PLAYER_GENDER_MALE).length,hasMalePair=[values.slice(0,2),values.slice(2,4)].some(team=>team.every(id=>genderByPlayer[id]===PLAYER_GENDER_MALE)),genderViolation=genderGroupingEnabled&&malePresentCount!==3&&hasMalePair;if(!randomize&&!genderViolation&&!lineupExceedsTeammateLimit(values,todayHistory))return values;const random=crypto.getRandomValues(new Uint32Array(1))[0];return arrangeTeamsWithTeammateLimit(shuffle(values),todayHistory,random,2,{genderGroupingEnabled,genderByPlayer,malePresentCount,randomizeAll})}
 function wholeAmount(value){const n=Number(value);return Number.isFinite(n)&&n>0?Math.round(n):0}
 function setAdminNotices(rows){state.adminNotices=normalizeAdminNotices({adminNotices:rows});state.adminNotice=state.adminNotices[0]||null}
-const initialState=()=>({version:9.8,matchFormat:'doubles',testMode:false,testModeRevision:0,roster:[],retiredPlayers:[],adminPlayerIds:[],attendance:[],court:[],waitingQueue:[],queueDraftChosen:[],priority:null,lastLoserReplayPlayerId:null,match:{active:false,format:'doubles',players:[[],[]],scores:[0,0],rallies:[],serving:0,positions:[[0,1],[0,1]],winner:null,startedAt:''},matchRollback:null,rules:{target:11,cap:15,deuce:true,genderGroupingEnabled:true},history:[],matchTimelineStarts:{},matchReplayPlaylistTitle:'',matchReplayPlaylistUrl:'',nextCall:null,schedulePoll:{status:'open',createdAt:'',deadlineAt:'',autoCycle:'',options:[],votes:{},voterPlayers:{},manualParticipants:{}},pollHistory:[],nextEvent:null,nextEvents:[],adminNotice:null,adminNotices:[],shuttleTubes:[],shuttleLegacyActiveTubeId:'',shuttleNoTrackingTubeIds:[],updatedAt:null});
+const initialState=()=>({version:9.8,matchFormat:'doubles',testMode:false,testModeRevision:0,roster:[],retiredPlayers:[],adminPlayerIds:[],attendance:[],court:[],waitingQueue:[],queueDraftChosen:[],priority:null,lastLoserReplayPlayerId:null,match:{active:false,format:'doubles',players:[[],[]],scores:[0,0],rallies:[],serving:0,positions:[[0,1],[0,1]],winner:null,startedAt:''},matchRollback:null,rules:{target:11,cap:15,deuce:true,genderGroupingEnabled:true},history:[],matchTimelineStarts:{},hiddenTimelineDates:[],matchReplayPlaylistTitle:'',matchReplayPlaylistUrl:'',nextCall:null,schedulePoll:{status:'open',createdAt:'',deadlineAt:'',autoCycle:'',options:[],votes:{},voterPlayers:{},manualParticipants:{}},pollHistory:[],nextEvent:null,nextEvents:[],adminNotice:null,adminNotices:[],shuttleTubes:[],shuttleLegacyActiveTubeId:'',shuttleNoTrackingTubeIds:[],updatedAt:null});
 const DEVICE_SYNC_CODE_KEY='bcmDeviceSyncCodeV1',DEVICE_SYNC_TOKEN_KEY='bcmDeviceSyncTokenV1',DEVICE_SYNC_NAME_KEY='bcmDeviceSyncNameV1',DEVICE_SYNC_PLAYER_KEY='bcmDeviceSyncPlayerV1';
 let state=initialState(), roomId='', roomRef=null, liveScoreRef=null, remoteControlRef=null, chatCollectionRef=null, isHost=false, hostToken='', adminPinHash='', unsubscribe=null, liveScoreUnsubscribe=null, remoteControlUnsubscribe=null, remoteActionUnsubscribe=null, chatUnsubscribe=null, applying=false, saveTimer=null, liveScoreSaveTimer=null, matchAutoBackupTimer=null, editId=null;const expandedPlayerNotes=new Set();let profileOriginal=null,profileDirty={name:false,gender:false,memberType:false,voiceName:false,racket:false,racketTension:false,racketString:false,backupRacket:false,backupTension:false,backupString:false,note:false};let voiceEnabled=localStorage.getItem('bdV76Voice')!=='0';let dismissedResultKey='';const selfToken=localStorage.getItem(DEVICE_SYNC_TOKEN_KEY)||localStorage.getItem('bdV73SelfToken')||randomToken();localStorage.setItem('bdV73SelfToken',selfToken);let selfHash='',scoreViewRequested=false,expandedShuttleTubeId='';
 let deviceProfileUnsubscribe=null,deviceProfileApplying=false,deviceProfileSaveTimer=null,identitySyncing=false,roomConnectInProgress=false;
@@ -351,6 +351,7 @@ function encodeState(src){
     shuttleLegacyActiveTubeId:legacyActiveTubeId,
     shuttleNoTrackingTubeIds:noTrackingTubeIds,
     matchTimelineStarts:src.matchTimelineStarts&&typeof src.matchTimelineStarts==='object'?src.matchTimelineStarts:{},
+    hiddenTimelineDates:cleanTimelineDates(src.hiddenTimelineDates),
     history:(Array.isArray(src.history)?src.history:[]).map(h=>({
       matchId:h.matchId||randomToken(),
       time:h.time||'',
@@ -438,7 +439,8 @@ function decodeState(d){
     shuttleLegacyActiveTubeId:legacyActiveTubeId,
     shuttleNoTrackingTubeIds:noTrackingTubeIds,
     history,
-    matchTimelineStarts:d.matchTimelineStarts&&typeof d.matchTimelineStarts==='object'?d.matchTimelineStarts:{}
+    matchTimelineStarts:d.matchTimelineStarts&&typeof d.matchTimelineStarts==='object'?d.matchTimelineStarts:{},
+    hiddenTimelineDates:cleanTimelineDates(d.hiddenTimelineDates)
   }
 }
 
@@ -1889,6 +1891,7 @@ function handleRemoteRecordingStartCommand(data,{initial=false}={}){
   const startedMillis=timestampMillis(command.clientCreatedAt)||timestampMillis(command.createdAt);
   if(!Number.isFinite(startedMillis))return false;
   const startedAt=new Date(startedMillis),dateKey=localDateKey(startedAt);
+  state.hiddenTimelineDates=(state.hiddenTimelineDates||[]).filter(key=>key!==dateKey);
   state.matchTimelineStarts={...(state.matchTimelineStarts||{}),[dateKey]:startedAt.toISOString()};
   saveSoon();renderHistory();
   return true;
@@ -2612,6 +2615,8 @@ async function clearMatchReplayPlaylist(){
     button.disabled=!state.matchReplayPlaylistUrl;
   }
 }
+function cleanTimelineDates(value){return [...new Set((Array.isArray(value)?value:[]).map(item=>String(item||'')).filter(item=>/^\d{4}-\d{2}-\d{2}$/.test(item)))].slice(0,400)}
+function timelineDateHidden(dateKey){return (state.hiddenTimelineDates||[]).includes(dateKey)}
 function historyDateLabel(dateKey){if(!/^\d{4}-\d{2}-\d{2}$/.test(dateKey))return dateKey;const d=new Date(`${dateKey}T12:00:00`);return `${d.getFullYear()} 年 ${d.getMonth()+1} 月 ${d.getDate()} 日（${'日一二三四五六'[d.getDay()]}）`}
 function historyMonthLabel(monthKey){if(!/^\d{4}-\d{2}$/.test(monthKey))return monthKey;const [year,month]=monthKey.split('-');return `${year} 年 ${Number(month)} 月`}
 function timelineLocalInputValue(value){const d=new Date(value||'');if(isNaN(d.getTime()))return '';return `${localDateKey(d)}T${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}:${String(d.getSeconds()).padStart(2,'0')}`}
@@ -2625,9 +2630,27 @@ function liveOfficialMatch(dateKey=''){
   return {matchId:match.matchId||'',startedAt:match.startedAt,endedAt:'',dateKey:key,teams:match.players,scores:match.scores||[0,0],testMode:false};
 }
 function timelinePanel(group){
+  if(timelineDateHidden(group.dateKey))return '';
   const savedStart=state.matchTimelineStarts?.[group.dateKey]||'',timelineMatches=withLiveTimelineMatch(group.matches,liveOfficialMatch(group.dateKey)),defaultLocal=defaultRecordingStartLocalValue(timelineMatches,group.dateKey),timelineStart=savedStart||(defaultLocal?new Date(defaultLocal).toISOString():'');
   const text=timelineStart?youtubeTimelineText(timelineMatches,timelineStart,pname):'請先設定錄影開始時間。',feedback=savedStart?'已儲存，仍可修改後再次儲存。':defaultLocal?`已依場次預設為 ${defaultLocal.slice(11,16)}，仍可修改。`:'調整完整日期與時間後，請按「儲存時間」。';
-  return `<section class="youtube-timeline host-only"><div class="youtube-timeline-head"><strong>YouTube 比賽時間軸</strong><button class="btn primary" type="button" data-copy-timeline="${esc(group.dateKey)}" ${timelineStart?'':'disabled'}>複製全部</button></div><div class="youtube-timeline-start"><label class="field"><span>錄影開始時間</span><input class="input" type="datetime-local" step="1" value="${esc(timelineLocalInputValue(timelineStart))}" data-timeline-start="${esc(group.dateKey)}"></label><button class="btn primary" type="button" data-save-timeline="${esc(group.dateKey)}">儲存時間</button><button class="btn" type="button" data-timeline-now="${esc(group.dateKey)}">設為現在</button></div><div class="sub" data-timeline-feedback="${esc(group.dateKey)}">${esc(feedback)}</div><textarea class="youtube-timeline-text" readonly data-timeline-text="${esc(group.dateKey)}">${esc(text)}</textarea></section>`;
+  return `<section class="youtube-timeline host-only"><div class="youtube-timeline-head"><strong>YouTube 比賽時間軸</strong><button class="btn primary" type="button" data-copy-timeline="${esc(group.dateKey)}" ${timelineStart?'':'disabled'}>複製全部</button><button class="btn danger-outline" type="button" data-delete-timeline="${esc(group.dateKey)}">刪除</button></div><div class="youtube-timeline-start"><label class="field"><span>錄影開始時間</span><input class="input" type="datetime-local" step="1" value="${esc(timelineLocalInputValue(timelineStart))}" data-timeline-start="${esc(group.dateKey)}"></label><button class="btn primary" type="button" data-save-timeline="${esc(group.dateKey)}">儲存時間</button><button class="btn" type="button" data-timeline-now="${esc(group.dateKey)}">設為現在</button></div><div class="sub" data-timeline-feedback="${esc(group.dateKey)}">${esc(feedback)}</div><textarea class="youtube-timeline-text" readonly data-timeline-text="${esc(group.dateKey)}">${esc(text)}</textarea></section>`;
+}
+async function deleteTimeline(dateKey){
+  if(!isHost||timelineDateHidden(dateKey))return;
+  if(!confirm('確定刪除這天的時間軸？'))return;
+  const previousDates=state.hiddenTimelineDates||[],previousStarts=state.matchTimelineStarts||{};
+  state.hiddenTimelineDates=cleanTimelineDates([...previousDates,dateKey]);
+  const starts={...previousStarts};
+  delete starts[dateKey];
+  state.matchTimelineStarts=starts;
+  renderHistory();
+  try{await saveNow()}
+  catch(error){
+    state.hiddenTimelineDates=previousDates;
+    state.matchTimelineStarts=previousStarts;
+    renderHistory();
+    alert(`刪除失敗：${formatError(error)}`);
+  }
 }
 async function setTimelineStart(dateKey,value){
   if(!isHost)return;
@@ -2668,6 +2691,7 @@ function renderHistory(){
   all('[data-save-timeline]').forEach(button=>button.onclick=()=>{const dateKey=button.dataset.saveTimeline,input=document.querySelector(`[data-timeline-start="${CSS.escape(dateKey)}"]`);setTimelineStart(dateKey,input?.value)});
   all('[data-timeline-now]').forEach(button=>button.onclick=()=>setTimelineStart(button.dataset.timelineNow,new Date()));
   all('[data-copy-timeline]').forEach(button=>button.onclick=()=>copyTimeline(button.dataset.copyTimeline));
+  all('[data-delete-timeline]').forEach(button=>button.onclick=()=>deleteTimeline(button.dataset.deleteTimeline));
 }
 function forgetArchivedMatch(matchId){if(!matchId)return;removedMatchIds.add(matchId);archivedHistory=archivedHistory.filter(row=>row.matchId!==matchId);writePendingArchives(localStorage,roomId,readPendingArchives(localStorage,roomId).filter(row=>row.matchId!==matchId))}
 function deleteHistoryRecord(index){if(!isHost)return;const h=state.history[index];if(!h)return;const title=`${(h.teams?.[0]||[]).map(pname).join('／')} ${h.scores?.[0]??0}：${h.scores?.[1]??0} ${(h.teams?.[1]||[]).map(pname).join('／')}`;if(!confirm(`確定刪除這筆比賽紀錄？\n\n${title}\n${h.time||''}`))return;forgetArchivedMatch(h.matchId);state.history.splice(index,1);renderAll();saveSoon();if(roomId&&h.matchId)void deleteArchivedMatches([h.matchId]).catch(error=>console.warn('封存戰績刪除失敗',error))}

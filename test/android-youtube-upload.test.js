@@ -59,6 +59,9 @@ test('the Android remote opens the native recording upload screen',()=>{
   assert.match(activity,/public void openRecordings\(\)[\s\S]*?RecordingsActivity\.class/);
   assert.match(activity,/YouTubeUploadScheduler\.scheduleIfPending\(this\)/);
   assert.match(recordings,/"複製時間軸"/);
+  assert.match(recordings,/"刪除"/);
+  assert.match(recordings,/RecordingUploadStore\.remove\(this, entry\.id\)/);
+  assert.match(read(`${javaDir}RecordingUploadStore.java`),/static synchronized void remove\(Context context, String id\)/);
   assert.match(index,/id="androidRemoteOpenRecordings" class="btn hidden"/);
   assert.match(main,/\$\('androidRemoteOpenRecordings'\)\.classList\.toggle\('hidden',typeof window\.BcmAndroid\?\.openRecordings!=='function'\)/);
   assert.match(main,/window\.BcmAndroid\?\.openRecordings\?\.\(\)/);

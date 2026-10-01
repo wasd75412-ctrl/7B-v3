@@ -1,5 +1,6 @@
 package tw.club7b.scoreremote;
 
+import android.app.AlertDialog;
 import android.content.ClipData;
 import android.content.ClipboardManager;
 import android.graphics.Color;
@@ -179,6 +180,7 @@ public final class RecordingsActivity extends ComponentActivity {
         LinearLayout actions = new LinearLayout(this);
         actions.setOrientation(LinearLayout.HORIZONTAL);
         if (timeline != null) actions.addView(button("複製時間軸", v -> copy(timeline)));
+        actions.addView(button("刪除", v -> confirmDelete(entry)));
         if (entry.status == RecordingUploadStore.Status.FAILED || entry.status == RecordingUploadStore.Status.AUTH_REQUIRED) {
             actions.addView(button("重試", v -> {
                 RecordingUploadStore.retry(this, entry.id);
@@ -201,13 +203,27 @@ public final class RecordingsActivity extends ComponentActivity {
         }
     }
 
+    private void confirmDelete(RecordingUploadStore.Entry entry) {
+        new AlertDialog.Builder(this)
+                .setMessage("確定刪除這段時間軸？")
+                .setPositiveButton("刪除", (dialog, which) -> {
+                    RecordingUploadStore.remove(this, entry.id);
+                    renderList(true);
+                })
+                .setNegativeButton("取消", null)
+                .show();
+    }
+
     private String timeline(RecordingUploadStore.Entry entry) {
-        if (RecordingTimeline.hasGameChapter(entry.description)) return entry.description;
         List<RecordingTimeline.Match> matches = roomMatches.get(entry.roomId);
-        String built = matches == null ? null : RecordingTimeline.timeline(matches, entry.startMs, entry.endMs);
+        if (matches != null) {
+            String built = RecordingTimeline.timeline(matches, entry.startMs, entry.endMs);
+            if (RecordingTimeline.hasGameChapter(built) || !RecordingTimeline.hasGameChapter(entry.description)) return built;
+            return entry.description;
+        }
         long age = System.currentTimeMillis() - loadedAt.getOrDefault(entry.roomId, 0L);
-        if ((built == null || !RecordingTimeline.hasGameChapter(built)) && age > 15_000L) loadRoom(entry.roomId);
-        return built;
+        if (age > 15_000L) loadRoom(entry.roomId);
+        return RecordingTimeline.hasGameChapter(entry.description) ? entry.description : null;
     }
 
     private void loadRoom(String roomId) {

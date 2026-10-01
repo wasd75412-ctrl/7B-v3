@@ -110,6 +110,19 @@ final class RecordingUploadStore {
         return refresh;
     }
 
+    static synchronized void remove(Context context, String id) {
+        if (id == null || id.isEmpty()) return;
+        List<Entry> entries = read(context);
+        boolean changed = false;
+        for (int i = entries.size() - 1; i >= 0; i--) {
+            if (id.equals(entries.get(i).id)) {
+                entries.remove(i);
+                changed = true;
+            }
+        }
+        if (changed) write(context, entries);
+    }
+
     static synchronized void save(Context context, Entry updated) {
         List<Entry> entries = read(context);
         for (int i = 0; i < entries.size(); i++) {

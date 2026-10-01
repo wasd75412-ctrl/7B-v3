@@ -66,12 +66,27 @@ export function mergeMatchHistory(roomHistory,archived,removedIds){
   const removed=removedIds instanceof Set?removedIds:new Set(removedIds||[]);
   const merged=[];
   const indexById=new Map();
+  const indexByStart=new Map();
   const add=row=>{
     if(!row||row.testMode)return;
     const id=String(row.matchId||'');
+    const start=String(row.startedAt||'');
     if(id&&removed.has(id))return;
-    if(id&&indexById.has(id)){merged[indexById.get(id)]=row;return}
-    if(id)indexById.set(id,merged.length);
+    if(id&&indexById.has(id)){
+      const index=indexById.get(id);
+      merged[index]=row;
+      if(start)indexByStart.set(start,index);
+      return;
+    }
+    if(start&&indexByStart.has(start)){
+      const index=indexByStart.get(start);
+      merged[index]=row;
+      if(id)indexById.set(id,index);
+      return;
+    }
+    const index=merged.length;
+    if(id)indexById.set(id,index);
+    if(start)indexByStart.set(start,index);
     merged.push(row);
   };
   for(const row of archived||[])add(row);

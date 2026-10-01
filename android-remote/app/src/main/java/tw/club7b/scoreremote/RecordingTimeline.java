@@ -69,6 +69,7 @@ final class RecordingTimeline {
                 Object id = row.get("matchId");
                 String matchId = id == null ? "" : String.valueOf(id);
                 if (!matchId.isEmpty() && historyContains(history, matchId)) continue;
+                if (historyContainsStart(history, row.get("startedAt"))) continue;
                 history.add(row);
             }
         }
@@ -83,6 +84,15 @@ final class RecordingTimeline {
     private static boolean historyContains(List<Object> history, String matchId) {
         for (Object item : history) {
             if (item instanceof Map && matchId.equals(String.valueOf(((Map<?, ?>) item).get("matchId")))) return true;
+        }
+        return false;
+    }
+
+    private static boolean historyContainsStart(List<Object> history, Object startedAt) {
+        String start = startedAt == null ? "" : String.valueOf(startedAt).trim();
+        if (start.isEmpty()) return false;
+        for (Object item : history) {
+            if (item instanceof Map && start.equals(String.valueOf(((Map<?, ?>) item).get("startedAt")).trim())) return true;
         }
         return false;
     }
@@ -107,6 +117,14 @@ final class RecordingTimeline {
             if (match.startMs < recordingEndMs && end > recordingStartMs) included.add(match);
         }
         Collections.sort(included, (a, b) -> Long.compare(a.startMs, b.startMs));
+        List<Match> unique = new ArrayList<>();
+        long previousStart = Long.MIN_VALUE;
+        for (Match match : included) {
+            if (match.startMs == previousStart) continue;
+            unique.add(match);
+            previousStart = match.startMs;
+        }
+        included = unique;
         StringBuilder text = new StringBuilder("00:00:00 準備與熱身");
         for (int i = 0; i < included.size(); i++) {
             Match match = included.get(i);

@@ -22,6 +22,13 @@ test('merges archived matches ahead of the room copy without restoring deletions
   const merged=mergeMatchHistory(room,archived,new Set(['old']));
   assert.deepEqual(merged.map(row=>row.matchId),['keep','new']);
   assert.deepEqual(merged[0].scores,[11,9]);
+  const duplicate=mergeMatchHistory(
+    [{matchId:'room-copy',startedAt:'2026-09-30T11:10:05.000Z',scores:[11,7]}],
+    [{matchId:'archive-copy',startedAt:'2026-09-30T11:10:05.000Z',scores:[1,0]}],
+    []
+  );
+  assert.equal(duplicate.length,1);
+  assert.deepEqual(duplicate[0].scores,[11,7]);
 });
 
 test('stores a flat match record that Firestore can write',()=>{
