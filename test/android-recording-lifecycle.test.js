@@ -5,8 +5,11 @@ import {readFileSync} from 'node:fs';
 const source=readFileSync(new URL('../android-remote/app/src/main/java/tw/club7b/scoreremote/MainActivity.java',import.meta.url),'utf8');
 const camera=readFileSync(new URL('../android-remote/app/src/main/java/tw/club7b/scoreremote/LoopCameraActivity.java',import.meta.url),'utf8');
 
-test('records at 1080p when supported and falls back safely on other cameras',()=>{
-  assert.match(camera,/QualitySelector\.from\(\s*Quality\.FHD,\s*FallbackStrategy\.lowerQualityOrHigherThan\(Quality\.FHD\)\)/);
+test('records at 4K when supported and falls back to 1080p on other cameras',()=>{
+  assert.match(camera,/bindRecording\(provider, Quality\.UHD\) && !bindRecording\(provider, Quality\.FHD\)/);
+  assert.match(camera,/FallbackStrategy\.lowerQualityOrHigherThan\(Quality\.UHD\)/);
+  assert.match(camera,/FallbackStrategy\.lowerQualityThan\(Quality\.FHD\)/);
+  assert.match(camera,/setTargetVideoEncodingBitRate\(quality == Quality\.UHD \? 40_000_000 : 16_000_000\)/);
   assert.doesNotMatch(camera,/QualitySelector\.from\(Quality\.HD\)/);
 });
 
