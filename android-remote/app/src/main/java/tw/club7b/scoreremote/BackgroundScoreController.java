@@ -89,12 +89,20 @@ final class BackgroundScoreController {
         if (action != VolumeKeyInterpreter.Action.TEAM_A_PLUS
                 && action != VolumeKeyInterpreter.Action.TEAM_B_PLUS
                 && action != VolumeKeyInterpreter.Action.UNDO) return;
+        if (LocalScoreModeStore.isEnabled(context)) {
+            sendAction(new Request(action, callback, System.currentTimeMillis()));
+            return;
+        }
         ensureMatchListener(RemoteSessionStore.getSession(context));
         sendAction(new Request(action, callback, System.currentTimeMillis()));
     }
 
     synchronized void submit(VolumeKeyInterpreter.Action action, Callback callback) {
         if (action == null || action == VolumeKeyInterpreter.Action.NONE) return;
+        if (LocalScoreModeStore.isEnabled(context)) {
+            sendAction(new Request(action, callback, System.currentTimeMillis()));
+            return;
+        }
         boolean scoreAction = action == VolumeKeyInterpreter.Action.TEAM_A_PLUS
                 || action == VolumeKeyInterpreter.Action.TEAM_B_PLUS;
         RemoteSessionStore.Session session = RemoteSessionStore.getSession(context);
@@ -287,6 +295,10 @@ final class BackgroundScoreController {
     }
 
     private void sendAction(Request request) {
+        if (LocalScoreModeStore.isEnabled(context)) {
+            deliverLocalAction(request);
+            return;
+        }
         RemoteSessionStore.Session session = RemoteSessionStore.getSession(context);
         if (!session.isAuthorized()) {
             if (request.callback != null) request.callback.onComplete(false, "請先連接球局並登入管理員", request.action);
@@ -308,6 +320,25 @@ final class BackgroundScoreController {
             }
             deliverAction(remoteControl, request, matchId);
         });
+    }
+
+    private void deliverLocalAction(Request request) {
+        String action = actionName(request.action);
+        if (action.isEmpty() || "useShuttle".equals(action) || "returnShuttle".equals(action)) {
+            if (request.callback != null) request.callback.onComplete(false, "本機測試版僅支援加分與撤銷", request.action);
+            return;
+        }
+        try {
+            org.json.JSONObject result = LocalScoreModeStore.postAction(context, action);
+            boolean ok = result.optBoolean("ok", true);
+            if (request.callback != null) {
+                request.callback.onComplete(ok, ok ? "本機已送出" : "本機計分失敗", request.action);
+            }
+        } catch (Exception error) {
+            if (request.callback != null) {
+                request.callback.onComplete(false, error.getMessage() == null ? "本機連線失敗" : error.getMessage(), request.action);
+            }
+        }
     }
 
     private void deliverAction(DocumentReference remoteControl, Request request, String matchId) {
