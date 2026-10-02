@@ -391,7 +391,7 @@ public final class LoopCameraActivity extends ComponentActivity {
         }
     }
 
-    /** Keep the window in the remote's portrait coordinate space and rotate the preview to landscape. */
+    /** Keep the window in the remote's portrait coordinate space and rotate the preview upright for the landscape grip. */
     private void orientRecordingStage(int windowWidth, int windowHeight) {
         if (recordingStage == null || windowWidth <= 0 || windowHeight <= 0) return;
         if (windowWidth == stagedWindowWidth && windowHeight == stagedWindowHeight) return;
@@ -402,7 +402,7 @@ public final class LoopCameraActivity extends ComponentActivity {
             if (recordingStage == null || recordingStage.getWidth() <= 0 || recordingStage.getHeight() <= 0) return;
             recordingStage.setPivotX(recordingStage.getWidth() / 2f);
             recordingStage.setPivotY(recordingStage.getHeight() / 2f);
-            recordingStage.setRotation(-90f);
+            recordingStage.setRotation(90f);
             recordingStage.setTranslationX((windowWidth - windowHeight) / 2f);
             recordingStage.setTranslationY((windowHeight - windowWidth) / 2f);
         });
