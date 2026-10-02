@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<network-security-config>
+    <!-- Local hotspot score hub uses cleartext HTTP between devices on the same AP. -->
+    <base-config cleartextTrafficPermitted="true" />
+</network-security-config>

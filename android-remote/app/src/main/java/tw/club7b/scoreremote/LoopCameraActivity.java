@@ -104,6 +104,7 @@ public final class LoopCameraActivity extends ComponentActivity {
     private VideoCapture<Recorder> videoCapture;
     private OverlayEffect scoreOverlayEffect;
     private LiveMatchOverlayController liveMatchOverlay;
+    private LocalScoreHubServer.Listener localHubListener;
     private final AtomicReference<LiveMatchOverlayController.OverlayState> overlayState =
             new AtomicReference<>(LiveMatchOverlayController.OverlayState.waiting());
     private Recording recording;
@@ -126,7 +127,7 @@ public final class LoopCameraActivity extends ComponentActivity {
         remoteScoreController = new BackgroundScoreController(this);
         remoteScoreController.warmUp((success, message) -> { });
         buildUi();
-        if (broadcastMode) liveMatchOverlay = new LiveMatchOverlayController(this, this::updateScoreOverlay);
+        if (broadcastMode) bindBroadcastScoreSource();
         if (hasPermission(Manifest.permission.CAMERA)) startCamera();
         else requestPermissions(new String[]{Manifest.permission.CAMERA, Manifest.permission.RECORD_AUDIO}, CAMERA_PERMISSION_REQUEST);
     }
@@ -564,6 +565,17 @@ public final class LoopCameraActivity extends ComponentActivity {
         drawScoreBoard(canvas, viewportLeft, viewportTop, width, height, match);
     }
 
+    private void bindBroadcastScoreSource() {
+        LocalScoreHubServer hub = LocalScoreHubServer.getRunning();
+        if (LocalScoreModeStore.isHost(this) && hub != null) {
+            updateScoreOverlay(hub.state().overlayState());
+            localHubListener = state -> runOnUiThread(() -> updateScoreOverlay(state.overlayState()));
+            hub.addListener(localHubListener);
+            return;
+        }
+        liveMatchOverlay = new LiveMatchOverlayController(this, this::updateScoreOverlay);
+    }
+
     private void updateScoreOverlay(LiveMatchOverlayController.OverlayState match) {
         overlayState.set(match);
         if (scorePreviewOverlay != null) scorePreviewOverlay.postInvalidate();
@@ -982,6 +994,10 @@ public final class LoopCameraActivity extends ComponentActivity {
         if (remoteScoreController != null) remoteScoreController.release();
         if (scoreOverlayEffect != null) scoreOverlayEffect.close();
         if (explicitExit) RemoteSessionStore.setRecordingEnabled(this, false);
+        if (localHubListener != null && LocalScoreHubServer.getRunning() != null) {
+            LocalScoreHubServer.getRunning().removeListener(localHubListener);
+        }
+        localHubListener = null;
         super.onDestroy();
     }
 }
