@@ -1,0 +1,65 @@
+# 7B 羽球社
+# 語法同 .gitignore。列入的路徑不會進入 Agent、Tab、Inline Edit 與 @ 引用。
+# 終端機指令仍可讀取這些檔案。
+# Cursor 另外會套用 .gitignore，以及預設清單（含 node_modules、package-lock.json、
+# .env*、.gradle、圖片、字型、webp、woff2、mp4、apk、zip）。
+
+# 前端依賴與建置
+node_modules/
+dist/
+.vite/
+
+# Netlify 本機打包
+.netlify/
+
+# 機密與本機機器設定
+.env
+.env.*
+!.env.example
+**/local.properties
+**/keystore.properties
+**/signing/
+**/*.jks
+**/*.keystore
+**/*.pem
+**/*.p12
+**/*serviceAccount*.json
+**/*service-account*.json
+**/google-services.json
+
+# Android / Gradle。android-app/.gradle 目前有被提交，仍不可進入上下文。
+**/.gradle/
+android-app/build/
+android-app/app/build/
+android-remote/build/
+android-remote/app/build/
+**/gradle/wrapper/*.jar
+*.apk
+*.aab
+*.ap_
+*.dex
+
+# iOS 本機建置
+DerivedData/
+**/*.xcuserstate
+**/Pods/
+
+# Firebase 模擬器紀錄
+.firebase/
+firebase-debug.log
+firestore-debug.log
+ui-debug.log
+
+# 測試覆蓋率
+coverage/
+
+# 已追蹤的大型媒體。授權說明與字型 README 保留可讀。
+public/assets/score-backgrounds/
+public/assets/no-sleep.mp4
+public/new-player-app-guide.png
+public/new-player-app-guide-v2.png
+
+# 作業系統
+.DS_Store
+Thumbs.db
+Desktop.ini
