@@ -3148,6 +3148,21 @@ async function sessionFeePushMessage(notice){
     return result.sent?`\n已推送繳費通知給 ${result.sent} 台裝置。`:'\n出賽球員目前沒有已開啟通知的裝置。';
   }catch(error){return `\n繳費通知暫時未送出：${error.message||'請稍後再試。'}`}
 }
+async function syncCompletedSession(){
+  if(!isHost||!roomRef)return;
+  const buttons=['syncSessionScore','resultSyncSessionBtn'].map(id=>$(id)).filter(Boolean);
+  if(buttons.some(button=>button.disabled))return;
+  for(const button of buttons){button.disabled=true;button.textContent='同步中'}
+  try{
+    await slimRoomHistoryIfNeeded();
+    await saveNow();
+    showScoreRemoteIndicator('已同步',{duration:1200,icon:'✓'});
+  }catch{
+    showScoreRemoteIndicator('同步失敗',{duration:1600,icon:'⚠'});
+  }finally{
+    for(const button of buttons){button.disabled=false;button.textContent='同步'}
+  }
+}
 async function endTodaySession(triggerButton=null){
   if(!isHost)return;
   if(!confirm('確定結束今日球局？\n\n系統會先同步並建立完整備份，再清除目前比分、下一場叫號、出席與候場；已完成的比賽紀錄會保留。'))return;
@@ -3332,6 +3347,8 @@ $('closeAdminNotice').onclick=closeAdminNoticeManager;
 $('adminNoticeBody').addEventListener('keydown',event=>{if((event.ctrlKey||event.metaKey)&&event.key==='Enter')publishAdminNotice()});
 $('endSessionBtn').onclick=()=>endTodaySession($('endSessionBtn'));
 $('resultEndSessionBtn').onclick=()=>endTodaySession($('resultEndSessionBtn'));
+$('syncSessionScore').onclick=()=>syncCompletedSession();
+$('resultSyncSessionBtn').onclick=()=>syncCompletedSession();
 $('closeSessionFee').onclick=closeSessionFeeModal;
 if($('editNextEventFromPoll'))$('editNextEventFromPoll').onclick=()=>openNextEventEditor(primaryNextEvent()?.id||'');
 $('closeNextEventEditor').onclick=closeNextEventEditor;

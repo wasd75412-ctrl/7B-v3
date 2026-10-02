@@ -161,7 +161,7 @@ test('score mode provides a play fallback for official start in both layouts',()
   assert.match(main,/function markMatchOfficialStarted\(requestedAt\)[\s\S]*?saveLiveScoreSoon\(\);renderDashboard\(\);renderHistory\(\)/);
   assert.match(main,/withLiveTimelineMatch\(group\.matches,liveOfficialMatch\(group\.dateKey\)\)/);
   assert.match(main,/officialStartButton\.classList\.toggle\('hidden',!canStart\)/);
-  assert.match(styles,/\.score-view\.immersive-mode \.score-head \.score-actions>button:not\(#fullscreenScore\):not\(#officialStartScore\):not\(#undo\)/);
+  assert.match(styles,/\.score-view\.immersive-mode \.score-head \.score-actions>button:not\(#fullscreenScore\):not\(#officialStartScore\):not\(#undo\):not\(#syncSessionScore\)/);
   assert.match(styles,/\.score-view\.immersive-mode #officialStartScore:not\(\.hidden\)\{[^}]*position:fixed;[^}]*right:calc\(62px/);
 });
 
