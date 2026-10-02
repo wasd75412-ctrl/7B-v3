@@ -5,6 +5,7 @@ import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 
 import android.view.KeyEvent;
+import android.view.Surface;
 
 import org.junit.Test;
 
@@ -21,6 +22,22 @@ public final class P4GestureInterpreterTest {
                 P4GestureInterpreter.classify(-800f, -20f, true));
         assertEquals(VolumeKeyInterpreter.Action.UNDO,
                 P4GestureInterpreter.classify(0f, 0f, false));
+    }
+
+    @Test
+    public void keepsTheSameButtonActionsWhenTheRecordingScreenIsLandscape() {
+        float[] button1 = P4GestureInterpreter.toRemoteDelta(980f, 0f, Surface.ROTATION_90);
+        float[] button2 = P4GestureInterpreter.toRemoteDelta(-980f, 0f, Surface.ROTATION_90);
+        float[] button3 = P4GestureInterpreter.toRemoteDelta(0f, -980f, Surface.ROTATION_90);
+        float[] button4 = P4GestureInterpreter.toRemoteDelta(0f, 980f, Surface.ROTATION_90);
+        assertEquals(VolumeKeyInterpreter.Action.TEAM_A_PLUS,
+                P4GestureInterpreter.classify(button1[0], button1[1], true));
+        assertEquals(VolumeKeyInterpreter.Action.TEAM_B_PLUS,
+                P4GestureInterpreter.classify(button2[0], button2[1], true));
+        assertEquals(VolumeKeyInterpreter.Action.USE_SHUTTLE,
+                P4GestureInterpreter.classify(button3[0], button3[1], true));
+        assertEquals(VolumeKeyInterpreter.Action.RETURN_SHUTTLE,
+                P4GestureInterpreter.classify(button4[0], button4[1], true));
     }
 
     @Test
