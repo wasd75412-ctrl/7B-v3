@@ -45,6 +45,8 @@ public final class MainActivity extends Activity {
 
     private final VolumeKeyInterpreter volumeKeys = new VolumeKeyInterpreter();
     private final YuntengGestureInterpreter yuntengGestures = new YuntengGestureInterpreter();
+    private final P4GestureInterpreter p4Gestures = new P4GestureInterpreter();
+    private Runnable pendingP4Settle;
     private final Handler keyHandler = new Handler(Looper.getMainLooper());
     private final RemoteKeyRelay.Listener remoteKeyListener = this::handleRemoteKeyEvent;
     private WebView webView;
@@ -172,6 +174,7 @@ public final class MainActivity extends Activity {
 
     @Override
     public boolean dispatchTouchEvent(MotionEvent event) {
+        if (deliverP4Gesture(event)) return true;
         if (!yuntengGestures.isYuntengEvent(event)) return super.dispatchTouchEvent(event);
         boolean officialStart = scoreController().allowsFastOfficialStartPress();
         if (!yuntengGestures.onTouchEvent(event, officialStart)) return true;
@@ -206,7 +209,69 @@ public final class MainActivity extends Activity {
         pendingYuntengPress = null;
     }
 
+    @Override
+    public boolean dispatchGenericMotionEvent(MotionEvent event) {
+        if (deliverP4Gesture(event)) return true;
+        return super.dispatchGenericMotionEvent(event);
+    }
+
+    private boolean deliverP4Gesture(MotionEvent event) {
+        if (!p4Gestures.isP4Event(event)) return false;
+        VolumeKeyInterpreter.Action action = p4Gestures.onTouchEvent(event, displayDensity());
+        if (action != VolumeKeyInterpreter.Action.NONE) {
+            cancelP4Settle();
+            deliverP4Action(action);
+        } else if (p4Gestures.isTracking()) {
+            scheduleP4Settle();
+        }
+        return true;
+    }
+
+    private void scheduleP4Settle() {
+        cancelP4Settle();
+        pendingP4Settle = () -> {
+            pendingP4Settle = null;
+            VolumeKeyInterpreter.Action action = p4Gestures.finishTracking(SystemClock.uptimeMillis());
+            if (action == VolumeKeyInterpreter.Action.NONE) return;
+            deliverP4Action(action);
+        };
+        keyHandler.postDelayed(pendingP4Settle, 120L);
+    }
+
+    private void cancelP4Settle() {
+        if (pendingP4Settle == null) return;
+        keyHandler.removeCallbacks(pendingP4Settle);
+        pendingP4Settle = null;
+    }
+
+    private float displayDensity() {
+        return getResources().getDisplayMetrics().density;
+    }
+
+    private void deliverP4Action(VolumeKeyInterpreter.Action action) {
+        BackgroundScoreController.Callback callback = (success, message, completedAction) -> keyHandler.post(() -> {
+            Toast.makeText(MainActivity.this, message, Toast.LENGTH_SHORT).show();
+            vibrate(success ? 55L : 28L);
+        });
+        switch (action) {
+            case USE_SHUTTLE:
+                sendRemoteUseShuttleCommand();
+                return;
+            case RETURN_SHUTTLE:
+                sendRemoteReturnShuttleCommand();
+                return;
+            case TEAM_A_PLUS:
+            case TEAM_B_PLUS:
+            case UNDO:
+                scoreController().submitDirect(action, callback);
+                return;
+            default:
+                return;
+        }
+    }
+
     private boolean handleRemoteKeyEvent(KeyEvent event) {
+        if (consumeP4Key(event)) return true;
         int keyCode = YuntengGestureInterpreter.remapKeyCode(event);
         if (!VolumeKeyInterpreter.isSupportedRemoteKey(keyCode)) return false;
         VolumeKeyInterpreter.Action action = VolumeKeyInterpreter.Action.NONE;
@@ -325,6 +390,16 @@ public final class MainActivity extends Activity {
             Toast.makeText(MainActivity.this, message, Toast.LENGTH_SHORT).show();
             vibrate(success ? 55L : 28L);
         }));
+    }
+
+    private boolean consumeP4Key(KeyEvent event) {
+        if (event == null || event.getDevice() == null
+                || !P4GestureInterpreter.isP4Name(event.getDevice().getName())) return false;
+        if (event.getAction() == KeyEvent.ACTION_DOWN && event.getRepeatCount() == 0
+                && P4GestureInterpreter.isOfficialStartKey(event.getDevice().getName(), event.getKeyCode())) {
+            sendRemoteOfficialStartCommand();
+        }
+        return true;
     }
 
     private void sendRemoteOfficialStartCommand() {

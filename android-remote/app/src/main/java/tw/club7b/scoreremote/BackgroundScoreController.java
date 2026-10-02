@@ -85,6 +85,14 @@ final class BackgroundScoreController {
         return FirebaseFirestore.getInstance(app);
     }
 
+    synchronized void submitDirect(VolumeKeyInterpreter.Action action, Callback callback) {
+        if (action != VolumeKeyInterpreter.Action.TEAM_A_PLUS
+                && action != VolumeKeyInterpreter.Action.TEAM_B_PLUS
+                && action != VolumeKeyInterpreter.Action.UNDO) return;
+        ensureMatchListener(RemoteSessionStore.getSession(context));
+        sendAction(new Request(action, callback, System.currentTimeMillis()));
+    }
+
     synchronized void submit(VolumeKeyInterpreter.Action action, Callback callback) {
         if (action == null || action == VolumeKeyInterpreter.Action.NONE) return;
         boolean scoreAction = action == VolumeKeyInterpreter.Action.TEAM_A_PLUS
