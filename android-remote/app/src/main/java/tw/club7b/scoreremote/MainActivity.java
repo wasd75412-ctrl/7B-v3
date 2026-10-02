@@ -44,7 +44,6 @@ public final class MainActivity extends Activity {
     private static final long CAMERA_PRECONNECT_TIMEOUT_MS = 5000L;
 
     private final VolumeKeyInterpreter volumeKeys = new VolumeKeyInterpreter();
-    private final YuntengGestureInterpreter yuntengGestures = new YuntengGestureInterpreter();
     private final P4GestureInterpreter p4Gestures = new P4GestureInterpreter();
     private Runnable pendingP4Settle;
     private final Handler keyHandler = new Handler(Looper.getMainLooper());
@@ -52,7 +51,6 @@ public final class MainActivity extends Activity {
     private WebView webView;
     private Runnable pendingLongPress;
     private Runnable pendingKeyFallback;
-    private Runnable pendingYuntengPress;
     private long lastShuttleActionAt;
     private long lastPointActionAt;
     private VolumeKeyInterpreter.Action lastPointAction = VolumeKeyInterpreter.Action.NONE;
@@ -90,7 +88,7 @@ public final class MainActivity extends Activity {
         settings.setDisplayZoomControls(false);
         settings.setMediaPlaybackRequiresUserGesture(false);
         settings.setMixedContentMode(WebSettings.MIXED_CONTENT_NEVER_ALLOW);
-        settings.setUserAgentString(settings.getUserAgentString() + " 7BAndroidRemote/1.3.77");
+        settings.setUserAgentString(settings.getUserAgentString() + " 7BAndroidRemote/1.3.78");
         CookieManager.getInstance().setAcceptCookie(true);
         CookieManager.getInstance().setAcceptThirdPartyCookies(view, true);
         view.setRendererPriorityPolicy(WebView.RENDERER_PRIORITY_IMPORTANT, true);
@@ -175,38 +173,7 @@ public final class MainActivity extends Activity {
     @Override
     public boolean dispatchTouchEvent(MotionEvent event) {
         if (deliverP4Gesture(event)) return true;
-        if (!yuntengGestures.isYuntengEvent(event)) return super.dispatchTouchEvent(event);
-        boolean officialStart = scoreController().allowsFastOfficialStartPress();
-        if (!yuntengGestures.onTouchEvent(event, officialStart)) return true;
-        if (officialStart) {
-            deliverYuntengPress(yuntengGestures.onSettledPress());
-            return true;
-        }
-        cancelYuntengPressTimers();
-        scheduleYuntengPress();
-        return true;
-    }
-
-    private void scheduleYuntengPress() {
-        if (pendingYuntengPress != null) keyHandler.removeCallbacks(pendingYuntengPress);
-        pendingYuntengPress = () -> {
-            pendingYuntengPress = null;
-            deliverYuntengPress(yuntengGestures.onSettledPress());
-        };
-        keyHandler.postDelayed(pendingYuntengPress, YuntengGestureInterpreter.GESTURE_SETTLE_MS);
-    }
-
-    private void deliverYuntengPress(VolumeKeyInterpreter.Action action) {
-        if (action == VolumeKeyInterpreter.Action.NONE) return;
-        notifyKeyDetected(action == VolumeKeyInterpreter.Action.TEAM_A_PLUS
-                ? KeyEvent.KEYCODE_VOLUME_UP : KeyEvent.KEYCODE_VOLUME_DOWN);
-        sendYuntengScoreAction(action);
-    }
-
-    private void cancelYuntengPressTimers() {
-        if (pendingYuntengPress == null) return;
-        keyHandler.removeCallbacks(pendingYuntengPress);
-        pendingYuntengPress = null;
+        return super.dispatchTouchEvent(event);
     }
 
     @Override
@@ -272,7 +239,7 @@ public final class MainActivity extends Activity {
 
     private boolean handleRemoteKeyEvent(KeyEvent event) {
         if (consumeP4Key(event)) return true;
-        int keyCode = YuntengGestureInterpreter.remapKeyCode(event);
+        int keyCode = event.getKeyCode();
         if (!VolumeKeyInterpreter.isSupportedRemoteKey(keyCode)) return false;
         VolumeKeyInterpreter.Action action = VolumeKeyInterpreter.Action.NONE;
         if (event.getAction() == KeyEvent.ACTION_DOWN) {
@@ -385,7 +352,7 @@ public final class MainActivity extends Activity {
         return backgroundScoreController;
     }
 
-    private void sendYuntengScoreAction(VolumeKeyInterpreter.Action action) {
+    private void sendScoreAction(VolumeKeyInterpreter.Action action) {
         scoreController().submit(action, (success, message, completedAction) -> keyHandler.post(() -> {
             Toast.makeText(MainActivity.this, message, Toast.LENGTH_SHORT).show();
             vibrate(success ? 55L : 28L);
@@ -436,11 +403,11 @@ public final class MainActivity extends Activity {
                 && (action == VolumeKeyInterpreter.Action.TEAM_A_PLUS
                 || action == VolumeKeyInterpreter.Action.TEAM_B_PLUS
                 || action == VolumeKeyInterpreter.Action.UNDO)) {
-            sendYuntengScoreAction(action);
+            sendScoreAction(action);
             return;
         }
         if (action == VolumeKeyInterpreter.Action.TEAM_A_PLUS || action == VolumeKeyInterpreter.Action.TEAM_B_PLUS) {
-            sendYuntengScoreAction(action);
+            sendScoreAction(action);
             return;
         }
         String command;
@@ -743,7 +710,6 @@ public final class MainActivity extends Activity {
     protected void onDestroy() {
         cancelLongPress();
         cancelMissingKeyUpFallback();
-        cancelYuntengPressTimers();
         if (backgroundScoreController != null) backgroundScoreController.release();
         RemoteKeyRelay.clearListener(remoteKeyListener);
         if (webView != null) {

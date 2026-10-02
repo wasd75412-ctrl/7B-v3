@@ -50,7 +50,8 @@ public final class RemoteKeyAccessibilityService extends AccessibilityService {
             }
             return true;
         }
-        int keyCode = YuntengGestureInterpreter.remapKeyCode(event);
+        if (event == null) return false;
+        int keyCode = event.getKeyCode();
         if (!VolumeKeyInterpreter.isSupportedRemoteKey(keyCode)) return false;
         if (RemoteKeyRelay.dispatch(event)) return true;
         if (!RemoteSessionStore.isRecordingEnabled(this)) return false;

@@ -85,11 +85,9 @@ public final class LoopCameraActivity extends ComponentActivity {
     private final android.os.Handler handler = new android.os.Handler(android.os.Looper.getMainLooper());
     private final Runnable rotate = this::stopSegment;
     private final Runnable recoverRecording = this::startSegmentIfVisible;
-    private final YuntengGestureInterpreter yuntengGestures = new YuntengGestureInterpreter();
     private final P4GestureInterpreter p4Gestures = new P4GestureInterpreter();
     private Runnable pendingP4Settle;
     private final VolumeKeyInterpreter cameraKeys = new VolumeKeyInterpreter();
-    private Runnable pendingYuntengPress;
     private Runnable pendingCameraLongPress;
     private BackgroundScoreController remoteScoreController;
     private FrameLayout recordingStage;
@@ -141,7 +139,7 @@ public final class LoopCameraActivity extends ComponentActivity {
 
     @Override public boolean onKeyDown(int keyCode, android.view.KeyEvent event) {
         if (consumeP4Key(event)) return true;
-        if (YuntengGestureInterpreter.remapKeyCode(event) == android.view.KeyEvent.KEYCODE_CAMERA) {
+        if (keyCode == android.view.KeyEvent.KEYCODE_CAMERA) {
             handleRecordingCameraKey(event);
             return true;
         }
@@ -151,7 +149,7 @@ public final class LoopCameraActivity extends ComponentActivity {
 
     @Override public boolean onKeyUp(int keyCode, android.view.KeyEvent event) {
         if (consumeP4Key(event)) return true;
-        if (YuntengGestureInterpreter.remapKeyCode(event) == android.view.KeyEvent.KEYCODE_CAMERA) {
+        if (keyCode == android.view.KeyEvent.KEYCODE_CAMERA) {
             handleRecordingCameraKey(event);
             return true;
         }
@@ -229,33 +227,7 @@ public final class LoopCameraActivity extends ComponentActivity {
 
     @Override public boolean dispatchTouchEvent(MotionEvent event) {
         if (deliverP4Gesture(event)) return true;
-        if (!yuntengGestures.isYuntengEvent(event)) return super.dispatchTouchEvent(event);
-        if (remoteScoreController == null) remoteScoreController = new BackgroundScoreController(this);
-        boolean officialStart = remoteScoreController.allowsFastOfficialStartPress();
-        if (!yuntengGestures.onTouchEvent(event, officialStart)) return true;
-        if (officialStart) {
-            sendYuntengScore(yuntengGestures.onSettledPress());
-            return true;
-        }
-        cancelYuntengPressTimers();
-        scheduleYuntengPress();
-        return true;
-    }
-
-    private void scheduleYuntengPress() {
-        if (pendingYuntengPress != null) handler.removeCallbacks(pendingYuntengPress);
-        pendingYuntengPress = () -> {
-            pendingYuntengPress = null;
-            VolumeKeyInterpreter.Action action = yuntengGestures.onSettledPress();
-            if (action != VolumeKeyInterpreter.Action.NONE) sendYuntengScore(action);
-        };
-        handler.postDelayed(pendingYuntengPress, YuntengGestureInterpreter.GESTURE_SETTLE_MS);
-    }
-
-    private void cancelYuntengPressTimers() {
-        if (pendingYuntengPress == null) return;
-        handler.removeCallbacks(pendingYuntengPress);
-        pendingYuntengPress = null;
+        return super.dispatchTouchEvent(event);
     }
 
     private boolean consumeP4Key(android.view.KeyEvent event) {
@@ -310,12 +282,6 @@ public final class LoopCameraActivity extends ComponentActivity {
             default:
                 return;
         }
-    }
-
-    private void sendYuntengScore(VolumeKeyInterpreter.Action action) {
-        if (remoteScoreController == null) remoteScoreController = new BackgroundScoreController(this);
-        remoteScoreController.submit(action, (success, message, completedAction) -> handler.post(() ->
-                Toast.makeText(LoopCameraActivity.this, message, Toast.LENGTH_SHORT).show()));
     }
 
     private void buildUi() {
@@ -989,7 +955,7 @@ public final class LoopCameraActivity extends ComponentActivity {
     }
 
     @Override protected void onDestroy() {
-        closing = true; handler.removeCallbacks(rotate); handler.removeCallbacks(recoverRecording); cancelYuntengPressTimers(); cancelRecordingCameraLongPress(); if (recording != null) recording.stop(); io.shutdown();
+        closing = true; handler.removeCallbacks(rotate); handler.removeCallbacks(recoverRecording); cancelRecordingCameraLongPress(); if (recording != null) recording.stop(); io.shutdown();
         if (liveMatchOverlay != null) liveMatchOverlay.close();
         if (remoteScoreController != null) remoteScoreController.release();
         if (scoreOverlayEffect != null) scoreOverlayEffect.close();
