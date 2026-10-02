@@ -136,7 +136,19 @@ final class RecordingTimeline {
                     .append(match.left).append(' ').append(match.scoreA).append('：').append(match.scoreB)
                     .append(' ').append(match.right);
         }
+        appendEndChapter(text, previous, recordingStartMs, recordingEndMs);
         return text.toString();
+    }
+
+    private static void appendEndChapter(StringBuilder text, long previous, long recordingStartMs, long recordingEndMs) {
+        String current = text.toString();
+        int lines = current.split("\\n").length;
+        if (lines >= 3 || !current.contains("Game")) return;
+        long duration = Math.max(0L, (recordingEndMs - recordingStartMs) / 1000L);
+        long offset = duration - 1L;
+        if (offset < previous + 10L) offset = previous + 10L;
+        if (offset < previous + 10L || offset >= duration) return;
+        text.append('\n').append(formatOffset(offset)).append(" 錄影結束");
     }
 
     static boolean hasValidChapters(String description) {

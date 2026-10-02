@@ -84,9 +84,9 @@ public final class RecordingTimelineTest {
         long start = Instant.parse("2026-09-30T11:20:00.000Z").toEpochMilli();
         long end = Instant.parse("2026-09-30T11:28:00.000Z").toEpochMilli();
         String text = RecordingTimeline.timeline(RecordingTimeline.matchesFromRoom(room()), start, end);
-        assertEquals("00:00:00 準備與熱身\n00:00:10 Game1 建昱／于萱 11：7 Yoyo／澐緁", text);
+        assertEquals("00:00:00 準備與熱身\n00:00:10 Game1 建昱／于萱 11：7 Yoyo／澐緁\n00:07:59 錄影結束", text);
         assertFalse(RecordingTimeline.hasValidChapters("00:00:00 準備與熱身\n00:00:00 Game1 建昱／于萱 11：7 Yoyo／澐緁"));
-        assertFalse(RecordingTimeline.hasValidChapters(text));
+        assertTrue(RecordingTimeline.hasValidChapters(text));
     }
 
     @Test
