@@ -126,14 +126,35 @@ final class RecordingTimeline {
         }
         included = unique;
         StringBuilder text = new StringBuilder("00:00:00 準備與熱身");
+        long previous = 0L;
         for (int i = 0; i < included.size(); i++) {
             Match match = included.get(i);
             long offset = Math.max(0L, (match.startMs - recordingStartMs) / 1000L);
+            if (offset < previous + 10L) offset = previous + 10L;
+            previous = offset;
             text.append('\n').append(formatOffset(offset)).append(" Game").append(i + 1).append(' ')
                     .append(match.left).append(' ').append(match.scoreA).append('：').append(match.scoreB)
                     .append(' ').append(match.right);
         }
         return text.toString();
+    }
+
+    static boolean hasValidChapters(String description) {
+        if (description == null || description.isEmpty()) return false;
+        String[] lines = description.split("\\n");
+        if (lines.length < 3 || !hasGameChapter(description)) return false;
+        long previous = -1L;
+        for (int i = 0; i < lines.length; i++) {
+            String line = lines[i].trim();
+            int space = line.indexOf(' ');
+            if (space <= 0) return false;
+            long seconds = parseOffset(line.substring(0, space));
+            if (seconds < 0L) return false;
+            if (i == 0 && seconds != 0L) return false;
+            if (i > 0 && seconds < previous + 10L) return false;
+            previous = seconds;
+        }
+        return true;
     }
 
     static String formatOffset(long seconds) {
@@ -196,6 +217,20 @@ final class RecordingTimeline {
             players.add(names.containsKey(key) ? names.get(key) : key);
         }
         return players.isEmpty() ? "—" : String.join("／", players);
+    }
+
+    private static long parseOffset(String value) {
+        String[] parts = value.split(":");
+        if (parts.length != 3) return -1L;
+        try {
+            long hours = Long.parseLong(parts[0]);
+            long minutes = Long.parseLong(parts[1]);
+            long seconds = Long.parseLong(parts[2]);
+            if (hours < 0L || minutes < 0L || minutes > 59L || seconds < 0L || seconds > 59L) return -1L;
+            return hours * 3600L + minutes * 60L + seconds;
+        } catch (NumberFormatException invalid) {
+            return -1L;
+        }
     }
 
     private static long parseTime(Object value) {
