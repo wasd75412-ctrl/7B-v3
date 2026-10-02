@@ -4,21 +4,16 @@ import { readFileSync } from 'node:fs';
 
 const source=readFileSync(new URL('../src/main.js',import.meta.url),'utf8');
 
-test('finished matches enqueue compact stats before the full room sync',()=>{
-  const priorityFlow=source.slice(source.indexOf('function completedMatchSyncPayload()'),source.indexOf('function saveSoon('));
+test('finished matches keep stats local until the session ends',()=>{
   const finishFlow=source.slice(source.indexOf('function finishMatch()'),source.indexOf('function updatePriority()'));
-  assert.match(priorityFlow,/history:encoded\.history/);
-  assert.match(priorityFlow,/match:encoded\.match/);
-  assert.match(priorityFlow,/setDoc\(roomRef,completedMatchSyncPayload\(\),\{merge:true\}\)/);
-  assert.doesNotMatch(priorityFlow,/roster:encoded\.roster/);
-  const priorityIndex=finishFlow.indexOf('saveCompletedMatchStatsNow()');
-  const fullSyncIndex=finishFlow.indexOf('saveSoon(420)');
-  assert.ok(priorityIndex>=0&&fullSyncIndex>priorityIndex);
+  const sessionFlow=source.slice(source.indexOf('async function endTodaySession'),source.indexOf('function page(')===-1?source.length:source.indexOf('$(\'deletePlayer\')'));
+  assert.match(finishFlow,/if\(isHost\)saveLiveScoreSoon\(\)/);
+  assert.doesNotMatch(finishFlow,/saveCompletedMatchStatsNow|publishMatchArchive|\bsaveSoon\(|createCloudBackup/);
+  assert.match(sessionFlow,/await slimRoomHistoryIfNeeded\(\);[\s\S]*?await saveNow\(\);[\s\S]*?await createCloudBackup\('session'/);
 });
 
-test('only a newly recorded match starts the priority stats sync',()=>{
-  const finishFlow=source.slice(source.indexOf('function finishMatch()'),source.indexOf('function updatePriority()'));
-  assert.match(finishFlow,/if\(newlyRecorded&&isTestMatch\)saveLiveScoreSoon\(\)/);
-  assert.match(finishFlow,/if\(newlyRecorded&&isHost&&!isTestMatch\)\{[\s\S]*?saveCompletedMatchStatsNow\(\)/);
-  assert.match(finishFlow,/else saveSoon\(\)/);
+test('starting the next match does not upload the room history',()=>{
+  const checkpoint=source.slice(source.indexOf('async function saveNewMatchCheckpointNow'),source.indexOf('function checkpointNewMatch'));
+  assert.match(checkpoint,/batch\.set\(roomRef,\{court:state\.court/);
+  assert.doesNotMatch(checkpoint,/payload\(\)/);
 });

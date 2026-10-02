@@ -16,7 +16,7 @@ test('new score screens wait for the explicit official start timestamp',()=>{
   assert.doesNotMatch(startMatch,/startedAt:new Date/);
   assert.match(startNext,/startedAt:''/);
   assert.doesNotMatch(startNext,/startedAt:new Date/);
-  assert.match(main,/function markMatchOfficialStarted\(requestedAt\)[\s\S]*?requestedMillis=timestampMillis\(requestedAt\)[\s\S]*?Math\.min\(requestedMillis,now\)[\s\S]*?saveLiveScoreSoon\(\);saveSoon\(\)/);
+  assert.match(main,/function markMatchOfficialStarted\(requestedAt\)[\s\S]*?requestedMillis=timestampMillis\(requestedAt\)[\s\S]*?Math\.min\(requestedMillis,now\)[\s\S]*?saveLiveScoreSoon\(\);renderDashboard\(\)/);
   assert.match(main,/keepOfficialStart\(beforeMatch,decodeLiveMatch\(data,beforeMatch\)\)/);
   assert.match(main,/if\(checkpointMissedOfficialStart\(checkpoint\.liveScore\.match,state\.match\)\)await persistLiveScoreState\(\)/);
 });
@@ -158,7 +158,7 @@ test('camera recording start automatically becomes the millisecond timeline base
 test('score mode provides a play fallback for official start in both layouts',()=>{
   assert.match(index,/id="officialStartScore"[^>]*>▶️/);
   assert.match(main,/officialStartScoreBtn\.onclick=\(\)=>markMatchOfficialStarted\(\)/);
-  assert.match(main,/function markMatchOfficialStarted\(requestedAt\)[\s\S]*?saveLiveScoreSoon\(\);saveSoon\(\);renderDashboard\(\);renderHistory\(\)/);
+  assert.match(main,/function markMatchOfficialStarted\(requestedAt\)[\s\S]*?saveLiveScoreSoon\(\);renderDashboard\(\);renderHistory\(\)/);
   assert.match(main,/withLiveTimelineMatch\(group\.matches,liveOfficialMatch\(group\.dateKey\)\)/);
   assert.match(main,/officialStartButton\.classList\.toggle\('hidden',!canStart\)/);
   assert.match(styles,/\.score-view\.immersive-mode \.score-head \.score-actions>button:not\(#fullscreenScore\):not\(#officialStartScore\):not\(#undo\)/);

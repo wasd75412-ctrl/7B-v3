@@ -58,7 +58,7 @@ test('room sync keeps forty matches and can switch back to full sync',()=>{
   assert.match(mainSource,/encoded\.history=recentHistory\(encoded\.history\)/);
   assert.match(mainSource,/generalRoomStateWithoutMatch\(roomEncodedState\(\)\)/);
   assert.match(mainSource,/shouldSkipFullRoomSync\(\{mode:currentSyncMode\(\),matchActive:!!state\.match\?\.active,matchOpen:state\.match\?\.winner==null\}\)/);
-  assert.match(mainSource,/void publishMatchArchive\(\[recorded\]\)/);
+  assert.match(mainSource,/await slimRoomHistoryIfNeeded\(\)/);
   assert.match(html,/id="syncModeLite"/);
   assert.match(html,/id="syncModeFull"/);
   assert.match(html,/>比賽中只同步比分</);
