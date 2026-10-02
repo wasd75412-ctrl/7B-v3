@@ -106,7 +106,7 @@ test('Android sends remote commands without a transaction once the match is know
   const sendAction=controller.match(/private void sendAction\(Request request\) \{[\s\S]*?\n    \}/)?.[0]||'';
   assert.match(sendAction,/String cachedMatchId = knownMatchId\(\);\s*if \(cachedMatchId != null\) \{\s*deliverAction\(remoteControl, request, cachedMatchId\);/);
   assert.doesNotMatch(sendAction,/目前沒有進行中的比賽/);
-  assert.match(controller,/void startOfficialMatch[\s\S]*?String cachedMatchId = cachedPreStartMatchId\(\);\s*if \(cachedMatchId != null\) \{\s*remoteControl\.set\(officialStartUpdates\(cachedMatchId, clientCreatedAt\)/);
+  assert.match(controller,/void startOfficialMatch[\s\S]*?String cachedMatchId = cachedPreStartMatchId\(\);\s*if \(cachedMatchId != null\) \{\s*Map<String, Object> updates = officialStartUpdates\(cachedMatchId, clientCreatedAt\);[\s\S]*?remoteControl\.set\(updates, SetOptions\.merge\(\)\)/);
   assert.match(controller,/cachedPreStartMatchId\(\) \{\s*return matchKnown && matchActive && !matchFinished && !matchStarted && !matchId\.isEmpty\(\) \? matchId : null;/);
 });
 
@@ -172,8 +172,8 @@ test('touchscreen scoring cannot bypass the official start timestamp',()=>{
 test('an official start pressed while the next match is still propagating is not lost',()=>{
   const start=controller.match(/void startOfficialMatch\(FullscreenCallback callback\) \{[\s\S]*?\n    \}/)?.[0]||'';
   assert.match(start,/ensureMatchListener\(session\);/);
-  assert.match(start,/remoteControl\.set\(officialStartUpdates\(cachedMatchId, clientCreatedAt\), SetOptions\.merge\(\)\)\s*\.addOnFailureListener\(error -> callback\.onComplete\(false, errorMessage\(error\)\)\);\s*callback\.onComplete\(true, "已送出正式開始比賽"\);/);
-  assert.match(start,/String finishedMatchId = cachedFinishedMatchId\(\);\s*if \(finishedMatchId != null\) \{\s*remoteControl\.set\(officialStartUpdates\(finishedMatchId, clientCreatedAt\)/);
+  assert.match(start,/remoteControl\.set\(updates, SetOptions\.merge\(\)\)\s*\.addOnFailureListener\(error -> callback\.onComplete\(false, errorMessage\(error\)\)\);\s*callback\.onComplete\(true, "已送出正式開始比賽"\);/);
+  assert.match(start,/String finishedMatchId = cachedFinishedMatchId\(\);\s*if \(finishedMatchId != null\) \{\s*Map<String, Object> updates = officialStartUpdates\(finishedMatchId, clientCreatedAt\);/);
   assert.ok(start.indexOf('cachedFinishedMatchId()')<start.indexOf('runTransaction'));
   assert.match(controller,/cachedFinishedMatchId\(\) \{\s*return matchKnown && matchActive && matchFinished && !matchId\.isEmpty\(\) \? matchId : null;/);
   const handler=main.match(/function handleRemoteOfficialStartCommand\(data,\{initial=false\}=\{\}\)\{[\s\S]*?\n\}/)?.[0]||'';

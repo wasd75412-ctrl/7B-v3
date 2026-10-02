@@ -161,6 +161,7 @@ final class BackgroundScoreController {
 
     private synchronized void ensureMatchListener(RemoteSessionStore.Session session) {
         if (!session.isAuthorized()) return;
+        LocalLinkClient.shared(context).ensureStarted(session);
         if (matchListener != null && session.roomId.equals(listenedRoomId)) return;
         if (matchListener != null) matchListener.remove();
         listenedRoomId = session.roomId;
@@ -233,7 +234,9 @@ final class BackgroundScoreController {
         long clientCreatedAt = System.currentTimeMillis();
         String cachedMatchId = cachedPreStartMatchId();
         if (cachedMatchId != null) {
-            remoteControl.set(officialStartUpdates(cachedMatchId, clientCreatedAt), SetOptions.merge())
+            Map<String, Object> updates = officialStartUpdates(cachedMatchId, clientCreatedAt);
+            sendDirect("officialStart", updates.get("officialStartCommand"));
+            remoteControl.set(updates, SetOptions.merge())
                     .addOnFailureListener(error -> callback.onComplete(false, errorMessage(error)));
             callback.onComplete(true, "已送出正式開始比賽");
             return;
@@ -242,7 +245,9 @@ final class BackgroundScoreController {
         // a start stamped with the just-finished match onto that next match.
         String finishedMatchId = cachedFinishedMatchId();
         if (finishedMatchId != null) {
-            remoteControl.set(officialStartUpdates(finishedMatchId, clientCreatedAt), SetOptions.merge())
+            Map<String, Object> updates = officialStartUpdates(finishedMatchId, clientCreatedAt);
+            sendDirect("officialStart", updates.get("officialStartCommand"));
+            remoteControl.set(updates, SetOptions.merge())
                     .addOnFailureListener(error -> callback.onComplete(false, errorMessage(error)));
             callback.onComplete(true, "已送出正式開始比賽");
             return;
@@ -264,6 +269,16 @@ final class BackgroundScoreController {
         })
                 .addOnSuccessListener(ignored -> callback.onComplete(true, "已送出正式開始比賽"))
                 .addOnFailureListener(error -> callback.onComplete(false, errorMessage(error)));
+    }
+
+    private void sendDirect(String type, Object command) {
+        if (!(command instanceof Map)) return;
+        Map<String, Object> message = new HashMap<>();
+        for (Map.Entry<?, ?> entry : ((Map<?, ?>) command).entrySet()) {
+            if (!"createdAt".equals(entry.getKey())) message.put(String.valueOf(entry.getKey()), entry.getValue());
+        }
+        message.put("type", type);
+        LocalLinkClient.shared(context).send(message);
     }
 
     private static Map<String, Object> officialStartUpdates(String matchId, long clientCreatedAt) {
@@ -363,6 +378,7 @@ final class BackgroundScoreController {
             if (request.callback != null) request.callback.onComplete(false, "無法辨識的計分鍵", request.action);
             return;
         }
+        sendDirect("action", command);
         remoteControl.getParent().document("score-" + id).set(command)
                 .addOnFailureListener(error -> {
                     if (reported.compareAndSet(false, true) && request.callback != null) {
