@@ -15,17 +15,21 @@ const recordings=read(`${javaDir}RecordingsActivity.java`);
 const index=readFileSync(new URL('../index.html',import.meta.url),'utf8');
 const main=readFileSync(new URL('../src/main.js',import.meta.url),'utf8');
 
-test('uploads when any Wi-Fi is connected',()=>{
+test('uploads on unmetered Wi-Fi and skips a personal hotspot',()=>{
   assert.match(wifi,/TRANSPORT_WIFI/);
   assert.match(wifi,/NET_CAPABILITY_VALIDATED/);
+  assert.match(wifi,/NET_CAPABILITY_NOT_METERED/);
+  assert.match(wifi,/isHotspotOnly/);
   assert.doesNotMatch(wifi,/AAA-5G/);
-  assert.match(worker,/if \(!HomeWifi\.isConnected\(context\)\) \{[\s\S]*?等待 Wi-Fi/);
+  assert.match(worker,/if \(!HomeWifi\.isConnected\(context\)\) \{[\s\S]*?個人熱點不上傳" : "等待 Wi-Fi/);
   assert.match(worker,/if \(isStopped\(\) \|\| !HomeWifi\.isConnected\(context\)\) break;/);
   assert.match(scheduler,/NetworkType\.CONNECTED/);
   assert.match(scheduler,/addTransportType\(NetworkCapabilities\.TRANSPORT_WIFI\)/);
+  assert.match(scheduler,/NET_CAPABILITY_NOT_METERED/);
   assert.match(scheduler,/ExistingPeriodicWorkPolicy\.UPDATE/);
   assert.match(scheduler,/PeriodicWorkRequest\.Builder\(YouTubeUploadWorker\.class, 15, TimeUnit\.MINUTES\)/);
   assert.match(recordings,/連上 Wi-Fi 自動上傳/);
+  assert.match(recordings,/個人熱點不上傳/);
   assert.doesNotMatch(recordings,/AAA-5G/);
   for(const permission of ['ACCESS_WIFI_STATE','ACCESS_NETWORK_STATE','FOREGROUND_SERVICE_DATA_SYNC'])assert.match(manifest,new RegExp(`android.permission.${permission}`));
   assert.match(manifest,/SystemForegroundService"\s*android:foregroundServiceType="dataSync"/);

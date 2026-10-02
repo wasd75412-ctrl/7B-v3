@@ -146,7 +146,7 @@ public final class RecordingsActivity extends ComponentActivity {
     }
 
     private void renderWifi() {
-        wifiStatus.setText("連上 Wi-Fi 自動上傳");
+        wifiStatus.setText(HomeWifi.isHotspotOnly(this) ? "個人熱點不上傳" : "連上 Wi-Fi 自動上傳");
     }
 
     private void renderList(boolean force) {
