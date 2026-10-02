@@ -30,12 +30,14 @@ public final class P4GestureInterpreterTest {
     }
 
     @Test
-    public void officialStartIsOnlyTheP4VolumeDownKey() {
+    public void officialStartIsEitherAlternatingP4VolumeKey() {
         assertTrue(P4GestureInterpreter.isP4Name("P4"));
         assertTrue(P4GestureInterpreter.isP4Name("P4 Consumer Control"));
         assertFalse(P4GestureInterpreter.isP4Name("YUNTENG"));
         assertTrue(P4GestureInterpreter.isOfficialStartKey("P4 Consumer Control", KeyEvent.KEYCODE_VOLUME_DOWN));
-        assertFalse(P4GestureInterpreter.isOfficialStartKey("P4 Consumer Control", KeyEvent.KEYCODE_VOLUME_UP));
+        assertTrue(P4GestureInterpreter.isOfficialStartKey("P4 Consumer Control", KeyEvent.KEYCODE_VOLUME_UP));
+        assertFalse(P4GestureInterpreter.isOfficialStartKey("P4 Consumer Control", KeyEvent.KEYCODE_POWER));
         assertFalse(P4GestureInterpreter.isOfficialStartKey("YUNTENG Consumer Control", KeyEvent.KEYCODE_VOLUME_DOWN));
+        assertFalse(P4GestureInterpreter.isOfficialStartKey("YUNTENG Consumer Control", KeyEvent.KEYCODE_VOLUME_UP));
     }
 }

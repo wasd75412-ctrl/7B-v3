@@ -9,6 +9,13 @@ const activity=readFileSync(new URL('../android-remote/app/src/main/java/tw/club
 const service=readFileSync(new URL('../android-remote/app/src/main/java/tw/club7b/scoreremote/RemoteKeyAccessibilityService.java',import.meta.url),'utf8');
 const controller=readFileSync(new URL('../android-remote/app/src/main/java/tw/club7b/scoreremote/BackgroundScoreController.java',import.meta.url),'utf8');
 
+test('P4 key 5 starts the match on both of its alternating volume keys',()=>{
+  const p4=readFileSync(new URL('../android-remote/app/src/main/java/tw/club7b/scoreremote/P4GestureInterpreter.java',import.meta.url),'utf8');
+  const startKey=p4.match(/static boolean isOfficialStartKey[\s\S]*?\n    }/)?.[0]||'';
+  assert.match(startKey,/KEYCODE_VOLUME_DOWN/);
+  assert.match(startKey,/KEYCODE_VOLUME_UP/);
+});
+
 test('new score screens wait for the explicit official start timestamp',()=>{
   const startMatch=main.match(/function startMatch\(\)\{[\s\S]*?\nfunction finishMatch/)?.[0]||'';
   const startNext=main.match(/function startNext\(\)\{[\s\S]*?\n\}/)?.[0]||'';

@@ -31,8 +31,10 @@ final class P4GestureInterpreter {
         return normalized.equals("P4") || normalized.startsWith("P4 ");
     }
 
+    // P4 key 5 alternates between volume up and volume down on every press.
     static boolean isOfficialStartKey(String deviceName, int keyCode) {
-        return isP4Name(deviceName) && keyCode == KeyEvent.KEYCODE_VOLUME_DOWN;
+        return isP4Name(deviceName)
+                && (keyCode == KeyEvent.KEYCODE_VOLUME_DOWN || keyCode == KeyEvent.KEYCODE_VOLUME_UP);
     }
 
     VolumeKeyInterpreter.Action onTouchEvent(MotionEvent event, float density) {
