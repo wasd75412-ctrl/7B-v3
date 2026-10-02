@@ -227,14 +227,24 @@ final class BackgroundScoreController {
             callback.onComplete(false, "請先連接球局並登入管理員");
             return;
         }
+        ensureMatchListener(session);
         DocumentReference liveScore = liveScoreReference(session);
         DocumentReference remoteControl = remoteControlReference(session);
         long clientCreatedAt = System.currentTimeMillis();
         String cachedMatchId = cachedPreStartMatchId();
         if (cachedMatchId != null) {
             remoteControl.set(officialStartUpdates(cachedMatchId, clientCreatedAt), SetOptions.merge())
-                    .addOnSuccessListener(ignored -> callback.onComplete(true, "已送出正式開始比賽"))
                     .addOnFailureListener(error -> callback.onComplete(false, errorMessage(error)));
+            callback.onComplete(true, "已送出正式開始比賽");
+            return;
+        }
+        // The iPad may already be on the next match before this phone hears about it; it maps
+        // a start stamped with the just-finished match onto that next match.
+        String finishedMatchId = cachedFinishedMatchId();
+        if (finishedMatchId != null) {
+            remoteControl.set(officialStartUpdates(finishedMatchId, clientCreatedAt), SetOptions.merge())
+                    .addOnFailureListener(error -> callback.onComplete(false, errorMessage(error)));
+            callback.onComplete(true, "已送出正式開始比賽");
             return;
         }
         firestore.runTransaction(transaction -> {
@@ -274,6 +284,10 @@ final class BackgroundScoreController {
 
     private synchronized String cachedPreStartMatchId() {
         return matchKnown && matchActive && !matchFinished && !matchStarted && !matchId.isEmpty() ? matchId : null;
+    }
+
+    private synchronized String cachedFinishedMatchId() {
+        return matchKnown && matchActive && matchFinished && !matchId.isEmpty() ? matchId : null;
     }
 
     void markBroadcastRecordingStarted(long clientStartedAt, FullscreenCallback callback) {

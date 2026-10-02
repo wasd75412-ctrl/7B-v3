@@ -76,20 +76,23 @@ test('defaults overnight recordings to 01:00 and daytime recordings to 11:00',()
   assert.equal(defaultRecordingStartLocalValue([{match:{startedAt:'2026-09-26T04:20:00.000Z'}}],'2026-09-26'),'2026-09-26T11:00:00');
 });
 
-test('saves a complete recording date and time only after explicit confirmation',()=>{
+test('match records no longer carry the YouTube timeline panel',()=>{
   const source=readFileSync(new URL('../src/main.js',import.meta.url),'utf8');
-  assert.match(source,/data-save-timeline=/);
-  assert.match(source,/data-delete-timeline=/);
-  assert.match(source,/確定刪除這天的時間軸/);
-  assert.match(source,/hiddenTimelineDates=cleanTimelineDates\(\[\.\.\.previousDates,dateKey\]\)/);
-  assert.match(source,/儲存時間/);
-  assert.doesNotMatch(source,/\[data-timeline-start\][^\n]*\.onchange=/);
+  const css=readFileSync(new URL('../src/styles.css',import.meta.url),'utf8');
+  assert.doesNotMatch(source,/timelinePanel|data-save-timeline|data-copy-timeline|data-delete-timeline|YouTube 比賽時間軸/);
+  assert.doesNotMatch(css,/\.youtube-timeline/);
 });
 
-test('uses the existing theme colors for the admin timeline',()=>{
-  const css=readFileSync(new URL('../src/styles.css',import.meta.url),'utf8');
-  assert.match(css,/\.youtube-timeline\{[^}]*background:var\(--card\);color:var\(--ink\);border:1px solid var\(--line\)/);
-  assert.match(css,/\.youtube-timeline-text\{[^}]*border:1px solid var\(--line\);[^}]*background:var\(--card\);color:var\(--ink\)/);
+test('each record date can delete all of its matches after confirmation',()=>{
+  const source=readFileSync(new URL('../src/main.js',import.meta.url),'utf8');
+  assert.match(source,/group\.matches\.length\?`<div class="history-date-actions host-only"><button class="btn danger-outline" type="button" data-delete-history-date="\$\{esc\(group\.dateKey\)\}">全部刪除<\/button><\/div>`:''/);
+  assert.match(source,/all\('\[data-delete-history-date\]'\)\.forEach\(btn=>btn\.onclick=\(\)=>deleteHistoryDate\(btn\.dataset\.deleteHistoryDate\)\)/);
+  const remove=source.match(/function deleteHistoryDate\(dateKey\)\{[\s\S]*?\n\}/)?.[0]||'';
+  assert.match(remove,/if\(!isHost\)return;/);
+  assert.match(remove,/if\(!confirm\(`確定刪除 \$\{historyDateLabel\(dateKey\)\} 全部 \$\{rows\.length\} 筆戰績？`\)\)return;/);
+  assert.match(remove,/ids\.forEach\(forgetArchivedMatch\)/);
+  assert.match(remove,/state\.history=state\.history\.filter\(h=>!rows\.includes\(h\)\);renderAll\(\);saveSoon\(\)/);
+  assert.match(remove,/deleteArchivedMatches\(ids\)/);
 });
 
 test('keeps match record dates readable on themed cards',()=>{
