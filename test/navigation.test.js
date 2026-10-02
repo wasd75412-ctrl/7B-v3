@@ -274,7 +274,7 @@ test('lets a claimed participant report an event payment and an admin confirm it
 });
 
 test('ending the session notifies played players with a copyable account and payment report',()=>{
-  assert.match(mainSource,/const feeNotice=snapshotSessionFee\(\);\s*await saveNow\(\)/);
+  assert.match(mainSource,/const feeNotice=snapshotSessionFee\(\);\s*await slimRoomHistoryIfNeeded\(\);\s*await saveNow\(\)/);
   assert.match(mainSource,/const event=currentSessionEvent\(\),playerIds=sessionPlayedParticipantIds\(\),costs=sessionCombinedCosts\(event\)/);
   assert.match(mainSource,/pushApi\('session-fee-notice',[\s\S]*?noticeId:notice\.noticeAt/);
   assert.match(mainSource,/const feeMessage=await sessionFeePushMessage\(feeNotice\)/);
@@ -318,7 +318,7 @@ test('removes the old score remote from More and provides a no-stats test mode',
   assert.match(mainSource,/if\(isTestMatch\)\{[\s\S]*?m\.testCompleted=true/);
   assert.match(mainSource,/else\{\s*state\.history\.push/);
   assert.match(mainSource,/\.filter\(h=>!h\.testMode\)/);
-  assert.match(mainSource,/if\(newlyRecorded&&isHost&&!isTestMatch\)/);
+  assert.match(mainSource,/renderAll\(\);\s*if\(isHost\)saveLiveScoreSoon\(\)/);
   assert.match(mainSource,/function scoredHistory\(\)\{return state\.history\.filter\(h=>!h\.testMode\)\}/);
   assert.match(mainSource,/state\.match\.testMode=enabling;\s*saveLiveScoreSoon\(\)/);
   assert.match(mainSource,/state\.match\?\.winner===null&&!!state\.match\?\.testMode/);

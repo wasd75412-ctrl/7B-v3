@@ -156,7 +156,7 @@ function markMatchOfficialStarted(requestedAt){
   androidOfficialStartPending=null;
   const now=Date.now(),requestedMillis=timestampMillis(requestedAt);
   match.startedAt=new Date(Number.isFinite(requestedMillis)?Math.min(requestedMillis,now):now).toISOString();
-  saveLiveScoreSoon();saveSoon();renderDashboard();renderHistory();
+  saveLiveScoreSoon();renderDashboard();renderHistory();
   showScoreRemoteIndicator('比賽正式開始',{duration:500,icon:'✅',emphasis:'official'});
   return true;
 }
@@ -1849,7 +1849,10 @@ function canApplyMatch(match){
 function applyState(data){
   const before=matchScoreSignature(),next=cleanState(data);
   if(Number(next.testModeRevision)<Number(state.testModeRevision)){next.testMode=state.testMode;next.testModeRevision=state.testModeRevision}
-  if(typeof mergeMatchHistory==='function')next.history=mergeMatchHistory(next.history,archivedHistory,removedMatchIds);
+  if(typeof mergeMatchHistory==='function'){
+    const incoming=mergeMatchHistory(next.history,archivedHistory,removedMatchIds);
+    next.history=isHost?mergeMatchHistory(state.history,incoming,removedMatchIds):incoming;
+  }
   if(!canApplyMatch(next.match)){
     next.match=structuredClone(state.match);
     for(const key of['court','nextCall','matchRollback','waitingQueue','queueDraftChosen','priority','lastLoserReplayPlayerId'])next[key]=structuredClone(state[key]);
@@ -2071,46 +2074,6 @@ async function persistFullState(){
   if(requestedAndroidRemote)return;
   await setDoc(roomRef,payload(),{merge:true});
 }
-function completedMatchSyncPayload(){
-  const encoded=roomEncodedState();
-  return{
-    history:encoded.history,
-    match:encoded.match,
-    waitingQueue:encoded.waitingQueue,
-    queueDraftChosen:encoded.queueDraftChosen,
-    priority:encoded.priority,
-    lastLoserReplayPlayerId:encoded.lastLoserReplayPlayerId,
-    nextCall:encoded.nextCall,
-    matchRollback:encoded.matchRollback,
-    liveScoreEnabled:true,
-    liveScoreMatchKey:liveMatchKey(state.match),
-    updatedAt:serverTimestamp()
-  }
-}
-async function saveCompletedMatchStatsNow(){
-  if(requestedAndroidRemote||!isHost||applying||!roomRef)return false;
-  clearTimeout(saveTimer);saveTimer=null;roomWriteScheduled=false;
-  clearTimeout(liveScoreSaveTimer);liveScoreSaveTimer=null;liveScoreWriteScheduled=false;
-  rememberLatestLiveMatch();liveScoreReady=true;
-  pendingRoomWrites++;updateSyncBadge();
-  try{
-    const roomWrite=setDoc(roomRef,completedMatchSyncPayload(),{merge:true});
-    const liveWrite=liveScoreRef&&liveScoreAvailable?setDoc(liveScoreRef,liveScorePayload(),{merge:true}):Promise.resolve();
-    const [roomResult,liveResult]=await Promise.allSettled([roomWrite,liveWrite]);
-    if(roomResult.status==='rejected')throw roomResult.reason;
-    if(liveResult.status==='rejected'){
-      liveScoreAvailable=false;liveScoreReady=false;
-      console.warn('賽後即時比分同步失敗，完整房間資料仍會接續同步',liveResult.reason);
-    }
-    return true;
-  }catch(error){
-    setSync('戰績同步失敗','error');
-    setError(formatError(error));
-    throw error;
-  }finally{
-    pendingRoomWrites=Math.max(0,pendingRoomWrites-1);updateSyncBadge();
-  }
-}
 function saveSoon(delay=120){
   if(!isHost||applying||!roomRef)return;
   if(shouldSkipFullRoomSync({mode:currentSyncMode(),matchActive:!!state.match?.active,matchOpen:state.match?.winner==null}))return;
@@ -2167,7 +2130,7 @@ async function saveNewMatchCheckpointNow(){
   rememberLatestLiveMatch();liveScoreReady=true;
   const checkpoint=createMatchCheckpointData(state.match),batch=writeBatch(db);
   batch.set(liveScoreRef,{...checkpoint.liveScore,updatedAt:serverTimestamp()},{merge:true});
-  batch.set(roomRef,{...payload(),...checkpoint.room},{merge:true});
+  batch.set(roomRef,{court:state.court,nextCall:state.nextCall,waitingQueue:state.waitingQueue,queueDraftChosen:state.queueDraftChosen,priority:state.priority,lastLoserReplayPlayerId:state.lastLoserReplayPlayerId,...checkpoint.room},{merge:true});
   pendingLiveScoreWrites++;updateSyncBadge();
   try{
     await batch.commit();
@@ -2341,8 +2304,7 @@ function replay(){
   for(const t of m.rallies){if(m.winner!==null)break;const same=m.serving===t;m.scores[t]++;if(same&&!singles)m.positions[t].reverse();else if(!same)m.serving=t;m.winner=winFor(m.scores)}
   renderScore();
   if(m.winner!==null){finishMatch();return}
-  if(reopened&&isHost)void saveCompletedMatchStatsNow().catch(error=>console.warn('撤回比賽同步失敗，已排入完整資料重試',error));
-  saveLiveScoreSoon();if(reopened||currentSyncMode()==='full')saveSoon(reopened?180:80)
+  saveLiveScoreSoon();if(currentSyncMode()==='full')saveSoon(reopened?180:80)
 }
 function gamePoint(){const m=state.match;if(m.winner!==null)return false;for(let t=0;t<2;t++){const test=[...m.scores];test[t]++;if(winFor(test)===t)return true}return false}
 function currentResultKey(){const m=state.match;if(m.winner===null)return'';return m.matchId||[m.winner,(m.scores||[]).join('-'),...(m.players||[]).flat()].join('|')}
@@ -2733,13 +2695,13 @@ function startMatch(){dismissedResultKey='';const format=normalizeMatchFormat(st
 function finishMatch(){
   const m=state.match;if(!m.active||m.winner===null)return;
   const format=normalizeMatchFormat(m.format),needed=matchPlayerCount(format);
-  m.matchId=m.matchId||randomToken();let newlyRecorded=false,lineup=[];
+  m.matchId=m.matchId||randomToken();let lineup=[];
   const isTestMatch=!!m.testMode||!!state.testMode;
   if(isTestMatch)state.history=state.history.filter(h=>!h.testMode);
   const firstCompletion=isTestMatch?!m.testCompleted:!state.history.some(h=>h.matchId===m.matchId);
   if(firstCompletion){
     const now=new Date();
-    newlyRecorded=true;state.matchRollback=createFinishedMatchRollback(state,m.matchId);
+    state.matchRollback=createFinishedMatchRollback(state,m.matchId);
     if(isTestMatch){
       m.testCompleted=true;state.waitingQueue=[];state.queueDraftChosen=[];state.priority=null;state.lastLoserReplayPlayerId=null;
       lineup=randomTestLineup();
@@ -2765,21 +2727,13 @@ function finishMatch(){
   $('finalScore').textContent=`${m.scores[0]}：${m.scores[1]}`;
   if(isHost)$('resultModal').classList.remove('hidden');else $('resultModal').classList.add('hidden');
   renderAll();
-  if(newlyRecorded&&isTestMatch)saveLiveScoreSoon();
-  if(newlyRecorded&&isHost&&!isTestMatch){
-    const recorded=state.history.at(-1);
-    if(recorded)void publishMatchArchive([recorded]);
-    void slimRoomHistoryIfNeeded();
-    void saveCompletedMatchStatsNow().catch(error=>console.warn('賽後戰績優先同步失敗，已排入完整資料重試',error));
-    saveSoon(420);
-    clearTimeout(matchAutoBackupTimer);matchAutoBackupTimer=setTimeout(()=>{matchAutoBackupTimer=null;createCloudBackup('auto',{id:`auto_${m.matchId}`,silent:true,system:true,replace:true}).then(loadBackups).catch(e=>console.warn('賽後備份失敗',e))},1200)
-  }else saveSoon()
+  if(isHost)saveLiveScoreSoon();
 }
 function updatePriority(){
   const needed=matchPlayerCount(state.match.format),vals=selectedNextLineup(),projected=projectedQueueForLineup(vals);
   state.priority=projected[0]||null;
   if(vals.length===needed&&new Set(vals).size===needed)state.nextCall={players:[...vals],createdAt:state.nextCall?.createdAt||new Date().toISOString()};
-  renderDashboard();saveSoon()
+  renderDashboard()
 }
 function startNext(){
   dismissedResultKey='';const format=normalizeMatchFormat(state.match.format),needed=matchPlayerCount(format),selected=selectedNextLineup(format);
@@ -3203,6 +3157,7 @@ async function endTodaySession(triggerButton=null){
   try{
     setSync('同步與備份中');
     const feeNotice=snapshotSessionFee();
+    await slimRoomHistoryIfNeeded();
     await saveNow();
     await createCloudBackup('session',{silent:true,system:true});
     backupCreated=true;
