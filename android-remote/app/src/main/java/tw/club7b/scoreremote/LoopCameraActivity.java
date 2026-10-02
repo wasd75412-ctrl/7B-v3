@@ -259,6 +259,7 @@ public final class LoopCameraActivity extends ComponentActivity {
 
     private boolean deliverP4Gesture(MotionEvent event) {
         if (!p4Gestures.isP4Event(event)) return false;
+        p4Gestures.setDisplayRotation(getWindowManager().getDefaultDisplay().getRotation());
         VolumeKeyInterpreter.Action action = p4Gestures.onTouchEvent(
                 event, getResources().getDisplayMetrics().density);
         if (action != VolumeKeyInterpreter.Action.NONE) {
@@ -309,6 +310,7 @@ public final class LoopCameraActivity extends ComponentActivity {
         FrameLayout root = new FrameLayout(this);
         root.setBackgroundColor(Color.BLACK);
         previewView = new PreviewView(this);
+        previewView.setImplementationMode(PreviewView.ImplementationMode.COMPATIBLE);
         previewView.setScaleType(PreviewView.ScaleType.FILL_CENTER);
         previewView.setFocusable(false);
         previewView.setFocusableInTouchMode(false);
