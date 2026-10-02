@@ -31,7 +31,7 @@ import { normalizeScoreFont, randomScoreFont } from './score-font.js';
 import { EVENT_PACKING_MEMO_ITEMS, eventPackingMemoProgress, mergePackingMemos, normalizeEventPackingMemo, remainingPackingItems } from './event-packing-memo.js';
 import { ensureShuttleCostNotice, moveAdminNotice, normalizeAdminNotices } from './admin-notices.js';
 import { canReportEventPayment, eventPaymentStatus, normalizeEventPayments, normalizeSessionFee, updateEventPayment } from './event-payment.js';
-import { defaultRecordingStartLocalValue, groupHistoryDatesByMonth, groupMatchHistoryByDate, withLiveTimelineDate, withLiveTimelineMatch, youtubeTimelineText } from './match-history.js';
+import { groupHistoryDatesByMonth, groupMatchHistoryByDate, withLiveTimelineDate } from './match-history.js';
 import { ROOM_HISTORY_KEEP, archiveDocId, decodeArchivedMatch, encodeArchivedMatch, mergeMatchHistory, normalizeSyncMode, overflowHistory, readPendingArchives, recentHistory, shouldSkipFullRoomSync, writePendingArchives } from './match-archive.js';
 import { POLL_UNAVAILABLE, prunePollHistoryRows } from './poll-history.js';
 
@@ -97,7 +97,7 @@ let state=initialState(), roomId='', roomRef=null, liveScoreRef=null, remoteCont
 let deviceProfileUnsubscribe=null,deviceProfileApplying=false,deviceProfileSaveTimer=null,identitySyncing=false,roomConnectInProgress=false;
 let roomSnapshotFromCache=false,snapshotHasPendingWrites=false,pendingRoomWrites=0,roomWriteScheduled=false,archivedHistory=[],removedMatchIds=new Set();
 const SYNC_MODE_KEY='bcmRoomSyncModeV1';
-let liveScoreSnapshotFromCache=false,liveScoreHasPendingWrites=false,pendingLiveScoreWrites=0,liveScoreWriteScheduled=false,liveScoreConnecting=false,liveScoreAvailable=true,liveScoreReady=false,liveScoreInitialSnapshot=true,remoteControlInitialSnapshot=true,remoteActionInitialSnapshot=true,liveScoreMigrationStarted=false,latestLiveMatch=null,lastRoomSnapshotData=null,lastRemoteRecordingStartCommandId='',lastRemoteFullscreenCommandId='',lastRemoteOfficialStartCommandId='',lastRemoteNextMatchCommandId='',lastRemoteUndoFinishedCommandId='',lastRemoteStartMatchCommandId='',lastRemoteActionCommandId='',seenRemoteActionIds=new Set(),androidOfficialStartPending=null,replacedRemoteMatchId='',replacedRemoteMatchAt=0;
+let liveScoreSnapshotFromCache=false,liveScoreHasPendingWrites=false,pendingLiveScoreWrites=0,liveScoreWriteScheduled=false,liveScoreConnecting=false,liveScoreAvailable=true,liveScoreReady=false,liveScoreInitialSnapshot=true,remoteControlInitialSnapshot=true,remoteActionInitialSnapshot=true,liveScoreMigrationStarted=false,latestLiveMatch=null,lastRoomSnapshotData=null,lastRemoteRecordingStartCommandId='',lastRemoteFullscreenCommandId='',lastRemoteOfficialStartCommandId='',lastRemoteNextMatchCommandId='',lastRemoteUndoFinishedCommandId='',lastRemoteStartMatchCommandId='',lastRemoteActionCommandId='',seenRemoteActionIds=new Set(),androidOfficialStartPending=null,replacedRemoteMatchId='',replacedRemoteMatchAt=0,pendingOfficialStartAfterMatch=null;
 let firestoreLinkRecovering=false,firestoreLinkRecoverInFlight=false,firestoreLinkProbeInFlight=false,firestoreLinkLastProbeAt=0,firestoreLinkCooldownUntil=0,firestoreLinkProbeGeneration=0,firestoreLinkServerActivityAt=0;
 let chatMessages=[],chatMentionIds=new Set(),chatFirstRender=true,chatMessagesRenderKey='',chatLastSentAt=0,chatRequestRunning=false,chatSendRunning=false,chatPendingMedia=null;
 const requestParams=new URLSearchParams(location.search),requestedPage=requestParams.get('page'),requestedAndroidRemote=requestParams.get('androidRemote')==='1',requestedLocalScoreTest=requestParams.get('localScore')==='1';
@@ -187,7 +187,7 @@ function markMatchOfficialStarted(requestedAt){
   androidOfficialStartPending=null;
   const now=Date.now(),requestedMillis=timestampMillis(requestedAt);
   match.startedAt=new Date(Number.isFinite(requestedMillis)?Math.min(requestedMillis,now):now).toISOString();
-  saveLiveScoreSoon();renderDashboard();renderHistory();
+  saveLiveScoreSoon();renderDashboard();renderHistory();renderScore();
   showScoreRemoteIndicator('比賽正式開始',{duration:500,icon:'✅',emphasis:'official'});
   return true;
 }
@@ -1792,7 +1792,7 @@ async function connectRoom(id){
   liveScoreRef=doc(db,'badmintonRooms',id,'liveScore','current');
   remoteControlRef=doc(db,'badmintonRooms',id,'remoteControl','current');
   liveScoreReady=false;liveScoreInitialSnapshot=true;liveScoreMigrationStarted=false;liveScoreAvailable=true;liveScoreConnecting=true;latestLiveMatch=null;lastRoomSnapshotData=null;
-  remoteControlInitialSnapshot=true;remoteActionInitialSnapshot=true;lastRemoteFullscreenCommandId='';lastRemoteOfficialStartCommandId='';lastRemoteNextMatchCommandId='';lastRemoteUndoFinishedCommandId='';lastRemoteStartMatchCommandId='';lastRemoteActionCommandId='';seenRemoteActionIds=new Set();androidOfficialStartPending=null;replacedRemoteMatchId='';replacedRemoteMatchAt=0;
+  remoteControlInitialSnapshot=true;remoteActionInitialSnapshot=true;lastRemoteFullscreenCommandId='';lastRemoteOfficialStartCommandId='';lastRemoteNextMatchCommandId='';lastRemoteUndoFinishedCommandId='';lastRemoteStartMatchCommandId='';lastRemoteActionCommandId='';seenRemoteActionIds=new Set();androidOfficialStartPending=null;replacedRemoteMatchId='';replacedRemoteMatchAt=0;pendingOfficialStartAfterMatch=null;
   liveScoreSnapshotFromCache=false;liveScoreHasPendingWrites=false;pendingLiveScoreWrites=0;liveScoreWriteScheduled=false;
   selfHash=await sha256(selfToken);
   setSync(navigator.onLine?'連線中':'讀取離線資料','pending');
@@ -2012,8 +2012,13 @@ function handleRemoteRecordingStartCommand(data,{initial=false}={}){
 function handleRemoteOfficialStartCommand(data,{initial=false}={}){
   const id=String(data?.officialStartCommand?.id||'');if(!id||id===lastRemoteOfficialStartCommandId)return false;
   lastRemoteOfficialStartCommandId=id;
-  if(!shouldAcceptRemoteCommand({command:data.officialStartCommand,currentMatch:state.match,initial}))return false;
+  const command=data.officialStartCommand;
+  if(!shouldAcceptRemoteCommand({command,currentMatch:state.match,initial})){
+    if(initial||requestedAndroidRemote||!isHost||!isReplacedMatchOfficialStart(command))return false;
+    return markMatchOfficialStarted(new Date(Math.max(timestampMillis(command.clientCreatedAt)||0,replacedRemoteMatchAt)).toISOString());
+  }
   if(initial||requestedAndroidRemote||!isHost)return false;
+  if(state.match.active&&state.match.winner!==null){pendingOfficialStartAfterMatch={matchId:String(state.match.matchId||''),at:Date.now()};return false}
   const started=markMatchOfficialStarted(data.officialStartCommand.clientCreatedAt||data.officialStartCommand.createdAt);
   if(started&&$('scoreView').classList.contains('hidden')&&$('resultModal').classList.contains('hidden')){scoreViewRequested=true;renderScore()}
   return started;
@@ -2040,6 +2045,17 @@ function handleRemoteStartMatchCommand(data,{initial=false}={}){
   startMatch();showScoreRemoteIndicator('遙控器開始比賽');return true;
 }
 function rememberReplacedRemoteMatch(){replacedRemoteMatchId=String(state.match?.matchId||'');replacedRemoteMatchAt=Date.now();androidOfficialStartPending=null}
+function isReplacedMatchOfficialStart(command){
+  const match=state.match;
+  return match.active&&match.winner===null&&!matchHasOfficiallyStarted(match)&&!match.rallies.length&&replacedRemoteMatchId!==''
+    &&Date.now()-replacedRemoteMatchAt<=REMOTE_COMMAND_MAX_AGE_MS&&String(command?.matchId??'')===replacedRemoteMatchId
+    &&shouldAcceptRemoteCommand({command,currentMatch:{matchId:replacedRemoteMatchId}});
+}
+function startPendingOfficialStart(){
+  const pending=pendingOfficialStartAfterMatch;pendingOfficialStartAfterMatch=null;
+  if(!pending||pending.matchId!==replacedRemoteMatchId||Date.now()-pending.at>REMOTE_COMMAND_MAX_AGE_MS)return false;
+  return markMatchOfficialStarted(new Date().toISOString());
+}
 function isReplacedMatchPreStartPress(command,action){
   const match=state.match;
   return ['teamAPlus','teamBPlus'].includes(action)&&match.active&&match.winner===null&&!matchHasOfficiallyStarted(match)&&!match.rallies.length
@@ -2688,10 +2704,8 @@ async function clearMatchReplayPlaylist(){
   }
 }
 function cleanTimelineDates(value){return [...new Set((Array.isArray(value)?value:[]).map(item=>String(item||'')).filter(item=>/^\d{4}-\d{2}-\d{2}$/.test(item)))].slice(0,400)}
-function timelineDateHidden(dateKey){return (state.hiddenTimelineDates||[]).includes(dateKey)}
 function historyDateLabel(dateKey){if(!/^\d{4}-\d{2}-\d{2}$/.test(dateKey))return dateKey;const d=new Date(`${dateKey}T12:00:00`);return `${d.getFullYear()} 年 ${d.getMonth()+1} 月 ${d.getDate()} 日（${'日一二三四五六'[d.getDay()]}）`}
 function historyMonthLabel(monthKey){if(!/^\d{4}-\d{2}$/.test(monthKey))return monthKey;const [year,month]=monthKey.split('-');return `${year} 年 ${Number(month)} 月`}
-function timelineLocalInputValue(value){const d=new Date(value||'');if(isNaN(d.getTime()))return '';return `${localDateKey(d)}T${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}:${String(d.getSeconds()).padStart(2,'0')}`}
 function liveOfficialMatch(dateKey=''){
   const match=state.match;
   if(!match?.active||!match.startedAt||match.testMode||state.testMode)return null;
@@ -2701,50 +2715,6 @@ function liveOfficialMatch(dateKey=''){
   if(dateKey&&key!==dateKey)return null;
   return {matchId:match.matchId||'',startedAt:match.startedAt,endedAt:'',dateKey:key,teams:match.players,scores:match.scores||[0,0],testMode:false};
 }
-function timelinePanel(group){
-  if(timelineDateHidden(group.dateKey))return '';
-  const savedStart=state.matchTimelineStarts?.[group.dateKey]||'',timelineMatches=withLiveTimelineMatch(group.matches,liveOfficialMatch(group.dateKey)),defaultLocal=defaultRecordingStartLocalValue(timelineMatches,group.dateKey),timelineStart=savedStart||(defaultLocal?new Date(defaultLocal).toISOString():'');
-  const text=timelineStart?youtubeTimelineText(timelineMatches,timelineStart,pname):'請先設定錄影開始時間。',feedback=savedStart?'已儲存，仍可修改後再次儲存。':defaultLocal?`已依場次預設為 ${defaultLocal.slice(11,16)}，仍可修改。`:'調整完整日期與時間後，請按「儲存時間」。';
-  return `<section class="youtube-timeline host-only"><div class="youtube-timeline-head"><strong>YouTube 比賽時間軸</strong><button class="btn primary" type="button" data-copy-timeline="${esc(group.dateKey)}" ${timelineStart?'':'disabled'}>複製全部</button><button class="btn danger-outline" type="button" data-delete-timeline="${esc(group.dateKey)}">刪除</button></div><div class="youtube-timeline-start"><label class="field"><span>錄影開始時間</span><input class="input" type="datetime-local" step="1" value="${esc(timelineLocalInputValue(timelineStart))}" data-timeline-start="${esc(group.dateKey)}"></label><button class="btn primary" type="button" data-save-timeline="${esc(group.dateKey)}">儲存時間</button><button class="btn" type="button" data-timeline-now="${esc(group.dateKey)}">設為現在</button></div><div class="sub" data-timeline-feedback="${esc(group.dateKey)}">${esc(feedback)}</div><textarea class="youtube-timeline-text" readonly data-timeline-text="${esc(group.dateKey)}">${esc(text)}</textarea></section>`;
-}
-async function deleteTimeline(dateKey){
-  if(!isHost||timelineDateHidden(dateKey))return;
-  if(!confirm('確定刪除這天的時間軸？'))return;
-  const previousDates=state.hiddenTimelineDates||[],previousStarts=state.matchTimelineStarts||{};
-  state.hiddenTimelineDates=cleanTimelineDates([...previousDates,dateKey]);
-  const starts={...previousStarts};
-  delete starts[dateKey];
-  state.matchTimelineStarts=starts;
-  renderHistory();
-  try{await saveNow()}
-  catch(error){
-    state.hiddenTimelineDates=previousDates;
-    state.matchTimelineStarts=previousStarts;
-    renderHistory();
-    alert(`刪除失敗：${formatError(error)}`);
-  }
-}
-async function setTimelineStart(dateKey,value){
-  if(!isHost)return;
-  const date=new Date(value||'');
-  if(isNaN(date.getTime()))return alert('請輸入正確的錄影開始時間。');
-  const previous=state.matchTimelineStarts?.[dateKey]||'';
-  state.matchTimelineStarts={...(state.matchTimelineStarts||{}),[dateKey]:date.toISOString()};
-  renderHistory();
-  const feedback=document.querySelector(`[data-timeline-feedback="${CSS.escape(dateKey)}"]`);
-  if(feedback)feedback.textContent='儲存中…';
-  try{
-    await saveNow();
-    renderHistory();
-    const savedFeedback=document.querySelector(`[data-timeline-feedback="${CSS.escape(dateKey)}"]`);
-    if(savedFeedback)savedFeedback.textContent=`已儲存：${timelineLocalInputValue(date.toISOString()).replace('T',' ')}`;
-  }catch(error){
-    state.matchTimelineStarts={...(state.matchTimelineStarts||{}),[dateKey]:previous};
-    renderHistory();
-    alert(`錄影開始時間儲存失敗：${formatError(error)}`);
-  }
-}
-async function copyTimeline(dateKey){const text=document.querySelector(`[data-timeline-text="${CSS.escape(dateKey)}"]`)?.value;if(!text)return;try{await navigator.clipboard.writeText(text);alert('比賽時間軸已複製。')}catch{prompt('複製比賽時間軸：',text)}}
 function renderHistory(){
   renderMatchReplay();
   const container=$('history'),existingMonths=all('.history-month-group'),existingDates=all('.history-date-group'),openMonths=new Set(existingMonths.filter(group=>group.open).map(group=>group.dataset.historyMonth)),openDates=new Set(existingDates.filter(group=>group.open).map(group=>group.dataset.historyDate));
@@ -2753,20 +2723,25 @@ function renderHistory(){
     const open=openDates.has(group.dateKey)||(!existingDates.length&&monthIndex===0&&dateIndex===0);
     const countText=group.matches.length?`${group.matches.length} 場`:live?.dateKey===group.dateKey?'進行中':'0 場';
     const matches=group.matches.map(({match:h,index})=>`<div class="history-item ${h.testMode?'test-record':''}"><div class="history-main"><strong><span class="match-format-badge">${historyFormat(h)===MATCH_FORMAT_SINGLES?'單打':'雙打'}</span>${h.testMode?'<span class="test-record-badge">測試</span> ':''}${esc((h.teams?.[0]||[]).map(pname).join('／'))} ${h.scores?.[0]??0}：${h.scores?.[1]??0} ${esc((h.teams?.[1]||[]).map(pname).join('／'))}</strong><div class="sub">${esc(h.time||'')}${h.testMode?' · 不計入戰績':''}</div></div><div class="history-actions host-only"><button class="btn danger-outline" data-delete-history="${index}">刪除</button></div></div>`).join('');
-    return `<details class="history-date-group" data-history-date="${esc(group.dateKey)}" ${open?'open':''}><summary><span>${esc(historyDateLabel(group.dateKey))}</span><span>${countText}</span></summary>${timelinePanel(group)}<div class="history-date-matches">${matches}</div></details>`;
+    return `<details class="history-date-group" data-history-date="${esc(group.dateKey)}" ${open?'open':''}><summary><span>${esc(historyDateLabel(group.dateKey))}</span><span>${countText}</span></summary>${group.matches.length?`<div class="history-date-actions host-only"><button class="btn danger-outline" type="button" data-delete-history-date="${esc(group.dateKey)}">全部刪除</button></div>`:''}<div class="history-date-matches">${matches}</div></details>`;
   };
   container.innerHTML=months.map((month,monthIndex)=>{
     const open=openMonths.has(month.monthKey)||(!existingMonths.length&&monthIndex===0),dates=month.dates.map((group,dateIndex)=>renderDate(group,dateIndex,monthIndex)).join('');
     return `<details class="history-month-group" data-history-month="${esc(month.monthKey)}" ${open?'open':''}><summary><span>${esc(historyMonthLabel(month.monthKey))}</span><span>${month.dates.length} 次 · ${month.matchCount} 場</span></summary><div class="history-month-dates">${dates}</div></details>`;
   }).join('')||'<p class="sub">尚無比賽紀錄。</p>';
-  all('[data-delete-history]').forEach(btn=>btn.onclick=()=>deleteHistoryRecord(+btn.dataset.deleteHistory));applyRole()
-  all('[data-save-timeline]').forEach(button=>button.onclick=()=>{const dateKey=button.dataset.saveTimeline,input=document.querySelector(`[data-timeline-start="${CSS.escape(dateKey)}"]`);setTimelineStart(dateKey,input?.value)});
-  all('[data-timeline-now]').forEach(button=>button.onclick=()=>setTimelineStart(button.dataset.timelineNow,new Date()));
-  all('[data-copy-timeline]').forEach(button=>button.onclick=()=>copyTimeline(button.dataset.copyTimeline));
-  all('[data-delete-timeline]').forEach(button=>button.onclick=()=>deleteTimeline(button.dataset.deleteTimeline));
+  all('[data-delete-history]').forEach(btn=>btn.onclick=()=>deleteHistoryRecord(+btn.dataset.deleteHistory));
+  all('[data-delete-history-date]').forEach(btn=>btn.onclick=()=>deleteHistoryDate(btn.dataset.deleteHistoryDate));applyRole()
 }
 function forgetArchivedMatch(matchId){if(!matchId)return;removedMatchIds.add(matchId);archivedHistory=archivedHistory.filter(row=>row.matchId!==matchId);writePendingArchives(localStorage,roomId,readPendingArchives(localStorage,roomId).filter(row=>row.matchId!==matchId))}
 function deleteHistoryRecord(index){if(!isHost)return;const h=state.history[index];if(!h)return;const title=`${(h.teams?.[0]||[]).map(pname).join('／')} ${h.scores?.[0]??0}：${h.scores?.[1]??0} ${(h.teams?.[1]||[]).map(pname).join('／')}`;if(!confirm(`確定刪除這筆比賽紀錄？\n\n${title}\n${h.time||''}`))return;forgetArchivedMatch(h.matchId);state.history.splice(index,1);renderAll();saveSoon();if(roomId&&h.matchId)void deleteArchivedMatches([h.matchId]).catch(error=>console.warn('封存戰績刪除失敗',error))}
+function deleteHistoryDate(dateKey){
+  if(!isHost)return;
+  const rows=(groupMatchHistoryByDate(state.history,historyDate).find(group=>group.dateKey===dateKey)?.matches||[]).map(item=>item.match);if(!rows.length)return;
+  if(!confirm(`確定刪除 ${historyDateLabel(dateKey)} 全部 ${rows.length} 筆戰績？`))return;
+  const ids=rows.map(row=>row.matchId).filter(Boolean);ids.forEach(forgetArchivedMatch);
+  state.history=state.history.filter(h=>!rows.includes(h));renderAll();saveSoon();
+  if(roomId&&ids.length)void deleteArchivedMatches(ids).catch(error=>console.warn('封存戰績刪除失敗',error));
+}
 function clearAllHistory(){if(!isHost)return;if(!state.history.length)return alert('目前沒有比賽紀錄。');if(!confirm(`即將刪除全部 ${state.history.length} 筆比賽紀錄。\n球員名單與目前比分不會被刪除。`))return;const text=prompt('為避免誤刪，請輸入「清空」：','');if(text!=='清空')return alert('輸入不正確，已取消清空。');const ids=state.history.map(row=>row.matchId).filter(Boolean);ids.forEach(forgetArchivedMatch);archivedHistory=[];writePendingArchives(localStorage,roomId,[]);state.history=[];renderAll();saveSoon();if(roomId&&ids.length)void deleteArchivedMatches(ids).catch(error=>console.warn('封存戰績清空失敗',error));alert('全部比賽紀錄已清空。')}
 function renderAll(){renderRoster();renderAttendance();renderCourt();renderHistory();renderScore();renderDashboard();renderStats();renderPoll();renderChat();renderTestMode();if(!$('shuttleTubeModal')?.classList.contains('hidden'))renderShuttleTubeManager();applyRole();renderAndroidRemote()}
 function currentTestModeEnabled(){
@@ -2864,7 +2839,7 @@ function startNext(){
   state.court=[...vals];state.nextCall=null;state.matchRollback=null;
   randomizeScoreThemeAtMatchStart(vals);rememberReplacedRemoteMatch();
   state.match={active:true,format,players:teamsForLineup(vals,format),scores:[0,0],rallies:[],serving:0,positions:format===MATCH_FORMAT_SINGLES?[[0],[0]]:[[0,1],[0,1]],winner:null,matchId:randomToken(),syncEpoch:nextMatchEpoch(state.match),scoreFont:randomScoreFont(state.match?.scoreFont),testMode:!!state.testMode,startedAt:''};
-  scoreViewRequested=true;$('resultModal').classList.add('hidden');checkpointNewMatch();renderAll();void enterScoreFullscreen()
+  scoreViewRequested=true;$('resultModal').classList.add('hidden');checkpointNewMatch();startPendingOfficialStart();renderAll();void enterScoreFullscreen()
 }
 
 function backupsRef(){return collection(db,'badmintonRooms',roomId,'backups')}

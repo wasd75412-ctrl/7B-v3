@@ -159,7 +159,6 @@ test('score mode provides a play fallback for official start in both layouts',()
   assert.match(index,/id="officialStartScore"[^>]*>▶️/);
   assert.match(main,/officialStartScoreBtn\.onclick=\(\)=>markMatchOfficialStarted\(\)/);
   assert.match(main,/function markMatchOfficialStarted\(requestedAt\)[\s\S]*?saveLiveScoreSoon\(\);renderDashboard\(\);renderHistory\(\)/);
-  assert.match(main,/withLiveTimelineMatch\(group\.matches,liveOfficialMatch\(group\.dateKey\)\)/);
   assert.match(main,/officialStartButton\.classList\.toggle\('hidden',!canStart\)/);
   assert.match(styles,/\.score-view\.immersive-mode \.score-head \.score-actions>button:not\(#fullscreenScore\):not\(#officialStartScore\):not\(#undo\):not\(#syncSessionScore\)/);
   assert.match(styles,/\.score-view\.immersive-mode #officialStartScore:not\(\.hidden\)\{[^}]*position:fixed;[^}]*right:calc\(62px/);
@@ -168,6 +167,29 @@ test('score mode provides a play fallback for official start in both layouts',()
 test('touchscreen scoring cannot bypass the official start timestamp',()=>{
   assert.match(main,/function guardUnofficialTouchScoring\(event\)[\s\S]*?matchHasOfficiallyStarted\(state\.match\)[\s\S]*?scoreSideA\.contains\(target\)[\s\S]*?\$\('scoreA'\)\.contains\(target\)[\s\S]*?\$\('scoreB'\)\.contains\(target\)[\s\S]*?event\.stopImmediatePropagation\(\)[\s\S]*?請先按播放鍵正式開始/);
   assert.match(main,/document\.addEventListener\('click',guardUnofficialTouchScoring,\{capture:true\}\)/);
+});
+
+test('an official start pressed while the next match is still propagating is not lost',()=>{
+  const start=controller.match(/void startOfficialMatch\(FullscreenCallback callback\) \{[\s\S]*?\n    \}/)?.[0]||'';
+  assert.match(start,/ensureMatchListener\(session\);/);
+  assert.match(start,/remoteControl\.set\(officialStartUpdates\(cachedMatchId, clientCreatedAt\), SetOptions\.merge\(\)\)\s*\.addOnFailureListener\(error -> callback\.onComplete\(false, errorMessage\(error\)\)\);\s*callback\.onComplete\(true, "已送出正式開始比賽"\);/);
+  assert.match(start,/String finishedMatchId = cachedFinishedMatchId\(\);\s*if \(finishedMatchId != null\) \{\s*remoteControl\.set\(officialStartUpdates\(finishedMatchId, clientCreatedAt\)/);
+  assert.ok(start.indexOf('cachedFinishedMatchId()')<start.indexOf('runTransaction'));
+  assert.match(controller,/cachedFinishedMatchId\(\) \{\s*return matchKnown && matchActive && matchFinished && !matchId\.isEmpty\(\) \? matchId : null;/);
+  const handler=main.match(/function handleRemoteOfficialStartCommand\(data,\{initial=false\}=\{\}\)\{[\s\S]*?\n\}/)?.[0]||'';
+  assert.match(handler,/if\(initial\|\|requestedAndroidRemote\|\|!isHost\|\|!isReplacedMatchOfficialStart\(command\)\)return false;\s*return markMatchOfficialStarted\(/);
+  assert.match(handler,/if\(state\.match\.active&&state\.match\.winner!==null\)\{pendingOfficialStartAfterMatch=\{matchId:String\(state\.match\.matchId\|\|''\),at:Date\.now\(\)\};return false\}/);
+  const replaced=main.match(/function isReplacedMatchOfficialStart\(command\)\{[\s\S]*?\n\}/)?.[0]||'';
+  assert.match(replaced,/!matchHasOfficiallyStarted\(match\)&&!match\.rallies\.length/);
+  assert.match(replaced,/Date\.now\(\)-replacedRemoteMatchAt<=REMOTE_COMMAND_MAX_AGE_MS&&String\(command\?\.matchId\?\?''\)===replacedRemoteMatchId/);
+  const pending=main.match(/function startPendingOfficialStart\(\)\{[\s\S]*?\n\}/)?.[0]||'';
+  assert.match(pending,/pending\.matchId!==replacedRemoteMatchId\|\|Date\.now\(\)-pending\.at>REMOTE_COMMAND_MAX_AGE_MS/);
+  const startNext=main.match(/function startNext\(\)\{[\s\S]*?\n\}/)?.[0]||'';
+  assert.match(startNext,/checkpointNewMatch\(\);startPendingOfficialStart\(\);renderAll\(\);/);
+});
+
+test('the play button disappears as soon as the match officially starts',()=>{
+  assert.match(main,/function markMatchOfficialStarted\(requestedAt\)[\s\S]*?saveLiveScoreSoon\(\);renderDashboard\(\);renderHistory\(\);renderScore\(\);/);
 });
 
 test('official start indicator is emphasized and centered for everyone to see',()=>{

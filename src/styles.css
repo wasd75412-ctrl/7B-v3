@@ -4802,10 +4802,7 @@ html.chat-keyboard-open .chat-autocomplete{
 .history-date-group[open]>summary:after{content:'－'}
 .history-date-group>summary span:last-of-type{margin-left:auto;color:var(--muted);font-size:.88rem}
 .history-date-matches{padding:0 10px 10px}
-.youtube-timeline{margin:0 10px 10px;padding:13px;border-radius:15px;background:var(--card);color:var(--ink);border:1px solid var(--line)}
-.youtube-timeline-head,.youtube-timeline-start{display:flex;justify-content:space-between;align-items:end;gap:10px;flex-wrap:wrap}
-.youtube-timeline-start{margin-top:10px;justify-content:flex-start}.youtube-timeline-start .field{flex:1 1 250px}
-.youtube-timeline-text{width:100%;min-height:180px;margin-top:10px;padding:12px;border:1px solid var(--line);border-radius:12px;resize:vertical;background:var(--card);color:var(--ink);font:800 .85rem/1.55 ui-monospace,SFMono-Regular,Consolas,monospace}
+.history-date-actions{display:flex;justify-content:flex-end;padding:0 10px 10px}
 #app .history-item .history-main>.sub{color:var(--sport-ink)!important;opacity:.82}
 #app .history-date-group>summary span:last-of-type,#app .history-date-group>summary:after{color:var(--sport-ink)!important;opacity:.9}
 #app .history-month-group>summary span:last-of-type,#app .history-month-group>summary:after{color:var(--sport-ink)!important;opacity:.9}
