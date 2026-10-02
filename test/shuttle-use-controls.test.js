@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {readFileSync} from 'node:fs';
+import {existsSync,readFileSync} from 'node:fs';
 
 const html=readFileSync(new URL('../index.html',import.meta.url),'utf8');
 const main=readFileSync(new URL('../src/main.js',import.meta.url),'utf8');
@@ -9,7 +9,6 @@ const activity=readFileSync(new URL('../android-remote/app/src/main/java/tw/club
 const service=readFileSync(new URL('../android-remote/app/src/main/java/tw/club7b/scoreremote/RemoteKeyAccessibilityService.java',import.meta.url),'utf8');
 const controller=readFileSync(new URL('../android-remote/app/src/main/java/tw/club7b/scoreremote/BackgroundScoreController.java',import.meta.url),'utf8');
 const interpreter=readFileSync(new URL('../android-remote/app/src/main/java/tw/club7b/scoreremote/VolumeKeyInterpreter.java',import.meta.url),'utf8');
-const yuntengGestures=readFileSync(new URL('../android-remote/app/src/main/java/tw/club7b/scoreremote/YuntengGestureInterpreter.java',import.meta.url),'utf8');
 const cameraActivity=readFileSync(new URL('../android-remote/app/src/main/java/tw/club7b/scoreremote/LoopCameraActivity.java',import.meta.url),'utf8');
 
 test('shows one-shuttle controls in scoring and next-match result views plus dashboard summary',()=>{
@@ -45,7 +44,7 @@ test('shows one-shuttle controls in scoring and next-match result views plus das
   assert.match(styles,/#resultModal \.next-team/);
 });
 
-test('routes YUNTENG keys directly without multi-press delay',()=>{
+test('routes remote keys directly without multi-press delay',()=>{
   for(const source of [activity,service]){
     assert.match(source,/Action previousAction = \w+Keys\.onMissingKeyUp\(keyCode\);[\s\S]*?handleResolved\w+Action\(previousAction, keyCode, event\.getEventTime\(\)\);/);
     assert.match(source,/SHUTTLE_PRESS_COOLDOWN_MS = 2000L/);
@@ -80,26 +79,10 @@ test('routes YUNTENG keys directly without multi-press delay',()=>{
   assert.match(main,/if\(resultVisible\)\{if\(action==='undo'\)performScoreRemoteAction\('undo',\{announce:false\}\);else startNext\(\);return true\}/);
 });
 
-test('converts YUNTENG zoom gestures into score keys in remote and recording screens',()=>{
-  assert.match(yuntengGestures,/TEAM_SPLIT = 0\.45f/);
-  assert.match(yuntengGestures,/TEAM_A_PLUS[\s\S]*?TEAM_B_PLUS/);
-  assert.match(yuntengGestures,/horizontalGesture[\s\S]*?Math\.max\(x0, x1\)[\s\S]*?Math\.max\(y0, y1\)/);
-  assert.match(yuntengGestures,/HORIZONTAL_TEAM_SPLIT = 0\.865f/);
-  assert.match(yuntengGestures,/rangeMax < 1500f[\s\S]*?HORIZONTAL_TEAM_SPLIT/);
-  assert.match(yuntengGestures,/ACTION_POINTER_DOWN[\s\S]*?pendingAxisStart/);
-  assert.match(yuntengGestures,/GESTURE_SETTLE_MS = 40L/);
-  assert.match(yuntengGestures,/ACTION_MOVE[\s\S]*?gestureAction = candidate/);
-  assert.match(yuntengGestures,/ACTION_POINTER_UP[\s\S]*?ACTION_UP[\s\S]*?pendingAction = gestureAction/);
-  assert.match(yuntengGestures,/delta > 0f[\s\S]*?TEAM_A_PLUS[\s\S]*?TEAM_B_PLUS/);
-  assert.match(yuntengGestures,/Math\.max\(x0, x1\)[\s\S]*?Math\.max\(y0, y1\)/);
-  assert.match(yuntengGestures,/onSettledPress\(\)/);
-  assert.match(activity,/dispatchTouchEvent\(MotionEvent event\)[\s\S]*?sendYuntengScoreAction\(action\)/);
-  assert.match(activity,/sendYuntengScoreAction[\s\S]*?scoreController\(\)\.submit\(action/);
-  assert.match(activity,/postDelayed\(pendingYuntengPress, YuntengGestureInterpreter\.GESTURE_SETTLE_MS\)/);
-  assert.match(cameraActivity,/postDelayed\(pendingYuntengPress, YuntengGestureInterpreter\.GESTURE_SETTLE_MS\)/);
-  assert.match(activity,/if \(pendingYuntengPress != null\) keyHandler\.removeCallbacks\(pendingYuntengPress\)[\s\S]*?postDelayed\(pendingYuntengPress/);
-  assert.match(cameraActivity,/if \(pendingYuntengPress != null\) handler\.removeCallbacks\(pendingYuntengPress\)[\s\S]*?postDelayed\(pendingYuntengPress/);
-  assert.doesNotMatch(yuntengGestures,/700L|2000L|Action\.UNDO/);
+test('YUNTENG remote support is removed and camera-key shuttle controls remain',()=>{
+  assert.equal(existsSync(new URL('../android-remote/app/src/main/java/tw/club7b/scoreremote/YuntengGestureInterpreter.java',import.meta.url)),false);
+  for(const source of [activity,service,cameraActivity])assert.doesNotMatch(source,/yunteng/i);
+  assert.match(activity,/sendScoreAction[\s\S]*?scoreController\(\)\.submit\(action/);
   const cameraButton=readFileSync(new URL('../android-remote/app/src/main/java/tw/club7b/scoreremote/CameraButtonGesture.java',import.meta.url),'utf8');
   assert.match(cameraButton,/DOUBLE_PRESS_MS = 500L/);
   assert.match(cameraButton,/callbacks\.useShuttle\(\)[\s\S]*?callbacks\.undo\(\)/);
@@ -111,7 +94,6 @@ test('converts YUNTENG zoom gestures into score keys in remote and recording scr
   assert.match(service,/void undo\(\) \{ sendBackgroundAction\(VolumeKeyInterpreter\.Action\.UNDO\); \}[\s\S]*?void useShuttle\(\) \{ sendBackgroundUseShuttle\(\); \}[\s\S]*?void returnShuttle\(\) \{ sendBackgroundReturnShuttle\(\); \}/);
   assert.match(cameraActivity,/CameraButtonGesture\.shared\(\)\.onShortPress\(event\.getEventTime\(\), recordingCameraCallbacks\)/);
   assert.match(cameraActivity,/CameraButtonGesture\.shared\(\)\.onLongPress\(pressedAt \+ VolumeKeyInterpreter\.LONG_PRESS_MS, recordingCameraCallbacks\)/);
-  assert.match(yuntengGestures,/KEYCODE_VOLUME_UP && deviceName[\s\S]*?KEYCODE_CAMERA/);
-  assert.match(cameraActivity,/dispatchTouchEvent\(MotionEvent event\)[\s\S]*?sendYuntengScore\(action\)/);
+  assert.match(cameraActivity,/if \(keyCode == android\.view\.KeyEvent\.KEYCODE_CAMERA\) \{\s*handleRecordingCameraKey\(event\);/);
   assert.match(cameraActivity,/remoteScoreController\.submit\(action/);
 });

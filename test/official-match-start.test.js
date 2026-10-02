@@ -70,22 +70,14 @@ test('Android gates the official start with a double press before sending anythi
   assert.match(controller,/WAIT_FOR_SECOND_PRESS\) \{\s*if \(callback != null\) callback\.onComplete\(true, "再按一下正式開始", action\);\s*return;/);
   assert.match(controller,/OFFICIAL_START\) \{[\s\S]*?startOfficialMatch\(/);
   assert.doesNotMatch(controller,/doublePress|OFFICIAL_START_DOUBLE_PRESS_MS/);
-  assert.match(activity,/TEAM_A_PLUS \|\| action == VolumeKeyInterpreter\.Action\.TEAM_B_PLUS\) \{\s*sendYuntengScoreAction\(action\);\s*return;/);
+  assert.match(activity,/TEAM_A_PLUS \|\| action == VolumeKeyInterpreter\.Action\.TEAM_B_PLUS\) \{\s*sendScoreAction\(action\);\s*return;/);
 });
 
-test('an idle YUNTENG press still scores when a later touch does not',()=>{
+test('touch events only intercept the P4 remote now that YUNTENG is removed',()=>{
   const loop=readFileSync(new URL('../android-remote/app/src/main/java/tw/club7b/scoreremote/LoopCameraActivity.java',import.meta.url),'utf8');
-  const interpreter=readFileSync(new URL('../android-remote/app/src/main/java/tw/club7b/scoreremote/YuntengGestureInterpreter.java',import.meta.url),'utf8');
-  const controller=readFileSync(new URL('../android-remote/app/src/main/java/tw/club7b/scoreremote/BackgroundScoreController.java',import.meta.url),'utf8');
-  assert.doesNotMatch(interpreter,/discardUnsentPress|takePendingPressBeforeNewPress/);
-  assert.match(interpreter,/gestureAction = identifyPress\(event\);/);
-  assert.match(interpreter,/if \(gestureAction == VolumeKeyInterpreter\.Action\.NONE\) return false;\s*pendingAction = gestureAction;/);
-  assert.match(interpreter,/if \(!gestureOpen\) return true;\s*return isNewPress\(previousPointerDownAt, eventTime\);/);
-  assert.match(controller,/boolean allowsFastOfficialStartPress\(\) \{\s*return !matchKnown \|\| awaitingOfficialStart\(\);/);
-  assert.match(activity,/if \(!yuntengGestures\.onTouchEvent\(event, officialStart\)\) return true;\s*if \(officialStart\) \{\s*deliverYuntengPress\(yuntengGestures\.onSettledPress\(\)\);\s*return true;\s*\}\s*cancelYuntengPressTimers\(\);\s*scheduleYuntengPress\(\);/);
-  assert.doesNotMatch(activity,/deliverYuntengPress\(previousPress\)/);
-  assert.match(loop,/if \(!yuntengGestures\.onTouchEvent\(event, officialStart\)\) return true;\s*if \(officialStart\) \{\s*sendYuntengScore\(yuntengGestures\.onSettledPress\(\)\);\s*return true;\s*\}\s*cancelYuntengPressTimers\(\);\s*scheduleYuntengPress\(\);/);
-  assert.doesNotMatch(loop,/sendYuntengScore\(previousPress\)/);
+  assert.doesNotMatch(controller,/allowsFastOfficialStartPress/);
+  assert.match(activity,/dispatchTouchEvent\(MotionEvent event\) \{\s*if \(deliverP4Gesture\(event\)\) return true;\s*return super\.dispatchTouchEvent\(event\);/);
+  assert.match(loop,/dispatchTouchEvent\(MotionEvent event\) \{\s*if \(deliverP4Gesture\(event\)\) return true;\s*return super\.dispatchTouchEvent\(event\);/);
 });
 
 test('Android keeps a live match listener so the first remote press is ready',()=>{
