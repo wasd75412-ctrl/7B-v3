@@ -23,6 +23,7 @@ import android.os.ParcelFileDescriptor;
 import android.provider.MediaStore;
 import android.util.Log;
 import android.view.Gravity;
+import android.view.View;
 import android.view.MotionEvent;
 import android.view.Surface;
 import android.view.ViewGroup;
@@ -86,6 +87,9 @@ public final class LoopCameraActivity extends ComponentActivity {
     private Runnable pendingYuntengPress;
     private Runnable pendingCameraLongPress;
     private BackgroundScoreController remoteScoreController;
+    private FrameLayout recordingStage;
+    private int stagedWindowWidth = -1;
+    private int stagedWindowHeight = -1;
     private PreviewView previewView;
     private android.view.View scorePreviewOverlay;
     private TextView status;
@@ -259,7 +263,6 @@ public final class LoopCameraActivity extends ComponentActivity {
 
     private boolean deliverP4Gesture(MotionEvent event) {
         if (!p4Gestures.isP4Event(event)) return false;
-        p4Gestures.setDisplayRotation(getWindowManager().getDefaultDisplay().getRotation());
         VolumeKeyInterpreter.Action action = p4Gestures.onTouchEvent(
                 event, getResources().getDisplayMetrics().density);
         if (action != VolumeKeyInterpreter.Action.NONE) {
@@ -307,14 +310,16 @@ public final class LoopCameraActivity extends ComponentActivity {
     }
 
     private void buildUi() {
-        FrameLayout root = new FrameLayout(this);
-        root.setBackgroundColor(Color.BLACK);
+        FrameLayout window = new FrameLayout(this);
+        window.setBackgroundColor(Color.BLACK);
+        recordingStage = new FrameLayout(this);
+        recordingStage.setBackgroundColor(Color.BLACK);
         previewView = new PreviewView(this);
         previewView.setImplementationMode(PreviewView.ImplementationMode.COMPATIBLE);
         previewView.setScaleType(PreviewView.ScaleType.FILL_CENTER);
         previewView.setFocusable(false);
         previewView.setFocusableInTouchMode(false);
-        root.addView(previewView, new FrameLayout.LayoutParams(-1, -1));
+        recordingStage.addView(previewView, new FrameLayout.LayoutParams(-1, -1));
         if (broadcastMode) {
             scorePreviewOverlay = new android.view.View(this) {
                 @Override protected void onDraw(android.graphics.Canvas canvas) {
@@ -323,7 +328,7 @@ public final class LoopCameraActivity extends ComponentActivity {
                 }
             };
             scorePreviewOverlay.setClickable(false);
-            root.addView(scorePreviewOverlay, new FrameLayout.LayoutParams(-1, -1));
+            recordingStage.addView(scorePreviewOverlay, new FrameLayout.LayoutParams(-1, -1));
         }
         LinearLayout bar = new LinearLayout(this);
         bar.setOrientation(LinearLayout.HORIZONTAL);
@@ -331,7 +336,7 @@ public final class LoopCameraActivity extends ComponentActivity {
         bar.setBackgroundColor(0xB0000000);
         status = new TextView(this); status.setTextColor(Color.WHITE); status.setTextSize(17f); status.setText("相機準備中…");
         status.setPadding(22, 14, 22, 14);
-        root.addView(status, new FrameLayout.LayoutParams(-2, -2, Gravity.TOP | Gravity.START));
+        recordingStage.addView(status, new FrameLayout.LayoutParams(-2, -2, Gravity.TOP | Gravity.START));
         if (broadcastMode) {
             Button save = new Button(this); save.setText("保存並繼續"); prepareActionButton(save); save.setOnClickListener(v -> saveBroadcastAndContinue()); bar.addView(save);
         }
@@ -342,25 +347,52 @@ public final class LoopCameraActivity extends ComponentActivity {
         }); bar.addView(close);
         bar.setGravity(Gravity.END | Gravity.CENTER_VERTICAL);
         FrameLayout.LayoutParams actionParams = new FrameLayout.LayoutParams(-2, -2, Gravity.TOP | Gravity.END);
-        root.addView(bar, actionParams);
+        recordingStage.addView(bar, actionParams);
         Button back = new Button(this);
         back.setText("返回");
         prepareActionButton(back);
         back.setOnClickListener(v -> returnWithoutAction());
         FrameLayout.LayoutParams backParams = new FrameLayout.LayoutParams(-2, -2, Gravity.BOTTOM | Gravity.START);
-        root.addView(back, backParams);
-        ViewCompat.setOnApplyWindowInsetsListener(root, (view, windowInsets) -> {
+        recordingStage.addView(back, backParams);
+        ViewCompat.setOnApplyWindowInsetsListener(window, (view, windowInsets) -> {
             androidx.core.graphics.Insets systemBars = windowInsets.getInsets(WindowInsetsCompat.Type.systemBars());
-            status.setPadding(22 + systemBars.left, 14 + systemBars.top, 22 + systemBars.right, 14);
-            actionParams.topMargin = 14 + systemBars.top;
-            actionParams.rightMargin = systemBars.right;
-            backParams.leftMargin = 22 + systemBars.left;
-            backParams.bottomMargin = 14 + systemBars.bottom;
+            status.setPadding(22 + systemBars.top, 14 + systemBars.right, 22 + systemBars.bottom, 14);
+            actionParams.topMargin = 14 + systemBars.right;
+            actionParams.rightMargin = 14 + systemBars.bottom;
+            backParams.leftMargin = 22 + systemBars.top;
+            backParams.bottomMargin = 14 + systemBars.left;
             back.setLayoutParams(backParams);
             bar.setLayoutParams(actionParams);
             return windowInsets;
         });
-        setContentView(root, new ViewGroup.LayoutParams(-1, -1));
+        window.setClipChildren(false);
+        window.setClipToPadding(false);
+        window.addView(recordingStage, new FrameLayout.LayoutParams(-1, -1));
+        window.addOnLayoutChangeListener((v, left, top, right, bottom, oldLeft, oldTop, oldRight, oldBottom) ->
+                orientRecordingStage(right - left, bottom - top));
+        setContentView(window, new ViewGroup.LayoutParams(-1, -1));
+        View decor = getWindow().getDecorView();
+        if (decor instanceof ViewGroup) {
+            ((ViewGroup) decor).setClipChildren(false);
+            ((ViewGroup) decor).setClipToPadding(false);
+        }
+    }
+
+    /** Keep the window in the remote's portrait coordinate space and rotate the preview to landscape. */
+    private void orientRecordingStage(int windowWidth, int windowHeight) {
+        if (recordingStage == null || windowWidth <= 0 || windowHeight <= 0) return;
+        if (windowWidth == stagedWindowWidth && windowHeight == stagedWindowHeight) return;
+        stagedWindowWidth = windowWidth;
+        stagedWindowHeight = windowHeight;
+        recordingStage.setLayoutParams(new FrameLayout.LayoutParams(windowHeight, windowWidth));
+        recordingStage.post(() -> {
+            if (recordingStage == null || recordingStage.getWidth() <= 0 || recordingStage.getHeight() <= 0) return;
+            recordingStage.setPivotX(recordingStage.getWidth() / 2f);
+            recordingStage.setPivotY(recordingStage.getHeight() / 2f);
+            recordingStage.setRotation(-90f);
+            recordingStage.setTranslationX((windowWidth - windowHeight) / 2f);
+            recordingStage.setTranslationY((windowHeight - windowWidth) / 2f);
+        });
     }
 
     private void prepareActionButton(Button button) {
