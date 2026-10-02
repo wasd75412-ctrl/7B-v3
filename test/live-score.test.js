@@ -50,8 +50,8 @@ test('creates the same compatibility key for encoded and decoded matches',()=>{
   assert.equal(liveMatchKey(decoded),liveMatchKey(encodeLiveMatch(decoded)));
 });
 
-test('announces a remote score update on the visible iPad scoreboard',()=>{
-  assert.equal(shouldAnnounceSyncedLiveScore({announce:true,snapshotReady:true,changed:true,scoreVisible:true,androidRemote:false,matchActive:true,voiceEnabled:true}),true);
+test('does not announce a score update by voice',()=>{
+  assert.equal(shouldAnnounceSyncedLiveScore({announce:true,snapshotReady:true,changed:true,scoreVisible:true,androidRemote:false,matchActive:true,voiceEnabled:true}),false);
 });
 
 test('does not announce initial, hidden, disabled, or Android remote snapshots',()=>{
