@@ -217,7 +217,6 @@ public final class MainActivity extends Activity {
 
     private boolean deliverP4Gesture(MotionEvent event) {
         if (!p4Gestures.isP4Event(event)) return false;
-        p4Gestures.setDisplayRotation(getWindowManager().getDefaultDisplay().getRotation());
         VolumeKeyInterpreter.Action action = p4Gestures.onTouchEvent(event, displayDensity());
         if (action != VolumeKeyInterpreter.Action.NONE) {
             cancelP4Settle();

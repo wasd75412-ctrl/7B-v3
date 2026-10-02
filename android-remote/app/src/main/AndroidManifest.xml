@@ -36,7 +36,7 @@
             android:name=".LoopCameraActivity"
             android:configChanges="keyboard|keyboardHidden|orientation|screenSize"
             android:exported="false"
-            android:screenOrientation="landscape" />
+            android:screenOrientation="portrait" />
         <activity
             android:name=".RecordingsActivity"
             android:exported="false" />

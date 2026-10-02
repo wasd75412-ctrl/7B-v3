@@ -3,7 +3,6 @@ package tw.club7b.scoreremote;
 import android.view.InputDevice;
 import android.view.KeyEvent;
 import android.view.MotionEvent;
-import android.view.Surface;
 
 import java.util.Locale;
 
@@ -21,7 +20,6 @@ final class P4GestureInterpreter {
     private float lastY;
     private long lastActionAt = Long.MIN_VALUE;
     private VolumeKeyInterpreter.Action lastAction = VolumeKeyInterpreter.Action.NONE;
-    private int displayRotation = Surface.ROTATION_0;
 
     boolean isP4Event(MotionEvent event) {
         return event != null && isP4Name(deviceName(event));
@@ -35,23 +33,6 @@ final class P4GestureInterpreter {
 
     static boolean isOfficialStartKey(String deviceName, int keyCode) {
         return isP4Name(deviceName) && keyCode == KeyEvent.KEYCODE_VOLUME_DOWN;
-    }
-
-    void setDisplayRotation(int rotation) {
-        displayRotation = rotation;
-    }
-
-    static float[] toRemoteDelta(float dx, float dy, int rotation) {
-        switch (rotation) {
-            case Surface.ROTATION_90:
-                return new float[] {-dy, dx};
-            case Surface.ROTATION_180:
-                return new float[] {-dx, -dy};
-            case Surface.ROTATION_270:
-                return new float[] {dy, -dx};
-            default:
-                return new float[] {dx, dy};
-        }
     }
 
     VolumeKeyInterpreter.Action onTouchEvent(MotionEvent event, float density) {
@@ -104,9 +85,8 @@ final class P4GestureInterpreter {
         tracking = false;
         touched = false;
         moved = false;
-        if (canceled || (!didMove && !pressed)) return VolumeKeyInterpreter.Action.NONE;
-        float[] remoteDelta = toRemoteDelta(dx, dy, displayRotation);
-        VolumeKeyInterpreter.Action resolved = classify(remoteDelta[0], remoteDelta[1], didMove);
+        if (!didMove && (!pressed || canceled)) return VolumeKeyInterpreter.Action.NONE;
+        VolumeKeyInterpreter.Action resolved = classify(dx, dy, didMove);
         if (resolved == lastAction && eventTime >= lastActionAt && eventTime - lastActionAt < DUPLICATE_ACTION_MS) {
             return VolumeKeyInterpreter.Action.NONE;
         }
