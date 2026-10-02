@@ -312,7 +312,7 @@ test('removes the old score remote from More and provides a no-stats test mode',
   assert.match(html,/id="scoreTestModeToggle"/);
   assert.doesNotMatch(mainSource,/confirm\(['"]開啟測試模式/);
   assert.match(mainSource,/\$\('scoreTestModeToggle'\)\.onclick=toggleTestMode/);
-  assert.match(styles,/immersive-mode \.score-head \.score-actions>button:not\(#fullscreenScore\):not\(#officialStartScore\):not\(#undo\)/);
+  assert.match(styles,/immersive-mode \.score-head \.score-actions>button:not\(#fullscreenScore\):not\(#officialStartScore\):not\(#undo\):not\(#syncSessionScore\)/);
   assert.doesNotMatch(styles,/button:not\(#fullscreenScore\):not\(#undo\):not\(#scoreTestModeToggle\)/);
   assert.match(mainSource,/const isTestMatch=!!m\.testMode\|\|!!state\.testMode/);
   assert.match(mainSource,/if\(isTestMatch\)\{[\s\S]*?m\.testCompleted=true/);
@@ -357,7 +357,7 @@ test('removes the old score remote from More and provides a no-stats test mode',
 
 test('keeps only the requested controls in normal score mode',()=>{
   const scoreActions=html.match(/<div class="score-actions">([\s\S]*?)<\/div>\s*<\/header>/)?.[1]||'';
-  for(const id of ['randomThemeToggle','fullscreenScore','refreshApp','scoreTestModeToggle','undo','exitScore'])assert.match(scoreActions,new RegExp(`id="${id}"`));
+  for(const id of ['randomThemeToggle','fullscreenScore','refreshApp','scoreTestModeToggle','syncSessionScore','undo','exitScore'])assert.match(scoreActions,new RegExp(`id="${id}"`));
   assert.match(scoreActions,/id="scoreTheme"/);
   for(const id of ['voiceToggle','speakerTest','scoreRemoteQuickBtn','audioHelp'])assert.doesNotMatch(scoreActions,new RegExp(`id="${id}"`));
 });
@@ -399,10 +399,10 @@ test('keeps the Android remote session active after a match finishes so it can u
 });
 
 test('offers ending today session at the bottom right of the finished match page',()=>{
-  assert.match(html,/class="result-footer"><button id="resultEndSessionBtn"[^>]*>結束球局<\/button>/);
+  assert.match(html,/class="result-footer"><button id="resultSyncSessionBtn"[^>]*>同步<\/button><button id="resultEndSessionBtn"[^>]*>結束球局<\/button>/);
   assert.match(mainSource,/resultEndSessionBtn'\)\.onclick=\(\)=>endTodaySession\(\$\('resultEndSessionBtn'\)\)/);
   assert.match(styles,/#resultModal \.result-footer\{[^}]*justify-content:flex-end/);
-  assert.match(styles,/#resultModal #resultEndSessionBtn\{margin-left:auto\}/);
+  assert.match(styles,/#resultModal #resultEndSessionBtn\{margin-left:0\}/);
 });
 
 test('lays out finished-match primary actions below teams and returns close to court',()=>{

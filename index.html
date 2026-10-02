@@ -250,6 +250,7 @@
       <button id="randomThemeToggle" class="btn host-only" type="button" aria-label="開啟下一場隨機背景" title="下一場隨機背景" aria-pressed="false">🎲</button>
       <button id="fullscreenScore" class="btn" type="button" aria-label="進入全螢幕" title="進入全螢幕">⛶</button>
       <button id="officialStartScore" class="btn official-start-score-btn" type="button" aria-label="比賽正式開始" title="比賽正式開始">▶️</button>
+      <button id="syncSessionScore" class="btn host-only" type="button" aria-label="同步" title="同步">同步</button>
       <button id="refreshApp" class="btn" type="button" data-refresh-app aria-label="重新整理" title="重新整理">↻</button>
       <button id="scoreTestModeToggle" class="btn host-only" type="button" aria-label="開啟測試模式" title="開啟測試模式" aria-pressed="false">🧪</button>
       <button id="undo" class="btn host-only" type="button" aria-label="撤銷上一分" title="撤銷上一分">↶<span class="score-undo-label">撤銷</span></button>
@@ -385,7 +386,7 @@
   </div>
   <div id="nextMatchLayout" class="next-grid"><div class="next-team a"><h3>A隊</h3><div class="slot"><select id="n0"></select></div><div class="slot doubles-only"><select id="n1"></select></div></div><div class="next-team b"><h3>B隊</h3><div class="slot"><select id="n2"></select></div><div class="slot doubles-only"><select id="n3"></select></div></div></div>
   <div class="result-main-actions host-only"><button id="undoFinishedMatch" class="btn danger-outline">撤銷上一分</button><button id="startNext" class="btn primary">下一場</button></div>
-  <div class="result-footer"><button id="resultEndSessionBtn" class="btn danger-outline host-only">結束球局</button></div>
+  <div class="result-footer"><button id="resultSyncSessionBtn" class="btn host-only" type="button">同步</button><button id="resultEndSessionBtn" class="btn danger-outline host-only">結束球局</button></div>
 </div></div>
 
 <div id="editModal" class="modal hidden"><div class="modal-card player-profile-modal-card" style="max-width:700px">
