@@ -1,5 +1,5 @@
 import { initializeApp } from 'firebase/app';
-import { initializeFirestore, memoryLocalCache, persistentLocalCache, persistentMultipleTabManager, doc, getDoc, getDocFromServer, onSnapshot, setDoc, writeBatch, serverTimestamp, runTransaction, collection, getDocs, deleteDoc, query, orderBy, limit } from 'firebase/firestore';
+import { initializeFirestore, memoryLocalCache, persistentLocalCache, persistentMultipleTabManager, disableNetwork, enableNetwork, doc, getDoc, getDocFromServer, onSnapshot, setDoc, writeBatch, serverTimestamp, runTransaction, collection, getDocs, deleteDoc, query, orderBy, limit } from 'firebase/firestore';
 import appPackage from '../package.json';
 import { calculateCombinedPerPersonFee, calculatePerPersonFee, shouldShowNextEventAnnouncement, suggestedEventEndTime } from './next-event.js';
 import { shouldShowNotificationPrompt } from './notifications.js';
@@ -9,6 +9,7 @@ import { checkpointMissedOfficialStart, createLiveScoreData, createMatchCheckpoi
 import { REMOTE_COMMAND_MAX_AGE_MS, shouldAcceptRemoteCommand, timestampMillis } from './remote-command.js';
 import { canAutoSyncPlayerIdentity } from './device-sync.js';
 import { shouldRequestNativeWakeLock, wakeLockButtonIntent, wakeLockControlIsActive } from './wake-lock.js';
+import { FIRESTORE_LINK_COOLDOWN_MS, FIRESTORE_LINK_TIMEOUT_MS, firestoreLinkProbeVerdict, shouldProbeFirestoreLink } from './firestore-link.js';
 import { chooseScoreTheme } from './score-theme-preference.js';
 import { arrangeTeamsWithTeammateLimit, lineupExceedsTeammateLimit } from './team-rotation.js';
 import { CHAT_MEDIA_MAX_BYTES, CHAT_MEDIA_TYPES, CHAT_MENTION_ALL_ID, CHAT_MESSAGE_MAX_LENGTH, addPlayerOwnerHash, chatMediaLabel, chatMentionSearch, claimedChatPlayerId, cleanChatText, hasChatAllMention, mentionIdsFromText, normalizeChatMedia, normalizeChatMentionIds, playerOwnerHashes, removeChatAllMention, removeChatMention } from './chat.js';
@@ -93,6 +94,7 @@ let deviceProfileUnsubscribe=null,deviceProfileApplying=false,deviceProfileSaveT
 let roomSnapshotFromCache=false,snapshotHasPendingWrites=false,pendingRoomWrites=0,roomWriteScheduled=false,archivedHistory=[],removedMatchIds=new Set();
 const SYNC_MODE_KEY='bcmRoomSyncModeV1';
 let liveScoreSnapshotFromCache=false,liveScoreHasPendingWrites=false,pendingLiveScoreWrites=0,liveScoreWriteScheduled=false,liveScoreConnecting=false,liveScoreAvailable=true,liveScoreReady=false,liveScoreInitialSnapshot=true,remoteControlInitialSnapshot=true,remoteActionInitialSnapshot=true,liveScoreMigrationStarted=false,latestLiveMatch=null,lastRoomSnapshotData=null,lastRemoteRecordingStartCommandId='',lastRemoteFullscreenCommandId='',lastRemoteOfficialStartCommandId='',lastRemoteNextMatchCommandId='',lastRemoteUndoFinishedCommandId='',lastRemoteStartMatchCommandId='',lastRemoteActionCommandId='',seenRemoteActionIds=new Set(),androidOfficialStartPending=null,replacedRemoteMatchId='',replacedRemoteMatchAt=0;
+let firestoreLinkRecovering=false,firestoreLinkRecoverInFlight=false,firestoreLinkProbeInFlight=false,firestoreLinkLastProbeAt=0,firestoreLinkCooldownUntil=0,firestoreLinkProbeGeneration=0,firestoreLinkServerActivityAt=0;
 let chatMessages=[],chatMentionIds=new Set(),chatFirstRender=true,chatMessagesRenderKey='',chatLastSentAt=0,chatRequestRunning=false,chatSendRunning=false,chatPendingMedia=null;
 const requestParams=new URLSearchParams(location.search),requestedPage=requestParams.get('page'),requestedAndroidRemote=requestParams.get('androidRemote')==='1';
 if(requestedAndroidRemote){
@@ -1552,6 +1554,7 @@ function updateSyncBadge(){
   const offline=!navigator.onLine||roomSnapshotFromCache||(liveScoreReady&&liveScoreSnapshotFromCache);
   const livePending=liveScoreWriteScheduled||pendingLiveScoreWrites>0||liveScoreHasPendingWrites||(liveScoreConnecting&&!liveScoreReady);
   const roomPending=roomWriteScheduled||pendingRoomWrites>0||snapshotHasPendingWrites;
+  if(navigator.onLine&&firestoreLinkRecovering){setSync('重新連線中','pending');const recoveringBadge=$('scoreSyncBadge');if(recoveringBadge){recoveringBadge.textContent='重新連線';recoveringBadge.className='score-sync-badge pending'}return}
   if(offline)return setSync(isHost?'離線計分中':'離線瀏覽中','offline');
   if(roomPending||livePending)setSync('正在補同步','pending');
   else setSync('已同步','online');
@@ -1560,8 +1563,62 @@ function updateSyncBadge(){
   if(livePending){scoreBadge.textContent='同步中';scoreBadge.className='score-sync-badge pending';return}
   scoreBadge.textContent='即時連線';scoreBadge.className='score-sync-badge online';
 }
+function noteFirestoreServerActivity(fromCache){
+  if(fromCache)return;
+  firestoreLinkServerActivityAt=Date.now();
+  if(!firestoreLinkRecovering)return;
+  firestoreLinkRecovering=false;
+  updateSyncBadge();
+}
+async function recoverFirestoreLink(){
+  if(firestoreLinkRecoverInFlight)return;
+  firestoreLinkRecoverInFlight=true;
+  firestoreLinkRecovering=true;
+  firestoreLinkCooldownUntil=Date.now()+FIRESTORE_LINK_COOLDOWN_MS;
+  updateSyncBadge();
+  try{await disableNetwork(db)}catch(error){console.warn('Firestore 中斷連線失敗',error)}
+  try{await enableNetwork(db)}catch(error){console.warn('Firestore 重新連線失敗',error)}
+  finally{firestoreLinkRecoverInFlight=false}
+}
+async function probeFirestoreLink(){
+  const ref=liveScoreRef||roomRef;
+  if(!ref)return;
+  const generation=++firestoreLinkProbeGeneration;
+  const startedAt=Date.now();
+  firestoreLinkProbeInFlight=true;
+  firestoreLinkLastProbeAt=startedAt;
+  let timer;
+  try{
+    const result=await Promise.race([
+      getDocFromServer(ref).then(()=>({timedOut:false})).catch(error=>({timedOut:false,errorCode:String(error?.code||'')})),
+      new Promise(resolve=>{timer=setTimeout(()=>resolve({timedOut:true}),FIRESTORE_LINK_TIMEOUT_MS)})
+    ]);
+    if(generation!==firestoreLinkProbeGeneration)return;
+    if(firestoreLinkProbeVerdict(result)==='stuck'){if(firestoreLinkServerActivityAt<startedAt)await recoverFirestoreLink()}
+    else if(firestoreLinkRecovering){firestoreLinkRecovering=false;updateSyncBadge()}
+  }finally{
+    clearTimeout(timer);
+    if(generation===firestoreLinkProbeGeneration)firestoreLinkProbeInFlight=false;
+  }
+}
+function runFirestoreLinkWatch(){
+  const now=Date.now();
+  if(!shouldProbeFirestoreLink({
+    online:navigator.onLine,
+    hidden:document.hidden,
+    roomReady:!!roomRef&&!liveScoreConnecting&&!roomConnectInProgress,
+    probeInFlight:firestoreLinkProbeInFlight,
+    now,
+    lastProbeAt:firestoreLinkLastProbeAt,
+    cooldownUntil:firestoreLinkCooldownUntil
+  }))return;
+  void probeFirestoreLink();
+}
+setInterval(runFirestoreLinkWatch,1000);
 window.addEventListener('offline',()=>{updateSyncBadge();renderChat()});
-window.addEventListener('online',()=>{if(roomRef){setSync('重新連線中','pending');setError('')}renderChat()});
+window.addEventListener('online',()=>{firestoreLinkLastProbeAt=0;firestoreLinkCooldownUntil=0;setError('');if(roomRef)void recoverFirestoreLink();else updateSyncBadge();renderChat()});
+document.addEventListener('visibilitychange',()=>{if(document.visibilityState!=='visible')return;firestoreLinkLastProbeAt=0;firestoreLinkCooldownUntil=0;if(roomRef&&navigator.onLine)void recoverFirestoreLink();else runFirestoreLinkWatch()});
+window.addEventListener('pageshow',()=>{firestoreLinkLastProbeAt=0;firestoreLinkCooldownUntil=0;if(roomRef&&navigator.onLine)void recoverFirestoreLink();else runFirestoreLinkWatch()});
 function formatError(e){const code=e?.code||'unknown';if(!navigator.onLine&&(code==='unavailable'||code==='not-found'))return '目前沒有網路，而且這台裝置尚未快取此球局。請先連線進入一次，之後即可離線使用。';if(code==='permission-denied')return 'Firestore 權限被拒絕（permission-denied）。請到 Firebase → Firestore → 規則，發布 ZIP 內 FIRESTORE_RULES.txt 的內容。';if(code==='invalid-argument'&&String(e?.message||'').includes('Nested arrays'))return '資料格式錯誤：Firestore 不支援巢狀陣列。請部署 BCM 2.2.18 Two-Digit Score Fix 最新版。';return `Firebase 連線失敗：${code}\n${e?.message||e}`}
 function hostKey(id){return `bcmHost_${id}`}
 function adminLogoutKey(id){return `bcmAdminLoggedOut_${id}`}
@@ -1738,7 +1795,7 @@ async function connectRoom(id){
     unsubscribe=onSnapshot(roomRef,{includeMetadataChanges:true},s=>{
       if(!s.exists())return;
       if(s.metadata.fromCache&&(roomServerReady||requestedAndroidRemote))return;
-      if(!s.metadata.fromCache)roomServerReady=true;
+      if(!s.metadata.fromCache){roomServerReady=true;noteFirestoreServerActivity(false)}
       lastRoomSnapshotData=s.data();
       roomSnapshotFromCache=!!s.metadata.fromCache;
       snapshotHasPendingWrites=!!s.metadata.hasPendingWrites;
@@ -1763,7 +1820,7 @@ async function connectRoom(id){
       liveScoreSnapshotFromCache=!!snapshot.metadata.fromCache;
       liveScoreHasPendingWrites=!!snapshot.metadata.hasPendingWrites;
       if(liveScoreSnapshotFromCache&&(liveServerReady||requestedAndroidRemote)){updateSyncBadge();return}
-      if(!liveScoreSnapshotFromCache)liveServerReady=true;
+      if(!liveScoreSnapshotFromCache){liveServerReady=true;noteFirestoreServerActivity(false)}
       if(!snapshot.exists()){
         liveScoreReady=false;
         if(isHost&&!requestedAndroidRemote&&!snapshot.metadata.fromCache&&!liveScoreMigrationStarted)void initializeLiveScoreDocument();
@@ -1782,6 +1839,7 @@ async function connectRoom(id){
     });
     remoteActionUnsubscribe=onSnapshot(collection(db,'badmintonRooms',id,'remoteControl'),{includeMetadataChanges:true},snapshot=>{
       if(snapshot.metadata.fromCache)return;
+      noteFirestoreServerActivity(false);
       const initial=remoteActionInitialSnapshot;
       remoteActionInitialSnapshot=false;
       const added=[];
@@ -1801,6 +1859,7 @@ async function connectRoom(id){
     remoteControlUnsubscribe=onSnapshot(remoteControlRef,{includeMetadataChanges:true},snapshot=>{
       // Cache events cannot establish the command baseline. The first server event is skipped too.
       if(snapshot.metadata.fromCache||snapshot.metadata.hasPendingWrites)return;
+      noteFirestoreServerActivity(false);
       if(!snapshot.exists()){remoteControlInitialSnapshot=false;return}
       const commandData=snapshot.data(),initial=remoteControlInitialSnapshot;
       applyRemoteActionLog(commandData,{initial});
