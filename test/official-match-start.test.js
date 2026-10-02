@@ -140,6 +140,10 @@ test('a started match stays started when a later snapshot omits the start time',
   assert.match(controller,/else if \(!nextActive \|\| nextFinished\) \{\s*matchStarted = false;\s*\} else if \(startedNow\) \{\s*if \(!matchStarted\) suppressScoreUntil = Math\.max\(suppressScoreUntil, now \+ START_ECHO_SUPPRESS_MS\);\s*matchStarted = true;\s*\}/);
 });
 
+test('scoring does not speak',()=>{
+  assert.doesNotMatch(main,/speechSynthesis|announceScore|synth\.cancel/);
+});
+
 test('official start does not block the following score presses',()=>{
   assert.doesNotMatch(main,/OFFICIAL_START_SCORE_LOCK_MS|officialStartScoreUnlockAt|正式開始保護中/);
   assert.match(main,/showScoreRemoteIndicator\('比賽正式開始',\{duration:500/);
