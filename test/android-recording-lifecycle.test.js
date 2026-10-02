@@ -5,12 +5,17 @@ import {readFileSync} from 'node:fs';
 const source=readFileSync(new URL('../android-remote/app/src/main/java/tw/club7b/scoreremote/MainActivity.java',import.meta.url),'utf8');
 const camera=readFileSync(new URL('../android-remote/app/src/main/java/tw/club7b/scoreremote/LoopCameraActivity.java',import.meta.url),'utf8');
 
-test('records at 4K when supported and falls back to 1080p on other cameras',()=>{
-  assert.match(camera,/bindRecording\(provider, Quality\.UHD\) && !bindRecording\(provider, Quality\.FHD\)/);
+test('recording quality can be lowered from 4K and is remembered',()=>{
+  assert.match(camera,/rebindSelectedQuality\(\)/);
   assert.match(camera,/FallbackStrategy\.lowerQualityOrHigherThan\(Quality\.UHD\)/);
-  assert.match(camera,/FallbackStrategy\.lowerQualityThan\(Quality\.FHD\)/);
-  assert.match(camera,/setTargetVideoEncodingBitRate\(quality == Quality\.UHD \? 40_000_000 : 16_000_000\)/);
-  assert.doesNotMatch(camera,/QualitySelector\.from\(Quality\.HD\)/);
+  assert.match(camera,/FallbackStrategy\.lowerQualityThan\(quality\)/);
+  assert.match(camera,/videoBitrate\(quality\)/);
+  assert.match(camera,/if \(quality == Quality\.UHD\) return 40_000_000/);
+  assert.match(camera,/if \(quality == Quality\.HD\) return 4_000_000/);
+  assert.match(camera,/return 8_000_000/);
+  assert.match(camera,/Quality\.HD/);
+  assert.match(camera,/putString\(QUALITY_KEY, next\)/);
+  assert.match(camera,/qualityButton\.setText\(qualityLabel\(savedQuality\(\)\)\)/);
 });
 
 test('suspends the hidden WebView while native recording stays active',()=>{

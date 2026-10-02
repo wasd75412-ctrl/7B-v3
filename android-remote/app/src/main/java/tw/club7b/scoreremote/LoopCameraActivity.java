@@ -22,6 +22,7 @@ import android.os.Environment;
 import android.os.ParcelFileDescriptor;
 import android.provider.MediaStore;
 import android.util.Log;
+import android.util.Size;
 import android.view.Gravity;
 import android.view.View;
 import android.view.MotionEvent;
@@ -38,6 +39,8 @@ import androidx.annotation.NonNull;
 import androidx.camera.core.CameraSelector;
 import androidx.camera.core.CameraEffect;
 import androidx.camera.core.Preview;
+import androidx.camera.core.resolutionselector.ResolutionSelector;
+import androidx.camera.core.resolutionselector.ResolutionStrategy;
 import androidx.camera.core.UseCaseGroup;
 import androidx.camera.effects.OverlayEffect;
 import androidx.camera.lifecycle.ProcessCameraProvider;
@@ -75,6 +78,8 @@ public final class LoopCameraActivity extends ComponentActivity {
     private static final long SEGMENT_MS = 10_000L;
     private static final long RECORDING_RECOVERY_MS = 750L;
     private static final int SEGMENT_LIMIT = 18;
+    private static final String QUALITY_PREFS = "recording_video_quality";
+    private static final String QUALITY_KEY = "quality";
     private final ArrayDeque<File> segments = new ArrayDeque<>();
     private final ExecutorService io = Executors.newSingleThreadExecutor();
     private final android.os.Handler handler = new android.os.Handler(android.os.Looper.getMainLooper());
@@ -91,6 +96,9 @@ public final class LoopCameraActivity extends ComponentActivity {
     private int stagedWindowWidth = -1;
     private int stagedWindowHeight = -1;
     private PreviewView previewView;
+    private Button qualityButton;
+    private ProcessCameraProvider cameraProvider;
+    private boolean qualityRestartRequested;
     private android.view.View scorePreviewOverlay;
     private TextView status;
     private VideoCapture<Recorder> videoCapture;
@@ -337,6 +345,11 @@ public final class LoopCameraActivity extends ComponentActivity {
         status = new TextView(this); status.setTextColor(Color.WHITE); status.setTextSize(17f); status.setText("相機準備中…");
         status.setPadding(22, 14, 22, 14);
         recordingStage.addView(status, new FrameLayout.LayoutParams(-2, -2, Gravity.TOP | Gravity.START));
+        qualityButton = new Button(this);
+        qualityButton.setText(qualityLabel(savedQuality()));
+        prepareActionButton(qualityButton);
+        qualityButton.setOnClickListener(v -> cycleQuality());
+        bar.addView(qualityButton);
         if (broadcastMode) {
             Button save = new Button(this); save.setText("保存並繼續"); prepareActionButton(save); save.setOnClickListener(v -> saveBroadcastAndContinue()); bar.addView(save);
         }
@@ -410,9 +423,9 @@ public final class LoopCameraActivity extends ComponentActivity {
         future.addListener(() -> {
             if (closing || isFinishing() || isDestroyed()) return;
             try {
-                ProcessCameraProvider provider = future.get();
+                cameraProvider = future.get();
                 if (broadcastMode && scoreOverlayEffect == null) scoreOverlayEffect = createScoreOverlayEffect();
-                if (!bindRecording(provider, Quality.UHD) && !bindRecording(provider, Quality.FHD)) {
+                if (!rebindSelectedQuality()) {
                     status.setText("相機啟動失敗");
                     return;
                 }
@@ -424,18 +437,84 @@ public final class LoopCameraActivity extends ComponentActivity {
         }, ContextCompat.getMainExecutor(this));
     }
 
+    private void cycleQuality() {
+        if (qualityRestartRequested || closing || cameraProvider == null) return;
+        String next = nextQuality(savedQuality());
+        getSharedPreferences(QUALITY_PREFS, MODE_PRIVATE).edit().putString(QUALITY_KEY, next).apply();
+        qualityButton.setText(qualityLabel(next));
+        if (recording == null) {
+            if (!rebindSelectedQuality()) status.setText("相機啟動失敗");
+            else startSegmentIfVisible();
+            return;
+        }
+        qualityRestartRequested = true;
+        status.setText("正在切換畫質…");
+        recording.stop();
+    }
+
+    private boolean rebindSelectedQuality() {
+        if (cameraProvider == null) return false;
+        Quality selected = cameraQuality(savedQuality());
+        if (bindRecording(cameraProvider, selected)) return true;
+        if (selected != Quality.FHD && bindRecording(cameraProvider, Quality.FHD)) return true;
+        return selected != Quality.HD && bindRecording(cameraProvider, Quality.HD);
+    }
+
+    private String savedQuality() {
+        String quality = getSharedPreferences(QUALITY_PREFS, MODE_PRIVATE).getString(QUALITY_KEY, "uhd");
+        if ("fhd".equals(quality) || "hd".equals(quality)) return quality;
+        return "uhd";
+    }
+
+    private static String nextQuality(String quality) {
+        if ("uhd".equals(quality)) return "fhd";
+        if ("fhd".equals(quality)) return "hd";
+        return "uhd";
+    }
+
+    private static String qualityLabel(String quality) {
+        if ("fhd".equals(quality)) return "1080p";
+        if ("hd".equals(quality)) return "720p";
+        return "4K";
+    }
+
+    private static Quality cameraQuality(String quality) {
+        if ("fhd".equals(quality)) return Quality.FHD;
+        if ("hd".equals(quality)) return Quality.HD;
+        return Quality.UHD;
+    }
+
+    private static int videoBitrate(Quality quality) {
+        if (quality == Quality.UHD) return 40_000_000;
+        if (quality == Quality.HD) return 4_000_000;
+        return 8_000_000;
+    }
+
+    private static Size previewSize(Quality quality) {
+        if (quality == Quality.HD) return new Size(1280, 720);
+        return new Size(1920, 1080);
+    }
+
     private boolean bindRecording(ProcessCameraProvider provider, Quality quality) {
         try {
             int targetRotation = Surface.ROTATION_90;
-            Preview preview = new Preview.Builder().setTargetRotation(targetRotation).build();
+            Preview.Builder previewBuilder = new Preview.Builder().setTargetRotation(targetRotation);
+            if (quality != Quality.UHD) {
+                previewBuilder.setResolutionSelector(new ResolutionSelector.Builder()
+                        .setResolutionStrategy(new ResolutionStrategy(
+                                previewSize(quality),
+                                ResolutionStrategy.FALLBACK_RULE_CLOSEST_LOWER_THEN_HIGHER))
+                        .build());
+            }
+            Preview preview = previewBuilder.build();
             preview.setSurfaceProvider(previewView.getSurfaceProvider());
             FallbackStrategy fallback = quality == Quality.UHD
                     ? FallbackStrategy.lowerQualityOrHigherThan(Quality.UHD)
-                    : FallbackStrategy.lowerQualityThan(Quality.FHD);
+                    : FallbackStrategy.lowerQualityThan(quality);
             QualitySelector qualitySelector = QualitySelector.from(quality, fallback);
             Recorder recorder = new Recorder.Builder()
                     .setQualitySelector(qualitySelector)
-                    .setTargetVideoEncodingBitRate(quality == Quality.UHD ? 40_000_000 : 16_000_000)
+                    .setTargetVideoEncodingBitRate(videoBitrate(quality))
                     .build();
             videoCapture = new VideoCapture.Builder<>(recorder).setTargetRotation(targetRotation).build();
             provider.unbindAll();
@@ -639,6 +718,16 @@ public final class LoopCameraActivity extends ComponentActivity {
                 YouTubeUploadScheduler.schedule(this);
             }
             broadcastFileStartedAt = 0L;
+            if (qualityRestartRequested) {
+                qualityRestartRequested = false;
+                if (!rebindSelectedQuality()) {
+                    status.setText("相機啟動失敗");
+                    return;
+                }
+                status.setText("正在繼續錄影…");
+                scheduleRecordingRecovery();
+                return;
+            }
             if (broadcastExitRequested) {
                 RemoteSessionStore.setRecordingEnabled(this, false);
                 Toast.makeText(this, success ? "比分轉播影片已保存" : "影片保存失敗", Toast.LENGTH_LONG).show();
