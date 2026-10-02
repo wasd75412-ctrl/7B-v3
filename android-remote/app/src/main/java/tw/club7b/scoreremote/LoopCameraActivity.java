@@ -80,6 +80,8 @@ public final class LoopCameraActivity extends ComponentActivity {
     private final Runnable rotate = this::stopSegment;
     private final Runnable recoverRecording = this::startSegmentIfVisible;
     private final YuntengGestureInterpreter yuntengGestures = new YuntengGestureInterpreter();
+    private final P4GestureInterpreter p4Gestures = new P4GestureInterpreter();
+    private Runnable pendingP4Settle;
     private final VolumeKeyInterpreter cameraKeys = new VolumeKeyInterpreter();
     private Runnable pendingYuntengPress;
     private Runnable pendingCameraLongPress;
@@ -125,6 +127,7 @@ public final class LoopCameraActivity extends ComponentActivity {
     }
 
     @Override public boolean onKeyDown(int keyCode, android.view.KeyEvent event) {
+        if (consumeP4Key(event)) return true;
         if (YuntengGestureInterpreter.remapKeyCode(event) == android.view.KeyEvent.KEYCODE_CAMERA) {
             handleRecordingCameraKey(event);
             return true;
@@ -134,6 +137,7 @@ public final class LoopCameraActivity extends ComponentActivity {
     }
 
     @Override public boolean onKeyUp(int keyCode, android.view.KeyEvent event) {
+        if (consumeP4Key(event)) return true;
         if (YuntengGestureInterpreter.remapKeyCode(event) == android.view.KeyEvent.KEYCODE_CAMERA) {
             handleRecordingCameraKey(event);
             return true;
@@ -205,7 +209,13 @@ public final class LoopCameraActivity extends ComponentActivity {
                 || keyCode == android.view.KeyEvent.KEYCODE_VOLUME_DOWN;
     }
 
+    @Override public boolean dispatchGenericMotionEvent(MotionEvent event) {
+        if (deliverP4Gesture(event)) return true;
+        return super.dispatchGenericMotionEvent(event);
+    }
+
     @Override public boolean dispatchTouchEvent(MotionEvent event) {
+        if (deliverP4Gesture(event)) return true;
         if (!yuntengGestures.isYuntengEvent(event)) return super.dispatchTouchEvent(event);
         if (remoteScoreController == null) remoteScoreController = new BackgroundScoreController(this);
         boolean officialStart = remoteScoreController.allowsFastOfficialStartPress();
@@ -233,6 +243,60 @@ public final class LoopCameraActivity extends ComponentActivity {
         if (pendingYuntengPress == null) return;
         handler.removeCallbacks(pendingYuntengPress);
         pendingYuntengPress = null;
+    }
+
+    private boolean consumeP4Key(android.view.KeyEvent event) {
+        if (event == null || event.getDevice() == null
+                || !P4GestureInterpreter.isP4Name(event.getDevice().getName())) return false;
+        if (event.getAction() == android.view.KeyEvent.ACTION_DOWN && event.getRepeatCount() == 0
+                && P4GestureInterpreter.isOfficialStartKey(event.getDevice().getName(), event.getKeyCode())) {
+            if (remoteScoreController == null) remoteScoreController = new BackgroundScoreController(this);
+            remoteScoreController.startOfficialMatch((success, message) -> handler.post(() ->
+                    Toast.makeText(LoopCameraActivity.this, message, Toast.LENGTH_SHORT).show()));
+        }
+        return true;
+    }
+
+    private boolean deliverP4Gesture(MotionEvent event) {
+        if (!p4Gestures.isP4Event(event)) return false;
+        VolumeKeyInterpreter.Action action = p4Gestures.onTouchEvent(
+                event, getResources().getDisplayMetrics().density);
+        if (action != VolumeKeyInterpreter.Action.NONE) {
+            if (pendingP4Settle != null) handler.removeCallbacks(pendingP4Settle);
+            pendingP4Settle = null;
+            deliverP4Action(action);
+        } else if (p4Gestures.isTracking()) {
+            if (pendingP4Settle != null) handler.removeCallbacks(pendingP4Settle);
+            pendingP4Settle = () -> {
+                pendingP4Settle = null;
+                VolumeKeyInterpreter.Action settled = p4Gestures.finishTracking(android.os.SystemClock.uptimeMillis());
+                if (settled != VolumeKeyInterpreter.Action.NONE) deliverP4Action(settled);
+            };
+            handler.postDelayed(pendingP4Settle, 120L);
+        }
+        return true;
+    }
+
+    private void deliverP4Action(VolumeKeyInterpreter.Action action) {
+        if (remoteScoreController == null) remoteScoreController = new BackgroundScoreController(this);
+        BackgroundScoreController.FullscreenCallback toast = (success, message) -> handler.post(() ->
+                Toast.makeText(LoopCameraActivity.this, message, Toast.LENGTH_SHORT).show());
+        switch (action) {
+            case USE_SHUTTLE:
+                remoteScoreController.useOneShuttle(toast);
+                return;
+            case RETURN_SHUTTLE:
+                remoteScoreController.returnOneShuttle(toast);
+                return;
+            case TEAM_A_PLUS:
+            case TEAM_B_PLUS:
+            case UNDO:
+                remoteScoreController.submitDirect(action, (success, message, completedAction) -> handler.post(() ->
+                        Toast.makeText(LoopCameraActivity.this, message, Toast.LENGTH_SHORT).show()));
+                return;
+            default:
+                return;
+        }
     }
 
     private void sendYuntengScore(VolumeKeyInterpreter.Action action) {

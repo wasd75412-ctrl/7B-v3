@@ -41,6 +41,15 @@ public final class RemoteKeyAccessibilityService extends AccessibilityService {
 
     @Override
     protected boolean onKeyEvent(KeyEvent event) {
+        if (event != null && event.getDevice() != null
+                && P4GestureInterpreter.isP4Name(event.getDevice().getName())) {
+            if (RemoteKeyRelay.dispatch(event)) return true;
+            if (event.getAction() == KeyEvent.ACTION_DOWN && event.getRepeatCount() == 0
+                    && P4GestureInterpreter.isOfficialStartKey(event.getDevice().getName(), event.getKeyCode())) {
+                sendBackgroundOfficialStart();
+            }
+            return true;
+        }
         int keyCode = YuntengGestureInterpreter.remapKeyCode(event);
         if (!VolumeKeyInterpreter.isSupportedRemoteKey(keyCode)) return false;
         if (RemoteKeyRelay.dispatch(event)) return true;
