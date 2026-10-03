@@ -13,6 +13,7 @@ import com.google.firebase.firestore.Source;
 import com.google.firebase.firestore.SetOptions;
 import java.util.ArrayList;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -237,17 +238,7 @@ final class BackgroundScoreController {
             callback.onComplete(true, "已送出正式開始比賽");
             return;
         }
-        // The iPad may already be on the next match before this phone hears about it; it maps
-        // a start stamped with the just-finished match onto that next match.
-        String finishedMatchId = cachedFinishedMatchId();
-        if (finishedMatchId != null) {
-            Map<String, Object> updates = officialStartUpdates(finishedMatchId, clientCreatedAt);
-            sendDirect("officialStart", updates.get("officialStartCommand"));
-            remoteControl.set(updates, SetOptions.merge())
-                    .addOnFailureListener(error -> callback.onComplete(false, errorMessage(error)));
-            callback.onComplete(true, "已送出正式開始比賽");
-            return;
-        }
+        AtomicReference<Object> sentCommand = new AtomicReference<>();
         firestore.runTransaction(transaction -> {
             DocumentSnapshot snapshot = transaction.get(liveScore);
             if (!snapshot.exists()) throw new IllegalStateException("找不到即時比分");
@@ -260,10 +251,15 @@ final class BackgroundScoreController {
             if (match.get("startedAt") != null && !String.valueOf(match.get("startedAt")).isEmpty()) {
                 throw new IllegalStateException("本場比賽已正式開始");
             }
-            transaction.set(remoteControl, officialStartUpdates(String.valueOf(matchId), clientCreatedAt), SetOptions.merge());
+            Map<String, Object> updates = officialStartUpdates(String.valueOf(matchId), clientCreatedAt);
+            transaction.set(remoteControl, updates, SetOptions.merge());
+            sentCommand.set(updates.get("officialStartCommand"));
             return true;
         })
-                .addOnSuccessListener(ignored -> callback.onComplete(true, "已送出正式開始比賽"))
+                .addOnSuccessListener(ignored -> {
+                    sendDirect("officialStart", sentCommand.get());
+                    callback.onComplete(true, "已送出正式開始比賽");
+                })
                 .addOnFailureListener(error -> callback.onComplete(false, errorMessage(error)));
     }
 
@@ -295,10 +291,6 @@ final class BackgroundScoreController {
 
     private synchronized String cachedPreStartMatchId() {
         return matchKnown && matchActive && !matchFinished && !matchStarted && !matchId.isEmpty() ? matchId : null;
-    }
-
-    private synchronized String cachedFinishedMatchId() {
-        return matchKnown && matchActive && matchFinished && !matchId.isEmpty() ? matchId : null;
     }
 
     void markBroadcastRecordingStarted(long clientStartedAt, FullscreenCallback callback) {
