@@ -60,6 +60,21 @@ public final class RecordingTimelineTest {
     }
 
     @Test
+    public void leavesPausedTimeOutOfChapterOffsets() {
+        long start = Instant.parse("2026-09-30T11:00:00.000Z").toEpochMilli();
+        long end = Instant.parse("2026-09-30T12:10:00.000Z").toEpochMilli();
+        List<long[]> pauses = Arrays.asList(
+                new long[] {Instant.parse("2026-09-30T11:05:00.000Z").toEpochMilli(), Instant.parse("2026-09-30T11:08:00.000Z").toEpochMilli()},
+                new long[] {Instant.parse("2026-09-30T11:26:00.000Z").toEpochMilli(), Instant.parse("2026-09-30T11:28:00.000Z").toEpochMilli()});
+        String text = RecordingTimeline.timeline(RecordingTimeline.matchesFromRoom(room()), start, end, pauses);
+        assertEquals("00:00:00 準備與熱身\n"
+                + "00:07:05 Game1 建昱／于萱 11：7 Yoyo／澐緁\n"
+                + "00:25:00 Game2 建昱／于萱 9：11 Yoyo／澐緁", text);
+        long midPause = Instant.parse("2026-09-30T11:06:00.000Z").toEpochMilli();
+        assertEquals(5L * 60_000L, RecordingTimeline.videoMillis(midPause, start, pauses));
+    }
+
+    @Test
     public void keepsChaptersTenSecondsApartWhenALaterVideoStartsMidGame() {
         long start = Instant.parse("2026-09-30T11:20:00.000Z").toEpochMilli();
         long end = Instant.parse("2026-09-30T12:10:00.000Z").toEpochMilli();

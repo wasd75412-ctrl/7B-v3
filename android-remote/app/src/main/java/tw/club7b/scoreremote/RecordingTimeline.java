@@ -118,6 +118,10 @@ final class RecordingTimeline {
     }
 
     static String timeline(List<Match> matches, long recordingStartMs, long recordingEndMs) {
+        return timeline(matches, recordingStartMs, recordingEndMs, Collections.emptyList());
+    }
+
+    static String timeline(List<Match> matches, long recordingStartMs, long recordingEndMs, List<long[]> pauses) {
         List<Match> included = new ArrayList<>();
         for (Match match : matches) {
             long end = match.endMs > 0L ? match.endMs : Long.MAX_VALUE;
@@ -136,22 +140,35 @@ final class RecordingTimeline {
         long previous = 0L;
         for (int i = 0; i < included.size(); i++) {
             Match match = included.get(i);
-            long offset = Math.max(0L, (match.startMs - recordingStartMs) / 1000L);
+            long offset = videoMillis(match.startMs, recordingStartMs, pauses) / 1000L;
             if (offset < previous + 10L) offset = previous + 10L;
             previous = offset;
             text.append('\n').append(formatOffset(offset)).append(" Game").append(i + 1).append(' ')
                     .append(match.left).append(' ').append(match.scoreA).append('：').append(match.scoreB)
                     .append(' ').append(match.right);
         }
-        appendEndChapter(text, previous, recordingStartMs, recordingEndMs);
+        appendEndChapter(text, previous, videoMillis(recordingEndMs, recordingStartMs, pauses) / 1000L);
         return text.toString();
     }
 
-    private static void appendEndChapter(StringBuilder text, long previous, long recordingStartMs, long recordingEndMs) {
+    // Paused spans are not in the video, so a moment's video time excludes every pause before it.
+    static long videoMillis(long atMs, long recordingStartMs, List<long[]> pauses) {
+        long elapsed = Math.max(0L, atMs - recordingStartMs);
+        if (pauses != null) {
+            for (long[] pause : pauses) {
+                if (pause == null || pause.length < 2) continue;
+                long from = Math.max(pause[0], recordingStartMs);
+                long to = Math.min(pause[1], atMs);
+                if (to > from) elapsed -= to - from;
+            }
+        }
+        return Math.max(0L, elapsed);
+    }
+
+    private static void appendEndChapter(StringBuilder text, long previous, long duration) {
         String current = text.toString();
         int lines = current.split("\\n").length;
         if (lines >= 3 || !current.contains("Game")) return;
-        long duration = Math.max(0L, (recordingEndMs - recordingStartMs) / 1000L);
         long offset = duration - 1L;
         if (offset < previous + 10L) offset = previous + 10L;
         if (offset < previous + 10L || offset >= duration) return;
