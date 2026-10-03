@@ -126,15 +126,39 @@ public final class LoopCameraActivity extends ComponentActivity {
         remoteScoreController.warmUp((success, message) -> { });
         buildUi();
         if (broadcastMode) bindBroadcastScoreSource();
-        if (hasPermission(Manifest.permission.CAMERA)) startCamera();
-        else requestPermissions(new String[]{Manifest.permission.CAMERA, Manifest.permission.RECORD_AUDIO}, CAMERA_PERMISSION_REQUEST);
+        String[] missing = missingRecordingPermissions();
+        if (missing.length == 0) startCamera();
+        else requestPermissions(missing, CAMERA_PERMISSION_REQUEST);
     }
 
     @Override public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions, @NonNull int[] grantResults) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults);
         if (requestCode != CAMERA_PERMISSION_REQUEST) return;
-        if (hasPermission(Manifest.permission.CAMERA)) startCamera();
-        else { Toast.makeText(this, "需要相機權限才能錄影", Toast.LENGTH_LONG).show(); exitRecording(); }
+        if (!hasPermission(Manifest.permission.CAMERA)) {
+            Toast.makeText(this, "需要相機權限才能錄影", Toast.LENGTH_LONG).show();
+            exitRecording();
+        } else if (needsLegacyStoragePermission()) {
+            Toast.makeText(this, "需要儲存權限才能保存影片", Toast.LENGTH_LONG).show();
+            exitRecording();
+        } else {
+            startCamera();
+        }
+    }
+
+    private String[] missingRecordingPermissions() {
+        List<String> missing = new ArrayList<>();
+        if (!hasPermission(Manifest.permission.CAMERA)) {
+            missing.add(Manifest.permission.CAMERA);
+            missing.add(Manifest.permission.RECORD_AUDIO);
+        }
+        if (needsLegacyStoragePermission()) missing.add(Manifest.permission.WRITE_EXTERNAL_STORAGE);
+        return missing.toArray(new String[0]);
+    }
+
+    // Android 9 and older need storage access to insert recordings into MediaStore.
+    private boolean needsLegacyStoragePermission() {
+        return Build.VERSION.SDK_INT <= Build.VERSION_CODES.P
+                && !hasPermission(Manifest.permission.WRITE_EXTERNAL_STORAGE);
     }
 
     @Override public boolean onKeyDown(int keyCode, android.view.KeyEvent event) {
