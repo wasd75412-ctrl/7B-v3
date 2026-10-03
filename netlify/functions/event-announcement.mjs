@@ -1,4 +1,4 @@
-import { getStore } from '@netlify/blobs';
+import { getBlobStore as getStore } from './lib/blob-store.mjs';
 import webpush from 'web-push';
 import { PUSH_STORE, jsonResponse, validRoomId, validSubscription } from './lib/push-shared.mjs';
 

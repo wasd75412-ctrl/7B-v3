@@ -1,5 +1,5 @@
 import { createHash, randomUUID } from 'node:crypto';
-import { getStore } from '@netlify/blobs';
+import { getBlobStore as getStore } from './lib/blob-store.mjs';
 import webpush from 'web-push';
 import { chatMediaLabel, chatMessagePreview, cleanChatText, hasChatAllMention, normalizeChatMedia, normalizeChatMentionIds, playerOwnerHashes } from '../../src/chat.js';
 import { PUSH_STORE, cleanText, jsonResponse, validRoomId, validSubscription } from './lib/push-shared.mjs';
