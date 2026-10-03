@@ -79,7 +79,9 @@ test('publishes the exact CameraX broadcast start time for the YouTube timeline'
 });
 
 test('queues every saved broadcast file for YouTube upload with its own start time',()=>{
-  assert.match(camera,/if \(success && RecordingUploadStore\.add\(this, savedUri, RemoteSessionStore\.getSession\(this\)\.roomId,\s*broadcastFileStartedAt, System\.currentTimeMillis\(\), filePauses\)\) \{\s*YouTubeUploadScheduler\.schedule\(this\);/);
+  assert.match(camera,/long fileStartedAt = broadcastFileStartedAt;\s*long fileEndedAt = System\.currentTimeMillis\(\);\s*if \(success\) queueSavedRecording\(savedUri, fileStartedAt, fileEndedAt, filePauses\);/);
+  assert.match(camera,/RecordingUploadStore\.add\(app, savedUri, roomId, startedAt, endedAt, filePauses\)/);
+  assert.match(camera,/YouTubeUploadScheduler\.schedule\(app\);/);
 });
 
 test('pauses and resumes the broadcast recording and keeps pauses out of the timeline',()=>{

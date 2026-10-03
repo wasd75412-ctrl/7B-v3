@@ -50,11 +50,14 @@ import androidx.core.content.ContextCompat;
 import androidx.core.view.ViewCompat;
 import androidx.core.view.WindowInsetsCompat;
 import com.google.common.util.concurrent.ListenableFuture;
+import java.io.File;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
 import java.util.Locale;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicReference;
 
 /** App-internal camera that records score broadcast videos straight into the gallery. */
@@ -64,6 +67,7 @@ public final class LoopCameraActivity extends ComponentActivity {
     private static final String QUALITY_PREFS = "recording_video_quality";
     private static final String QUALITY_KEY = "quality";
     private final android.os.Handler handler = new android.os.Handler(android.os.Looper.getMainLooper());
+    private final ExecutorService savedRecordingExecutor = Executors.newSingleThreadExecutor();
     private final Runnable recoverRecording = this::startRecordingIfVisible;
     private final P4GestureInterpreter p4Gestures = new P4GestureInterpreter();
     private Runnable pendingP4Settle;
@@ -623,12 +627,28 @@ public final class LoopCameraActivity extends ComponentActivity {
 
     private void startBroadcastRecording() {
         if (closing || recording != null || videoCapture == null) return;
-        String stamp = new SimpleDateFormat("yyyyMMdd-HHmmss", Locale.TAIWAN).format(new Date());
+        long capturedAt = System.currentTimeMillis();
+        String stamp = new SimpleDateFormat("yyyyMMdd-HHmmss", Locale.TAIWAN).format(new Date(capturedAt));
+        String displayName = "7B-轉播-" + stamp + ".mp4";
         ContentValues values = new ContentValues();
-        values.put(MediaStore.Video.Media.DISPLAY_NAME, "7B-轉播-" + stamp + ".mp4");
+        values.put(MediaStore.Video.Media.DISPLAY_NAME, displayName);
+        values.put(MediaStore.Video.Media.TITLE, "7B-轉播-" + stamp);
         values.put(MediaStore.Video.Media.MIME_TYPE, "video/mp4");
+        values.put(MediaStore.Video.Media.DATE_TAKEN, capturedAt);
+        values.put(MediaStore.Video.Media.DATE_ADDED, capturedAt / 1000L);
+        values.put(MediaStore.Video.Media.DATE_MODIFIED, capturedAt / 1000L);
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-            values.put(MediaStore.Video.Media.RELATIVE_PATH, Environment.DIRECTORY_MOVIES + "/7B羽球");
+            values.put(MediaStore.Video.Media.RELATIVE_PATH,
+                    Environment.DIRECTORY_MOVIES + "/7B控制台/比賽轉播");
+        } else {
+            File outputDirectory = new File(
+                    Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_MOVIES),
+                    "7B控制台/比賽轉播");
+            if (!outputDirectory.exists() && !outputDirectory.mkdirs()) {
+                status.setText("無法建立影片資料夾");
+                return;
+            }
+            values.put(MediaStore.Video.Media.DATA, new File(outputDirectory, displayName).getAbsolutePath());
         }
         try {
             MediaStoreOutputOptions output = new MediaStoreOutputOptions.Builder(
@@ -699,10 +719,9 @@ public final class LoopCameraActivity extends ComponentActivity {
             return;
         }
         boolean success = !finalized.hasError() && savedUri != null && !android.net.Uri.EMPTY.equals(savedUri);
-        if (success && RecordingUploadStore.add(this, savedUri, RemoteSessionStore.getSession(this).roomId,
-                broadcastFileStartedAt, System.currentTimeMillis(), filePauses)) {
-            YouTubeUploadScheduler.schedule(this);
-        }
+        long fileStartedAt = broadcastFileStartedAt;
+        long fileEndedAt = System.currentTimeMillis();
+        if (success) queueSavedRecording(savedUri, fileStartedAt, fileEndedAt, filePauses);
         broadcastFileStartedAt = 0L;
         if (qualityRestartRequested) {
             qualityRestartRequested = false;
@@ -728,6 +747,17 @@ public final class LoopCameraActivity extends ComponentActivity {
             status.setText(success ? "錄影中斷，正在建立新檔…" : "正在恢復錄影…");
             scheduleRecordingRecovery();
         }
+    }
+
+    private void queueSavedRecording(android.net.Uri savedUri, long startedAt, long endedAt,
+            List<long[]> filePauses) {
+        android.content.Context app = getApplicationContext();
+        String roomId = RemoteSessionStore.getSession(app).roomId;
+        savedRecordingExecutor.execute(() -> {
+            if (RecordingUploadStore.add(app, savedUri, roomId, startedAt, endedAt, filePauses)) {
+                YouTubeUploadScheduler.schedule(app);
+            }
+        });
     }
 
     private void returnWithoutAction() {
@@ -806,6 +836,7 @@ public final class LoopCameraActivity extends ComponentActivity {
             LocalScoreHubServer.getRunning().removeListener(localHubListener);
         }
         localHubListener = null;
+        savedRecordingExecutor.shutdown();
         super.onDestroy();
     }
 }
