@@ -1,6 +1,7 @@
 package tw.club7b.scoreremote;
 
 import android.content.Context;
+import android.content.SharedPreferences;
 import android.os.Handler;
 import android.os.Looper;
 import com.google.firebase.firestore.DocumentReference;
@@ -36,6 +37,7 @@ final class LocalLinkClient {
     private static final long ICE_GATHER_TIMEOUT_MS = 2_000L;
     private static final long ANSWER_TIMEOUT_MS = 45_000L;
     private static final long RETRY_DELAY_MS = 3_000L;
+    private static final String PREFS = "local_link";
 
     private static LocalLinkClient shared;
 
@@ -53,6 +55,7 @@ final class LocalLinkClient {
     private boolean answerApplied;
     private boolean offerSent;
     private Object ipadReadySeen;
+    private String deviceId;
 
     private LocalLinkClient(Context context) {
         this.context = context.getApplicationContext();
@@ -170,8 +173,10 @@ final class LocalLinkClient {
         offer.put("sdp", local.description);
         offer.put("clientCreatedAt", System.currentTimeMillis());
         offer.put("createdAt", FieldValue.serverTimestamp());
+        Map<String, Object> offers = new HashMap<>();
+        offers.put(deviceId(), offer);
         Map<String, Object> updates = new HashMap<>();
-        updates.put("offer", offer);
+        updates.put("offers", offers);
         linkRef.set(updates, SetOptions.merge());
         handler.postDelayed(restartTask, ANSWER_TIMEOUT_MS);
     }
@@ -186,7 +191,8 @@ final class LocalLinkClient {
                 return;
             }
         }
-        Object value = snapshot.get("answer");
+        Object answers = snapshot.get("answers");
+        Object value = answers instanceof Map ? ((Map<?, ?>) answers).get(deviceId()) : null;
         if (!(value instanceof Map) || peer == null || answerApplied) return;
         Map<?, ?> answer = (Map<?, ?>) value;
         if (!sessionId.equals(String.valueOf(answer.get("sessionId")))) return;
@@ -200,6 +206,18 @@ final class LocalLinkClient {
                 handler.post(() -> retryIfCurrent(id));
             }
         }, new SessionDescription(SessionDescription.Type.ANSWER, (String) sdp));
+    }
+
+    private String deviceId() {
+        if (deviceId != null) return deviceId;
+        SharedPreferences preferences = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE);
+        String stored = preferences.getString("deviceId", "");
+        if (stored.isEmpty()) {
+            stored = UUID.randomUUID().toString().replace("-", "");
+            preferences.edit().putString("deviceId", stored).apply();
+        }
+        deviceId = stored;
+        return deviceId;
     }
 
     private void retryIfCurrent(String id) {
