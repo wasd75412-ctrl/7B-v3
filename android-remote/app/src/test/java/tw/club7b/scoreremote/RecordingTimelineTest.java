@@ -90,6 +90,13 @@ public final class RecordingTimelineTest {
     }
 
     @Test
+    public void countsOnlyGameChapters() {
+        assertEquals(0, RecordingTimeline.gameCount(null));
+        assertEquals(1, RecordingTimeline.gameCount("00:00:00 準備與熱身\n00:00:10 Game1 A 11：7 B\n00:07:59 錄影結束"));
+        assertEquals(2, RecordingTimeline.gameCount("00:00:00 準備與熱身\n00:10:05 Game1 A 11：7 B\n00:30:00 Game2 A 9：11 B"));
+    }
+
+    @Test
     public void includesAScreenOrRemoteOfficialStartBeforeTheMatchEnds() {
         Map<String, Object> room = room();
         Map<String, Object> live = new HashMap<>();
