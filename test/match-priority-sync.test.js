@@ -4,11 +4,13 @@ import { readFileSync } from 'node:fs';
 
 const source=readFileSync(new URL('../src/main.js',import.meta.url),'utf8');
 
-test('finished matches archive only their own record until the session ends',()=>{
+test('finished matches sync and back up their own record immediately',()=>{
   const finishFlow=source.slice(source.indexOf('function finishMatch()'),source.indexOf('function updatePriority()'));
+  const finishedSyncFlow=source.slice(source.indexOf('async function syncFinishedMatchNow'),source.indexOf('function adoptRestoredState'));
   const sessionFlow=source.slice(source.indexOf('async function endTodaySession'),source.indexOf('function page(')===-1?source.length:source.indexOf('$(\'deletePlayer\')'));
-  assert.match(finishFlow,/if\(isHost&&!isTestMatch\)\{bumpLineupRevision\(\);void persistLineupNow\(\)\}\s*if\(isHost\)saveLiveScoreSoon\(\);\s*if\(firstCompletion&&!isTestMatch\)archiveUnsyncedHistory\(\);/);
-  assert.doesNotMatch(finishFlow,/saveCompletedMatchStatsNow|\bsaveSoon\(|createCloudBackup/);
+  assert.match(finishFlow,/if\(isHost&&!isTestMatch\)\{bumpLineupRevision\(\);void persistLineupNow\(\)\}\s*if\(isHost\)saveLiveScoreSoon\(\);\s*if\(firstCompletion&&!isTestMatch\)\{archiveUnsyncedHistory\(\);void syncFinishedMatchNow\(m\.matchId\)\}/);
+  assert.match(finishedSyncFlow,/await slimRoomHistoryIfNeeded\(\);[\s\S]*?await saveNow\(\);[\s\S]*?archiveUnsyncedHistory\(\);[\s\S]*?await createCloudBackup\('auto',\{id:`auto_\$\{matchId\}`,replace:true,silent:true,system:true\}\)/);
+  assert.doesNotMatch(finishFlow,/saveCompletedMatchStatsNow|\bsaveSoon\(/);
   assert.match(source,/function archiveUnsyncedHistory\(\)\{[\s\S]*?!row\.testMode&&!archivedHistory\.some[\s\S]*?void publishMatchArchive\(missing\)/);
   assert.match(source,/unarchiveReopenedMatch\(matchId\);\s*return true;/);
   assert.match(source,/function unarchiveReopenedMatch\(matchId\)\{[\s\S]*?deleteArchivedMatches\(\[matchId\]\)/);
