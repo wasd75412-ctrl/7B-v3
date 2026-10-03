@@ -189,6 +189,34 @@ public final class RecordingTimelineTest {
     }
 
     @Test
+    public void keepsCompleteMatchesWhenARefreshTemporarilyReturnsLessData() {
+        RecordingTimeline.Match finished = new RecordingTimeline.Match(1000L, 2000L, "A", "B", 11, 8);
+        RecordingTimeline.Match next = new RecordingTimeline.Match(3000L, 0L, "C", "D", 4, 3);
+        List<RecordingTimeline.Match> saved = Arrays.asList(finished, next);
+
+        assertEquals(2, RecordingTimeline.preferMoreCompleteMatches(saved, new ArrayList<>()).size());
+
+        RecordingTimeline.Match partial = new RecordingTimeline.Match(1000L, 0L, "A", "B", 2, 1);
+        List<RecordingTimeline.Match> merged = RecordingTimeline.preferMoreCompleteMatches(saved, Arrays.asList(partial));
+        assertEquals(2, merged.size());
+        assertEquals(2000L, merged.get(0).endMs);
+        assertEquals(11, merged.get(0).scoreA);
+    }
+
+    @Test
+    public void acceptsNewerLiveProgressWhileKeepingEarlierGames() {
+        RecordingTimeline.Match first = new RecordingTimeline.Match(1000L, 2000L, "A", "B", 11, 8);
+        RecordingTimeline.Match live = new RecordingTimeline.Match(3000L, 0L, "C", "D", 4, 3);
+        RecordingTimeline.Match updated = new RecordingTimeline.Match(3000L, 0L, "C", "D", 7, 5);
+
+        List<RecordingTimeline.Match> merged = RecordingTimeline.preferMoreCompleteMatches(
+                Arrays.asList(first, live), Arrays.asList(updated));
+        assertEquals(2, merged.size());
+        assertEquals(7, merged.get(1).scoreA);
+        assertEquals(5, merged.get(1).scoreB);
+    }
+
+    @Test
     public void titlesUseTheTaipeiDate() {
         long lateNight = Instant.parse("2026-09-30T16:30:00.000Z").toEpochMilli();
         assertEquals("2026年10月1日", RecordingTimeline.title(lateNight, 1));

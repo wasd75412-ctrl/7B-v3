@@ -82,6 +82,9 @@ test('the Android remote opens the native recording upload screen',()=>{
   assert.match(recordings,/entry\.pauses\)/);
   assert.match(recordings,/preferTimeline\(built, entry\.description\)/);
   assert.match(recordings,/gameCount\(built\) >= RecordingTimeline\.gameCount\(saved\)/);
+  assert.match(recordings,/for \(RecordingUploadStore\.Entry entry : entries\) reloadRoomIfStale\(entry\.roomId\);[\s\S]*?if \(!force && signature\.toString\(\)\.equals\(renderedSignature\)\) return;/);
+  assert.match(recordings,/preferMoreCompleteMatches\(roomMatches\.get\(roomId\), fresh\)/);
+  assert.doesNotMatch(recordings,/roomMatches\.put\(roomId, RecordingTimeline\.matchesFromRoom\(task\.isSuccessful\(\)/);
   assert.match(recordings,/"刪除"/);
   assert.match(recordings,/RecordingUploadStore\.remove\(this, entry\.id\)/);
   assert.match(read(`${javaDir}RecordingUploadStore.java`),/static synchronized void remove\(Context context, String id\)/);
