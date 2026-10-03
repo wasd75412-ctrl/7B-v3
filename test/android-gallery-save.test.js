@@ -4,8 +4,8 @@ import {readFileSync} from 'node:fs';
 
 const source=readFileSync(new URL('../android-remote/app/src/main/java/tw/club7b/scoreremote/LoopCameraActivity.java',import.meta.url),'utf8');
 
-test('writes the merged replay directly to MediaStore without a second full copy',()=>{
-  assert.match(source,/mergeDirectlyToGallery\(snapshot, group\)/);
-  assert.match(source,/new MediaMuxer\(destination\.getFileDescriptor\(\)/);
-  assert.doesNotMatch(source,/FileInputStream|copyToGallery/);
+test('records broadcast video straight into MediaStore without temporary clips',()=>{
+  assert.match(source,/new MediaStoreOutputOptions\.Builder\(/);
+  assert.match(source,/Environment\.DIRECTORY_MOVIES \+ "\/7B羽球"/);
+  assert.doesNotMatch(source,/FileOutputOptions|MediaMuxer|mergeSegments|persistSegments|SEGMENT_LIMIT/);
 });

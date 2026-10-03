@@ -88,7 +88,7 @@ public final class MainActivity extends Activity {
         settings.setDisplayZoomControls(false);
         settings.setMediaPlaybackRequiresUserGesture(false);
         settings.setMixedContentMode(WebSettings.MIXED_CONTENT_NEVER_ALLOW);
-        settings.setUserAgentString(settings.getUserAgentString() + " 7BAndroidRemote/1.3.80");
+        settings.setUserAgentString(settings.getUserAgentString() + " 7BAndroidRemote/1.3.81");
         CookieManager.getInstance().setAcceptCookie(true);
         CookieManager.getInstance().setAcceptThirdPartyCookies(view, true);
         view.setRendererPriorityPolicy(WebView.RENDERER_PRIORITY_IMPORTANT, true);
@@ -494,12 +494,7 @@ public final class MainActivity extends Activity {
     }
 
     private void openBroadcastCamera() {
-        openVideoCamera(true);
-    }
-
-    private void openVideoCamera(boolean broadcastMode) {
         Intent intent = new Intent(this, LoopCameraActivity.class);
-        intent.putExtra(LoopCameraActivity.EXTRA_BROADCAST_MODE, broadcastMode);
         if (intent.resolveActivity(getPackageManager()) == null) {
             Toast.makeText(this, "找不到可用的錄影相機", Toast.LENGTH_LONG).show();
             return;
