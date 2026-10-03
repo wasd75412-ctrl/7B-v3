@@ -21,6 +21,7 @@ export function updateAttendanceState(source={},playerId='',attending=false){
     queueDraftChosen,
     priority:waitingQueue[0]||null,
     nextCall,
-    lastLoserReplayPlayerId:!attending&&source.lastLoserReplayPlayerId===id?null:(source.lastLoserReplayPlayerId||null)
+    lastLoserReplayPlayerId:!attending&&source.lastLoserReplayPlayerId===id?null:(source.lastLoserReplayPlayerId||null),
+    lineupRevision:Math.max(Date.now(),(Number(source.lineupRevision)||0)+1)
   };
 }
