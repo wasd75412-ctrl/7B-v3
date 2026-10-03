@@ -27,3 +27,11 @@ test('checking out removes the player from every future lineup',()=>{
   assert.equal(next.nextCall,null);
   assert.equal(next.lastLoserReplayPlayerId,null);
 });
+
+test('attendance changes advance the lineup revision',()=>{
+  const first=updateAttendanceState({attendance:['p1'],lineupRevision:5},'p2',true);
+  const second=updateAttendanceState({...first,lineupRevision:first.lineupRevision},'p2',false);
+  assert.ok(first.lineupRevision>5);
+  assert.ok(second.lineupRevision>first.lineupRevision);
+  assert.deepEqual(second.attendance,['p1']);
+});

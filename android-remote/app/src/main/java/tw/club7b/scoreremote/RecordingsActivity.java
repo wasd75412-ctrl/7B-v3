@@ -217,13 +217,30 @@ public final class RecordingsActivity extends ComponentActivity {
     private String timeline(RecordingUploadStore.Entry entry) {
         List<RecordingTimeline.Match> matches = roomMatches.get(entry.roomId);
         if (matches != null) {
-            String built = RecordingTimeline.timeline(matches, entry.startMs, entry.endMs);
-            if (RecordingTimeline.hasGameChapter(built) || !RecordingTimeline.hasGameChapter(entry.description)) return built;
-            return entry.description;
+            String built = RecordingTimeline.timeline(matches, entry.startMs, entry.endMs, entry.pauses);
+            String chosen = preferTimeline(built, entry.description);
+            reloadRoomIfStale(entry.roomId);
+            return chosen;
         }
-        long age = System.currentTimeMillis() - loadedAt.getOrDefault(entry.roomId, 0L);
-        if (age > 15_000L) loadRoom(entry.roomId);
+        reloadRoomIfStale(entry.roomId);
         return RecordingTimeline.hasGameChapter(entry.description) ? entry.description : null;
+    }
+
+    private void reloadRoomIfStale(String roomId) {
+        long age = System.currentTimeMillis() - loadedAt.getOrDefault(roomId, 0L);
+        if (age > 15_000L) loadRoom(roomId);
+    }
+
+    private static String preferTimeline(String built, String saved) {
+        boolean builtGames = RecordingTimeline.hasGameChapter(built);
+        boolean savedGames = RecordingTimeline.hasGameChapter(saved);
+        if (builtGames && savedGames) {
+            return RecordingTimeline.gameCount(built) >= RecordingTimeline.gameCount(saved) ? built : saved;
+        }
+        if (savedGames) return saved;
+        if (builtGames) return built;
+        if (built != null && !built.isEmpty()) return built;
+        return saved == null || saved.isEmpty() ? null : saved;
     }
 
     private void loadRoom(String roomId) {

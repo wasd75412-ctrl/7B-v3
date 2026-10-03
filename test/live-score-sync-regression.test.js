@@ -74,7 +74,7 @@ function harness(liveMatch=current,overrides={}){
     const {match:_match,...general}=structuredClone(context.state);
     return{...general,liveScoreEnabled:true};
   };
-  for(const name of ['decodeState','cleanState','matchScoreSignature','canApplyMatch','applyState',
+  for(const name of ['decodeState','cleanState','matchScoreSignature','canApplyMatch','keepNewerLineup','applyState',
     'applyLiveScoreState','rememberLatestLiveMatch','saveNewMatchCheckpointNow','adoptRestoredState']){
     vm.runInContext(productionFunction(name),context,{filename:`main.js:${name}`});
   }
@@ -107,6 +107,25 @@ test('actual room handler preserves current game and rotation when an old fallba
   assert.equal(calls.finish,0);
   assert.equal(calls.publish,0);
   assert.equal(calls.batches.length,0);
+});
+
+test('a newer local lineup survives the room echo of a live score write',()=>{
+  const {context}=harness();
+  context.state.lineupRevision=20;
+  context.state.attendance=['a','b','c','d','e'];
+  context.state.nextCall={players:['a','b','e','f'],createdAt:'rotated'};
+  context.state.waitingQueue=['c','d'];
+  const echo=roomState(current);
+  echo.lineupRevision=4;
+  echo.attendance=['a','b','c','d'];
+  echo.nextCall=null;
+  echo.court=['a','b','c','d'];
+  echo.waitingQueue=['old'];
+  context.applyState(echo);
+  assert.deepEqual(context.state.attendance,['a','b','c','d','e']);
+  assert.deepEqual(context.state.nextCall.players,['a','b','e','f']);
+  assert.deepEqual(context.state.waitingQueue,['c','d']);
+  assert.equal(context.state.lineupRevision,20);
 });
 
 test('actual live handler finishes the current game once and accepts undo within the same game',()=>{

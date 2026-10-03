@@ -7,7 +7,7 @@ const source=readFileSync(new URL('../src/main.js',import.meta.url),'utf8');
 test('finished matches archive only their own record until the session ends',()=>{
   const finishFlow=source.slice(source.indexOf('function finishMatch()'),source.indexOf('function updatePriority()'));
   const sessionFlow=source.slice(source.indexOf('async function endTodaySession'),source.indexOf('function page(')===-1?source.length:source.indexOf('$(\'deletePlayer\')'));
-  assert.match(finishFlow,/if\(isHost\)saveLiveScoreSoon\(\);\s*if\(firstCompletion&&!isTestMatch\)archiveUnsyncedHistory\(\);/);
+  assert.match(finishFlow,/if\(isHost&&!isTestMatch\)\{bumpLineupRevision\(\);void persistLineupNow\(\)\}\s*if\(isHost\)saveLiveScoreSoon\(\);\s*if\(firstCompletion&&!isTestMatch\)archiveUnsyncedHistory\(\);/);
   assert.doesNotMatch(finishFlow,/saveCompletedMatchStatsNow|\bsaveSoon\(|createCloudBackup/);
   assert.match(source,/function archiveUnsyncedHistory\(\)\{[\s\S]*?!row\.testMode&&!archivedHistory\.some[\s\S]*?void publishMatchArchive\(missing\)/);
   assert.match(source,/unarchiveReopenedMatch\(matchId\);\s*return true;/);

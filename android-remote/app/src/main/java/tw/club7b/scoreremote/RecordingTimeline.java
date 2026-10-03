@@ -111,8 +111,8 @@ final class RecordingTimeline {
         if (start <= 0L) return matches;
         int[] scores = scores(entry, historyScores);
         matches.add(new Match(start, parseTime(entry.get("endedAt")),
-                side(names, entry.get("teamA"), entry.get("teamA1"), entry.get("teamA2")),
-                side(names, entry.get("teamB"), entry.get("teamB1"), entry.get("teamB2")),
+                side(names, teamSide(entry, "teamA", 0), entry.get("teamA1"), entry.get("teamA2")),
+                side(names, teamSide(entry, "teamB", 1), entry.get("teamB1"), entry.get("teamB2")),
                 scores[0], scores[1]));
         return matches;
     }
@@ -233,9 +233,18 @@ final class RecordingTimeline {
         return team(names, first, second);
     }
 
+    private static Object teamSide(Map<?, ?> entry, String key, int index) {
+        Object direct = entry.get(key);
+        if (direct instanceof List) return direct;
+        Object teams = entry.get("teams");
+        if (!(teams instanceof List) || ((List<?>) teams).size() <= index) return null;
+        return ((List<?>) teams).get(index);
+    }
+
     private static int[] scores(Map<?, ?> entry, boolean historyScores) {
         Object value = entry.get("scores");
-        if (!historyScores && value instanceof List) {
+        boolean archivedScores = entry.get("scoreA") != null || entry.get("scoreB") != null;
+        if (value instanceof List && (!historyScores || !archivedScores)) {
             List<?> scores = (List<?>) value;
             return new int[]{
                     scores.isEmpty() ? 0 : intValue(scores.get(0)),

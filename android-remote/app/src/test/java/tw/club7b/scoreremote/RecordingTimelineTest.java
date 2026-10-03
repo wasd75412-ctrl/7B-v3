@@ -142,6 +142,22 @@ public final class RecordingTimelineTest {
     }
 
     @Test
+    public void readsRoomHistoryStoredWithTeamsAndScores() {
+        Map<String, Object> room = new HashMap<>();
+        room.put("roster", Arrays.asList(player("a", "建昱"), player("b", "于萱"), player("c", "Yoyo"), player("old", "澐緁")));
+        Map<String, Object> entry = new HashMap<>();
+        entry.put("startedAt", "2026-09-30T11:10:05.000Z");
+        entry.put("endedAt", "2026-09-30T11:25:00.000Z");
+        entry.put("teams", Arrays.asList(Arrays.asList("a", "b"), Arrays.asList("c", "old")));
+        entry.put("scores", Arrays.asList(11L, 7L));
+        room.put("history", Arrays.asList(entry));
+        long start = Instant.parse("2026-09-30T11:00:00.000Z").toEpochMilli();
+        long end = Instant.parse("2026-09-30T12:10:00.000Z").toEpochMilli();
+        String text = RecordingTimeline.timeline(RecordingTimeline.matchesFromRoom(room), start, end);
+        assertEquals("00:00:00 準備與熱身\n00:10:05 Game1 建昱／于萱 11：7 Yoyo／澐緁\n01:09:59 錄影結束", text);
+    }
+
+    @Test
     public void includesMatchesArchivedOutsideTheRoomDocument() {
         Map<String, Object> room = room();
         ((List<Object>) room.get("history")).remove(1);
