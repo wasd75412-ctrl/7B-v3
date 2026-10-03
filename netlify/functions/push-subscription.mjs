@@ -1,4 +1,4 @@
-import { getStore } from '@netlify/blobs';
+import { getBlobStore as getStore } from './lib/blob-store.mjs';
 import { EVENT_PACKING_MEMO_ITEMS, normalizePackingItems } from '../../src/event-packing-memo.js';
 import { PUSH_STORE, cleanText, jsonResponse, subscriptionKey, validEndpoint, validRoomId, validSubscription } from './lib/push-shared.mjs';
 

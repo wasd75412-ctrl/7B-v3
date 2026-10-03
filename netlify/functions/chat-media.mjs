@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import { getStore } from '@netlify/blobs';
+import { getBlobStore as getStore } from './lib/blob-store.mjs';
 import { CHAT_MEDIA_MAX_BYTES, CHAT_MEDIA_TYPES, normalizeChatMedia } from '../../src/chat.js';
 import { CHAT_MEDIA_STORE, verifyClaimedChatSender } from './chat-mention.mjs';
 import { cleanText, jsonResponse, validRoomId } from './lib/push-shared.mjs';
