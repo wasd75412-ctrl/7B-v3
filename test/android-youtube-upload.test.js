@@ -15,6 +15,14 @@ const recordings=read(`${javaDir}RecordingsActivity.java`);
 const index=readFileSync(new URL('../index.html',import.meta.url),'utf8');
 const main=readFileSync(new URL('../src/main.js',import.meta.url),'utf8');
 
+test('Android 9 and older ask for storage before recording into the gallery',()=>{
+  const camera=read(`${javaDir}LoopCameraActivity.java`);
+  assert.match(manifest,/android\.permission\.WRITE_EXTERNAL_STORAGE"\s*android:maxSdkVersion="28"/);
+  assert.match(camera,/Build\.VERSION\.SDK_INT <= Build\.VERSION_CODES\.P\s*&& !hasPermission\(Manifest\.permission\.WRITE_EXTERNAL_STORAGE\)/);
+  assert.match(camera,/String\[\] missing = missingRecordingPermissions\(\);\s*if \(missing\.length == 0\) startCamera\(\);\s*else requestPermissions\(missing, CAMERA_PERMISSION_REQUEST\);/);
+  assert.match(camera,/needsLegacyStoragePermission\(\)\) \{\s*Toast\.makeText\(this, "需要儲存權限才能保存影片"/);
+});
+
 test('uploads on unmetered Wi-Fi and skips a personal hotspot',()=>{
   assert.match(wifi,/TRANSPORT_WIFI/);
   assert.match(wifi,/NET_CAPABILITY_VALIDATED/);
