@@ -602,3 +602,8 @@ test('normalizes a manually edited next doubles lineup immediately',()=>{
   assert.match(updatePrioritySource,/nextSelectIndices\(format\)\.forEach/);
   assert.match(updatePrioritySource,/state\.nextCall=\{players:\[\.\.\.vals\]/);
 });
+
+test('waits for host player edits to sync before reporting success',()=>{
+  const saveEditSource=mainSource.match(/async function saveEdit\(\)\{[\s\S]*?\n\}/)?.[0]||'';
+  assert.match(saveEditSource,/if\(isHost\)\{Object\.assign\(p,updated\);renderAll\(\);await saveNow\(\)\}/);
+});
