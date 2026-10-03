@@ -23,6 +23,10 @@ test('a scoreboard break can upload completed matches without a backup',()=>{
   assert.match(html,/id="syncSessionScore"[^>]*>同步</);
   assert.match(html,/id="resultSyncSessionBtn"[^>]*>同步</);
   assert.match(flow,/await slimRoomHistoryIfNeeded\(\);[\s\S]*?await saveNow\(\)/);
+  assert.match(html,/id="roomSyncSessionBtn" class="btn host-only" type="button">同步<\/button><button id="refreshAppMenu"/);
+  assert.match(flow,/\['syncSessionScore','resultSyncSessionBtn','roomSyncSessionBtn'\]/);
+  assert.match(source,/\$\('roomSyncSessionBtn'\)\.onclick=\(\)=>syncCompletedSession\(\)/);
+  assert.match(styles,/#app \.room-quick-actions \.room-refresh-action\{flex:1 1 auto\}/);
   assert.doesNotMatch(flow,/createCloudBackup/);
   assert.match(styles,/\.score-view\.immersive-mode #syncSessionScore\{[^}]*position:fixed/);
 });
