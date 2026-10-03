@@ -151,6 +151,7 @@ public final class RecordingsActivity extends ComponentActivity {
 
     private void renderList(boolean force) {
         List<RecordingUploadStore.Entry> entries = RecordingUploadStore.all(this);
+        for (RecordingUploadStore.Entry entry : entries) reloadRoomIfStale(entry.roomId);
         StringBuilder signature = new StringBuilder();
         for (RecordingUploadStore.Entry entry : entries) {
             signature.append(entry.id).append(entry.status).append(entry.progress).append(entry.message)
@@ -218,11 +219,8 @@ public final class RecordingsActivity extends ComponentActivity {
         List<RecordingTimeline.Match> matches = roomMatches.get(entry.roomId);
         if (matches != null) {
             String built = RecordingTimeline.timeline(matches, entry.startMs, entry.endMs, entry.pauses);
-            String chosen = preferTimeline(built, entry.description);
-            reloadRoomIfStale(entry.roomId);
-            return chosen;
+            return preferTimeline(built, entry.description);
         }
-        reloadRoomIfStale(entry.roomId);
         return RecordingTimeline.hasGameChapter(entry.description) ? entry.description : null;
     }
 
@@ -254,7 +252,11 @@ public final class RecordingsActivity extends ComponentActivity {
         MatchHistoryRooms.load(BackgroundScoreController.firestore(this), roomId)
                 .addOnCompleteListener(task -> {
                     loadingRooms.remove(roomId);
-                    roomMatches.put(roomId, RecordingTimeline.matchesFromRoom(task.isSuccessful() ? task.getResult() : null));
+                    if (task.isSuccessful()) {
+                        List<RecordingTimeline.Match> fresh = RecordingTimeline.matchesFromRoom(task.getResult());
+                        roomMatches.put(roomId,
+                                RecordingTimeline.preferMoreCompleteMatches(roomMatches.get(roomId), fresh));
+                    }
                     loadedAt.put(roomId, System.currentTimeMillis());
                     renderList(true);
                 });
