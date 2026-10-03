@@ -186,7 +186,7 @@ public final class YouTubeUploadWorker extends Worker {
                 Log.w("7BYouTube", "Could not load match history", error);
             }
         }
-        return RecordingTimeline.timeline(RecordingTimeline.matchesFromRoom(room), entry.startMs, entry.endMs);
+        return RecordingTimeline.timeline(RecordingTimeline.matchesFromRoom(room), entry.startMs, entry.endMs, entry.pauses);
     }
 
     private interface TokenCall<T> {

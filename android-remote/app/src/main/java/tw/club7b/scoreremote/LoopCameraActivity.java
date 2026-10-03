@@ -75,6 +75,10 @@ public final class LoopCameraActivity extends ComponentActivity {
     private int stagedWindowHeight = -1;
     private PreviewView previewView;
     private Button qualityButton;
+    private Button pauseButton;
+    private boolean paused;
+    private long pauseStartedAt;
+    private final List<long[]> pauses = new ArrayList<>();
     private ProcessCameraProvider cameraProvider;
     private boolean qualityRestartRequested;
     private android.view.View scorePreviewOverlay;
@@ -309,12 +313,15 @@ public final class LoopCameraActivity extends ComponentActivity {
         bar.setBackgroundColor(0xB0000000);
         status = new TextView(this); status.setTextColor(Color.WHITE); status.setTextSize(17f); status.setText("相機準備中…");
         status.setPadding(22, 14, 22, 14);
-        recordingStage.addView(status, new FrameLayout.LayoutParams(-2, -2, Gravity.TOP | Gravity.START));
+        status.setBackgroundColor(0xB0000000);
+        FrameLayout.LayoutParams statusParams = new FrameLayout.LayoutParams(-2, -2, Gravity.BOTTOM | Gravity.CENTER_HORIZONTAL);
+        recordingStage.addView(status, statusParams);
         qualityButton = new Button(this);
         qualityButton.setText(qualityLabel(savedQuality()));
         prepareActionButton(qualityButton);
         qualityButton.setOnClickListener(v -> cycleQuality());
         bar.addView(qualityButton);
+        pauseButton = new Button(this); pauseButton.setText("暫停"); prepareActionButton(pauseButton); pauseButton.setOnClickListener(v -> togglePause()); bar.addView(pauseButton);
         Button save = new Button(this); save.setText("保存並繼續"); prepareActionButton(save); save.setOnClickListener(v -> saveBroadcastAndContinue()); bar.addView(save);
         Button close = new Button(this); close.setText("結束"); prepareActionButton(close); close.setOnClickListener(v -> {
             close.setEnabled(false);
@@ -332,7 +339,8 @@ public final class LoopCameraActivity extends ComponentActivity {
         recordingStage.addView(back, backParams);
         ViewCompat.setOnApplyWindowInsetsListener(window, (view, windowInsets) -> {
             androidx.core.graphics.Insets systemBars = windowInsets.getInsets(WindowInsetsCompat.Type.systemBars());
-            status.setPadding(22 + systemBars.top, 14 + systemBars.right, 22 + systemBars.bottom, 14);
+            statusParams.bottomMargin = 14 + systemBars.left;
+            status.setLayoutParams(statusParams);
             actionParams.topMargin = 14 + systemBars.right;
             actionParams.rightMargin = 14 + systemBars.bottom;
             backParams.leftMargin = 22 + systemBars.top;
@@ -654,6 +662,7 @@ public final class LoopCameraActivity extends ComponentActivity {
     private void onVideoEvent(@NonNull VideoRecordEvent event) {
         if (event instanceof VideoRecordEvent.Start) {
             broadcastFileStartedAt = System.currentTimeMillis();
+            pauses.clear();
             if (broadcastStartReported) return;
             broadcastStartReported = true;
             if (remoteScoreController == null) remoteScoreController = new BackgroundScoreController(this);
@@ -662,9 +671,24 @@ public final class LoopCameraActivity extends ComponentActivity {
             });
             return;
         }
+        if (event instanceof VideoRecordEvent.Pause) {
+            paused = true;
+            pauseStartedAt = System.currentTimeMillis();
+            pauseButton.setText("繼續");
+            status.setText("已暫停");
+            return;
+        }
+        if (event instanceof VideoRecordEvent.Resume) {
+            closePause();
+            status.setText("● 比分轉播錄影中");
+            return;
+        }
         if (!(event instanceof VideoRecordEvent.Finalize)) return;
         VideoRecordEvent.Finalize finalized = (VideoRecordEvent.Finalize) event;
         recording = null;
+        closePause();
+        List<long[]> filePauses = new ArrayList<>(pauses);
+        pauses.clear();
         android.net.Uri savedUri = finalized.getOutputResults().getOutputUri();
         if (abandonRecording) {
             if (savedUri != null && !android.net.Uri.EMPTY.equals(savedUri)) {
@@ -676,7 +700,7 @@ public final class LoopCameraActivity extends ComponentActivity {
         }
         boolean success = !finalized.hasError() && savedUri != null && !android.net.Uri.EMPTY.equals(savedUri);
         if (success && RecordingUploadStore.add(this, savedUri, RemoteSessionStore.getSession(this).roomId,
-                broadcastFileStartedAt, System.currentTimeMillis())) {
+                broadcastFileStartedAt, System.currentTimeMillis(), filePauses)) {
             YouTubeUploadScheduler.schedule(this);
         }
         broadcastFileStartedAt = 0L;
@@ -730,6 +754,18 @@ public final class LoopCameraActivity extends ComponentActivity {
         closing = true;
         RemoteSessionStore.setRecordingEnabled(this, false);
         finish();
+    }
+
+    private void togglePause() {
+        if (recording == null || qualityRestartRequested || broadcastSaveRequested || broadcastExitRequested) return;
+        if (paused) recording.resume();
+        else recording.pause();
+    }
+
+    private void closePause() {
+        if (paused) pauses.add(new long[] {pauseStartedAt, System.currentTimeMillis()});
+        paused = false;
+        if (pauseButton != null) pauseButton.setText("暫停");
     }
 
     private void saveBroadcastAndContinue() {

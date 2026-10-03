@@ -74,10 +74,25 @@ test('keeps recording controls above Android system bars with reliable touch tar
 });
 
 test('publishes the exact CameraX broadcast start time for the YouTube timeline',()=>{
-  assert.match(camera,/event instanceof VideoRecordEvent\.Start\) \{\s*broadcastFileStartedAt = System\.currentTimeMillis\(\);\s*if \(broadcastStartReported\) return;\s*broadcastStartReported = true;/);
+  assert.match(camera,/event instanceof VideoRecordEvent\.Start\) \{\s*broadcastFileStartedAt = System\.currentTimeMillis\(\);\s*pauses\.clear\(\);\s*if \(broadcastStartReported\) return;\s*broadcastStartReported = true;/);
   assert.match(camera,/markBroadcastRecordingStarted\(System\.currentTimeMillis\(\)/);
 });
 
 test('queues every saved broadcast file for YouTube upload with its own start time',()=>{
-  assert.match(camera,/if \(success && RecordingUploadStore\.add\(this, savedUri, RemoteSessionStore\.getSession\(this\)\.roomId,\s*broadcastFileStartedAt, System\.currentTimeMillis\(\)\)\) \{\s*YouTubeUploadScheduler\.schedule\(this\);/);
+  assert.match(camera,/if \(success && RecordingUploadStore\.add\(this, savedUri, RemoteSessionStore\.getSession\(this\)\.roomId,\s*broadcastFileStartedAt, System\.currentTimeMillis\(\), filePauses\)\) \{\s*YouTubeUploadScheduler\.schedule\(this\);/);
+});
+
+test('pauses and resumes the broadcast recording and keeps pauses out of the timeline',()=>{
+  assert.match(camera,/pauseButton\.setText\("暫停"\);[^\n]*pauseButton\.setOnClickListener\(v -> togglePause\(\)\)/);
+  assert.match(camera,/if \(paused\) recording\.resume\(\);\s*else recording\.pause\(\);/);
+  assert.match(camera,/event instanceof VideoRecordEvent\.Pause\) \{\s*paused = true;\s*pauseStartedAt = System\.currentTimeMillis\(\);\s*pauseButton\.setText\("繼續"\);/);
+  assert.match(camera,/event instanceof VideoRecordEvent\.Resume\) \{\s*closePause\(\);/);
+  assert.match(camera,/closePause\(\);\s*List<long\[\]> filePauses = new ArrayList<>\(pauses\);\s*pauses\.clear\(\);/);
+  const worker=readFileSync(new URL('../android-remote/app/src/main/java/tw/club7b/scoreremote/YouTubeUploadWorker.java',import.meta.url),'utf8');
+  assert.match(worker,/RecordingTimeline\.timeline\(RecordingTimeline\.matchesFromRoom\(room\), entry\.startMs, entry\.endMs, entry\.pauses\)/);
+});
+
+test('keeps the recording status away from the top-left score board',()=>{
+  assert.match(camera,/new FrameLayout\.LayoutParams\(-2, -2, Gravity\.BOTTOM \| Gravity\.CENTER_HORIZONTAL\);\s*recordingStage\.addView\(status, statusParams\)/);
+  assert.doesNotMatch(camera,/recordingStage\.addView\(status, new FrameLayout\.LayoutParams\(-2, -2, Gravity\.TOP \| Gravity\.START\)\)/);
 });

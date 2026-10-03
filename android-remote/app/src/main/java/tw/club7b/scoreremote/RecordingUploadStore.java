@@ -26,6 +26,7 @@ final class RecordingUploadStore {
         String roomId = "";
         long startMs;
         long endMs;
+        List<long[]> pauses = new ArrayList<>();
         Status status = Status.WAITING;
         String title = "";
         String description = "";
@@ -40,9 +41,11 @@ final class RecordingUploadStore {
         }
 
         JSONObject toJson() throws JSONException {
+            JSONArray pauseArray = new JSONArray();
+            for (long[] pause : pauses) pauseArray.put(new JSONArray().put(pause[0]).put(pause[1]));
             return new JSONObject()
                     .put("id", id).put("uri", uri).put("roomId", roomId)
-                    .put("startMs", startMs).put("endMs", endMs).put("status", status.name())
+                    .put("startMs", startMs).put("endMs", endMs).put("pauses", pauseArray).put("status", status.name())
                     .put("title", title).put("description", description).put("sessionUrl", sessionUrl)
                     .put("videoId", videoId).put("playlistAdded", playlistAdded)
                     .put("progress", progress).put("message", message);
@@ -55,6 +58,13 @@ final class RecordingUploadStore {
             entry.roomId = json.optString("roomId");
             entry.startMs = json.optLong("startMs");
             entry.endMs = json.optLong("endMs");
+            JSONArray pauseArray = json.optJSONArray("pauses");
+            if (pauseArray != null) {
+                for (int i = 0; i < pauseArray.length(); i++) {
+                    JSONArray pause = pauseArray.optJSONArray(i);
+                    if (pause != null && pause.length() >= 2) entry.pauses.add(new long[] {pause.optLong(0), pause.optLong(1)});
+                }
+            }
             try {
                 entry.status = Status.valueOf(json.optString("status", Status.WAITING.name()));
             } catch (IllegalArgumentException unknown) {
@@ -73,8 +83,9 @@ final class RecordingUploadStore {
 
     private RecordingUploadStore() { }
 
-    static synchronized boolean add(Context context, Uri uri, String roomId, long startMs, long endMs) {
-        if (uri == null || startMs <= 0L || endMs - startMs < MIN_DURATION_MS) return false;
+    static synchronized boolean add(Context context, Uri uri, String roomId, long startMs, long endMs, List<long[]> pauses) {
+        if (uri == null || startMs <= 0L
+                || RecordingTimeline.videoMillis(endMs, startMs, pauses) < MIN_DURATION_MS) return false;
         List<Entry> entries = read(context);
         Entry entry = new Entry();
         entry.id = String.valueOf(startMs);
@@ -82,6 +93,7 @@ final class RecordingUploadStore {
         entry.roomId = roomId == null ? "" : roomId;
         entry.startMs = startMs;
         entry.endMs = endMs;
+        if (pauses != null) entry.pauses = new ArrayList<>(pauses);
         entries.add(0, entry);
         while (entries.size() > MAX_ENTRIES) entries.remove(entries.size() - 1);
         write(context, entries);
