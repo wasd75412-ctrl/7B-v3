@@ -41,10 +41,10 @@ test('uses the platform permission callback without requiring Fragment Activity 
 
 test('opens score broadcast recording and can leave without saving',()=>{
   assert.doesNotMatch(source,/openVideoCamera\(false\)|循環錄影/);
-  assert.match(source,/openVideoCamera\(true\)/);
-  assert.match(camera,/EXTRA_BROADCAST_MODE/);
+  assert.match(source,/void openBroadcastCamera\(\) \{\s*Intent intent = new Intent\(this, LoopCameraActivity\.class\);/);
+  assert.doesNotMatch(source,/EXTRA_BROADCAST_MODE/);
   assert.match(camera,/MediaStoreOutputOptions/);
-  assert.doesNotMatch(camera,/保存最近 3 分鐘/);
+  assert.doesNotMatch(camera,/broadcastMode|3 分鐘|三分鐘|saveRecentVideo|openSavedVideo/);
   assert.match(camera,/back\.setText\("返回"\);\s*prepareActionButton\(back\);\s*back\.setOnClickListener\(v -> returnWithoutAction\(\)\)/);
   assert.match(camera,/new FrameLayout\.LayoutParams\(-2, -2, Gravity\.BOTTOM \| Gravity\.START\)/);
   assert.match(camera,/void returnWithoutAction\(\)[\s\S]*?abandonRecording = true;/);
@@ -52,7 +52,7 @@ test('opens score broadcast recording and can leave without saving',()=>{
 });
 
 test('burns the live score only into broadcast recordings at the top-left',()=>{
-  assert.match(camera,/if \(broadcastMode\)[\s\S]*?groupBuilder\.addEffect\(scoreOverlayEffect\)/);
+  assert.match(camera,/scoreOverlayEffect = createScoreOverlayEffect\(\)[\s\S]*?groupBuilder\.addEffect\(scoreOverlayEffect\)/);
   assert.match(camera,/RectF box = new RectF\(margin, margin, margin \+ boardWidth/);
   assert.match(camera,/LinearGradient/);
   assert.match(camera,/names\.setTextSize\(Math\.max\(23f/);
@@ -63,9 +63,7 @@ test('saves broadcast video and immediately continues without opening a media vi
   assert.match(camera,/saveBroadcastAndContinue\(\)/);
   assert.match(camera,/影片已保存，繼續錄影/);
   assert.match(camera,/broadcastSaveRequested = false;[\s\S]*?scheduleRecordingRecovery\(\)/);
-  const broadcastFinalize=camera.match(/if \(broadcastMode\) \{([\s\S]*?)\n\s*return;\n\s*\}/)?.[1]||'';
-  assert.doesNotMatch(broadcastFinalize,/openSavedVideo/);
-  assert.match(camera,/persistSegments\([\s\S]*?if \(success\) openSavedVideo\(savedVideoUri\)/);
+  assert.doesNotMatch(camera,/ACTION_VIEW|openSavedVideo/);
 });
 
 test('keeps recording controls above Android system bars with reliable touch targets',()=>{
@@ -76,7 +74,7 @@ test('keeps recording controls above Android system bars with reliable touch tar
 });
 
 test('publishes the exact CameraX broadcast start time for the YouTube timeline',()=>{
-  assert.match(camera,/event instanceof VideoRecordEvent\.Start && broadcastMode\) \{\s*broadcastFileStartedAt = System\.currentTimeMillis\(\);\s*if \(broadcastStartReported\) return;\s*broadcastStartReported = true;/);
+  assert.match(camera,/event instanceof VideoRecordEvent\.Start\) \{\s*broadcastFileStartedAt = System\.currentTimeMillis\(\);\s*if \(broadcastStartReported\) return;\s*broadcastStartReported = true;/);
   assert.match(camera,/markBroadcastRecordingStarted\(System\.currentTimeMillis\(\)/);
 });
 
