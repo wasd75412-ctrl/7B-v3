@@ -64,8 +64,12 @@ test('accepts a correctly scoped opening rally with small cross-device clock ske
 test('does not freshen an offline command when the server finally acknowledges it',()=>{
   assert.equal(accept({command:{...command,createdAt:{toMillis:()=>now},clientCreatedAt:now-60_000}}),false);
   assert.equal(accept({command:{...command,clientCreatedAt:now-11_000}}),false);
-  assert.equal(accept({command:{...command,clientCreatedAt:now+6000}}),false);
   assert.equal(accept({command:{...command,clientCreatedAt:now-2000}}),true);
+});
+
+test('accepts commands from a phone whose clock runs ahead of the host',()=>{
+  assert.equal(accept({command:{...command,matchId:'current-match',clientCreatedAt:now+6400}}),true);
+  assert.equal(accept({command:{...command,createdAt:now+5001,clientCreatedAt:now}}),false);
 });
 
 test('rejects missing or malformed timestamps instead of treating them as fresh',()=>{
