@@ -24,6 +24,28 @@ public final class P4GestureInterpreterTest {
     }
 
     @Test
+    public void scoresAsSoonAsTheSwipePassesTheSlopAndOnlyOnce() {
+        P4GestureInterpreter gestures = new P4GestureInterpreter();
+        float slop = 84f;
+        gestures.begin(530f, 515f, true);
+        gestures.notePoint(530f, 559f, slop);
+        assertEquals(VolumeKeyInterpreter.Action.NONE, gestures.emitOnceMoved(1022L));
+        gestures.notePoint(530f, 739f, slop);
+        assertEquals(VolumeKeyInterpreter.Action.TEAM_A_PLUS, gestures.emitOnceMoved(1044L));
+        gestures.notePoint(530f, 919f, slop);
+        assertEquals(VolumeKeyInterpreter.Action.NONE, gestures.emitOnceMoved(1067L));
+        assertEquals(VolumeKeyInterpreter.Action.NONE, gestures.finishTracking(1157L));
+    }
+
+    @Test
+    public void aTapStillUndoesOnRelease() {
+        P4GestureInterpreter gestures = new P4GestureInterpreter();
+        gestures.begin(530f, 515f, true);
+        assertEquals(VolumeKeyInterpreter.Action.NONE, gestures.emitOnceMoved(1020L));
+        assertEquals(VolumeKeyInterpreter.Action.UNDO, gestures.finishTracking(1100L));
+    }
+
+    @Test
     public void ignoresTheReleaseJumpBackToTheOrigin() {
         assertTrue(P4GestureInterpreter.isReleaseReset(0f, 0f, 1007f, 1696f));
         assertFalse(P4GestureInterpreter.isReleaseReset(82f, 976f, 1007f, 1696f));
