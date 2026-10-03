@@ -88,6 +88,36 @@ final class RecordingTimeline {
         return count;
     }
 
+    static List<Match> preferMoreCompleteMatches(List<Match> saved, List<Match> fresh) {
+        List<Match> merged = new ArrayList<>();
+        if (saved != null) merged.addAll(saved);
+        if (fresh != null) {
+            for (Match candidate : fresh) {
+                int existingIndex = -1;
+                for (int i = 0; i < merged.size(); i++) {
+                    if (merged.get(i).startMs == candidate.startMs) {
+                        existingIndex = i;
+                        break;
+                    }
+                }
+                if (existingIndex < 0) merged.add(candidate);
+                else if (matchCompleteness(candidate) >= matchCompleteness(merged.get(existingIndex))) {
+                    merged.set(existingIndex, candidate);
+                }
+            }
+        }
+        Collections.sort(merged, (a, b) -> Long.compare(a.startMs, b.startMs));
+        return merged;
+    }
+
+    private static int matchCompleteness(Match match) {
+        int value = match.endMs > 0L ? 1_000_000 : 0;
+        if (match.left != null && !match.left.trim().isEmpty()) value += 10_000;
+        if (match.right != null && !match.right.trim().isEmpty()) value += 10_000;
+        value += Math.max(0, match.scoreA) + Math.max(0, match.scoreB);
+        return value;
+    }
+
     private static boolean historyContains(List<Object> history, String matchId) {
         for (Object item : history) {
             if (item instanceof Map && matchId.equals(String.valueOf(((Map<?, ?>) item).get("matchId")))) return true;
