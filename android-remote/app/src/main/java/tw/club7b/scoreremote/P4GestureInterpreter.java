@@ -14,6 +14,7 @@ final class P4GestureInterpreter {
     private boolean tracking;
     private boolean touched;
     private boolean moved;
+    private boolean emitted;
     private float startX;
     private float startY;
     private float lastX;
@@ -45,14 +46,7 @@ final class P4GestureInterpreter {
         int action = event.getActionMasked();
         if (action == MotionEvent.ACTION_DOWN || action == MotionEvent.ACTION_POINTER_DOWN
                 || action == MotionEvent.ACTION_HOVER_ENTER) {
-            if (!tracking) {
-                tracking = true;
-                touched = false;
-                moved = false;
-                startX = lastX = event.getX();
-                startY = lastY = event.getY();
-            }
-            if (action != MotionEvent.ACTION_HOVER_ENTER) touched = true;
+            begin(event.getX(), event.getY(), action != MotionEvent.ACTION_HOVER_ENTER);
             return VolumeKeyInterpreter.Action.NONE;
         }
         if (!tracking) return VolumeKeyInterpreter.Action.NONE;
@@ -61,7 +55,7 @@ final class P4GestureInterpreter {
                 notePoint(event.getHistoricalX(index), event.getHistoricalY(index), slop);
             }
             notePoint(event.getX(), event.getY(), slop);
-            return VolumeKeyInterpreter.Action.NONE;
+            return emitOnceMoved(event.getEventTime());
         }
         if (action != MotionEvent.ACTION_UP && action != MotionEvent.ACTION_POINTER_UP
                 && action != MotionEvent.ACTION_HOVER_EXIT && action != MotionEvent.ACTION_CANCEL) {
@@ -79,16 +73,42 @@ final class P4GestureInterpreter {
         return finish(false, eventTime);
     }
 
+    void begin(float x, float y, boolean touch) {
+        if (!tracking) {
+            tracking = true;
+            touched = false;
+            moved = false;
+            emitted = false;
+            startX = lastX = x;
+            startY = lastY = y;
+        }
+        if (touch) touched = true;
+    }
+
+    // P4 plays each swipe as a fixed ~160 ms animation; its direction is clear long before the
+    // release, so the action fires as soon as the swipe passes the slop.
+    VolumeKeyInterpreter.Action emitOnceMoved(long eventTime) {
+        if (!moved || emitted) return VolumeKeyInterpreter.Action.NONE;
+        emitted = true;
+        return deliver(classify(lastX - startX, lastY - startY, true), eventTime);
+    }
+
     private VolumeKeyInterpreter.Action finish(boolean canceled, long eventTime) {
         boolean didMove = moved;
+        boolean alreadyEmitted = emitted;
         float dx = lastX - startX;
         float dy = lastY - startY;
         boolean pressed = touched;
         tracking = false;
         touched = false;
         moved = false;
+        emitted = false;
+        if (alreadyEmitted) return VolumeKeyInterpreter.Action.NONE;
         if (!didMove && (!pressed || canceled)) return VolumeKeyInterpreter.Action.NONE;
-        VolumeKeyInterpreter.Action resolved = classify(dx, dy, didMove);
+        return deliver(classify(dx, dy, didMove), eventTime);
+    }
+
+    private VolumeKeyInterpreter.Action deliver(VolumeKeyInterpreter.Action resolved, long eventTime) {
         if (resolved == lastAction && eventTime >= lastActionAt && eventTime - lastActionAt < DUPLICATE_ACTION_MS) {
             return VolumeKeyInterpreter.Action.NONE;
         }
@@ -97,7 +117,7 @@ final class P4GestureInterpreter {
         return resolved;
     }
 
-    private void notePoint(float x, float y, float slop) {
+    void notePoint(float x, float y, float slop) {
         if (isReleaseReset(x, y, startX, startY)) return;
         lastX = x;
         lastY = y;
