@@ -61,7 +61,7 @@ test('routes remote keys directly without multi-press delay',()=>{
   assert.match(service,/useOneShuttle/);
   assert.match(service,/returnOneShuttle/);
   assert.match(activity,/sendRemoteOfficialStartCommand\(\).*backgroundScoreController\.startOfficialMatch/s);
-  assert.match(controller,/startOfficialMatch\(FullscreenCallback callback\).*transaction\.get\(liveScore\).*transaction\.set\(remoteControl, officialStartUpdates\(String\.valueOf\(matchId\), clientCreatedAt\)/s);
+  assert.match(controller,/startOfficialMatch\(FullscreenCallback callback\).*transaction\.get\(liveScore\).*officialStartUpdates\(String\.valueOf\(matchId\), clientCreatedAt\);\s*transaction\.set\(remoteControl, updates, SetOptions\.merge\(\)\)/s);
   assert.match(controller,/officialStartUpdates\(String matchId, long clientCreatedAt\)[\s\S]*?updates\.put\("officialStartCommand", command\)/);
   assert.match(controller,/sendShuttleCommand\(VolumeKeyInterpreter\.Action\.USE_SHUTTLE, "已使用 1 顆球"/);
   assert.match(controller,/sendShuttleCommand\(VolumeKeyInterpreter\.Action\.RETURN_SHUTTLE, "已加回 1 顆球"/);
