@@ -591,6 +591,14 @@ test('lets players set gender for mixed-team rotation',()=>{
   assert.match(html,/id="newPlayerGender"[\s\S]*?<option value="male">男性<\/option>[\s\S]*?<option value="female">女性<\/option>/);
   assert.match(html,/id="editGender"[\s\S]*?<option value="male">男性<\/option>[\s\S]*?<option value="female">女性<\/option>/);
   assert.match(mainSource,/gender:normalizePlayerGender\(playerRecord\.gender\)/);
-  assert.match(mainSource,/if\(profileDirty\.gender\)updated\.gender=normalizePlayerGender/);
+  assert.match(mainSource,/currentGender=normalizePlayerGender\(\$\(\'editGender\'\)\.value\)/);
+  assert.match(mainSource,/if\(profileDirty\.gender\|\|currentGender!==profileOriginal\?\.gender\)updated\.gender=currentGender/);
   assert.match(mainSource,/lineupMaleCount=values\.filter/);
+});
+
+test('normalizes a manually edited next doubles lineup immediately',()=>{
+  const updatePrioritySource=mainSource.match(/function updatePriority\(\)\{[\s\S]*?\n\}/)?.[0]||'';
+  assert.match(updatePrioritySource,/teammateSafeLineup\(selected\)/);
+  assert.match(updatePrioritySource,/nextSelectIndices\(format\)\.forEach/);
+  assert.match(updatePrioritySource,/state\.nextCall=\{players:\[\.\.\.vals\]/);
 });
