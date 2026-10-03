@@ -41,7 +41,10 @@ test('uploads unlisted videos titled by date with the timeline as description',(
   assert.match(uploader,/videos\?part=snippet/);
   assert.match(worker,/entry\.title = RecordingTimeline\.title\(entry\.startMs, RecordingUploadStore\.ordinal\(context, entry\)\);/);
   assert.match(worker,/if \(!RecordingTimeline\.hasGameChapter\(entry\.description\)\) entry\.description = timeline\(entry\);/);
-  assert.match(read(`${javaDir}RecordingUploadStore.java`),/RecordingTimeline\.hasValidChapters\(entry\.description\)/);
+  assert.doesNotMatch(read(`${javaDir}RecordingUploadStore.java`),/hasValidChapters/);
+  assert.match(worker,/gameCount\(fresh\) < RecordingTimeline\.gameCount\(entry\.description\)\) return;/);
+  assert.match(worker,/MatchHistoryRooms\.load\(\s*BackgroundScoreController\.firestore\(getApplicationContext\(\)\), entry\.roomId, entry\.startMs\)/);
+  assert.match(read(`${javaDir}MatchHistoryRooms.java`),/whereGreaterThanOrEqualTo\("endedAt"/);
   assert.match(scheduler,/timelineRefresh\(app, System\.currentTimeMillis\(\)\)/);
   assert.match(worker,/YouTubeUploader\.createSession\(token, entry\.title, entry\.description, length\)/);
   assert.match(worker,/MatchHistoryRooms\.load/);

@@ -81,6 +81,13 @@ final class RecordingTimeline {
         return description != null && description.contains("Game");
     }
 
+    static int gameCount(String description) {
+        if (description == null) return 0;
+        int count = 0;
+        for (String line : description.split("\\n")) if (line.matches("\\d{2}:\\d{2}:\\d{2} Game\\d+ .*")) count++;
+        return count;
+    }
+
     private static boolean historyContains(List<Object> history, String matchId) {
         for (Object item : history) {
             if (item instanceof Map && matchId.equals(String.valueOf(((Map<?, ?>) item).get("matchId")))) return true;

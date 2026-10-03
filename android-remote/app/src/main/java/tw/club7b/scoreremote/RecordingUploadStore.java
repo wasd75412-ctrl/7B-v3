@@ -103,7 +103,6 @@ final class RecordingUploadStore {
         List<Entry> refresh = new ArrayList<>();
         for (Entry entry : read(context)) {
             if (entry.status != Status.UPLOADED || entry.videoId.isEmpty() || entry.roomId.isEmpty()) continue;
-            if (RecordingTimeline.hasValidChapters(entry.description)) continue;
             if (nowMs - entry.endMs > TIMELINE_REFRESH_MS) continue;
             refresh.add(entry);
         }

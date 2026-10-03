@@ -2181,6 +2181,7 @@ async function publishMatchArchive(rows){
   try{
     await writeArchivedMatches(pending);
     for(const row of pending){
+      if(!state.history.some(item=>item.matchId===row.matchId))continue;
       const decoded=decodeArchivedMatch(encodeArchivedMatch(row)),index=archivedHistory.findIndex(item=>item.matchId===row.matchId);
       if(index>=0)archivedHistory[index]=decoded;else archivedHistory.push(decoded);
     }
@@ -2195,6 +2196,17 @@ async function flushPendingArchives(){
   const pending=readPendingArchives(localStorage,roomId).map(decodeArchivedMatch).filter(row=>row.matchId&&!removedMatchIds.has(row.matchId));
   if(!pending.length)return;
   await publishMatchArchive(pending);
+}
+function archiveUnsyncedHistory(){
+  if(!isHost||!roomRef)return;
+  const missing=state.history.filter(row=>row?.matchId&&!row.testMode&&!archivedHistory.some(item=>item.matchId===row.matchId));
+  if(missing.length)void publishMatchArchive(missing);
+}
+function unarchiveReopenedMatch(matchId){
+  if(!matchId)return;
+  archivedHistory=archivedHistory.filter(row=>row.matchId!==matchId);
+  writePendingArchives(localStorage,roomId,readPendingArchives(localStorage,roomId).filter(row=>row.matchId!==matchId));
+  if(isHost&&roomId)void deleteArchivedMatches([matchId]).catch(error=>console.warn('撤回比賽時移除封存戰績失敗',error));
 }
 async function slimRoomHistoryIfNeeded(){
   if(!isHost||!roomRef)return;
@@ -2211,7 +2223,7 @@ async function loadMatchArchive(){
     if(merged.length!==state.history.length||merged.some((row,index)=>row.matchId!==state.history[index]?.matchId)){
       applying=true;state.history=merged;applying=false;renderHistory();renderStats();renderDashboard();
     }
-    if(isHost){await flushPendingArchives();await slimRoomHistoryIfNeeded()}
+    if(isHost){await flushPendingArchives();await slimRoomHistoryIfNeeded();archiveUnsyncedHistory()}
   }catch(error){console.warn('完整戰績讀取失敗，先使用房間內的最近場次',error)}
 }
 async function deleteArchivedMatches(matchIds){
@@ -2465,6 +2477,7 @@ function reopenRecordedMatch(){
   dismissedResultKey='';$('resultModal').classList.add('hidden');
   clearTimeout(matchAutoBackupTimer);matchAutoBackupTimer=null;
   if(isHost&&roomId&&matchId)void deleteDoc(backupDocRef(`auto_${matchId}`)).catch(error=>console.warn('撤回比賽時移除舊自動備份失敗',error));
+  unarchiveReopenedMatch(matchId);
   return true;
 }
 function replay(){
@@ -2858,6 +2871,7 @@ function finishMatch(){
   if(isHost)$('resultModal').classList.remove('hidden');else $('resultModal').classList.add('hidden');
   renderAll();
   if(isHost)saveLiveScoreSoon();
+  if(firstCompletion&&!isTestMatch)archiveUnsyncedHistory();
 }
 function updatePriority(){
   const needed=matchPlayerCount(state.match.format),vals=selectedNextLineup(),projected=projectedQueueForLineup(vals);

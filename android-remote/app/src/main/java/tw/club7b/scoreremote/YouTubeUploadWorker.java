@@ -159,6 +159,7 @@ public final class YouTubeUploadWorker extends Worker {
         try {
             String fresh = timeline(entry);
             if (!RecordingTimeline.hasGameChapter(fresh) || fresh.equals(entry.description)) return;
+            if (RecordingTimeline.gameCount(fresh) < RecordingTimeline.gameCount(entry.description)) return;
             Context context = getApplicationContext();
             String title = entry.title.isEmpty()
                     ? RecordingTimeline.title(entry.startMs, RecordingUploadStore.ordinal(context, entry)) : entry.title;
@@ -179,7 +180,7 @@ public final class YouTubeUploadWorker extends Worker {
         if (!entry.roomId.isEmpty()) {
             try {
                 Map<String, Object> loaded = Tasks.await(MatchHistoryRooms.load(
-                        BackgroundScoreController.firestore(getApplicationContext()), entry.roomId), 30, TimeUnit.SECONDS);
+                        BackgroundScoreController.firestore(getApplicationContext()), entry.roomId, entry.startMs), 30, TimeUnit.SECONDS);
                 if (loaded != null) room = loaded;
             } catch (Exception error) {
                 Log.w("7BYouTube", "Could not load match history", error);
