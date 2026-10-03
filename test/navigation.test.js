@@ -592,5 +592,5 @@ test('lets players set gender for mixed-team rotation',()=>{
   assert.match(html,/id="editGender"[\s\S]*?<option value="male">男性<\/option>[\s\S]*?<option value="female">女性<\/option>/);
   assert.match(mainSource,/gender:normalizePlayerGender\(playerRecord\.gender\)/);
   assert.match(mainSource,/if\(profileDirty\.gender\)updated\.gender=normalizePlayerGender/);
-  assert.match(mainSource,/malePresentCount=selectablePlayerIds\(\)\.filter/);
+  assert.match(mainSource,/lineupMaleCount=values\.filter/);
 });
