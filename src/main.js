@@ -3294,14 +3294,17 @@ async function sessionFeePushMessage(notice){
 }
 async function syncCompletedSession(){
   if(!isHost||!roomRef)return;
-  const buttons=['syncSessionScore','resultSyncSessionBtn'].map(id=>$(id)).filter(Boolean);
+  const buttons=['syncSessionScore','resultSyncSessionBtn','roomSyncSessionBtn'].map(id=>$(id)).filter(Boolean);
   if(buttons.some(button=>button.disabled))return;
   for(const button of buttons){button.disabled=true;button.textContent='同步中'}
   try{
     await slimRoomHistoryIfNeeded();
     await saveNow();
+    archiveUnsyncedHistory();
+    setSync('已同步','online');
     showScoreRemoteIndicator('已同步',{duration:1200,icon:'✓'});
   }catch{
+    setSync('同步失敗','error');
     showScoreRemoteIndicator('同步失敗',{duration:1600,icon:'⚠'});
   }finally{
     for(const button of buttons){button.disabled=false;button.textContent='同步'}
@@ -3493,6 +3496,7 @@ $('endSessionBtn').onclick=()=>endTodaySession($('endSessionBtn'));
 $('resultEndSessionBtn').onclick=()=>endTodaySession($('resultEndSessionBtn'));
 $('syncSessionScore').onclick=()=>syncCompletedSession();
 $('resultSyncSessionBtn').onclick=()=>syncCompletedSession();
+$('roomSyncSessionBtn').onclick=()=>syncCompletedSession();
 $('closeSessionFee').onclick=closeSessionFeeModal;
 if($('editNextEventFromPoll'))$('editNextEventFromPoll').onclick=()=>openNextEventEditor(primaryNextEvent()?.id||'');
 $('closeNextEventEditor').onclick=closeNextEventEditor;
