@@ -61,17 +61,24 @@ test('separates male players when fewer than three men are present',()=>{
   assert.equal(pairs(lineup).includes('A|B'),false);
 });
 
+test('uses the four selected players for the three-men exception',()=>{
+  const genderByPlayer={A:'male',B:'male',C:'female',D:'female',E:'male'};
+  const lineup=arrangeTeamsWithTeammateLimit(['A','B','C','D'],[],0,2,{genderByPlayer,malePresentCount:3});
+  assert.equal(pairs(lineup).includes('A|B'),false);
+});
+
 test('uses the original teammate rules when gender grouping is disabled',()=>{
   const genderByPlayer={A:'male',B:'male',C:'female',D:'female'};
   const lineup=arrangeTeamsWithTeammateLimit(['A','B','C','D'],[],0,2,{genderGroupingEnabled:false,genderByPlayer,malePresentCount:2});
   assert.deepEqual(pairs(lineup),['A|B','C|D']);
 });
 
-test('fully randomizes among gender-safe pairings when requested',()=>{
+test('random court still prefers the least-used gender-safe pairing',()=>{
   const genderByPlayer={A:'male',B:'male',C:'female',D:'female'};
   const first=arrangeTeamsWithTeammateLimit(['A','B','C','D'],[game(['A','C'],['B','D'])],0,2,{genderByPlayer,malePresentCount:2,randomizeAll:true});
   const second=arrangeTeamsWithTeammateLimit(['A','B','C','D'],[game(['A','C'],['B','D'])],1,2,{genderByPlayer,malePresentCount:2,randomizeAll:true});
-  assert.notDeepEqual(pairs(first),pairs(second));
+  assert.deepEqual(pairs(first),['A|D','B|C']);
+  assert.deepEqual(pairs(second),['A|D','B|C']);
 });
 
 test('allows male teammates when three men are present',()=>{
