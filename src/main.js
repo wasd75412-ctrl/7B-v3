@@ -2312,6 +2312,22 @@ async function saveNewMatchCheckpointNow(){
   finally{pendingLiveScoreWrites=Math.max(0,pendingLiveScoreWrites-1);updateSyncBadge()}
 }
 function checkpointNewMatch(){void saveNewMatchCheckpointNow().catch(error=>console.warn('比賽切換同步失敗',error))}
+async function syncFinishedMatchNow(matchId=''){
+  if(!isHost||!roomRef||!matchId)return;
+  try{
+    setSync('賽後同步中','pending');
+    await slimRoomHistoryIfNeeded();
+    await saveNow();
+    archiveUnsyncedHistory();
+    await createCloudBackup('auto',{id:`auto_${matchId}`,replace:true,silent:true,system:true});
+    setSync('已同步','online');
+    await loadBackups().catch(()=>{});
+  }catch(error){
+    setSync('賽後同步失敗','error');
+    setError(formatError(error));
+    console.warn('賽後自動同步失敗',error);
+  }
+}
 function adoptRestoredState(data){
   const nextEpoch=nextMatchEpoch(state.match);
   state=cleanState(data);
@@ -2901,7 +2917,7 @@ function finishMatch(){
   renderAll();
   if(isHost&&!isTestMatch){bumpLineupRevision();void persistLineupNow()}
   if(isHost)saveLiveScoreSoon();
-  if(firstCompletion&&!isTestMatch)archiveUnsyncedHistory();
+  if(firstCompletion&&!isTestMatch){archiveUnsyncedHistory();void syncFinishedMatchNow(m.matchId)}
 }
 function updatePriority(){
   const format=normalizeMatchFormat(state.match.format),needed=matchPlayerCount(format),selected=selectedNextLineup(format),vals=format===MATCH_FORMAT_SINGLES?selected:selected.length===needed&&new Set(selected).size===needed?teammateSafeLineup(selected):selected,projected=projectedQueueForLineup(vals);
