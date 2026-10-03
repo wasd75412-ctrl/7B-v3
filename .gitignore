@@ -6,6 +6,9 @@ dist
 # Local Netlify folder
 .netlify
 
+# Local Cloudflare Wrangler folder
+.wrangler/
+
 # Android build and private signing material
 android-remote/.gradle/
 android-remote/app/build/
