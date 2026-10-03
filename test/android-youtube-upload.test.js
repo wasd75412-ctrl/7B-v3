@@ -28,6 +28,9 @@ test('uploads on unmetered Wi-Fi and skips a personal hotspot',()=>{
   assert.match(wifi,/NET_CAPABILITY_VALIDATED/);
   assert.match(wifi,/NET_CAPABILITY_NOT_METERED/);
   assert.match(wifi,/isHotspotOnly/);
+  assert.match(wifi,/isWifiInternet\(capabilities\) && !isHotspot\(connectivity, network, capabilities\)/);
+  assert.match(wifi,/a == 172 && b == 20 && c == 10 && d < 16/);
+  assert.match(wifi,/a == 192 && b == 168 && c == 43/);
   assert.doesNotMatch(wifi,/AAA-5G/);
   assert.match(worker,/if \(!HomeWifi\.isConnected\(context\)\) \{[\s\S]*?個人熱點不上傳" : "等待 Wi-Fi/);
   assert.match(worker,/if \(isStopped\(\) \|\| !HomeWifi\.isConnected\(context\)\) break;/);
