@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { LOCAL_LINK_OFFER_MAX_AGE_MS, isFreshLocalLinkOffer, parseLocalLinkMessage } from '../src/local-link.js';
+import { LOCAL_LINK_OFFER_MAX_AGE_MS, freshLocalLinkOffers, isFreshLocalLinkOffer, parseLocalLinkMessage } from '../src/local-link.js';
 
 const main=readFileSync(new URL('../src/main.js',import.meta.url),'utf8');
 const controller=readFileSync(new URL('../android-remote/app/src/main/java/tw/club7b/scoreremote/BackgroundScoreController.java',import.meta.url),'utf8');
@@ -15,6 +15,21 @@ test('only recent offers with a session and SDP are answered',()=>{
   assert.equal(isFreshLocalLinkOffer({sessionId:'s',sdp:'',clientCreatedAt:now},now),false);
   assert.equal(isFreshLocalLinkOffer({sdp:'v=0',clientCreatedAt:now},now),false);
   assert.equal(isFreshLocalLinkOffer(null,now),false);
+});
+
+test('each phone offers under its own id so two phones never replace each other',()=>{
+  const now=1_800_000_000_000;
+  const offers=freshLocalLinkOffers({rog:{sessionId:'a',sdp:'v=0',clientCreatedAt:now},samsung:{sessionId:'b',sdp:'v=0',clientCreatedAt:now-1000},old:{sessionId:'c',sdp:'v=0',clientCreatedAt:now-LOCAL_LINK_OFFER_MAX_AGE_MS-1}},now);
+  assert.deepEqual(offers.map(([deviceId])=>deviceId),['rog','samsung']);
+  assert.deepEqual(freshLocalLinkOffers(null,now),[]);
+  const host=readFileSync(new URL('../src/local-link.js',import.meta.url),'utf8');
+  assert.match(host,/const peers=new Map\(\),answering=new Map\(\);/);
+  assert.match(host,/closeDevice\(deviceId\);\s*const current=new RTCPeerConnection/);
+  assert.match(host,/setDoc\(ref,\{answers:\{\[deviceId\]:\{sessionId:offer\.sessionId/);
+  assert.doesNotMatch(host,/data\(\)\?\.offer[^s]/);
+  assert.match(client,/offers\.put\(deviceId\(\), offer\);\s*Map<String, Object> updates = new HashMap<>\(\);\s*updates\.put\("offers", offers\);/);
+  assert.match(client,/Object answers = snapshot\.get\("answers"\);\s*Object value = answers instanceof Map \? \(\(Map<\?, \?>\) answers\)\.get\(deviceId\(\)\) : null;/);
+  assert.match(client,/preferences\.edit\(\)\.putString\("deviceId", stored\)\.apply\(\);/);
 });
 
 test('direct-link messages become the same commands as their Firestore copies',()=>{
