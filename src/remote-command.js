@@ -23,11 +23,12 @@ export function shouldAcceptRemoteCommand({command,currentMatch,now=Date.now(),i
   if(skipAge)return true;
 
   const startedAt=timestampMillis(currentMatch?.startedAt);
-  const timestamps=[timestampMillis(command.createdAt)];
-  // Keep an offline command's original age even when its server timestamp is new.
-  if(Object.hasOwn(command,'clientCreatedAt'))timestamps.push(timestampMillis(command.clientCreatedAt));
-  return timestamps.every(timestamp=>Number.isFinite(timestamp)
+  const fresh=timestamp=>Number.isFinite(timestamp)
     &&timestamp>=now-REMOTE_COMMAND_MAX_AGE_MS
-    &&timestamp<=now+REMOTE_COMMAND_MAX_FUTURE_SKEW_MS
-    &&(hasMatchId||!Number.isFinite(startedAt)||timestamp>=startedAt));
+    &&(hasMatchId||!Number.isFinite(startedAt)||timestamp>=startedAt);
+  const server=timestampMillis(command.createdAt);
+  if(!fresh(server)||server>now+REMOTE_COMMAND_MAX_FUTURE_SKEW_MS)return false;
+  // Keep an offline command's original age even when its server timestamp is new.
+  // Phone clocks can run several seconds ahead of the host, so only the server time bounds the future.
+  return !Object.hasOwn(command,'clientCreatedAt')||fresh(timestampMillis(command.clientCreatedAt));
 }
