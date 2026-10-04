@@ -1,6 +1,5 @@
 import { getBlobStore as getStore } from './lib/blob-store.mjs';
-import webpush from 'web-push';
-import { PUSH_STORE, jsonResponse, subscriptionKey, validEndpoint, validRoomId, validSubscription } from './lib/push-shared.mjs';
+import { PUSH_STORE, configureWebPush, jsonResponse, sendWebPush, subscriptionKey, unindexSubscription, validEndpoint, validRoomId, validSubscription } from './lib/push-shared.mjs';
 
 export default async request=>{
   if(request.method!=='POST')return jsonResponse({error:'不支援這個操作。'},405);
@@ -16,25 +15,23 @@ export default async request=>{
   const record=await store.get(key,{type:'json'}).catch(()=>null);
   if(!record||!validSubscription(record.subscription))return jsonResponse({error:'這台裝置尚未訂閱本球局通知，請重新啟用。'},404);
 
-  const publicKey=process.env.VAPID_PUBLIC_KEY?.trim(),privateKey=process.env.VAPID_PRIVATE_KEY?.trim();
-  const siteUrl=(process.env.URL||process.env.DEPLOY_PRIME_URL||'').replace(/\/$/,'');
-  if(!publicKey||!privateKey||!siteUrl)return jsonResponse({error:'手機通知服務尚未完成設定。'},503);
-  webpush.setVapidDetails(process.env.VAPID_SUBJECT||siteUrl,publicKey,privateKey);
+  const push=configureWebPush();
+  if(!push)return jsonResponse({error:'手機通知服務尚未完成設定。'},503);
   const payload=JSON.stringify({
     title:'7B 羽球社測試通知',
     body:'通知設定成功！投票、球局公告與聊天室標記都會用這個方式提醒你。',
-    url:`${siteUrl}/?room=${encodeURIComponent(roomId)}`,
-    icon:`${siteUrl}/icons/icon-192.png`,
-    badge:`${siteUrl}/icons/icon-192.png`,
+    url:`${push.siteUrl}/?room=${encodeURIComponent(roomId)}`,
+    icon:`${push.siteUrl}/icons/icon-192.png`,
+    badge:`${push.siteUrl}/icons/icon-192.png`,
     tag:`7b-push-test-${Date.now()}`
   });
   try{
-    await webpush.sendNotification(record.subscription,payload,{TTL:300,urgency:'high'});
+    await sendWebPush(record.subscription,payload,{TTL:300,urgency:'high'});
     record.lastTestAt=new Date().toISOString();
     await store.setJSON(key,record);
     return jsonResponse({ok:true});
   }catch(error){
-    if(error?.statusCode===404||error?.statusCode===410){await store.delete(key);return jsonResponse({error:'通知訂閱已失效，請重新啟用。'},410)}
+    if(error?.statusCode===404||error?.statusCode===410){await store.delete(key);await unindexSubscription(store,roomId,key);return jsonResponse({error:'通知訂閱已失效，請重新啟用。'},410)}
     console.error(`Push test ${roomId} failed`,error);
     return jsonResponse({error:'測試通知暫時無法送出，請稍後再試。'},502);
   }

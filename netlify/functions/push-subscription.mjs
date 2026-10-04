@@ -1,6 +1,6 @@
 import { getBlobStore as getStore } from './lib/blob-store.mjs';
 import { EVENT_PACKING_MEMO_ITEMS, normalizePackingItems } from '../../src/event-packing-memo.js';
-import { PUSH_STORE, cleanText, jsonResponse, subscriptionKey, validEndpoint, validRoomId, validSubscription } from './lib/push-shared.mjs';
+import { PUSH_STORE, cleanText, indexSubscription, jsonResponse, subscriptionKey, unindexSubscription, validEndpoint, validRoomId, validSubscription } from './lib/push-shared.mjs';
 
 const REFRESH_REWRITE_MS=7*24*60*60*1000;
 
@@ -30,11 +30,15 @@ export default async request=>{
   const store=getStore({name:PUSH_STORE,consistency:'strong'}),key=subscriptionKey(roomId,endpoint);
   if(body.enabled===false){
     await store.delete(key);
+    await unindexSubscription(store,roomId,key);
     return jsonResponse({ok:true,enabled:false});
   }
   if(!validSubscription(body.subscription))return jsonResponse({error:'通知裝置資料不完整。'},400);
   const existing=await store.get(key,{type:'json'}).catch(()=>null),now=new Date().toISOString();
-  if(isUnchangedRefresh(existing,body))return jsonResponse({ok:true,enabled:true});
+  if(isUnchangedRefresh(existing,body)){
+    await indexSubscription(store,roomId,key);
+    return jsonResponse({ok:true,enabled:true});
+  }
   const packingReminderMinutes=[30,60,90,120].includes(Number(body.packingReminderMinutes))?Number(body.packingReminderMinutes):(existing?.packingReminderMinutes||60);
   await store.setJSON(key,{
     roomId,
@@ -56,5 +60,6 @@ export default async request=>{
     lastPackingEventId:existing?.lastPackingEventId||'',
     lastPackingReminderAt:existing?.lastPackingReminderAt||''
   });
+  await indexSubscription(store,roomId,key);
   return jsonResponse({ok:true,enabled:true});
 };

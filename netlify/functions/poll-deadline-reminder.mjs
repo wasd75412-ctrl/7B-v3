@@ -1,6 +1,5 @@
 import { getBlobStore as getStore } from './lib/blob-store.mjs';
-import webpush from 'web-push';
-import { PUSH_STORE, jsonResponse, validRoomId, validSubscription } from './lib/push-shared.mjs';
+import { PUSH_STORE, allRoomSubscriptions, configureWebPush, jsonResponse, sendWebPush } from './lib/push-shared.mjs';
 
 const FIREBASE_PROJECT='badminton-7a1c3';
 const FIREBASE_API_KEY='AIzaSyBrakbTPK7UqEChPBI6pM8-i03IcLq0IvM';
@@ -42,20 +41,13 @@ async function getRoomPoll(roomId){
 }
 
 export default async()=>{
-  const publicKey=process.env.VAPID_PUBLIC_KEY?.trim(),privateKey=process.env.VAPID_PRIVATE_KEY?.trim();
-  if(!publicKey||!privateKey)return jsonResponse({error:'VAPID 金鑰尚未設定。'},503);
-  const siteUrl=(process.env.URL||process.env.DEPLOY_PRIME_URL||'').replace(/\/$/,'');
-  if(!siteUrl)return jsonResponse({error:'找不到網站網址。'},503);
-  webpush.setVapidDetails(process.env.VAPID_SUBJECT||siteUrl,publicKey,privateKey);
-  const store=getStore({name:PUSH_STORE,consistency:'strong'}),listing=await store.list(),records=[];
-  for(const blob of listing.blobs){
-    const record=await store.get(blob.key,{type:'json'}).catch(()=>null);
-    if(record&&validRoomId(record.roomId)&&validSubscription(record.subscription))records.push({key:blob.key,record});
-  }
-  const byRoom=new Map();
-  for(const item of records){const rows=byRoom.get(item.record.roomId)||[];rows.push(item);byRoom.set(item.record.roomId,rows)}
-  let sent=0,removed=0,failed=0;
+  const push=configureWebPush();
+  if(!push)return jsonResponse({error:'手機通知服務尚未完成設定。'},503);
+  const siteUrl=push.siteUrl;
+  const store=getStore({name:PUSH_STORE,consistency:'strong'}),byRoom=await allRoomSubscriptions(store);
+  let checked=0,sent=0,removed=0,failed=0;
   for(const [roomId,items] of byRoom){
+    checked+=items.length;
     let poll;
     try{poll=await getRoomPoll(roomId)}catch(error){console.error(error);failed+=items.length;continue}
     for(const item of items){
@@ -69,7 +61,7 @@ export default async()=>{
         tag:`7b-poll-${roomId}-${poll.deadlineAt}`
       });
       try{
-        await webpush.sendNotification(item.record.subscription,payload,{TTL:reminderLeadMs(poll.deadlineAt)/1000,urgency:'normal',topic:`poll-${roomId}`});
+        await sendWebPush(item.record.subscription,payload,{TTL:reminderLeadMs(poll.deadlineAt)/1000,urgency:'normal',topic:`poll-${roomId}`});
         item.record.lastReminderDeadline=poll.deadlineAt;
         item.record.lastReminderAt=new Date().toISOString();
         await store.setJSON(item.key,item.record);
@@ -80,7 +72,7 @@ export default async()=>{
       }
     }
   }
-  const result={ok:true,checked:records.length,sent,removed,failed};
+  const result={ok:true,checked,sent,removed,failed};
   console.log('Poll reminder run',result);
   return jsonResponse(result);
 };

@@ -44,7 +44,7 @@ test('maps Cloudflare Pages function names to existing handlers', () => {
 test('uses the stable Cloudflare Pages URL for push notification links', () => {
   assert.match(pagesFunctionSource, /CANONICAL_SITE_URL = 'https:\/\/7b-v3\.pages\.dev'/);
   assert.match(pagesFunctionSource, /hostname\.endsWith\('\.7b-v3\.pages\.dev'\)/);
-  assert.match(pagesFunctionSource, /process\.env\.URL = process\.env\.URL \|\| cloudflareSiteUrl\(env\)/);
+  assert.match(pagesFunctionSource, /process\.env\.URL = cloudflareSiteUrl\(env\) \|\| CANONICAL_SITE_URL/);
 });
 
 test('declares the Cloudflare Pages build output and Node compatibility', () => {

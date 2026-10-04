@@ -852,6 +852,15 @@ async function enablePushFromPrompt(){
   closePushPrompt();
   if(!pushNotificationEnabled())await setPushNotificationEnabled();
 }
+function subscriptionServerKey(subscription){const key=subscription?.options?.applicationServerKey;if(!key)return'';let raw='';for(const byte of new Uint8Array(key))raw+=String.fromCharCode(byte);return btoa(raw).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'')}
+async function replaceStalePushSubscription(registration,subscription,publicKey){
+  const serverKey=subscriptionServerKey(subscription);
+  if(!subscription||!serverKey||serverKey===publicKey)return subscription;
+  const staleEndpoint=subscription.endpoint;
+  await subscription.unsubscribe().catch(()=>{});
+  pushApi('push-subscription',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({enabled:false,roomId,endpoint:staleEndpoint})}).catch(()=>{});
+  return registration.pushManager.subscribe({userVisibleOnly:true,applicationServerKey:base64UrlBytes(publicKey)});
+}
 async function sendPushTest(subscription){return pushApi('push-test',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({roomId,endpoint:subscription.endpoint})})}
 async function testPushNotification(){
   const button=$('pushTestBtn');
@@ -869,8 +878,10 @@ async function reconcilePushSubscription(){
   if(!roomId||!supportsPush()||localStorage.getItem(pushEnabledKey())!=='1')return updatePushNotificationButton();
   try{
     if(Notification.permission!=='granted'){localStorage.removeItem(pushEnabledKey());return updatePushNotificationButton()}
-    const registration=await navigator.serviceWorker.ready,subscription=await registration.pushManager.getSubscription();
+    const registration=await navigator.serviceWorker.ready;
+    let subscription=await registration.pushManager.getSubscription();
     if(!subscription){localStorage.removeItem(pushEnabledKey());return updatePushNotificationButton()}
+    if(subscriptionServerKey(subscription)){const config=await pushApi('push-config');subscription=await replaceStalePushSubscription(registration,subscription,config.publicKey)}
     const playerId=preferredNotificationPlayerId(),playerName=playerId?pname(playerId):'';
     await pushApi('push-subscription',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({enabled:true,roomId,clientHash:selfHash,playerId,playerName,subscription:subscription.toJSON()})});
   }catch(error){console.warn('Push subscription refresh failed',error)}
@@ -896,7 +907,7 @@ async function setPushNotificationEnabled(){
     const permission=await Notification.requestPermission();
     if(permission!=='granted')throw new Error(permission==='denied'?'通知權限已被封鎖，請到手機的網站通知設定中允許。':'你尚未允許通知。');
     const [config,registration]=await Promise.all([pushApi('push-config'),navigator.serviceWorker.ready]);
-    const existing=await registration.pushManager.getSubscription();
+    const existing=await replaceStalePushSubscription(registration,await registration.pushManager.getSubscription(),config.publicKey);
     const subscription=existing||await registration.pushManager.subscribe({userVisibleOnly:true,applicationServerKey:base64UrlBytes(config.publicKey)});
     const playerId=preferredNotificationPlayerId(),playerName=playerId?pname(playerId):'';
     await pushApi('push-subscription',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({enabled:true,roomId,clientHash:selfHash,playerId,playerName,subscription:subscription.toJSON()})});

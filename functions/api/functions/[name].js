@@ -34,9 +34,18 @@ const handlers = {
 
 const CANONICAL_SITE_URL = 'https://7b-v3.pages.dev';
 
+function httpsUrl(value){
+  try{
+    const url = new URL(String(value || '').trim());
+    return url.protocol === 'https:' ? url.href.replace(/\/$/, '') : '';
+  }catch{return ''}
+}
+
 function cloudflareSiteUrl(env){
-  const configured = env?.SITE_URL || env?.PUBLIC_SITE_URL || env?.URL || env?.DEPLOY_PRIME_URL;
-  if(typeof configured === 'string' && configured.trim())return configured.replace(/\/$/, '');
+  for(const configured of [env?.SITE_URL, env?.PUBLIC_SITE_URL, env?.URL, env?.DEPLOY_PRIME_URL]){
+    const url = httpsUrl(configured);
+    if(url)return url;
+  }
   if(typeof env?.CF_PAGES_URL === 'string'){
     try{
       const url = new URL(env.CF_PAGES_URL);
@@ -54,8 +63,8 @@ function syncEnvironment(env){
     for(const [key, value] of Object.entries(env || {})){
       if(typeof value === 'string')process.env[key] = value;
     }
-    process.env.URL = process.env.URL || cloudflareSiteUrl(env);
-    process.env.DEPLOY_PRIME_URL = process.env.DEPLOY_PRIME_URL || process.env.URL;
+    process.env.URL = cloudflareSiteUrl(env) || CANONICAL_SITE_URL;
+    process.env.DEPLOY_PRIME_URL = process.env.URL;
   }
 }
 
@@ -67,5 +76,13 @@ export async function onRequest(context){
     status: 404,
     headers: { 'content-type': 'application/json; charset=utf-8' }
   });
-  return handler(context.request);
+  try{
+    return await handler(context.request);
+  }catch(error){
+    console.error(`Function ${name} failed`, error);
+    return new Response(JSON.stringify({ error: '服務暫時無法使用，請稍後再試。' }), {
+      status: 500,
+      headers: { 'content-type': 'application/json; charset=utf-8', 'cache-control': 'no-store' }
+    });
+  }
 }
