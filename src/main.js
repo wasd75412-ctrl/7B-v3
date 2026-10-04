@@ -3078,14 +3078,14 @@ function renderShuttleTubeManager(){
     const tubeId=button.dataset.shuttleTube,delta=Number(button.dataset.shuttleDelta)||0;
     state.shuttleTubes=normalizeShuttleTubes(tubes.map(tube=>tube.id===tubeId?adjustSessionShuttleUsage(tube,delta,shuttleUsageSessionKey()):tube));
     const updated=state.shuttleTubes.find(tube=>tube.id===tubeId);
-    syncShuttleCostNotice(updated);renderShuttleTubeManager();saveSoon();
+    syncShuttleCostNotice(updated);updateUseShuttleButtons();renderShuttleTubeManager();saveSoon();
   });
   all('[data-reset-shuttle-session]').forEach(button=>button.onclick=()=>{
     if(!isHost)return;
     const tubeId=button.dataset.resetShuttleSession,tube=tubes.find(row=>row.id===tubeId);
     if(!tube||!confirm('確定結束該場次，並將該場次的用球顆數歸零？\n球桶剩餘顆數不會加回。'))return;
     state.shuttleTubes=normalizeShuttleTubes(tubes.map(row=>row.id===tubeId?{...row,sessionUsedShuttles:0,sessionUsageKey:shuttleUsageSessionKey()}:row));
-    syncShuttleCostNotice(state.shuttleTubes.find(row=>row.id===tubeId));renderShuttleTubeManager();saveSoon();
+    syncShuttleCostNotice(state.shuttleTubes.find(row=>row.id===tubeId));updateUseShuttleButtons();renderShuttleTubeManager();saveSoon();
   });
   all('[data-set-shuttle-remaining]').forEach(button=>button.onclick=()=>{
     if(!isHost)return;
@@ -3096,7 +3096,7 @@ function renderShuttleTubeManager(){
     const remaining=Number(input);
     if(!Number.isInteger(remaining)||remaining<0||remaining>tube.totalShuttles)return alert(`請輸入 0～${tube.totalShuttles} 的整數。`);
     state.shuttleTubes=normalizeShuttleTubes(tubes.map(row=>row.id===tubeId?setShuttleRemaining(row,remaining):row));
-    syncShuttleCostNotice(state.shuttleTubes.find(row=>row.id===tubeId));renderShuttleTubeManager();saveSoon();
+    syncShuttleCostNotice(state.shuttleTubes.find(row=>row.id===tubeId));updateUseShuttleButtons();renderShuttleTubeManager();saveSoon();
   });
   all('[data-toggle-shuttle-details]').forEach(button=>button.onclick=()=>{
     expandedShuttleTubeId=expandedShuttleTubeId===button.dataset.toggleShuttleDetails?'':button.dataset.toggleShuttleDetails;
@@ -3128,7 +3128,8 @@ function renderShuttleTubeManager(){
     if(!confirm(message))return;
     state.shuttleLegacyActiveTubeId='';
     state.shuttleTubes=activateShuttleTube(tubes,pending.id,{activatedAt:new Date().toISOString(),historyCount:state.history.length});
-    syncShuttleCostNotice(state.shuttleTubes.find(row=>row.id===pending.id));renderShuttleTubeManager();saveSoon();
+    syncShuttleCostNotice(state.shuttleTubes.find(row=>row.id===pending.id));updateUseShuttleButtons();renderShuttleTubeManager();
+    void saveNow().catch(()=>saveSoon());
   });
   all('[data-delete-shuttle-tube]').forEach(button=>button.onclick=()=>{
     if(!isHost)return;
@@ -3137,7 +3138,7 @@ function renderShuttleTubeManager(){
     if(state.shuttleLegacyActiveTubeId===tube.id)state.shuttleLegacyActiveTubeId='';
     state.shuttleTubes=softDeleteShuttleTube(tubes,tube.id,new Date().toISOString());
     if(expandedShuttleTubeId===tube.id)expandedShuttleTubeId='';
-    renderShuttleTubeManager();saveSoon();
+    updateUseShuttleButtons();renderShuttleTubeManager();saveSoon();
   });
   all('[data-finish-shuttle-tube]').forEach(button=>button.onclick=()=>{
     if(!isHost)return;
@@ -3145,14 +3146,14 @@ function renderShuttleTubeManager(){
     if(!tube||!confirm(`確定結束球桶「${tube.name}」？\n結束後會保留價格、剩餘顆數與該場次球費記錄。`))return;
     state.shuttleLegacyActiveTubeId='';
     state.shuttleTubes=finishShuttleTube(tubes,tube.id,new Date().toISOString());
-    renderShuttleTubeManager();saveSoon();
+    updateUseShuttleButtons();renderShuttleTubeManager();saveSoon();
   });
   all('[data-restore-shuttle-tube]').forEach(button=>button.onclick=()=>{
     if(!isHost)return;
     const tube=tubes.find(row=>row.id===button.dataset.restoreShuttleTube);
     if(!tube||!confirm(`恢復球桶「${tube.name}」？`))return;
     state.shuttleTubes=restoreShuttleTube(tubes,tube.id);
-    renderShuttleTubeManager();saveSoon();
+    updateUseShuttleButtons();renderShuttleTubeManager();saveSoon();
   });
 }
 function openShuttleTubeManager(){
