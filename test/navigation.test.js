@@ -273,6 +273,12 @@ test('lets a claimed participant report an event payment and an admin confirm it
   assert.match(styles,/#app \.event-payment-report\.confirmed\{[^}]*color:#bff6dc/);
 });
 
+test('lets administrators claim their own player identity',()=>{
+  assert.match(mainSource,/claimable=!!p&&!ownerHashes\.includes\(selfHash\)/);
+  assert.doesNotMatch(mainSource,/claimable=!isHost&&p&&!editable/);
+  assert.match(mainSource,/\$\('claimPlayer'\)\.onclick=claimEditedPlayer/);
+});
+
 test('ending the session notifies played players with a copyable account and payment report',()=>{
   assert.match(mainSource,/const feeNotice=snapshotSessionFee\(\);\s*await slimRoomHistoryIfNeeded\(\);\s*await saveNow\(\)/);
   assert.match(mainSource,/const event=currentSessionEvent\(\),playerIds=sessionPlayedParticipantIds\(\),costs=sessionCombinedCosts\(event\)/);
