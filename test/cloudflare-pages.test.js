@@ -7,6 +7,7 @@ const serviceWorkerSource = readFileSync(new URL('../public/sw.js', import.meta.
 const pagesFunctionSource = readFileSync(new URL('../functions/api/functions/[name].js', import.meta.url), 'utf8');
 const clubFunctionSource = readFileSync(new URL('../functions/club/[name].js', import.meta.url), 'utf8');
 const wranglerSource = readFileSync(new URL('../wrangler.toml', import.meta.url), 'utf8');
+const scheduledWorkflowSource = readFileSync(new URL('../.github/workflows/scheduled-functions.yml', import.meta.url), 'utf8');
 
 test('routes browser function calls through Cloudflare Pages functions', () => {
   assert.match(mainSource, /\/club\/\$\{apiFunctionPath\(path\)\}/);
@@ -45,6 +46,17 @@ test('uses the stable Cloudflare Pages URL for push notification links', () => {
   assert.match(pagesFunctionSource, /CANONICAL_SITE_URL = 'https:\/\/7b-v3\.pages\.dev'/);
   assert.match(pagesFunctionSource, /hostname\.endsWith\('\.7b-v3\.pages\.dev'\)/);
   assert.match(pagesFunctionSource, /process\.env\.URL = cloudflareSiteUrl\(env\) \|\| CANONICAL_SITE_URL/);
+});
+
+test('triggers the formerly Netlify-scheduled functions every five minutes', () => {
+  assert.match(scheduledWorkflowSource, /^\s*schedule:\s*$/m);
+  assert.match(scheduledWorkflowSource, /- cron: '2-59\/5 \* \* \* \*'/);
+  assert.match(scheduledWorkflowSource, /https:\/\/7b-v3\.pages\.dev/);
+  assert.match(scheduledWorkflowSource, /\/api\/functions\/\$name/);
+  for(const name of ['weekly-poll', 'poll-deadline-reminder', 'packing-reminder']){
+    assert.match(scheduledWorkflowSource, new RegExp(`\\b${name}\\b`));
+    assert.match(pagesFunctionSource, new RegExp(`'${name}': `));
+  }
 });
 
 test('declares the Cloudflare Pages build output and Node compatibility', () => {
