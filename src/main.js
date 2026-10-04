@@ -122,7 +122,7 @@ if(requestedAndroidRemote){
 const SCORE_REMOTE_ENABLED_KEY='bcmScoreRemoteEnabledV1',SCORE_REMOTE_BINDINGS_KEY='bcmScoreRemoteBindingsV1',SCORE_REMOTE_DOUBLE_PRESS_MS=500,OFFICIAL_START_ECHO_MS=500;
 const SCORE_REMOTE_ACTION_LABELS={teamAPlus:'A隊 ＋1',teamBPlus:'B隊 ＋1',undo:'撤銷上一分',teamAMinus:'A隊 −1',teamBMinus:'B隊 −1'};
 const SCORE_REMOTE_BINDING_IDS={teamAPlus:'remoteBindingTeamAPlus',teamBPlus:'remoteBindingTeamBPlus',undo:'remoteBindingUndo',teamAMinus:'remoteBindingTeamAMinus',teamBMinus:'remoteBindingTeamBMinus'};
-let scoreRemoteEnabled=localStorage.getItem(SCORE_REMOTE_ENABLED_KEY)==='1',scoreRemoteBindings=loadScoreRemoteBindings(),scoreRemoteLearningAction='',scoreRemoteLastInputAt=0,scoreRemoteIndicatorTimer=null,scoreRemoteLearningTimer=null,scoreRemoteStatusMessage='',scoreRemoteStatusKind='',scoreRemotePressedCodes=new Set(),scoreRemoteStartPressAt=0;
+let scoreRemoteEnabled=localStorage.getItem(SCORE_REMOTE_ENABLED_KEY)==='1',scoreRemoteBindings=loadScoreRemoteBindings(),scoreRemoteLearningAction='',scoreRemoteLastInputAt=0,scoreRemoteIndicatorTimer=null,scoreRemoteIndicatorFrame=0,scoreRemoteLearningTimer=null,scoreRemoteStatusMessage='',scoreRemoteStatusKind='',scoreRemotePressedCodes=new Set(),scoreRemoteStartPressAt=0;
 
 function loadScoreRemoteBindings(){
   try{return normalizeRemoteBindings(JSON.parse(localStorage.getItem(SCORE_REMOTE_BINDINGS_KEY)||'{}'))}catch{return normalizeRemoteBindings()}
@@ -155,22 +155,24 @@ function showScoreRemoteIndicator(message,{duration=900,icon='🎮',emphasis=''}
   const indicator=$('scoreRemoteIndicator');if(!indicator)return;
   const resultModal=$('resultModal'),overlayHost=resultModal&&!resultModal.classList.contains('hidden')?resultModal:(currentFullscreenElement()||$('scoreView'));
   if(overlayHost&&indicator.parentElement!==overlayHost)overlayHost.append(indicator);
-  clearTimeout(scoreRemoteIndicatorTimer);indicator.textContent=`${icon} ${message}`;indicator.classList.toggle('official-start',emphasis==='official');indicator.classList.remove('hidden');
-  scoreRemoteIndicatorTimer=setTimeout(hideScoreRemoteIndicator,duration);
+  clearTimeout(scoreRemoteIndicatorTimer);cancelAnimationFrame(scoreRemoteIndicatorFrame);indicator.textContent=`${icon} ${message}`;indicator.classList.toggle('official-start',emphasis==='official');indicator.classList.remove('hidden');
+  // The countdown starts after the first paint; heavy renders can delay that paint past the whole duration.
+  scoreRemoteIndicatorFrame=requestAnimationFrame(()=>{scoreRemoteIndicatorFrame=requestAnimationFrame(()=>{scoreRemoteIndicatorFrame=0;scoreRemoteIndicatorTimer=setTimeout(hideScoreRemoteIndicator,duration)})});
 }
 function hideScoreRemoteIndicator(){
   const indicator=$('scoreRemoteIndicator');if(!indicator)return;
-  clearTimeout(scoreRemoteIndicatorTimer);indicator.classList.add('hidden');if($('scoreView')&&indicator.parentElement!==$('scoreView'))$('scoreView').append(indicator);
+  clearTimeout(scoreRemoteIndicatorTimer);cancelAnimationFrame(scoreRemoteIndicatorFrame);scoreRemoteIndicatorFrame=0;indicator.classList.add('hidden');if($('scoreView')&&indicator.parentElement!==$('scoreView'))$('scoreView').append(indicator);
 }
-function dismissOfficialStartIndicator(){
+function officialStartIndicatorVisible(){
   const indicator=$('scoreRemoteIndicator');
-  if(indicator?.classList.contains('official-start')&&!indicator.classList.contains('hidden'))hideScoreRemoteIndicator();
+  return Boolean(indicator?.classList.contains('official-start')&&!indicator.classList.contains('hidden'));
 }
+function dismissOfficialStartIndicator(){if(officialStartIndicatorVisible())hideScoreRemoteIndicator()}
 function matchHasOfficiallyStarted(match=state.match){return Boolean(match?.startedAt)}
 function markMatchOfficialStarted(requestedAt){
   const match=state.match;
   if(!isHost||!match.active||match.winner!==null)return false;
-  if(matchHasOfficiallyStarted(match)){showScoreRemoteIndicator('本場已正式開始',{duration:1400,icon:'✅'});return true}
+  if(matchHasOfficiallyStarted(match)){if(!officialStartIndicatorVisible())showScoreRemoteIndicator('本場已正式開始',{duration:1400,icon:'✅'});return true}
   androidOfficialStartPending=null;
   const now=Date.now(),requestedMillis=timestampMillis(requestedAt);
   match.startedAt=new Date(Number.isFinite(requestedMillis)?Math.min(requestedMillis,now):now).toISOString();

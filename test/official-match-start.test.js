@@ -132,7 +132,7 @@ test('result-screen remote next match is scoped to the finished match score keys
 });
 
 test('official start is idempotent and scoring waits for it',()=>{
-  assert.match(main,/if\(matchHasOfficiallyStarted\(match\)\)\{showScoreRemoteIndicator\('本場已正式開始'/);
+  assert.match(main,/if\(matchHasOfficiallyStarted\(match\)\)\{if\(!officialStartIndicatorVisible\(\)\)showScoreRemoteIndicator\('本場已正式開始'/);
   assert.match(main,/if\(!matchHasOfficiallyStarted\(match\)\)\{showScoreRemoteIndicator\('請先按播放鍵正式開始'/);
   assert.match(controller,/void startOfficialMatch[\s\S]*?long clientCreatedAt = System\.currentTimeMillis\(\)[\s\S]*?command\.put\("clientCreatedAt", clientCreatedAt\)/);
   assert.match(main,/function handleRemoteOfficialStartCommand[\s\S]*?markMatchOfficialStarted\(data\.officialStartCommand\.clientCreatedAt\|\|data\.officialStartCommand\.createdAt\)/);
@@ -161,8 +161,17 @@ test('official start does not block the following score presses',()=>{
 });
 
 test('official start notice stays readable but clears as soon as a point is scored',()=>{
-  assert.match(main,/function dismissOfficialStartIndicator\(\)\{[\s\S]*?classList\.contains\('official-start'\)[\s\S]*?hideScoreRemoteIndicator\(\)/);
+  assert.match(main,/function officialStartIndicatorVisible\(\)\{[\s\S]*?classList\.contains\('official-start'\)&&!indicator\.classList\.contains\('hidden'\)/);
+  assert.match(main,/function dismissOfficialStartIndicator\(\)\{if\(officialStartIndicatorVisible\(\)\)hideScoreRemoteIndicator\(\)\}/);
   assert.match(main,/function addPoint\(team\)\{[^}]*dismissOfficialStartIndicator\(\);state\.match\.rallies\.push\(team\)/);
+});
+
+test('indicator countdown starts only after the notice has been painted',()=>{
+  const show=main.match(/function showScoreRemoteIndicator\([\s\S]*?\n\}/)?.[0]||'';
+  assert.match(show,/cancelAnimationFrame\(scoreRemoteIndicatorFrame\)/);
+  assert.match(show,/requestAnimationFrame\(\(\)=>\{scoreRemoteIndicatorFrame=requestAnimationFrame\(\(\)=>\{scoreRemoteIndicatorFrame=0;scoreRemoteIndicatorTimer=setTimeout\(hideScoreRemoteIndicator,duration\)/);
+  assert.doesNotMatch(show,/\n  scoreRemoteIndicatorTimer=setTimeout/);
+  assert.match(main,/function hideScoreRemoteIndicator\(\)\{[\s\S]*?cancelAnimationFrame\(scoreRemoteIndicatorFrame\)/);
 });
 
 test('camera recording start automatically becomes the millisecond timeline baseline',()=>{
