@@ -45,6 +45,17 @@ test('shows one-shuttle controls in scoring and next-match result views plus das
   assert.match(styles,/#resultModal \.next-team/);
 });
 
+test('persists shuttle changes during lite-sync matches and refreshes the session fee',()=>{
+  assert.match(main,/function saveShuttleChange\(\)\{if\(isHost&&roomRef\)void saveNow\(\)\.catch\(\(\)=>saveSoon\(\)\)\}/);
+  for(const name of ['useOneShuttle','returnOneShuttle','renderShuttleTubeManager','createNewShuttleTube']){
+    const body=main.slice(main.indexOf(`function ${name}(`),main.indexOf('\nfunction ',main.indexOf(`function ${name}(`)+1));
+    assert.doesNotMatch(body,/saveSoon\(\);/,`${name} must not rely on saveSoon`);
+  }
+  assert.match(main,/adjustSessionShuttleUsage\(row,-1,shuttleUsageSessionKey\(\)\):row\)\);\s*const updated=activeShuttleTube\(\);\s*syncShuttleCostNotice\(updated\);updateUseShuttleButtons\(\);renderShuttleTubeManager\(\);saveShuttleChange\(\);/);
+  assert.match(main,/function syncShuttleCostNotice\(tube\)\{[^}]*refreshSessionFeeAmount\(\);\s*renderDashboard\(\);/);
+  assert.match(main,/function refreshSessionFeeAmount\(\)\{[\s\S]*?sessionFee:\{\.\.\.event\.sessionFee,amount:share\}/);
+});
+
 test('routes remote keys directly without multi-press delay',()=>{
   for(const source of [activity,service]){
     assert.match(source,/Action previousAction = \w+Keys\.onMissingKeyUp\(keyCode\);[\s\S]*?handleResolved\w+Action\(previousAction, keyCode, event\.getEventTime\(\)\);/);
