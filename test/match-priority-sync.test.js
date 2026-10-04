@@ -18,6 +18,21 @@ test('finished matches sync and back up their own record immediately',()=>{
   assert.match(sessionFlow,/await slimRoomHistoryIfNeeded\(\);[\s\S]*?await saveNow\(\);[\s\S]*?await createCloudBackup\('session'/);
 });
 
+test('in-session backups never list the photo-heavy backup docs',()=>{
+  const finishedSyncFlow=source.slice(source.indexOf('async function syncFinishedMatchNow'),source.indexOf('function adoptRestoredState'));
+  const createBackup=source.slice(source.indexOf('async function createCloudBackup'),source.indexOf('async function pruneAutomaticBackups'));
+  const trim=source.slice(source.indexOf('function trimAutoBackups'),source.indexOf('function refreshVisibleBackups'));
+  assert.doesNotMatch(finishedSyncFlow,/loadBackups\(/);
+  assert.match(finishedSyncFlow,/await refreshVisibleBackups\(\)/);
+  assert.match(source,/function refreshVisibleBackups\(\)\{return \$\('page7'\)\?\.classList\.contains\('hidden'\)===false\?loadBackups\(\):Promise\.resolve\(\)\}/);
+  assert.match(createBackup,/if\(type==='daily'\)await pruneAutomaticBackups\(\);else if\(type==='auto'\)trimAutoBackups\(id\);/);
+  assert.match(createBackup,/if\(backupIndex\('known'\)\.includes\(id\)\)return\{id,skipped:true\}/);
+  assert.doesNotMatch(trim,/getDocs?\(/);
+  assert.match(trim,/deleteDoc\(backupDocRef\(stale\)\)/);
+  const ensure=source.slice(source.indexOf('async function ensureGenesisAndDaily'),source.indexOf('async function pruneAutomaticBackups'));
+  assert.doesNotMatch(ensure,/loadBackups\(/);
+});
+
 test('a scoreboard break can upload completed matches without a backup',()=>{
   const html=readFileSync(new URL('../index.html',import.meta.url),'utf8');
   const styles=readFileSync(new URL('../src/styles.css',import.meta.url),'utf8');
