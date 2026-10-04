@@ -1982,6 +1982,10 @@ function isResultScreenBurstPress(command){
   const pressedAt=timestampMillis(command?.clientCreatedAt);
   return remoteFinishPressAt>0&&Number.isFinite(pressedAt)&&pressedAt-remoteFinishPressAt<RESULT_NEXT_MATCH_GUARD_MS;
 }
+function isResultScreenNextMatchPress(command,action){
+  return ['teamAPlus','teamBPlus'].includes(action)&&state.match.active&&state.match.winner!==null
+    &&String(command?.matchId??'')===String(state.match.matchId??'');
+}
 function rememberReplacedRemoteMatch(){replacedRemoteMatchId=String(state.match?.matchId||'');replacedRemoteMatchAt=Date.now();androidOfficialStartPending=null}
 function isReplacedMatchPreStartPress(command,action){
   const match=state.match;
@@ -2054,7 +2058,7 @@ function handleRemoteActionCommand(data,{initial=false,skipAge=false}={}){
     return handleAndroidPreStartPress(action,command);
   }
   if(initial||requestedAndroidRemote||!isHost||!['teamAPlus','teamBPlus','undo','useShuttle','returnShuttle'].includes(action))return false;
-  const scoreVisible=!$('scoreView').classList.contains('hidden'),resultVisible=!$('resultModal').classList.contains('hidden'),courtVisible=!$('page3').classList.contains('hidden');
+  const scoreVisible=!$('scoreView').classList.contains('hidden'),resultVisible=!$('resultModal').classList.contains('hidden')&&state.match.winner!==null,courtVisible=!$('page3').classList.contains('hidden');
   if(!scoreVisible&&!resultVisible){
     if(courtVisible&&['teamAPlus','teamBPlus'].includes(action)){
       if(state.match.active&&state.match.winner===null){scoreViewRequested=true;renderScore();showScoreRemoteIndicator('進入比分模式')}
@@ -2068,7 +2072,7 @@ function handleRemoteActionCommand(data,{initial=false,skipAge=false}={}){
   if(resultVisible){
     if(action==='undo')performScoreRemoteAction('undo',{announce:false});
     else if(isResultScreenBurstPress(command))showScoreRemoteIndicator('本場已結束',{duration:1200,icon:'🏁'});
-    else startNext();
+    else if(isResultScreenNextMatchPress(command,action))startNext();
     return true;
   }
   if(!state.match.active||state.match.winner!==null)return false;

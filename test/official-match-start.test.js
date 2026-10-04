@@ -121,6 +121,15 @@ test('Android appends every score press immediately instead of holding later pre
   assert.match(main,/function replay\(\)\{[\s\S]*?m\.syncEpoch=Math\.max\(Date\.now\(\),\(Number\(m\.syncEpoch\)\|\|0\)\+1\)/);
 });
 
+test('result-screen remote next match is scoped to the finished match score keys',()=>{
+  const guard=main.match(/function isResultScreenNextMatchPress\(command,action\)\{[\s\S]*?\n\}/)?.[0]||'';
+  assert.match(guard,/\['teamAPlus','teamBPlus'\]\.includes\(action\)/);
+  assert.match(guard,/state\.match\.active&&state\.match\.winner!==null/);
+  assert.match(guard,/String\(command\?\.matchId\?\?''\)===String\(state\.match\.matchId\?\?''\)/);
+  assert.match(main,/resultVisible=!\$\('resultModal'\)\.classList\.contains\('hidden'\)&&state\.match\.winner!==null/);
+  assert.match(main,/else if\(isResultScreenNextMatchPress\(command,action\)\)startNext\(\)/);
+});
+
 test('official start is idempotent and scoring waits for it',()=>{
   assert.match(main,/if\(matchHasOfficiallyStarted\(match\)\)\{showScoreRemoteIndicator\('本場已正式開始'/);
   assert.match(main,/if\(!matchHasOfficiallyStarted\(match\)\)\{showScoreRemoteIndicator\('請先按播放鍵正式開始'/);
