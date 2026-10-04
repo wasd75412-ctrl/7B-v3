@@ -22,6 +22,21 @@ const handlers = {
   'weekly-poll': weeklyPoll
 };
 
+const CANONICAL_SITE_URL = 'https://7b-v3.pages.dev';
+
+function cloudflareSiteUrl(env){
+  const configured = env?.SITE_URL || env?.PUBLIC_SITE_URL || env?.URL || env?.DEPLOY_PRIME_URL;
+  if(typeof configured === 'string' && configured.trim())return configured.replace(/\/$/, '');
+  if(typeof env?.CF_PAGES_URL === 'string'){
+    try{
+      const url = new URL(env.CF_PAGES_URL);
+      if(url.hostname === '7b-v3.pages.dev' || url.hostname.endsWith('.7b-v3.pages.dev'))return CANONICAL_SITE_URL;
+      return url.origin;
+    }catch{}
+  }
+  return '';
+}
+
 function syncEnvironment(env){
   globalThis.__SEVEN_B_CLOUDFLARE_ENV__ = env;
   if(typeof process !== 'undefined'){
@@ -29,7 +44,8 @@ function syncEnvironment(env){
     for(const [key, value] of Object.entries(env || {})){
       if(typeof value === 'string')process.env[key] = value;
     }
-    if(!process.env.URL && typeof env?.CF_PAGES_URL === 'string')process.env.URL = env.CF_PAGES_URL;
+    process.env.URL = process.env.URL || cloudflareSiteUrl(env);
+    process.env.DEPLOY_PRIME_URL = process.env.DEPLOY_PRIME_URL || process.env.URL;
   }
 }
 
