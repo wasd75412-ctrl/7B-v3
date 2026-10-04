@@ -1951,15 +1951,29 @@ function applyState(data){
     next.match=structuredClone(latestLiveMatch);
   }
   if(canApplyMatch(next.match)&&(Number(next.lineupRevision)||0)<(Number(state.lineupRevision)||0))keepNewerLineup(next);
-  applying=true;state=next;renderAll();applying=false;announceSyncedScore(before);
+  state=next;
+  if(requestedAndroidRemote)scheduleAndroidRemoteRender(true);else{applying=true;renderAll();applying=false}
+  announceSyncedScore(before);
   // Receiving a room snapshot must never publish its fallback match back into liveScore.
+}
+// The Android app pauses WebView timers while recording, and Firestore delivers every snapshot through
+// setTimeout, so a resumed console receives the whole backlog at once and must draw only the latest state.
+let androidRemoteRenderFrame=0,androidRemoteRenderFull=false;
+function scheduleAndroidRemoteRender(full=false){
+  androidRemoteRenderFull||=full;
+  if(androidRemoteRenderFrame)return;
+  androidRemoteRenderFrame=requestAnimationFrame(()=>{
+    const fullRender=androidRemoteRenderFull;androidRemoteRenderFrame=0;androidRemoteRenderFull=false;
+    applying=true;if(fullRender)renderAll();else renderAndroidRemote();applying=false;
+  });
 }
 function applyLiveScoreState(data,{announce=true}={}){
   const before=matchScoreSignature(),beforeMatch=state.match,match=keepOfficialStart(beforeMatch,decodeLiveMatch(data,beforeMatch));
   if(!canApplyMatch(match))return false;
   const shouldFinish=beforeMatch.matchId===match.matchId&&beforeMatch.winner===null&&match.winner!==null&&isHost&&!requestedAndroidRemote&&scoreViewRequested;
   liveScoreReady=true;latestLiveMatch=structuredClone(match);
-  applying=true;state.match=match;renderScore();renderDashboard();renderAndroidRemote();applying=false;
+  state.match=match;
+  if(requestedAndroidRemote)scheduleAndroidRemoteRender();else{applying=true;renderScore();renderDashboard();renderAndroidRemote();applying=false}
   announceSyncedScore(before,announce);if(shouldFinish)finishMatch();return true;
 }
 function handleRemoteFullscreenCommand(data,{initial=false}={}){

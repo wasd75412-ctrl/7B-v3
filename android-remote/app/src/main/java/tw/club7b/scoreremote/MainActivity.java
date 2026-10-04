@@ -35,7 +35,7 @@ import android.widget.Toast;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 public final class MainActivity extends Activity {
-    private static final String APP_HOST = "frolicking-taffy-4c3e5b.netlify.app";
+    private static final String APP_HOST = "7b-v3.pages.dev";
     private static final String APP_URL = "https://" + APP_HOST + "/?androidRemote=1";
     private static final long MISSING_KEY_UP_DELAY_MS = 160L;
     private static final long SAME_POINT_ECHO_MS = 40L;
@@ -76,7 +76,12 @@ public final class MainActivity extends Activity {
         webView.setBackgroundColor(Color.rgb(6, 25, 38));
         configureWebView(webView);
         setContentView(webView, new ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
-        webView.loadUrl(APP_URL);
+        webView.loadUrl(startUrl());
+    }
+
+    private String startUrl() {
+        String roomId = RemoteSessionStore.getSession(this).roomId;
+        return roomId.length() == 6 ? APP_URL + "&room=" + roomId : APP_URL;
     }
 
     private void configureWebView(WebView view) {
@@ -89,7 +94,7 @@ public final class MainActivity extends Activity {
         settings.setDisplayZoomControls(false);
         settings.setMediaPlaybackRequiresUserGesture(false);
         settings.setMixedContentMode(WebSettings.MIXED_CONTENT_NEVER_ALLOW);
-        settings.setUserAgentString(settings.getUserAgentString() + " 7BAndroidRemote/1.3.91");
+        settings.setUserAgentString(settings.getUserAgentString() + " 7BAndroidRemote/1.3.92");
         CookieManager.getInstance().setAcceptCookie(true);
         CookieManager.getInstance().setAcceptThirdPartyCookies(view, true);
         view.setRendererPriorityPolicy(WebView.RENDERER_PRIORITY_IMPORTANT, true);
