@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { arrangeTeamsWithTeammateLimit, consecutiveTeammateGames, lineupExceedsTeammateLimit } from '../src/team-rotation.js';
+import { readFileSync } from 'node:fs';
+import { arrangeTeamsWithTeammateLimit, consecutiveTeammateGames, lineupExceedsTeammateLimit, orientLineupToReference } from '../src/team-rotation.js';
 
 const game=(teamA,teamB)=>({teams:[teamA,teamB]});
 const pairs=lineup=>[lineup.slice(0,2).sort().join('|'),lineup.slice(2,4).sort().join('|')];
@@ -92,4 +93,23 @@ test('still prefers an unseen gender-safe pairing',()=>{
   const history=[game(['A','C'],['B','D'])];
   const lineup=arrangeTeamsWithTeammateLimit(['A','B','C','D'],history,0,2,{genderByPlayer,malePresentCount:2});
   assert.deepEqual(pairs(lineup),['A|D','B|C']);
+});
+
+test('keeps an unavoidable four-men lineup unchanged',()=>{
+  const genderByPlayer={A:'male',B:'male',C:'male',D:'male'};
+  for(const random of[0,1,2])assert.deepEqual(arrangeTeamsWithTeammateLimit(['A','B','C','D'],[],random,2,{genderByPlayer,keepLineup:true}),['A','B','C','D']);
+});
+
+test('keeps players on their previous team when re-pairing',()=>{
+  assert.deepEqual(orientLineupToReference(['C','D','A','B'],['A','B','C','D']),['A','B','C','D']);
+  assert.deepEqual(orientLineupToReference(['B','C','A','D'],['A','B','C','D']),['A','D','B','C']);
+  assert.deepEqual(orientLineupToReference(['A','B','C','D'],['C','D','A','B']),['C','D','A','B']);
+});
+
+test('only reshuffles fixable gender lineups and keeps winners on their side',()=>{
+  const source=readFileSync(new URL('../src/main.js',import.meta.url),'utf8');
+  assert.match(source,/genderViolation=genderGroupingEnabled&&lineupMaleCount===2&&hasMalePair/);
+  assert.match(source,/orientLineupToReference\(arrangeTeamsWithTeammateLimit\(randomize\?shuffle\(values\):values,[^)]*keepLineup:!randomize\}\),values\)/);
+  assert.match(source,/teammateSafeLineup\(m\.winner===0\?\[\.\.\.winners,\.\.\.chosen\]:\[\.\.\.chosen,\.\.\.winners\],\{randomize:true\}\)/);
+  assert.match(source,/lineup=m\.winner===1\?\[\.\.\.rotation\.players\]\.reverse\(\):rotation\.players/);
 });

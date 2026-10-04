@@ -50,7 +50,20 @@ function hasMaleTeammates(lineup,genderByPlayer){
   return [lineup.slice(0,2),lineup.slice(2,4)].some(team=>team.length===2&&team.every(id=>genderByPlayer[id]==='male'));
 }
 
-export function arrangeTeamsWithTeammateLimit(players=[],history=[],randomValue=0,maxConsecutiveGames=2,{genderGroupingEnabled=true,genderByPlayer={}}={}){
+function pairingKey(lineup){
+  return [lineup.slice(0,2),lineup.slice(2,4)].map(team=>[...team].sort().join('|')).sort().join('/');
+}
+
+export function orientLineupToReference(lineup=[],reference=[]){
+  if(lineup.length!==4||reference.length!==4)return [...lineup];
+  const order=id=>reference.indexOf(id),referenceA=new Set(reference.slice(0,2));
+  const teams=[lineup.slice(0,2),lineup.slice(2,4)].map(team=>[...team].sort((x,y)=>order(x)-order(y)));
+  const stay=teams[0].filter(id=>referenceA.has(id)).length,moved=teams[1].filter(id=>referenceA.has(id)).length;
+  const swap=moved>stay||(moved===stay&&teams[1].includes(reference[0]));
+  return swap?[...teams[1],...teams[0]]:[...teams[0],...teams[1]];
+}
+
+export function arrangeTeamsWithTeammateLimit(players=[],history=[],randomValue=0,maxConsecutiveGames=2,{genderGroupingEnabled=true,genderByPlayer={},keepLineup=false}={}){
   const ids=[...new Set(players.filter(Boolean))].slice(0,4);
   if(ids.length!==4)return ids;
   const [a,b,c,d]=ids;
@@ -66,6 +79,7 @@ export function arrangeTeamsWithTeammateLimit(players=[],history=[],randomValue=
     const lowestStreak=Math.min(...pool.map(lineup=>pairingPenalty(lineup,history)));
     pool=pool.filter(lineup=>pairingPenalty(lineup,history)===lowestStreak);
   }
+  if(keepLineup&&pool.some(lineup=>pairingKey(lineup)===pairingKey(ids)))return [...ids];
   const index=Math.abs(Number(randomValue)||0)%pool.length;
   return [...pool[index]];
 }
