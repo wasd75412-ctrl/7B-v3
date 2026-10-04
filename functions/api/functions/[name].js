@@ -11,8 +11,12 @@ import weeklyPoll from '../../../netlify/functions/weekly-poll.mjs';
 
 const handlers = {
   'chat-media': chatMedia,
+  'chat-sync': chatMention,
   'chat-mention': chatMention,
   'event-announcement': eventAnnouncement,
+  'notify-config': pushConfig,
+  'notify-subscription': pushSubscription,
+  'notify-test': pushTest,
   'packing-reminder': packingReminder,
   'poll-deadline-reminder': pollDeadlineReminder,
   'push-config': pushConfig,
