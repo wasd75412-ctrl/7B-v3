@@ -56,6 +56,7 @@ test('the iPad answers the phone and handles direct commands through the existin
 
 test('a Firestore copy of a command already handled over the link is dropped and cleaned up',()=>{
   assert.match(main,/if\(seenRemoteActionIds\.has\(String\(command\.id\)\)\)\{if\(!initial\)logRemoteDiagnostic\('score','firebase',command,'dup'\);deleteRemoteScore\(change\.doc\.ref\);continue\}/);
+  assert.match(main,/sessionStorage\.setItem\(seenRemoteActionKey\(\),JSON\.stringify\(\[\.\.\.seenRemoteActionIds\]\.slice\(-REMOTE_SEEN_ACTION_LIMIT\)\)\)/);
   assert.match(main,/function handleRemoteOfficialStartCommand\(data,\{initial=false\}=\{\}\)\{\s*const id=String\(data\?\.officialStartCommand\?\.id\|\|''\);if\(!id\|\|id===lastRemoteOfficialStartCommandId\)return false;/);
 });
 

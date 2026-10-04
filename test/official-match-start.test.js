@@ -117,7 +117,8 @@ test('Android appends every score press immediately instead of holding later pre
   assert.match(controller,/command\.put\("clientCreatedAt", request\.clientCreatedAt\)/);
   assert.match(controller,/reported\.compareAndSet\(false, true\) && request\.callback != null\) \{\s*request\.callback\.onComplete\(true, "已送出遙控器指令", request\.action\);/);
   assert.match(main,/resilientSnapshot\(collection\(db,'badmintonRooms',id,'remoteControl'\)[\s\S]*?change\.doc\.id\.startsWith\('score-'\)[\s\S]*?handleRemoteActionCommand\(\{remoteActionCommand:item\.command\},\{initial:false,skipAge:true\}\)/);
-  assert.match(main,/if\(!id\|\|seenRemoteActionIds\.has\(id\)\)return false;\s*seenRemoteActionIds\.add\(id\)/);
+  assert.match(main,/if\(!id\|\|seenRemoteActionIds\.has\(id\)\)return false;\s*rememberSeenRemoteActionId\(id\)/);
+  assert.match(main,/seenRemoteActionIds=loadSeenRemoteActionIds\(id\)/);
   assert.match(main,/function replay\(\)\{[\s\S]*?m\.syncEpoch=Math\.max\(Date\.now\(\),\(Number\(m\.syncEpoch\)\|\|0\)\+1\)/);
 });
 
