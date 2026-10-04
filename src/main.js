@@ -678,7 +678,7 @@ function dashboardServingPlayerId(match){
 }
 function renderDashboardLiveScore(match=state.match){
   const box=$('homeLiveScore');if(!box)return;
-  const needed=matchPlayerCount(match?.format),teams=match?.players||[[],[]],hasLiveMatch=!!match?.active&&match?.winner===null&&matchHasOfficiallyStarted(match)&&teams.flat().filter(Boolean).length===needed;
+  const needed=matchPlayerCount(match?.format),teams=match?.players||[[],[]],hasLiveMatch=!!match?.active&&match?.winner===null&&teams.flat().filter(Boolean).length===needed;
   if(!hasLiveMatch){
     box.className='home-live-score idle';
     box.innerHTML='<div class="home-live-score-empty"><strong>暫無比賽</strong></div>';
