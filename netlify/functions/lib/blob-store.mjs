@@ -71,5 +71,8 @@ function cloudflareStore({ name }){
 }
 
 export function getBlobStore(options){
-  return cloudflareStore(options) || getNetlifyStore(options);
+  const store = cloudflareStore(options);
+  if(store)return store;
+  if(cloudflareEnv())throw new Error('Cloudflare KV binding SEVEN_B_BLOBS is not available.');
+  return getNetlifyStore(options);
 }

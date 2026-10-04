@@ -49,4 +49,7 @@ test('declares the Cloudflare Pages build output and Node compatibility', () => 
   assert.match(wranglerSource, /pages_build_output_dir = "dist"/);
   assert.match(wranglerSource, /compatibility_date = "2025-10-03"/);
   assert.match(wranglerSource, /compatibility_flags = \["nodejs_compat"\]/);
+  assert.match(wranglerSource, /\[\[kv_namespaces\]\][\s\S]*binding = "SEVEN_B_BLOBS"[\s\S]*id = "139d657934a541819ec6d56ae27933d4"/);
+  assert.match(wranglerSource, /\[\[env\.production\.kv_namespaces\]\][\s\S]*binding = "SEVEN_B_BLOBS"[\s\S]*id = "139d657934a541819ec6d56ae27933d4"/);
+  assert.match(wranglerSource, /\[\[env\.preview\.kv_namespaces\]\][\s\S]*binding = "SEVEN_B_BLOBS"[\s\S]*id = "139d657934a541819ec6d56ae27933d4"/);
 });
