@@ -1,9 +1,10 @@
 import { getBlobStore as getStore } from './lib/blob-store.mjs';
 import webpush from 'web-push';
 import { PUSH_STORE, jsonResponse, validRoomId, validSubscription } from './lib/push-shared.mjs';
-import { archivePollHistoryFirestoreValue, shouldArchiveExpiredPoll, shouldOpenWeeklyPoll, taipeiWeekSchedule, weeklyPollFirestoreValue, weeklyPollPushPayload } from './lib/weekly-poll.mjs';
+import { archivePollHistoryFirestoreValue, nextWeeklyPollScan, shouldArchiveExpiredPoll, shouldOpenWeeklyPoll, shouldScanWeeklyPollRooms, taipeiWeekSchedule, weeklyPollFirestoreValue, weeklyPollPushPayload } from './lib/weekly-poll.mjs';
 
 const FIREBASE_PROJECT='badminton-7a1c3';
+const WEEKLY_POLL_STATE_STORE='weekly-poll-state',WEEKLY_POLL_SCAN_KEY='scan';
 const FIREBASE_API_KEY='AIzaSyBrakbTPK7UqEChPBI6pM8-i03IcLq0IvM';
 
 function firestoreUrl(path=''){
@@ -47,20 +48,29 @@ async function subscriptionsByRoom(){
   return{store,result};
 }
 
+async function readScanState(){
+  const store=getStore({name:WEEKLY_POLL_STATE_STORE,consistency:'strong'});
+  const scan=await store.get(WEEKLY_POLL_SCAN_KEY,{type:'json'}).catch(()=>null);
+  return{store,scan};
+}
+
 export default async()=>{
-  const now=Date.now(),schedule=taipeiWeekSchedule(now),rooms=await listRooms();
+  const now=Date.now(),schedule=taipeiWeekSchedule(now),{store:scanStore,scan}=await readScanState();
+  if(!shouldScanWeeklyPollRooms(scan,now))return jsonResponse({ok:true,cycle:schedule.cycle,skipped:true});
+  const rooms=await listRooms();
   const due=rooms.filter(({document})=>shouldOpenWeeklyPoll(document,now));
   const expired=rooms.filter(({document})=>shouldArchiveExpiredPoll(document,now));
-  let archived=0,failed=0;
-  for(const {id,document} of expired){try{await archiveExpiredPoll(id,document,now);archived++}catch(error){console.error(error);failed++}}
-  if(!due.length)return jsonResponse({ok:true,cycle:schedule.cycle,checked:rooms.length,archived,opened:0,sent:0,failed});
+  let archived=0,failed=0,writeFailed=0;
+  for(const {id,document} of expired){try{await archiveExpiredPoll(id,document,now);archived++}catch(error){console.error(error);failed++;writeFailed++}}
+  const saveScan=()=>scanStore.setJSON(WEEKLY_POLL_SCAN_KEY,nextWeeklyPollScan(scan,{now,failed:writeFailed})).catch(error=>console.error('Weekly poll scan state',error));
+  if(!due.length){await saveScan();return jsonResponse({ok:true,cycle:schedule.cycle,checked:rooms.length,archived,opened:0,sent:0,failed})}
   const publicKey=process.env.VAPID_PUBLIC_KEY?.trim(),privateKey=process.env.VAPID_PRIVATE_KEY?.trim();
   const siteUrl=(process.env.URL||process.env.DEPLOY_PRIME_URL||'').replace(/\/$/,'');
   if(publicKey&&privateKey&&siteUrl)webpush.setVapidDetails(process.env.VAPID_SUBJECT||siteUrl,publicKey,privateKey);
   const {store,result:byRoom}=await subscriptionsByRoom();
   let opened=0,sent=0,removed=0;
   for(const {id,document} of due){
-    try{await openPoll(id,document,now);opened++}catch(error){console.error(error);failed++;continue}
+    try{await openPoll(id,document,now);opened++}catch(error){console.error(error);failed++;writeFailed++;continue}
     if(!publicKey||!privateKey||!siteUrl)continue;
     const payload=JSON.stringify(weeklyPollPushPayload({siteUrl,roomId:id,cycle:schedule.cycle}));
     for(const item of byRoom.get(id)||[]){
@@ -68,6 +78,7 @@ export default async()=>{
       catch(error){if(error?.statusCode===404||error?.statusCode===410){await store.delete(item.key);removed++}else{console.error(`Push ${id} failed`,error);failed++}}
     }
   }
+  await saveScan();
   const response={ok:true,cycle:schedule.cycle,checked:rooms.length,archived,opened,sent,removed,failed};
   console.log('Weekly poll run',response);return jsonResponse(response);
 };

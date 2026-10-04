@@ -61,8 +61,15 @@ test('keeps the recording overlay on the newest mirrored score source',()=>{
   assert.match(overlay,/first\.updatedAt > second\.updatedAt/);
 });
 
-test('mirrors every live score write for the recording fallback listener',()=>{
-  assert.match(main,/await setDoc\(liveScoreRef,livePayload,\{merge:true\}\);[\s\S]*?setDoc\(roomRef,fallbackPayload,\{merge:true\}\)/);
+test('mirrors live score writes for the recording fallback listener without a room write per point',()=>{
+  assert.match(main,/await setDoc\(liveScoreRef,livePayload,\{merge:true\}\);\s*scheduleRoomMatchFallback\(\);/);
+  const schedule=main.match(/function scheduleRoomMatchFallback\(\)\{[\s\S]*?\n\}/)?.[0]||'';
+  assert.match(schedule,/roomMatchFallbackSignature\(\)!==roomMatchFallbackKey\)return flushRoomMatchFallback\(\)/);
+  assert.match(schedule,/setTimeout\(flushRoomMatchFallback,ROOM_MATCH_FALLBACK_MS\)/);
+  assert.match(main,/function roomMatchFallbackSignature\(\)\{[^\n]*match\.winner[^\n]*match\.startedAt/);
+  assert.match(main,/const data=roomMatchFallbackTimer\?\{\.\.\.payload\(\),\.\.\.takeRoomMatchFallback\(\)\}:payload\(\)/);
+  assert.match(main,/!s\.metadata\.hasPendingWrites&&roomMatchFallbackTimer\)flushRoomMatchFallback\(\)/);
+  assert.match(main,/addEventListener\('pagehide',\(\)=>\{if\(roomMatchFallbackTimer\)flushRoomMatchFallback\(\)\}\)/);
 });
 
 test('keeps Bluetooth scoring in the accessibility background controller path',()=>{

@@ -1,6 +1,26 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { archivePollHistoryFirestoreValue, shouldArchiveExpiredPoll, shouldOpenWeeklyPoll, taipeiWeekSchedule, weeklyPollFirestoreValue, weeklyPollPushPayload } from '../netlify/functions/lib/weekly-poll.mjs';
+import { WEEKLY_POLL_SCAN_MS, archivePollHistoryFirestoreValue, nextWeeklyPollScan, shouldArchiveExpiredPoll, shouldOpenWeeklyPoll, shouldScanWeeklyPollRooms, taipeiWeekSchedule, weeklyPollFirestoreValue, weeklyPollPushPayload } from '../netlify/functions/lib/weekly-poll.mjs';
+
+test('the five-minute trigger lists rooms only when opening, just past the deadline, or hourly',()=>{
+  const opens=Date.parse('2026-08-10T00:00:00.000Z'),deadline=Date.parse('2026-08-15T15:00:00.000Z');
+  assert.equal(shouldScanWeeklyPollRooms(null,opens),true);
+  const failed=nextWeeklyPollScan(null,{now:opens,failed:1});
+  assert.equal(failed.openedCycle,'');
+  assert.equal(shouldScanWeeklyPollRooms(failed,opens+5*60*1000),true);
+  const opened=nextWeeklyPollScan(failed,{now:opens+5*60*1000,failed:0});
+  assert.equal(opened.openedCycle,'2026-08-10');
+  assert.equal(shouldScanWeeklyPollRooms(opened,opens+10*60*1000),false);
+  assert.equal(shouldScanWeeklyPollRooms(opened,opens+5*60*1000+WEEKLY_POLL_SCAN_MS),true);
+  const late={scannedAt:deadline-10*60*1000,openedCycle:'2026-08-10'};
+  assert.equal(shouldScanWeeklyPollRooms(late,deadline-5*60*1000),false);
+  assert.equal(shouldScanWeeklyPollRooms(late,deadline),true);
+  const archived=nextWeeklyPollScan(late,{now:deadline});
+  assert.equal(archived.openedCycle,'2026-08-10');
+  assert.equal(shouldScanWeeklyPollRooms(archived,deadline+5*60*1000),false);
+  const before=Date.parse('2026-08-09T16:00:00.000Z');
+  assert.equal(shouldScanWeeklyPollRooms({scannedAt:before-60*1000,openedCycle:'2026-08-03'},before),false);
+});
 
 test('builds next week Monday through Sunday with a Monday 08:00 open and Saturday 23:00 deadline in Taipei',()=>{
   const now=Date.parse('2026-08-09T16:00:00.000Z'); // Monday 00:00 in Taipei

@@ -1,5 +1,5 @@
 import { initializeApp } from 'firebase/app';
-import { initializeFirestore, memoryLocalCache, persistentLocalCache, persistentMultipleTabManager, disableNetwork, enableNetwork, doc, getDoc, getDocFromServer, onSnapshot, setDoc, writeBatch, serverTimestamp, runTransaction, collection, getDocs, deleteDoc, query, orderBy, limit, where } from 'firebase/firestore';
+import { initializeFirestore, memoryLocalCache, persistentLocalCache, persistentMultipleTabManager, disableNetwork, enableNetwork, doc, getDoc, getDocFromServer, onSnapshot, setDoc, writeBatch, serverTimestamp, runTransaction, collection, getDocs, deleteDoc, query, orderBy, limit, where, documentId } from 'firebase/firestore';
 import appPackage from '../package.json';
 import { calculateCombinedPerPersonFee, calculatePerPersonFee, shouldShowNextEventAnnouncement, suggestedEventEndTime } from './next-event.js';
 import { shouldShowNotificationPrompt } from './notifications.js';
@@ -95,13 +95,14 @@ const DEVICE_SYNC_CODE_KEY='bcmDeviceSyncCodeV1',DEVICE_SYNC_TOKEN_KEY='bcmDevic
 let state=initialState(), roomId='', roomRef=null, liveScoreRef=null, remoteControlRef=null, chatCollectionRef=null, isHost=false, hostToken='', adminPinHash='', unsubscribe=null, liveScoreUnsubscribe=null, remoteControlUnsubscribe=null, remoteActionUnsubscribe=null, chatUnsubscribe=null, applying=false, saveTimer=null, liveScoreSaveTimer=null, matchAutoBackupTimer=null, editId=null;const expandedPlayerNotes=new Set();let profileOriginal=null,profileDirty={name:false,gender:false,memberType:false,voiceName:false,racket:false,racketTension:false,racketString:false,backupRacket:false,backupTension:false,backupString:false,note:false};let dismissedResultKey='';const selfToken=localStorage.getItem(DEVICE_SYNC_TOKEN_KEY)||localStorage.getItem('bdV73SelfToken')||randomToken();localStorage.setItem('bdV73SelfToken',selfToken);let selfHash='',scoreViewRequested=false,expandedShuttleTubeId='';
 let deviceProfileUnsubscribe=null,deviceProfileApplying=false,deviceProfileSaveTimer=null,identitySyncing=false,roomConnectInProgress=false;
 let roomSnapshotFromCache=false,snapshotHasPendingWrites=false,pendingRoomWrites=0,roomWriteScheduled=false,archivedHistory=[],removedMatchIds=new Set();
-const SYNC_MODE_KEY='bcmRoomSyncModeV1',SNAPSHOT_RETRY_BASE_MS=5000,SNAPSHOT_RETRY_MAX_MS=60000;
+const SYNC_MODE_KEY='bcmRoomSyncModeV1',SNAPSHOT_RETRY_BASE_MS=5000,SNAPSHOT_RETRY_MAX_MS=60000,ROOM_MATCH_FALLBACK_MS=60000;
+let roomMatchFallbackTimer=null,roomMatchFallbackKey='';
 let liveScoreSnapshotFromCache=false,liveScoreHasPendingWrites=false,pendingLiveScoreWrites=0,liveScoreWriteScheduled=false,liveScoreConnecting=false,liveScoreAvailable=true,liveScoreReady=false,liveScoreInitialSnapshot=true,remoteControlInitialSnapshot=true,remoteActionInitialSnapshot=true,liveScoreMigrationStarted=false,latestLiveMatch=null,lastRoomSnapshotData=null,lastRemoteRecordingStartCommandId='',lastRemoteFullscreenCommandId='',lastRemoteOfficialStartCommandId='',lastRemoteNextMatchCommandId='',lastRemoteUndoFinishedCommandId='',lastRemoteStartMatchCommandId='',lastRemoteActionCommandId='',seenRemoteActionIds=new Set(),androidOfficialStartPending=null,replacedRemoteMatchId='',replacedRemoteMatchAt=0;
 const RESULT_NEXT_MATCH_GUARD_MS=2000;
 let resultShownAt=0,remoteFinishPressAt=0;
 let localLinkHost=null,localLinkOpen=false,remoteDiagnostics=[],remoteDiagnosticsTimer=null,lastFirebaseOfficialStartId='';
 const REMOTE_SEEN_ACTION_PREFIX='bcmSeenRemoteActionsV1:',REMOTE_SEEN_ACTION_LIMIT=240;
-let firestoreLinkRecovering=false,firestoreLinkRecoverInFlight=false,firestoreLinkProbeInFlight=false,firestoreLinkLastProbeAt=0,firestoreLinkCooldownUntil=0,firestoreLinkProbeGeneration=0,firestoreLinkServerActivityAt=0;
+let firestoreLinkRecovering=false,firestoreLinkRecoverInFlight=false,firestoreLinkProbeInFlight=false,firestoreLinkLastProbeAt=0,firestoreLinkCooldownUntil=0,firestoreLinkProbeGeneration=0,firestoreLinkServerActivityAt=0,firestoreLinkPendingWritesSince=0;
 const CHAT_POLL_VISIBLE_MS=4000,CHAT_POLL_BACKGROUND_MS=60000;
 let chatRefreshNow=null;
 let chatMessages=[],chatMentionIds=new Set(),chatFirstRender=true,chatMessagesRenderKey='',chatLastSentAt=0,chatRequestRunning=false,chatSendRunning=false,chatPendingMedia=null;
@@ -1566,7 +1567,8 @@ async function probeFirestoreLink(){
   }
 }
 function runFirestoreLinkWatch(){
-  const now=Date.now();
+  const now=Date.now(),pendingWrites=pendingLiveScoreWrites>0||pendingRoomWrites>0||liveScoreHasPendingWrites||snapshotHasPendingWrites;
+  firestoreLinkPendingWritesSince=pendingWrites?firestoreLinkPendingWritesSince||now:0;
   if(!shouldProbeFirestoreLink({
     online:navigator.onLine,
     hidden:document.hidden,
@@ -1574,12 +1576,16 @@ function runFirestoreLinkWatch(){
     probeInFlight:firestoreLinkProbeInFlight,
     now,
     lastProbeAt:firestoreLinkLastProbeAt,
-    cooldownUntil:firestoreLinkCooldownUntil
+    cooldownUntil:firestoreLinkCooldownUntil,
+    lastServerActivityAt:firestoreLinkServerActivityAt,
+    pendingWritesSince:firestoreLinkPendingWritesSince,
+    matchLive:!!state.match?.active&&state.match?.winner==null
   }))return;
   void probeFirestoreLink();
 }
 setInterval(runFirestoreLinkWatch,1000);
 window.addEventListener('offline',()=>{updateSyncBadge();renderChat()});
+window.addEventListener('pagehide',()=>{if(roomMatchFallbackTimer)flushRoomMatchFallback()});
 window.addEventListener('online',()=>{firestoreLinkLastProbeAt=0;firestoreLinkCooldownUntil=0;setError('');if(roomRef)void recoverFirestoreLink();else updateSyncBadge();renderChat()});
 document.addEventListener('visibilitychange',()=>{if(document.visibilityState!=='visible')return;firestoreLinkLastProbeAt=0;firestoreLinkCooldownUntil=0;if(roomRef&&navigator.onLine)void recoverFirestoreLink();else runFirestoreLinkWatch()});
 window.addEventListener('pageshow',()=>{firestoreLinkLastProbeAt=0;firestoreLinkCooldownUntil=0;if(roomRef&&navigator.onLine)void recoverFirestoreLink();else runFirestoreLinkWatch()});
@@ -1702,7 +1708,9 @@ function startRemoteControlChannels(id){
   if(remoteActionUnsubscribe||requestedAndroidRemote||!isHost||roomId!==id)return;
   remoteControlInitialSnapshot=true;remoteActionInitialSnapshot=true;
   const isCurrent=()=>roomId===id;
-  remoteActionUnsubscribe=resilientSnapshot(collection(db,'badmintonRooms',id,'remoteControl'),{includeMetadataChanges:true},snapshot=>{
+  // Only score-* docs: current, diagnostics and the local link doc would otherwise bill a second read per write.
+  const remoteScoreQuery=query(collection(db,'badmintonRooms',id,'remoteControl'),where(documentId(),'>=','score-'),where(documentId(),'<','score.'));
+  remoteActionUnsubscribe=resilientSnapshot(remoteScoreQuery,{includeMetadataChanges:true},snapshot=>{
     if(snapshot.metadata.fromCache)return;
     noteFirestoreServerActivity(false);
     const initial=remoteActionInitialSnapshot;
@@ -1760,6 +1768,7 @@ async function connectRoom(id){
   chatCollectionRef=null;chatMessages=[];chatMentionIds.clear();chatFirstRender=true;chatMessagesRenderKey='';chatRequestRunning=false;chatSendRunning=false;
   clearTimeout(saveTimer);saveTimer=null;
   clearTimeout(liveScoreSaveTimer);liveScoreSaveTimer=null;
+  clearTimeout(roomMatchFallbackTimer);roomMatchFallbackTimer=null;roomMatchFallbackKey='';
   scoreSnapshotReady=false;
   scoreViewRequested=false;
   roomId=id;
@@ -1825,6 +1834,7 @@ async function connectRoom(id){
       if(!s.exists())return;
       if(s.metadata.fromCache&&(roomServerReady||requestedAndroidRemote))return;
       if(!s.metadata.fromCache){roomServerReady=true;noteFirestoreServerActivity(false)}
+      if(!s.metadata.fromCache&&!s.metadata.hasPendingWrites&&roomMatchFallbackTimer)flushRoomMatchFallback();
       lastRoomSnapshotData=s.data();
       roomSnapshotFromCache=!!s.metadata.fromCache;
       snapshotHasPendingWrites=!!s.metadata.hasPendingWrites;
@@ -2217,9 +2227,27 @@ async function initializeLiveScoreDocument(){
     pendingLiveScoreWrites=Math.max(0,pendingLiveScoreWrites-1);updateSyncBadge();
   }
 }
+function roomMatchFallbackSignature(){const match=state.match||{};return `${match.matchId||''}|${!!match.active}|${match.winner??''}|${!!match.startedAt}`}
+// The room copy of the score only serves clients without the liveScore listener, so mid-rally points are batched
+// instead of billing every viewer a second read per point.
+function scheduleRoomMatchFallback(){
+  if(roomMatchFallbackSignature()!==roomMatchFallbackKey)return flushRoomMatchFallback();
+  if(!roomMatchFallbackTimer)roomMatchFallbackTimer=setTimeout(flushRoomMatchFallback,ROOM_MATCH_FALLBACK_MS);
+}
+function takeRoomMatchFallback(){
+  clearTimeout(roomMatchFallbackTimer);roomMatchFallbackTimer=null;
+  roomMatchFallbackKey=roomMatchFallbackSignature();
+  return liveScoreFallbackPayload();
+}
+function flushRoomMatchFallback(){
+  if(requestedAndroidRemote||!isHost||!roomRef){clearTimeout(roomMatchFallbackTimer);roomMatchFallbackTimer=null;return}
+  setDoc(roomRef,takeRoomMatchFallback(),{merge:true}).catch(error=>console.warn('比分房間備援寫入失敗',error));
+}
 async function persistFullState(){
   if(requestedAndroidRemote)return;
-  await setDoc(roomRef,payload(),{merge:true});
+  // A room write bumps updatedAt, so it must carry the batched score or readers comparing updatedAt see a stale match.
+  const data=roomMatchFallbackTimer?{...payload(),...takeRoomMatchFallback()}:payload();
+  await setDoc(roomRef,data,{merge:true});
 }
 function saveSoon(delay=120){
   if(!isHost||applying||!roomRef)return;
@@ -2261,7 +2289,7 @@ async function persistLiveScoreState(){
     if(!liveScoreRef||!liveScoreAvailable)await setDoc(roomRef,fallbackPayload,{merge:true});
     else{
       await setDoc(liveScoreRef,livePayload,{merge:true});
-      setDoc(roomRef,fallbackPayload,{merge:true}).catch(error=>console.warn('比分房間備援寫入失敗',error));
+      scheduleRoomMatchFallback();
     }
   }catch(error){
     if(state.match.matchId!==livePayload.match.matchId)return;
@@ -2276,6 +2304,7 @@ async function saveNewMatchCheckpointNow(){
   clearTimeout(liveScoreSaveTimer);liveScoreSaveTimer=null;liveScoreWriteScheduled=false;
   rememberLatestLiveMatch();liveScoreReady=true;
   const checkpoint=createMatchCheckpointData(state.match),batch=writeBatch(db);
+  clearTimeout(roomMatchFallbackTimer);roomMatchFallbackTimer=null;roomMatchFallbackKey=roomMatchFallbackSignature();
   batch.set(liveScoreRef,{...checkpoint.liveScore,updatedAt:serverTimestamp()},{merge:true});
   batch.set(roomRef,{court:state.court,nextCall:state.nextCall,waitingQueue:state.waitingQueue,queueDraftChosen:state.queueDraftChosen,priority:state.priority,lastLoserReplayPlayerId:state.lastLoserReplayPlayerId,attendance:state.attendance,lineupRevision:Number(state.lineupRevision)||0,...checkpoint.room},{merge:true});
   pendingLiveScoreWrites++;updateSyncBadge();
