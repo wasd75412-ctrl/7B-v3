@@ -100,6 +100,7 @@ let liveScoreSnapshotFromCache=false,liveScoreHasPendingWrites=false,pendingLive
 const RESULT_NEXT_MATCH_GUARD_MS=2000;
 let resultShownAt=0,remoteFinishPressAt=0;
 let localLinkHost=null,localLinkOpen=false,remoteDiagnostics=[],remoteDiagnosticsTimer=null,lastFirebaseOfficialStartId='';
+const REMOTE_SEEN_ACTION_PREFIX='bcmSeenRemoteActionsV1:',REMOTE_SEEN_ACTION_LIMIT=240;
 let firestoreLinkRecovering=false,firestoreLinkRecoverInFlight=false,firestoreLinkProbeInFlight=false,firestoreLinkLastProbeAt=0,firestoreLinkCooldownUntil=0,firestoreLinkProbeGeneration=0,firestoreLinkServerActivityAt=0;
 const CHAT_POLL_VISIBLE_MS=4000,CHAT_POLL_BACKGROUND_MS=60000;
 let chatRefreshNow=null;
@@ -1712,7 +1713,7 @@ function startRemoteControlChannels(id){
       const command={id:change.doc.id.slice(6),...change.doc.data()};
       if(!command.id)continue;
       if(seenRemoteActionIds.has(String(command.id))){if(!initial)logRemoteDiagnostic('score','firebase',command,'dup');deleteRemoteScore(change.doc.ref);continue}
-      if(initial){seenRemoteActionIds.add(String(command.id));deleteRemoteScore(change.doc.ref);continue}
+      if(initial){rememberSeenRemoteActionId(command.id);deleteRemoteScore(change.doc.ref);continue}
       logRemoteDiagnostic('score','firebase',command,'new');
       added.push({command,ref:change.doc.ref});
     }
@@ -1768,7 +1769,7 @@ async function connectRoom(id){
   liveScoreRef=doc(db,'badmintonRooms',id,'liveScore','current');
   remoteControlRef=doc(db,'badmintonRooms',id,'remoteControl','current');
   liveScoreReady=false;liveScoreInitialSnapshot=true;liveScoreMigrationStarted=false;liveScoreAvailable=true;liveScoreConnecting=true;latestLiveMatch=null;lastRoomSnapshotData=null;
-  remoteControlInitialSnapshot=true;remoteActionInitialSnapshot=true;lastRemoteFullscreenCommandId='';lastRemoteOfficialStartCommandId='';lastRemoteNextMatchCommandId='';lastRemoteUndoFinishedCommandId='';lastRemoteStartMatchCommandId='';lastRemoteActionCommandId='';seenRemoteActionIds=new Set();androidOfficialStartPending=null;replacedRemoteMatchId='';replacedRemoteMatchAt=0;
+  remoteControlInitialSnapshot=true;remoteActionInitialSnapshot=true;lastRemoteFullscreenCommandId='';lastRemoteOfficialStartCommandId='';lastRemoteNextMatchCommandId='';lastRemoteUndoFinishedCommandId='';lastRemoteStartMatchCommandId='';lastRemoteActionCommandId='';seenRemoteActionIds=loadSeenRemoteActionIds(id);androidOfficialStartPending=null;replacedRemoteMatchId='';replacedRemoteMatchAt=0;
   liveScoreSnapshotFromCache=false;liveScoreHasPendingWrites=false;pendingLiveScoreWrites=0;liveScoreWriteScheduled=false;
   selfHash=await sha256(selfToken);
   setSync(navigator.onLine?'連線中':'讀取離線資料','pending');
@@ -2050,10 +2051,25 @@ function deleteRemoteScore(ref){
   if(requestedAndroidRemote||!isHost)return;
   deleteDoc(ref).catch(()=>{});
 }
+function seenRemoteActionKey(id=roomId){return `${REMOTE_SEEN_ACTION_PREFIX}${id||'none'}`}
+function persistSeenRemoteActionIds(){
+  try{sessionStorage.setItem(seenRemoteActionKey(),JSON.stringify([...seenRemoteActionIds].slice(-REMOTE_SEEN_ACTION_LIMIT)))}catch{}
+}
+function loadSeenRemoteActionIds(id){
+  try{const rows=JSON.parse(sessionStorage.getItem(seenRemoteActionKey(id))||'[]');return new Set(Array.isArray(rows)?rows.slice(-REMOTE_SEEN_ACTION_LIMIT).map(String):[])}catch{return new Set()}
+}
+function rememberSeenRemoteActionId(id){
+  const value=String(id||'');
+  if(!value||seenRemoteActionIds.has(value))return false;
+  seenRemoteActionIds.add(value);
+  if(seenRemoteActionIds.size>REMOTE_SEEN_ACTION_LIMIT)seenRemoteActionIds=new Set([...seenRemoteActionIds].slice(-REMOTE_SEEN_ACTION_LIMIT));
+  persistSeenRemoteActionIds();
+  return true;
+}
 function applyRemoteActionLog(data,{initial=false}={}){
   const log=Array.isArray(data?.remoteActionLog)?data.remoteActionLog:[];
   if(initial){
-    for(const command of log)if(command?.id)seenRemoteActionIds.add(String(command.id));
+    for(const command of log)if(command?.id)rememberSeenRemoteActionId(command.id);
     return;
   }
   const fresh=log.filter(command=>command?.id&&!seenRemoteActionIds.has(String(command.id))).sort((a,b)=>(Number(a.clientCreatedAt)||0)-(Number(b.clientCreatedAt)||0));
@@ -2062,7 +2078,7 @@ function applyRemoteActionLog(data,{initial=false}={}){
 function handleRemoteActionCommand(data,{initial=false,skipAge=false}={}){
   const command=data?.remoteActionCommand||{},id=String(command.id||''),action=String(command.action||'');
   if(!id||seenRemoteActionIds.has(id))return false;
-  seenRemoteActionIds.add(id);lastRemoteActionCommandId=id;
+  rememberSeenRemoteActionId(id);lastRemoteActionCommandId=id;
   const staleForCurrentMatch=!initial&&isStaleMatchPressForCurrentMatch({command,currentMatch:state.match});
   if(!staleForCurrentMatch&&!shouldAcceptRemoteCommand({command,currentMatch:state.match,initial,skipAge})){
     if(initial||requestedAndroidRemote||!isHost||$('scoreView').classList.contains('hidden')||!isReplacedMatchPreStartPress(command,action))return false;
