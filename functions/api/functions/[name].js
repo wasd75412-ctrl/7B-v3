@@ -4,6 +4,7 @@ import eventAnnouncement from '../../../netlify/functions/event-announcement.mjs
 import packingReminder from '../../../netlify/functions/packing-reminder.mjs';
 import pollDeadlineReminder from '../../../netlify/functions/poll-deadline-reminder.mjs';
 import pushConfig from '../../../netlify/functions/push-config.mjs';
+import pushHealth from '../../../netlify/functions/push-health.mjs';
 import pushSubscription from '../../../netlify/functions/push-subscription.mjs';
 import pushTest from '../../../netlify/functions/push-test.mjs';
 import sessionFeeNotice from '../../../netlify/functions/session-fee-notice.mjs';
@@ -19,9 +20,11 @@ const handlers = {
   'notify-config': pushConfig,
   'notify-subscription': pushSubscription,
   'notify-test': pushTest,
+  'notification-health': pushHealth,
   'packing-reminder': packingReminder,
   'poll-deadline-reminder': pollDeadlineReminder,
   'push-config': pushConfig,
+  'push-health': pushHealth,
   'push-subscription': pushSubscription,
   'push-test': pushTest,
   'settings': pushConfig,
