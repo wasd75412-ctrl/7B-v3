@@ -8,7 +8,7 @@ const pagesFunctionSource = readFileSync(new URL('../functions/api/functions/[na
 const wranglerSource = readFileSync(new URL('../wrangler.toml', import.meta.url), 'utf8');
 
 test('routes browser function calls through Cloudflare Pages functions', () => {
-  assert.match(mainSource, /\/api\/functions\/\$\{apiFunctionPath\(path\)\}/);
+  assert.match(mainSource, /\/bcm\/\$\{apiFunctionPath\(path\)\}/);
   assert.match(mainSource, /\/api\/functions\/chat-media/);
   assert.match(mainSource, /'chat-mention':'chat-sync'/);
   assert.match(mainSource, /'push-config':'notify-config'/);
@@ -19,6 +19,7 @@ test('routes browser function calls through Cloudflare Pages functions', () => {
 
 test('keeps Cloudflare Pages function responses out of the app shell cache', () => {
   assert.match(serviceWorkerSource, /\/api\/functions\//);
+  assert.match(serviceWorkerSource, /\/bcm\//);
   assert.doesNotMatch(serviceWorkerSource, /\/\.netlify\/functions/);
 });
 
