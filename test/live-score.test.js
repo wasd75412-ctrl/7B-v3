@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {checkpointMissedOfficialStart,createLiveScoreData,decodeLiveMatch,encodeLiveMatch,generalRoomStateWithoutMatch,keepOfficialStart,liveMatchKey,shouldAnnounceSyncedLiveScore,shouldApplyIncomingLiveMatch,shouldKeepLatestLiveMatch,shouldShowScoreView,LIVE_SCORE_SCHEMA_VERSION} from '../src/live-score.js';
+import {readFileSync} from 'node:fs';
+import {checkpointMissedOfficialStart,createLiveScoreData,decodeLiveMatch,encodeLiveMatch,generalRoomStateWithoutMatch,keepOfficialStart,liveMatchKey,ownsScoring,shouldAnnounceSyncedLiveScore,shouldApplyIncomingLiveMatch,shouldKeepLatestLiveMatch,shouldShowScoreView,LIVE_SCORE_SCHEMA_VERSION} from '../src/live-score.js';
 
 test('encodes Firestore-safe live score without nested arrays',()=>{
   const data=createLiveScoreData({
@@ -98,4 +99,25 @@ test('only opens the scoreboard on the admin device that requested it',()=>{
   assert.equal(shouldShowScoreView({...activeAdmin,requested:true}),true);
   assert.equal(shouldShowScoreView({...activeAdmin,requested:false}),false);
   assert.equal(shouldShowScoreView({...activeAdmin,requested:true,isHost:false}),false);
+});
+
+test('remote input only drives the device that opened scoring',()=>{
+  assert.equal(ownsScoring({scorerDevice:'phone-a'},'phone-a'),true);
+  assert.equal(ownsScoring({scorerDevice:'phone-a'},'phone-b'),false);
+  assert.equal(ownsScoring({scorerDevice:''},'phone-b'),true);
+  assert.equal(ownsScoring({},'phone-b'),true);
+  const encoded=createLiveScoreData({active:true,matchId:'m1',scorerDevice:'phone-a'});
+  assert.equal(encoded.match.scorerDevice,'phone-a');
+  assert.equal(decodeLiveMatch(encoded).scorerDevice,'phone-a');
+  assert.equal(decodeLiveMatch({match:{active:true,matchId:'m1'}},{matchId:'m1',scorerDevice:'phone-a'}).scorerDevice,'phone-a');
+});
+
+test('other admin devices ignore remote commands while another device is scoring',()=>{
+  const main=readFileSync(new URL('../src/main.js',import.meta.url),'utf8');
+  assert.match(main,/rememberSeenRemoteActionId\(id\);lastRemoteActionCommandId=id;\s*if\(!ownsScoring\(state\.match,scoreDeviceId\)\)return false;/);
+  assert.match(main,/function handleRemoteOfficialStartCommand[\s\S]*?if\(started&&ownsScoring\(state\.match,scoreDeviceId\)&&/);
+  assert.match(main,/function handleRemoteNextMatchCommand[\s\S]*?!ownsScoring\(state\.match,scoreDeviceId\)[\s\S]*?startNext\(\)/);
+  assert.match(main,/function handleRemoteUndoFinishedCommand[\s\S]*?!ownsScoring\(state\.match,scoreDeviceId\)[\s\S]*?performScoreRemoteAction\('undo'/);
+  assert.equal((main.match(/scorerDevice:scoreDeviceId,startedAt:''/g)||[]).length,2);
+  assert.doesNotMatch(main,/localStorage\.getItem\(DEVICE_SYNC_TOKEN_KEY\)[^;]*scoreDeviceId/);
 });
