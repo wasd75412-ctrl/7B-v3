@@ -5,10 +5,11 @@ import { readFileSync } from 'node:fs';
 const mainSource = readFileSync(new URL('../src/main.js', import.meta.url), 'utf8');
 const serviceWorkerSource = readFileSync(new URL('../public/sw.js', import.meta.url), 'utf8');
 const pagesFunctionSource = readFileSync(new URL('../functions/api/functions/[name].js', import.meta.url), 'utf8');
+const clubFunctionSource = readFileSync(new URL('../functions/club/[name].js', import.meta.url), 'utf8');
 const wranglerSource = readFileSync(new URL('../wrangler.toml', import.meta.url), 'utf8');
 
 test('routes browser function calls through Cloudflare Pages functions', () => {
-  assert.match(mainSource, /\/bcm\/\$\{apiFunctionPath\(path\)\}/);
+  assert.match(mainSource, /\/club\/\$\{apiFunctionPath\(path\)\}/);
   assert.match(mainSource, /\/api\/functions\/chat-media/);
   assert.match(mainSource, /'chat-mention':'chat-sync'/);
   assert.match(mainSource, /'push-config':'settings'/);
@@ -20,6 +21,7 @@ test('routes browser function calls through Cloudflare Pages functions', () => {
 test('keeps Cloudflare Pages function responses out of the app shell cache', () => {
   assert.match(serviceWorkerSource, /\/api\/functions\//);
   assert.match(serviceWorkerSource, /\/bcm\//);
+  assert.match(serviceWorkerSource, /\/club\//);
   assert.doesNotMatch(serviceWorkerSource, /\/\.netlify\/functions/);
 });
 
@@ -34,6 +36,7 @@ test('maps Cloudflare Pages function names to existing handlers', () => {
   assert.match(pagesFunctionSource, /'notify-test': pushTest/);
   assert.match(pagesFunctionSource, /'chat-media': chatMedia/);
   assert.match(pagesFunctionSource, /__SEVEN_B_CLOUDFLARE_ENV__/);
+  assert.match(clubFunctionSource, /api\/functions\/\[name\]\.js/);
 });
 
 test('uses the stable Cloudflare Pages URL for push notification links', () => {
