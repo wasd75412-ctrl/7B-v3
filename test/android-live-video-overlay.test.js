@@ -19,6 +19,15 @@ test('shows the live score in the visible recording preview and burns it into re
   assert.match(camera,/String\.valueOf\(match\.scoreA\)/);
 });
 
+test('keeps video overlay rendering off the UI and recording event threads',()=>{
+  assert.match(camera,/new HandlerThread\("7BScoreOverlay"\)/);
+  assert.match(camera,/overlayThread\.start\(\);\s*overlayHandler = new android\.os\.Handler\(overlayThread\.getLooper\(\)\);/);
+  assert.match(camera,/new OverlayEffect\(\s*CameraEffect\.VIDEO_CAPTURE,\s*0,\s*overlayHandler/);
+  assert.match(camera,/\.setExecutor\(recordingExecutor\)/);
+  assert.match(camera,/scoreOverlayEffect\.close\(\);\s*overlayThread\.quitSafely\(\);/);
+  assert.match(camera,/recordingExecutor\.shutdown\(\)/);
+});
+
 test('lays out a compact two-row broadcast scoreboard against the top-left edge',()=>{
   assert.match(camera,/new RectF\(margin, margin, margin \+ boardWidth/);
   assert.match(camera,/float targetAspect = 16f \/ 9f/);

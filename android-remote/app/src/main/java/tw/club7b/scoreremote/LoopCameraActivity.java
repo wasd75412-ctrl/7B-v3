@@ -12,6 +12,7 @@ import android.graphics.Shader;
 import android.os.Build;
 import android.os.Bundle;
 import android.os.Environment;
+import android.os.HandlerThread;
 import android.provider.MediaStore;
 import android.util.Log;
 import android.util.Size;
@@ -67,6 +68,9 @@ public final class LoopCameraActivity extends ComponentActivity {
     private static final String QUALITY_PREFS = "recording_video_quality";
     private static final String QUALITY_KEY = "quality";
     private final android.os.Handler handler = new android.os.Handler(android.os.Looper.getMainLooper());
+    private final HandlerThread overlayThread = new HandlerThread("7BScoreOverlay");
+    private android.os.Handler overlayHandler;
+    private final ExecutorService recordingExecutor = Executors.newSingleThreadExecutor();
     private final ExecutorService savedRecordingExecutor = Executors.newSingleThreadExecutor();
     private final Runnable recoverRecording = this::startRecordingIfVisible;
     private final P4GestureInterpreter p4Gestures = new P4GestureInterpreter();
@@ -104,6 +108,8 @@ public final class LoopCameraActivity extends ComponentActivity {
 
     @Override protected void onCreate(Bundle state) {
         super.onCreate(state);
+        overlayThread.start();
+        overlayHandler = new android.os.Handler(overlayThread.getLooper());
         getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
         RemoteSessionStore.setRecordingEnabled(this, true);
         remoteScoreController = new BackgroundScoreController(this);
@@ -490,6 +496,7 @@ public final class LoopCameraActivity extends ComponentActivity {
             Recorder recorder = new Recorder.Builder()
                     .setQualitySelector(qualitySelector)
                     .setTargetVideoEncodingBitRate(videoBitrate(quality))
+                    .setExecutor(recordingExecutor)
                     .build();
             videoCapture = new VideoCapture.Builder<>(recorder).setTargetRotation(targetRotation).build();
             provider.unbindAll();
@@ -511,7 +518,7 @@ public final class LoopCameraActivity extends ComponentActivity {
         OverlayEffect effect = new OverlayEffect(
                 CameraEffect.VIDEO_CAPTURE,
                 0,
-                handler,
+                overlayHandler,
                 error -> Log.e("7BRecording", "Score overlay failed", error)
         );
         effect.setOnDrawListener(frame -> {
@@ -831,11 +838,13 @@ public final class LoopCameraActivity extends ComponentActivity {
         if (liveMatchOverlay != null) liveMatchOverlay.close();
         if (remoteScoreController != null) remoteScoreController.release();
         if (scoreOverlayEffect != null) scoreOverlayEffect.close();
+        overlayThread.quitSafely();
         if (explicitExit) RemoteSessionStore.setRecordingEnabled(this, false);
         if (localHubListener != null && LocalScoreHubServer.getRunning() != null) {
             LocalScoreHubServer.getRunning().removeListener(localHubListener);
         }
         localHubListener = null;
+        recordingExecutor.shutdown();
         savedRecordingExecutor.shutdown();
         super.onDestroy();
     }
