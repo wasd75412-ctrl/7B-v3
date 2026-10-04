@@ -43,7 +43,8 @@ test('puts a live score board first on the dashboard and keeps support content c
   assert.match(styles,/#app \.home-live-board\{display:grid;grid-template-columns:minmax\(0,1fr\) auto minmax\(0,1fr\)/);
   assert.match(mainSource,/home-live-score-empty"><strong>暫無比賽<\/strong>/);
   assert.doesNotMatch(mainSource,/比賽開始後，比分會即時顯示在這裡/);
-  assert.match(mainSource,/hasLiveMatch=!!match\?\.active&&match\?\.winner===null&&matchHasOfficiallyStarted\(match\)/);
+  assert.match(mainSource,/hasLiveMatch=!!match\?\.active&&match\?\.winner===null&&teams\.flat\(\)\.filter\(Boolean\)\.length===needed;/);
+  assert.match(mainSource,/status=winner!==null\?'本場結束':official\?'比賽進行中':'等待正式開始'/);
 });
 
 test('renders the 7B icon without a white frame',()=>{
