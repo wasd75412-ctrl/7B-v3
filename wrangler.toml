@@ -2,3 +2,7 @@ name = "7b-v3"
 pages_build_output_dir = "dist"
 compatibility_date = "2025-10-03"
 compatibility_flags = ["nodejs_compat"]
+
+[[kv_namespaces]]
+binding = "SEVEN_B_BLOBS"
+id = "139d657934a541819ec6d56ae27933d4"
