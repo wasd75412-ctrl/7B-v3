@@ -1987,7 +1987,7 @@ function isReplacedMatchPreStartPress(command,action){
   const match=state.match;
   return ['teamAPlus','teamBPlus'].includes(action)&&match.active&&match.winner===null&&!matchHasOfficiallyStarted(match)&&!match.rallies.length
     &&Date.now()-replacedRemoteMatchAt<=REMOTE_COMMAND_MAX_AGE_MS&&String(command?.matchId??'')===replacedRemoteMatchId
-    &&shouldAcceptRemoteCommand({command,currentMatch:{matchId:replacedRemoteMatchId}});
+    &&!!command?.id;
 }
 function isOfficialStartScoreEcho(action,command){
   if(!['teamAPlus','teamBPlus'].includes(action)||!matchHasOfficiallyStarted(state.match)||(state.match.rallies||[]).length)return false;
