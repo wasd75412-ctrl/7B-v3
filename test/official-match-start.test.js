@@ -99,7 +99,7 @@ test('presses stamped with the just-replaced match still count toward the offici
   const replaced=main.match(/function isReplacedMatchPreStartPress\(command,action\)\{[\s\S]*?\n\}/)?.[0]||'';
   assert.match(replaced,/!matchHasOfficiallyStarted\(match\)&&!match\.rallies\.length/);
   assert.match(replaced,/Date\.now\(\)-replacedRemoteMatchAt<=REMOTE_COMMAND_MAX_AGE_MS&&String\(command\?\.matchId\?\?''\)===replacedRemoteMatchId/);
-  assert.match(replaced,/shouldAcceptRemoteCommand\(\{command,currentMatch:\{matchId:replacedRemoteMatchId\}\}\)/);
+  assert.match(replaced,/&&!!command\?\.id/);
   assert.match(main,/const staleForCurrentMatch=!initial&&isStaleMatchPressForCurrentMatch\(\{command,currentMatch:state\.match\}\);\s*if\(!staleForCurrentMatch&&!shouldAcceptRemoteCommand\(\{command,currentMatch:state\.match,initial,skipAge\}\)\)\{\s*if\(initial\|\|requestedAndroidRemote\|\|!isHost\|\|\$\('scoreView'\)\.classList\.contains\('hidden'\)\|\|!isReplacedMatchPreStartPress\(command,action\)\)return false;\s*return handleAndroidPreStartPress\(action,command\);/);
 });
 
