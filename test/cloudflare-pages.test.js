@@ -30,6 +30,8 @@ test('maps Cloudflare Pages function names to existing handlers', () => {
   assert.match(pagesFunctionSource, /'device-link': pushSubscription/);
   assert.match(pagesFunctionSource, /'device-check': pushTest/);
   assert.match(pagesFunctionSource, /'settings': pushConfig/);
+  assert.match(pagesFunctionSource, /'notification-health': pushHealth/);
+  assert.match(pagesFunctionSource, /'push-health': pushHealth/);
   assert.match(pagesFunctionSource, /'push-subscription': pushSubscription/);
   assert.match(pagesFunctionSource, /'notify-subscription': pushSubscription/);
   assert.match(pagesFunctionSource, /'notify-config': pushConfig/);
