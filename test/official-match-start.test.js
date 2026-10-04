@@ -83,8 +83,10 @@ test('touch events only intercept the P4 remote now that YUNTENG is removed',()=
 test('Android keeps a live match listener so the first remote press is ready',()=>{
   const loop=readFileSync(new URL('../android-remote/app/src/main/java/tw/club7b/scoreremote/LoopCameraActivity.java',import.meta.url),'utf8');
   assert.match(controller,/matchListener = liveScoreReference\(session\)\.addSnapshotListener/);
+  assert.match(controller,/if \(error != null\) onMatchListenerFailed\(roomId\);/);
+  assert.match(controller,/private synchronized void onMatchListenerFailed\(String roomId\) \{[\s\S]*?matchKnown = false;[\s\S]*?retryHandler\.postDelayed/);
   assert.match(controller,/void warmUp\(WarmUpCallback callback\) \{[\s\S]*?ensureMatchListener\(session\);/);
-  assert.match(controller,/synchronized void release\(\) \{\s*if \(matchListener != null\) matchListener\.remove\(\)/);
+  assert.match(controller,/synchronized void release\(\) \{\s*retryHandler\.removeCallbacksAndMessages\(null\);\s*if \(matchListener != null\) matchListener\.remove\(\)/);
   assert.match(activity,/backgroundScoreController\.release\(\)/);
   assert.match(service,/scoreController\.release\(\)/);
   assert.match(loop,/remoteScoreController\.release\(\)/);
@@ -98,7 +100,7 @@ test('presses stamped with the just-replaced match still count toward the offici
   assert.match(replaced,/!matchHasOfficiallyStarted\(match\)&&!match\.rallies\.length/);
   assert.match(replaced,/Date\.now\(\)-replacedRemoteMatchAt<=REMOTE_COMMAND_MAX_AGE_MS&&String\(command\?\.matchId\?\?''\)===replacedRemoteMatchId/);
   assert.match(replaced,/shouldAcceptRemoteCommand\(\{command,currentMatch:\{matchId:replacedRemoteMatchId\}\}\)/);
-  assert.match(main,/if\(!shouldAcceptRemoteCommand\(\{command,currentMatch:state\.match,initial,skipAge\}\)\)\{\s*if\(initial\|\|requestedAndroidRemote\|\|!isHost\|\|\$\('scoreView'\)\.classList\.contains\('hidden'\)\|\|!isReplacedMatchPreStartPress\(command,action\)\)return false;\s*return handleAndroidPreStartPress\(action,command\);/);
+  assert.match(main,/const staleForCurrentMatch=!initial&&isStaleMatchPressForCurrentMatch\(\{command,currentMatch:state\.match\}\);\s*if\(!staleForCurrentMatch&&!shouldAcceptRemoteCommand\(\{command,currentMatch:state\.match,initial,skipAge\}\)\)\{\s*if\(initial\|\|requestedAndroidRemote\|\|!isHost\|\|\$\('scoreView'\)\.classList\.contains\('hidden'\)\|\|!isReplacedMatchPreStartPress\(command,action\)\)return false;\s*return handleAndroidPreStartPress\(action,command\);/);
 });
 
 test('Android sends remote commands without a transaction once the match is known',()=>{
@@ -114,7 +116,7 @@ test('Android appends every score press immediately instead of holding later pre
   assert.match(controller,/Map<String, Object> command = actionCommand\(request, matchId, id\);[\s\S]*?if \(""\.equals\(command\.get\("action"\)\)\)[\s\S]*?remoteControl\.getParent\(\)\.document\("score-" \+ id\)\.set\(command\)/);
   assert.match(controller,/command\.put\("clientCreatedAt", request\.clientCreatedAt\)/);
   assert.match(controller,/reported\.compareAndSet\(false, true\) && request\.callback != null\) \{\s*request\.callback\.onComplete\(true, "已送出遙控器指令", request\.action\);/);
-  assert.match(main,/onSnapshot\(collection\(db,'badmintonRooms',id,'remoteControl'\)[\s\S]*?change\.doc\.id\.startsWith\('score-'\)[\s\S]*?handleRemoteActionCommand\(\{remoteActionCommand:item\.command\},\{initial:false,skipAge:true\}\)/);
+  assert.match(main,/resilientSnapshot\(collection\(db,'badmintonRooms',id,'remoteControl'\)[\s\S]*?change\.doc\.id\.startsWith\('score-'\)[\s\S]*?handleRemoteActionCommand\(\{remoteActionCommand:item\.command\},\{initial:false,skipAge:true\}\)/);
   assert.match(main,/if\(!id\|\|seenRemoteActionIds\.has\(id\)\)return false;\s*seenRemoteActionIds\.add\(id\)/);
   assert.match(main,/function replay\(\)\{[\s\S]*?m\.syncEpoch=Math\.max\(Date\.now\(\),\(Number\(m\.syncEpoch\)\|\|0\)\+1\)/);
 });

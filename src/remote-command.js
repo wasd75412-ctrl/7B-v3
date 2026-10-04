@@ -32,3 +32,15 @@ export function shouldAcceptRemoteCommand({command,currentMatch,now=Date.now(),i
   // Phone clocks can run several seconds ahead of the host, so only the server time bounds the future.
   return !Object.hasOwn(command,'clientCreatedAt')||fresh(timestampMillis(command.clientCreatedAt));
 }
+
+export const STALE_MATCH_PRESS_GRACE_MS=8_000;
+
+// A phone that missed the match change still stamps the previous matchId; a press made well after
+// the current match officially started can only be meant for the current match.
+export function isStaleMatchPressForCurrentMatch({command,currentMatch,graceMs=STALE_MATCH_PRESS_GRACE_MS}={}){
+  if(!command?.id||!['teamAPlus','teamBPlus','undo'].includes(String(command.action||'')))return false;
+  if(!Object.hasOwn(command,'matchId')||(command.matchId??'')===(currentMatch?.matchId??''))return false;
+  if(!currentMatch?.active||(currentMatch.winner!==null&&currentMatch.winner!==undefined))return false;
+  const startedAt=timestampMillis(currentMatch.startedAt),pressedAt=timestampMillis(command.clientCreatedAt);
+  return Number.isFinite(startedAt)&&Number.isFinite(pressedAt)&&pressedAt>=startedAt+graceMs;
+}

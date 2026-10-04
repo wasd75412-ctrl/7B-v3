@@ -489,9 +489,12 @@ test('chat uses a fixed conversation layout with a contained mention picker',()=
   assert.match(styles,/\.chat-composer\{padding:9px 9px max\(9px,env\(safe-area-inset-bottom\)\)\}/);
 });
 
-test('chat checks for incoming messages with lower delay',()=>{
-  assert.match(mainSource,/setInterval\(load,1200\)/);
+test('chat polls quickly only while the chat page is open',()=>{
+  assert.doesNotMatch(mainSource,/setInterval\(load,1200\)/);
+  assert.match(mainSource,/CHAT_POLL_VISIBLE_MS=4000,CHAT_POLL_BACKGROUND_MS=60000/);
+  assert.match(mainSource,/if\(document\.hidden\)return;\s*const interval=chatPageVisible\(\)\?CHAT_POLL_VISIBLE_MS:CHAT_POLL_BACKGROUND_MS/);
   assert.match(mainSource,/document\.addEventListener\('visibilitychange',refresh\)/);
+  assert.match(mainSource,/if\(!requestedAndroidRemote\)startChatSync\(\)/);
 });
 
 test('chat supports image, GIF and short-video attachments',()=>{

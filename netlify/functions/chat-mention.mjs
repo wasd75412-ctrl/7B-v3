@@ -11,6 +11,7 @@ const CHAT_HISTORY_LIMIT=100;
 const CHAT_STORAGE_LIMIT=300;
 const FIREBASE_PROJECT_ID=process.env.FIREBASE_PROJECT_ID?.trim()||'badminton-7a1c3';
 const FIREBASE_WEB_API_KEY=process.env.FIREBASE_WEB_API_KEY?.trim()||'AIzaSyBrakbTPK7UqEChPBI6pM8-i03IcLq0IvM';
+export const LEGACY_SITE_URL='https://frolicking-taffy-4c3e5b.netlify.app';
 
 function decodeFirestoreValue(value={}){
   if('stringValue'in value)return String(value.stringValue||'');
@@ -64,14 +65,47 @@ export function shouldNotifyChatSubscription(record,message,{roomId='',messageId
   return record?.roomId===roomId&&targeted&&record?.clientHash!==message?.senderHash&&!alreadySent;
 }
 
-async function listRoomMessages(store,roomId){
-  const listing=await store.list({prefix:`${roomId}/`}),messages=[];
-  for(const blob of listing.blobs){
-    const message=normalizeStoredChatMessage(await store.get(blob.key,{type:'json'}).catch(()=>null));
-    if(message.id&&(message.text||message.media)&&message.senderId&&message.senderName&&message.createdAt)messages.push(message);
+function validStoredMessage(message){
+  return !!(message.id&&(message.text||message.media)&&message.senderId&&message.senderName&&message.createdAt);
+}
+
+export function sortedChatMessages(rows){
+  const seen=new Set(),messages=[];
+  for(const row of rows||[]){
+    const message=normalizeStoredChatMessage(row);
+    if(!validStoredMessage(message)||seen.has(message.id))continue;
+    seen.add(message.id);messages.push(message);
   }
-  messages.sort((a,b)=>Date.parse(a.createdAt)-Date.parse(b.createdAt)||a.id.localeCompare(b.id));
-  return{messages:messages.slice(-CHAT_HISTORY_LIMIT),blobs:listing.blobs};
+  return messages.sort((a,b)=>Date.parse(a.createdAt)-Date.parse(b.createdAt)||a.id.localeCompare(b.id));
+}
+
+export function chatIndexKey(roomId){return `index/${roomId}`}
+
+async function listedRoomMessages(store,roomId){
+  const listing=await store.list({prefix:`${roomId}/`}),rows=[];
+  for(const blob of listing.blobs)rows.push(await store.get(blob.key,{type:'json'}).catch(()=>null));
+  return rows;
+}
+
+async function legacyNetlifyRoomMessages(roomId){
+  if(!globalThis.__SEVEN_B_CLOUDFLARE_ENV__)return[];
+  try{
+    const response=await fetch(`${LEGACY_SITE_URL}/.netlify/functions/chat-mention?roomId=${encodeURIComponent(roomId)}`,{headers:{accept:'application/json'}});
+    if(!response.ok)return[];
+    const data=await response.json();
+    return Array.isArray(data?.messages)?data.messages:[];
+  }catch{return[]}
+}
+
+// One index value per room keeps every poll to a single KV read instead of a list plus one read per message.
+async function readRoomMessages(store,roomId){
+  const index=await store.get(chatIndexKey(roomId),{type:'json'});
+  if(Array.isArray(index?.messages))return sortedChatMessages(index.messages);
+  let messages=sortedChatMessages(await listedRoomMessages(store,roomId));
+  if(!messages.length)messages=sortedChatMessages(await legacyNetlifyRoomMessages(roomId));
+  messages=messages.slice(-CHAT_STORAGE_LIMIT);
+  await store.setJSON(chatIndexKey(roomId),{messages});
+  return messages;
 }
 
 async function sendMentionNotifications(message,roomId,messageId){
@@ -120,8 +154,8 @@ export default async request=>{
   if(request.method==='GET'){
     if(!validRoomId(roomId))return jsonResponse({error:'球局代碼格式不正確。'},400);
     try{
-      const {messages}=await listRoomMessages(chatStore,roomId);
-      return jsonResponse({ok:true,messages});
+      const messages=await readRoomMessages(chatStore,roomId);
+      return jsonResponse({ok:true,messages:messages.slice(-CHAT_HISTORY_LIMIT)});
     }catch(error){
       console.error(`Chat list ${roomId} failed`,error);
       return jsonResponse({error:'聊天室暫時無法同步。'},502);
@@ -170,18 +204,13 @@ export default async request=>{
   if((!message.text&&!message.media)||!message.senderId||!message.senderName||!message.senderHash)return jsonResponse({error:'聊天室訊息資料不完整。'},400);
 
   try{
-    const key=`${postRoomId}/${String(Date.now()).padStart(13,'0')}-${messageId}`;
-    await chatStore.setJSON(key,message);
-    const notification=await sendMentionNotifications(message,postRoomId,messageId);
-    const listing=await chatStore.list({prefix:`${postRoomId}/`});
-    if(listing.blobs.length>CHAT_STORAGE_LIMIT){
-      const old=listing.blobs.sort((a,b)=>a.key.localeCompare(b.key)).slice(0,listing.blobs.length-CHAT_STORAGE_LIMIT);
-      await Promise.all(old.map(async blob=>{
-        const stale=normalizeStoredChatMessage(await chatStore.get(blob.key,{type:'json'}).catch(()=>null));
-        await chatStore.delete(blob.key);
-        if(stale.media?.id)await mediaStore.delete(`${postRoomId}/${stale.media.id}`).catch(()=>{});
-      }));
+    const existing=await readRoomMessages(chatStore,postRoomId);
+    const next=sortedChatMessages([...existing,message]).slice(-CHAT_STORAGE_LIMIT),kept=new Set(next.map(item=>item.id));
+    await chatStore.setJSON(chatIndexKey(postRoomId),{messages:next});
+    for(const stale of existing){
+      if(!kept.has(stale.id)&&stale.media?.id)await mediaStore.delete(`${postRoomId}/${stale.media.id}`).catch(()=>{});
     }
+    const notification=await sendMentionNotifications(message,postRoomId,messageId);
     return jsonResponse({ok:true,message,...notification});
   }catch(error){
     console.error(`Chat send ${postRoomId}/${messageId} failed`,error);

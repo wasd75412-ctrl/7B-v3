@@ -4,6 +4,7 @@ import {readFileSync} from 'node:fs';
 
 const source=readFileSync(new URL('../android-remote/app/src/main/java/tw/club7b/scoreremote/MainActivity.java',import.meta.url),'utf8');
 const camera=readFileSync(new URL('../android-remote/app/src/main/java/tw/club7b/scoreremote/LoopCameraActivity.java',import.meta.url),'utf8');
+const manifest=readFileSync(new URL('../android-remote/app/src/main/AndroidManifest.xml',import.meta.url),'utf8');
 
 test('recording quality can be lowered from 4K and is remembered',()=>{
   assert.match(camera,/rebindSelectedQuality\(\)/);
@@ -41,7 +42,8 @@ test('uses the platform permission callback without requiring Fragment Activity 
 
 test('opens score broadcast recording and can leave without saving',()=>{
   assert.doesNotMatch(source,/openVideoCamera\(false\)|循環錄影/);
-  assert.match(source,/void openBroadcastCamera\(\) \{\s*Intent intent = new Intent\(this, LoopCameraActivity\.class\);/);
+  assert.match(source,/void openBroadcastCamera\(\) \{\s*if \(cameraLaunchPending\) return;\s*Intent intent = new Intent\(this, LoopCameraActivity\.class\)\s*\.addFlags\(Intent\.FLAG_ACTIVITY_SINGLE_TOP \| Intent\.FLAG_ACTIVITY_CLEAR_TOP\);/);
+  assert.match(manifest,/android:name="\.LoopCameraActivity"[^>]*android:launchMode="singleTop"/);
   assert.doesNotMatch(source,/EXTRA_BROADCAST_MODE/);
   assert.match(camera,/MediaStoreOutputOptions/);
   assert.doesNotMatch(camera,/broadcastMode|3 分鐘|三分鐘|saveRecentVideo|openSavedVideo/);
@@ -81,7 +83,13 @@ test('publishes the exact CameraX broadcast start time for the YouTube timeline'
 test('queues every saved broadcast file for YouTube upload with its own start time',()=>{
   assert.match(camera,/long fileStartedAt = broadcastFileStartedAt;\s*long fileEndedAt = System\.currentTimeMillis\(\);\s*if \(success\) queueSavedRecording\(savedUri, fileStartedAt, fileEndedAt, filePauses\);/);
   assert.match(camera,/RecordingUploadStore\.add\(app, savedUri, roomId, startedAt, endedAt, filePauses\)/);
-  assert.match(camera,/YouTubeUploadScheduler\.schedule\(app\);/);
+  assert.doesNotMatch(camera,/YouTubeUploadScheduler\.schedule\(app\);/);
+});
+
+test('uploads start only after the recording screen closes',()=>{
+  assert.match(camera,/static boolean isRecordingSessionOpen\(\) \{\s*return OPEN_SESSIONS\.get\(\) > 0;/);
+  assert.match(camera,/sessionCounted = true;\s*OPEN_SESSIONS\.incrementAndGet\(\);/);
+  assert.match(camera,/OPEN_SESSIONS\.decrementAndGet\(\);[\s\S]*?savedRecordingExecutor\.execute\(\(\) -> YouTubeUploadScheduler\.scheduleIfPending\(app\)\);\s*savedRecordingExecutor\.shutdown\(\);/);
 });
 
 test('pauses and resumes the broadcast recording and keeps pauses out of the timeline',()=>{

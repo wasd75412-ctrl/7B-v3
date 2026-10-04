@@ -1729,22 +1729,6 @@ html.brand-font-fallback .brand-copy .brand-mark h1{
 .android-remote-team button{width:100%;margin-top:12px;border:1px solid rgba(255,255,255,.35);border-radius:16px;padding:14px 8px;background:rgba(255,255,255,.94);color:#0a2b45;font-size:1.05rem;font-weight:1000}.android-remote-team button:disabled{opacity:.45}
 .android-remote-undo{display:block;width:min(680px,100%);margin:12px auto 0;border:1px solid rgba(255,255,255,.25);border-radius:16px;padding:13px;background:rgba(255,255,255,.11);color:#fff;font-weight:950}.android-remote-undo:disabled{opacity:.4}
 .android-remote-feedback{width:min(680px,100%);margin:12px auto 0;padding:11px;border-radius:13px;background:rgba(255,255,255,.09);color:#c9d9e3;font-size:.86rem;font-weight:850;text-align:center}.android-remote-feedback.detected{background:#5b4817;color:#ffe699}.android-remote-feedback.success{background:#174f38;color:#8ef0ba}.android-remote-feedback.error{background:#5c2027;color:#ffc1c1}
-.android-local-hub{max-width:680px;margin:14px auto 0;padding:14px;border:1px solid rgba(125,211,252,.35);border-radius:18px;background:rgba(9,64,91,.55)}
-.android-local-hub-head{display:flex;align-items:center;justify-content:space-between;gap:10px;font-weight:900}
-.android-local-hub-head span{color:#9fd6ff;font-size:.82rem}
-.android-local-hub-actions{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:12px}
-.android-local-hub-actions .btn{min-height:42px}
-.android-local-hub-url{margin-top:10px;color:#c8e9f8;font-size:.8rem;font-weight:800;word-break:break-all;min-height:1.2em}
-.local-score-test-view{position:fixed;inset:0;z-index:520;overflow:auto;padding:max(18px,env(safe-area-inset-top)) 18px max(22px,env(safe-area-inset-bottom));background:radial-gradient(circle at 50% -15%,#245c80 0,#0b2941 43%,#061926 100%);color:#fff}
-.local-score-test-head{display:flex;justify-content:space-between;align-items:baseline;gap:12px;font-weight:900}
-.local-score-test-board{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:18px;max-width:680px}
-.local-score-test-board article{padding:18px 12px;border-radius:22px;text-align:center}
-.local-score-test-board .team-a{border:1px solid #58a8eb;background:linear-gradient(160deg,#155c94,#0b3a61)}
-.local-score-test-board .team-b{border:1px solid #ee7d7d;background:linear-gradient(160deg,#a62d35,#681b26)}
-.local-score-test-board span,.local-score-test-board strong{display:block}
-.local-score-test-board strong{margin-top:8px;font-size:clamp(4rem,22vw,7rem);line-height:1}
-.local-score-test-actions{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;max-width:680px;margin-top:14px}
-.local-score-test-meta{max-width:680px;margin-top:12px;color:#b9d0df;font-size:.84rem;font-weight:800}
 #androidRemoteOpenRecordings{grid-column:1/-1}
 .android-remote-guide{display:grid;grid-template-columns:repeat(3,1fr);gap:7px;max-width:680px;margin:12px auto 0}.android-remote-guide span{padding:9px 6px;border-radius:12px;background:rgba(255,255,255,.07);color:#b9cbd7;font-size:.7rem;font-weight:750;text-align:center}.android-remote-guide b{display:block;margin-bottom:3px;color:#fff;font-size:.75rem}
 .android-remote-mode .landing-card #createRoom,.android-remote-mode .landing-card #landingDeviceSyncBtn,.android-remote-mode .landing-card .auto-return,.android-remote-mode .landing-card .room-library,.android-remote-mode .landing-card .continue-card{display:none!important}
