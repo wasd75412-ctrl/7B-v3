@@ -24,6 +24,7 @@ test('shows one-shuttle controls in scoring and next-match result views plus das
   assert.match(main,/adjustSessionShuttleUsage\(tube,delta,shuttleUsageSessionKey\(\)\)/);
   assert.match(main,/if\(\(roomWriteScheduled\|\|pendingRoomWrites>0\)&&!snapshotHasPendingWrites\)\{updateSyncBadge\(\);return\}/);
   assert.match(main,/function returnOneShuttle\(/);
+  assert.match(main,/activateShuttleTube\(tubes,pending\.id,[^\n]+\);\s*syncShuttleCostNotice\([^\n]+\);updateUseShuttleButtons\(\);renderShuttleTubeManager\(\);\s*void saveNow\(\)\.catch\(\(\)=>saveSoon\(\)\)/);
   assert.match(main,/data-shuttle-delta="-1"[^>]*>−1<\/button>/);
   assert.match(main,/data-shuttle-delta="1"[^\n]*?>\+1<\/button>/);
   assert.match(main,/已加回 1 顆球｜剩餘/);
