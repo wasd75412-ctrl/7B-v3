@@ -6,6 +6,7 @@ import {
   checkpointMissedOfficialStart,createLiveScoreData,createMatchCheckpointData,decodeLiveMatch,encodeLiveMatch,
   keepOfficialStart,matchSessionEpoch,nextMatchEpoch,shouldApplyIncomingLiveMatch
 } from '../src/live-score.js';
+import {mergeDeletedMatchIds} from '../src/match-archive.js';
 
 const main=readFileSync(new URL('../src/main.js',import.meta.url),'utf8');
 function productionFunction(name){
@@ -49,6 +50,7 @@ function harness(liveMatch=current,overrides={}){
     roomRef:'room/current',liveScoreRef:'room/current/liveScore/current',db:{},
     shouldApplyIncomingLiveMatch,decodeLiveMatch,createMatchCheckpointData,nextMatchEpoch,
     keepOfficialStart,checkpointMissedOfficialStart,persistLiveScoreState:async()=>calls.publish++,
+    mergeDeletedMatchIds,removedMatchIds:new Set(),
     cleanTimelineDates:value=>Array.isArray(value)?value.filter(item=>/^\d{4}-\d{2}-\d{2}$/.test(String(item||''))):[],
     normalizeFinishedMatchRollback:value=>value??null,
     normalizeRetiredPlayers:value=>value??[],normalizeMatchReplayTitle:value=>value??'',
