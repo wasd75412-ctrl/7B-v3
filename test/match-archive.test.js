@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { ROOM_HISTORY_KEEP, decodeArchivedMatch, encodeArchivedMatch, mergeMatchHistory, overflowHistory, readPendingArchives, recentHistory, shouldSkipFullRoomSync, writePendingArchives } from '../src/match-archive.js';
+import { DELETED_MATCH_KEEP, ROOM_HISTORY_KEEP, decodeArchivedMatch, encodeArchivedMatch, mergeDeletedMatchIds, mergeMatchHistory, overflowHistory, readPendingArchives, recentHistory, shouldSkipFullRoomSync, writePendingArchives } from '../src/match-archive.js';
 
 const mainSource=readFileSync(new URL('../src/main.js',import.meta.url),'utf8');
 const html=readFileSync(new URL('../index.html',import.meta.url),'utf8');
@@ -29,6 +29,27 @@ test('merges archived matches ahead of the room copy without restoring deletions
   );
   assert.equal(duplicate.length,1);
   assert.deepEqual(duplicate[0].scores,[11,7]);
+});
+
+test('deleted match ids merge across devices and stay bounded',()=>{
+  assert.deepEqual(mergeDeletedMatchIds(['a','b'],new Set(['b','c']),[null,'',' d ']),['a','b','c','d']);
+  const many=Array.from({length:DELETED_MATCH_KEEP+5},(_,index)=>`m${index}`);
+  const kept=mergeDeletedMatchIds(many);
+  assert.equal(kept.length,DELETED_MATCH_KEEP);
+  assert.equal(kept.at(-1),`m${DELETED_MATCH_KEEP+4}`);
+  const stale=[{matchId:'gone',endedAt:'2026-09-01T00:00:00.000Z'},{matchId:'kept',endedAt:'2026-09-02T00:00:00.000Z'}];
+  assert.deepEqual(mergeMatchHistory(stale,[],new Set(mergeDeletedMatchIds(['gone']))).map(row=>row.matchId),['kept']);
+});
+
+test('deleted matches are synced through the room and purged from the local archive cache',()=>{
+  assert.match(mainSource,/deletedMatchIds:mergeDeletedMatchIds\(src\.deletedMatchIds\)/);
+  assert.match(mainSource,/next\.deletedMatchIds=mergeDeletedMatchIds\(state\.deletedMatchIds,next\.deletedMatchIds\);\s*next\.deletedMatchIds\.forEach\(id=>removedMatchIds\.add\(id\)\)/);
+  const forget=mainSource.match(/function forgetArchivedMatches\(matchIds\)\{[\s\S]*?\n\}/)?.[0]||'';
+  assert.match(forget,/state\.deletedMatchIds=mergeDeletedMatchIds\(state\.deletedMatchIds,ids\)/);
+  assert.match(forget,/writeArchiveCache\(localStorage,roomId,\{rows:cache\.rows\.filter\(row=>!ids\.has\(row\.matchId\)\)/);
+  const load=mainSource.match(/async function loadMatchArchive\(\)\{[\s\S]*?\n\}/)?.[0]||'';
+  assert.match(load,/\.filter\(row=>!removedMatchIds\.has\(row\.matchId\)\);\s*writeArchiveCache/);
+  assert.match(load,/deleteArchivedMatches\(staleIds\)/);
 });
 
 test('stores a flat match record that Firestore can write',()=>{

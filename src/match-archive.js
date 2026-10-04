@@ -1,4 +1,5 @@
 export const ROOM_HISTORY_KEEP=40;
+export const DELETED_MATCH_KEEP=500;
 export const SYNC_MODE_LITE='lite';
 export const SYNC_MODE_FULL='full';
 
@@ -131,6 +132,18 @@ export function mergeArchiveRows(cached,fresh){
   for(const row of cached||[])if(row?.matchId)byId.set(String(row.matchId),encodeArchivedMatch(row));
   for(const row of fresh||[])if(row?.matchId)byId.set(String(row.matchId),encodeArchivedMatch(row));
   return [...byId.values()];
+}
+
+export function mergeDeletedMatchIds(...lists){
+  const ids=[],seen=new Set();
+  for(const list of lists){
+    for(const id of Array.isArray(list)||list instanceof Set?list:[]){
+      const value=String(id||'').trim();
+      if(!value||seen.has(value))continue;
+      seen.add(value);ids.push(value);
+    }
+  }
+  return ids.slice(-DELETED_MATCH_KEEP);
 }
 
 export function pendingArchiveKey(roomId){

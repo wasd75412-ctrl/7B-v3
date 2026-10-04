@@ -32,7 +32,7 @@ import { EVENT_PACKING_MEMO_ITEMS, eventPackingMemoProgress, mergePackingMemos, 
 import { ensureShuttleCostNotice, moveAdminNotice, normalizeAdminNotices } from './admin-notices.js';
 import { canReportEventPayment, eventPaymentStatus, normalizeEventPayments, normalizeSessionFee, updateEventPayment } from './event-payment.js';
 import { groupHistoryDatesByMonth, groupMatchHistoryByDate, withLiveTimelineDate } from './match-history.js';
-import { ROOM_HISTORY_KEEP, archiveCacheNeedsFullRefresh, archiveDocId, archiveSyncCursor, decodeArchivedMatch, mergeArchiveRows, readArchiveCache, writeArchiveCache, encodeArchivedMatch, mergeMatchHistory, normalizeSyncMode, overflowHistory, readPendingArchives, recentHistory, shouldSkipFullRoomSync, writePendingArchives } from './match-archive.js';
+import { ROOM_HISTORY_KEEP, archiveCacheNeedsFullRefresh, archiveDocId, archiveSyncCursor, decodeArchivedMatch, mergeArchiveRows, readArchiveCache, writeArchiveCache, encodeArchivedMatch, mergeDeletedMatchIds, mergeMatchHistory, normalizeSyncMode, overflowHistory, readPendingArchives, recentHistory, shouldSkipFullRoomSync, writePendingArchives } from './match-archive.js';
 import { POLL_UNAVAILABLE, prunePollHistoryRows } from './poll-history.js';
 
 const firebaseConfig={apiKey:'AIzaSyBrakbTPK7UqEChPBI6pM8-i03IcLq0IvM',authDomain:'badminton-7a1c3.firebaseapp.com',projectId:'badminton-7a1c3',storageBucket:'badminton-7a1c3.firebasestorage.app',messagingSenderId:'883534015507',appId:'1:883534015507:web:a7f6fb318151b6d07563e6',measurementId:'G-C97B98H7YW'};
@@ -90,7 +90,7 @@ const shuffle=a=>{a=[...a];const r=new Uint32Array(Math.max(1,a.length));crypto.
 function teammateSafeLineup(ids,{randomize=false}={}){const values=ids.filter(Boolean);if(values.length!==4||new Set(values).size!==4)return values;const todayHistory=state.history.filter(h=>historyDate(h)===localDateKey()),genderGroupingEnabled=state.rules?.genderGroupingEnabled!==false,genderByPlayer=Object.fromEntries(state.roster.map(p=>[p.id,normalizePlayerGender(p.gender)])),lineupMaleCount=values.filter(id=>genderByPlayer[id]===PLAYER_GENDER_MALE).length,hasMalePair=[values.slice(0,2),values.slice(2,4)].some(team=>team.every(id=>genderByPlayer[id]===PLAYER_GENDER_MALE)),genderViolation=genderGroupingEnabled&&lineupMaleCount!==3&&hasMalePair;if(!randomize&&!genderViolation&&!lineupExceedsTeammateLimit(values,todayHistory))return values;const random=crypto.getRandomValues(new Uint32Array(1))[0];return arrangeTeamsWithTeammateLimit(shuffle(values),todayHistory,random,2,{genderGroupingEnabled,genderByPlayer})}
 function wholeAmount(value){const n=Number(value);return Number.isFinite(n)&&n>0?Math.round(n):0}
 function setAdminNotices(rows){state.adminNotices=normalizeAdminNotices({adminNotices:rows});state.adminNotice=state.adminNotices[0]||null}
-const initialState=()=>({version:9.8,matchFormat:'doubles',testMode:false,testModeRevision:0,roster:[],retiredPlayers:[],adminPlayerIds:[],attendance:[],lineupRevision:0,court:[],waitingQueue:[],queueDraftChosen:[],priority:null,lastLoserReplayPlayerId:null,match:{active:false,format:'doubles',players:[[],[]],scores:[0,0],rallies:[],serving:0,positions:[[0,1],[0,1]],winner:null,startedAt:''},matchRollback:null,rules:{target:11,cap:15,deuce:true,genderGroupingEnabled:true},history:[],matchTimelineStarts:{},hiddenTimelineDates:[],matchReplayPlaylistTitle:'',matchReplayPlaylistUrl:'',nextCall:null,schedulePoll:{status:'open',createdAt:'',deadlineAt:'',autoCycle:'',options:[],votes:{},voterPlayers:{},manualParticipants:{}},pollHistory:[],nextEvent:null,nextEvents:[],adminNotice:null,adminNotices:[],shuttleTubes:[],shuttleLegacyActiveTubeId:'',shuttleNoTrackingTubeIds:[],updatedAt:null});
+const initialState=()=>({version:9.8,matchFormat:'doubles',testMode:false,testModeRevision:0,roster:[],retiredPlayers:[],adminPlayerIds:[],attendance:[],lineupRevision:0,court:[],waitingQueue:[],queueDraftChosen:[],priority:null,lastLoserReplayPlayerId:null,match:{active:false,format:'doubles',players:[[],[]],scores:[0,0],rallies:[],serving:0,positions:[[0,1],[0,1]],winner:null,startedAt:''},matchRollback:null,rules:{target:11,cap:15,deuce:true,genderGroupingEnabled:true},history:[],deletedMatchIds:[],matchTimelineStarts:{},hiddenTimelineDates:[],matchReplayPlaylistTitle:'',matchReplayPlaylistUrl:'',nextCall:null,schedulePoll:{status:'open',createdAt:'',deadlineAt:'',autoCycle:'',options:[],votes:{},voterPlayers:{},manualParticipants:{}},pollHistory:[],nextEvent:null,nextEvents:[],adminNotice:null,adminNotices:[],shuttleTubes:[],shuttleLegacyActiveTubeId:'',shuttleNoTrackingTubeIds:[],updatedAt:null});
 const DEVICE_SYNC_CODE_KEY='bcmDeviceSyncCodeV1',DEVICE_SYNC_TOKEN_KEY='bcmDeviceSyncTokenV1',DEVICE_SYNC_NAME_KEY='bcmDeviceSyncNameV1',DEVICE_SYNC_PLAYER_KEY='bcmDeviceSyncPlayerV1';
 let state=initialState(), roomId='', roomRef=null, liveScoreRef=null, remoteControlRef=null, chatCollectionRef=null, isHost=false, hostToken='', adminPinHash='', unsubscribe=null, liveScoreUnsubscribe=null, remoteControlUnsubscribe=null, remoteActionUnsubscribe=null, chatUnsubscribe=null, applying=false, saveTimer=null, liveScoreSaveTimer=null, matchAutoBackupTimer=null, editId=null;const expandedPlayerNotes=new Set();let profileOriginal=null,profileDirty={name:false,gender:false,memberType:false,voiceName:false,racket:false,racketTension:false,racketString:false,backupRacket:false,backupTension:false,backupString:false,note:false};let dismissedResultKey='';const selfToken=localStorage.getItem(DEVICE_SYNC_TOKEN_KEY)||localStorage.getItem('bdV73SelfToken')||randomToken();localStorage.setItem('bdV73SelfToken',selfToken);let selfHash='',scoreViewRequested=false,expandedShuttleTubeId='';
 let deviceProfileUnsubscribe=null,deviceProfileApplying=false,deviceProfileSaveTimer=null,identitySyncing=false,roomConnectInProgress=false;
@@ -365,6 +365,7 @@ function encodeState(src){
     shuttleNoTrackingTubeIds:noTrackingTubeIds,
     matchTimelineStarts:src.matchTimelineStarts&&typeof src.matchTimelineStarts==='object'?src.matchTimelineStarts:{},
     hiddenTimelineDates:cleanTimelineDates(src.hiddenTimelineDates),
+    deletedMatchIds:mergeDeletedMatchIds(src.deletedMatchIds),
     history:(Array.isArray(src.history)?src.history:[]).map(h=>({
       matchId:h.matchId||randomToken(),
       time:h.time||'',
@@ -453,6 +454,7 @@ function decodeState(d){
     shuttleLegacyActiveTubeId:legacyActiveTubeId,
     shuttleNoTrackingTubeIds:noTrackingTubeIds,
     history,
+    deletedMatchIds:mergeDeletedMatchIds(d.deletedMatchIds),
     matchTimelineStarts:d.matchTimelineStarts&&typeof d.matchTimelineStarts==='object'?d.matchTimelineStarts:{},
     hiddenTimelineDates:cleanTimelineDates(d.hiddenTimelineDates)
   }
@@ -1935,6 +1937,8 @@ function canApplyMatch(match){
 function applyState(data){
   const before=matchScoreSignature(),next=cleanState(data);
   if(Number(next.testModeRevision)<Number(state.testModeRevision)){next.testMode=state.testMode;next.testModeRevision=state.testModeRevision}
+  next.deletedMatchIds=mergeDeletedMatchIds(state.deletedMatchIds,next.deletedMatchIds);
+  next.deletedMatchIds.forEach(id=>removedMatchIds.add(id));
   if(typeof mergeMatchHistory==='function'){
     const incoming=mergeMatchHistory(next.history,archivedHistory,removedMatchIds);
     next.history=isHost?mergeMatchHistory(state.history,incoming,removedMatchIds):incoming;
@@ -2201,9 +2205,11 @@ async function loadMatchArchive(){
     const snaps=await getDocs(cursor?query(matchHistoryCollection(),where('endedAt','>=',cursor)):matchHistoryCollection());
     if(roomId!==archiveRoomId)return;
     const fresh=snaps.docs.map(item=>encodeArchivedMatch({matchId:item.id,...item.data()}));
-    const rows=full?fresh:mergeArchiveRows(cache.rows,fresh);
+    const staleIds=fresh.map(row=>row.matchId).filter(id=>removedMatchIds.has(id));
+    const rows=(full?fresh:mergeArchiveRows(cache.rows,fresh)).filter(row=>!removedMatchIds.has(row.matchId));
     writeArchiveCache(localStorage,archiveRoomId,{rows,fullAt:full?now:cache.fullAt});
-    archivedHistory=rows.map(decodeArchivedMatch).filter(row=>!removedMatchIds.has(row.matchId));
+    archivedHistory=rows.map(decodeArchivedMatch);
+    if(isHost&&staleIds.length)void deleteArchivedMatches(staleIds).catch(error=>console.warn('封存戰績刪除失敗',error));
     const merged=mergeMatchHistory(state.history,archivedHistory,removedMatchIds);
     if(merged.length!==state.history.length||merged.some((row,index)=>row.matchId!==state.history[index]?.matchId)){
       applying=true;state.history=merged;applying=false;renderHistory();renderStats();renderDashboard();
@@ -2344,8 +2350,11 @@ async function syncFinishedMatchNow(matchId=''){
   }
 }
 function adoptRestoredState(data){
-  const nextEpoch=nextMatchEpoch(state.match);
+  const nextEpoch=nextMatchEpoch(state.match),previousDeleted=state.deletedMatchIds;
   state=cleanState(data);
+  const restoredIds=new Set(state.history.map(row=>row.matchId).filter(Boolean));
+  restoredIds.forEach(id=>removedMatchIds.delete(id));
+  state.deletedMatchIds=mergeDeletedMatchIds(previousDeleted,state.deletedMatchIds).filter(id=>!restoredIds.has(id));
   state.match.syncEpoch=Math.max(nextEpoch,nextMatchEpoch(state.match));
   rememberLatestLiveMatch();liveScoreReady=true;
 }
@@ -2841,17 +2850,24 @@ function renderHistory(){
   all('[data-delete-history]').forEach(btn=>btn.onclick=()=>deleteHistoryRecord(+btn.dataset.deleteHistory));
   all('[data-delete-history-date]').forEach(btn=>btn.onclick=()=>deleteHistoryDate(btn.dataset.deleteHistoryDate));applyRole()
 }
-function forgetArchivedMatch(matchId){if(!matchId)return;removedMatchIds.add(matchId);archivedHistory=archivedHistory.filter(row=>row.matchId!==matchId);writePendingArchives(localStorage,roomId,readPendingArchives(localStorage,roomId).filter(row=>row.matchId!==matchId))}
-function deleteHistoryRecord(index){if(!isHost)return;const h=state.history[index];if(!h)return;const title=`${(h.teams?.[0]||[]).map(pname).join('／')} ${h.scores?.[0]??0}：${h.scores?.[1]??0} ${(h.teams?.[1]||[]).map(pname).join('／')}`;if(!confirm(`確定刪除這筆比賽紀錄？\n\n${title}\n${h.time||''}`))return;forgetArchivedMatch(h.matchId);state.history.splice(index,1);renderAll();saveSoon();if(roomId&&h.matchId)void deleteArchivedMatches([h.matchId]).catch(error=>console.warn('封存戰績刪除失敗',error))}
+function forgetArchivedMatches(matchIds){
+  const ids=new Set((matchIds||[]).filter(Boolean));if(!ids.size)return;
+  ids.forEach(id=>removedMatchIds.add(id));state.deletedMatchIds=mergeDeletedMatchIds(state.deletedMatchIds,ids);
+  archivedHistory=archivedHistory.filter(row=>!ids.has(row.matchId));
+  const cache=readArchiveCache(localStorage,roomId);
+  if(cache)writeArchiveCache(localStorage,roomId,{rows:cache.rows.filter(row=>!ids.has(row.matchId)),fullAt:cache.fullAt});
+  writePendingArchives(localStorage,roomId,readPendingArchives(localStorage,roomId).filter(row=>!ids.has(row.matchId)));
+}
+function deleteHistoryRecord(index){if(!isHost)return;const h=state.history[index];if(!h)return;const title=`${(h.teams?.[0]||[]).map(pname).join('／')} ${h.scores?.[0]??0}：${h.scores?.[1]??0} ${(h.teams?.[1]||[]).map(pname).join('／')}`;if(!confirm(`確定刪除這筆比賽紀錄？\n\n${title}\n${h.time||''}`))return;forgetArchivedMatches([h.matchId]);state.history.splice(index,1);renderAll();saveSoon();if(roomId&&h.matchId)void deleteArchivedMatches([h.matchId]).catch(error=>console.warn('封存戰績刪除失敗',error))}
 function deleteHistoryDate(dateKey){
   if(!isHost)return;
   const rows=(groupMatchHistoryByDate(state.history,historyDate).find(group=>group.dateKey===dateKey)?.matches||[]).map(item=>item.match);if(!rows.length)return;
   if(!confirm(`確定刪除 ${historyDateLabel(dateKey)} 全部 ${rows.length} 筆戰績？`))return;
-  const ids=rows.map(row=>row.matchId).filter(Boolean);ids.forEach(forgetArchivedMatch);
+  const ids=rows.map(row=>row.matchId).filter(Boolean);forgetArchivedMatches(ids);
   state.history=state.history.filter(h=>!rows.includes(h));renderAll();saveSoon();
   if(roomId&&ids.length)void deleteArchivedMatches(ids).catch(error=>console.warn('封存戰績刪除失敗',error));
 }
-function clearAllHistory(){if(!isHost)return;if(!state.history.length)return alert('目前沒有比賽紀錄。');if(!confirm(`即將刪除全部 ${state.history.length} 筆比賽紀錄。\n球員名單與目前比分不會被刪除。`))return;const text=prompt('為避免誤刪，請輸入「清空」：','');if(text!=='清空')return alert('輸入不正確，已取消清空。');const ids=state.history.map(row=>row.matchId).filter(Boolean);ids.forEach(forgetArchivedMatch);archivedHistory=[];writePendingArchives(localStorage,roomId,[]);state.history=[];renderAll();saveSoon();if(roomId&&ids.length)void deleteArchivedMatches(ids).catch(error=>console.warn('封存戰績清空失敗',error));alert('全部比賽紀錄已清空。')}
+function clearAllHistory(){if(!isHost)return;if(!state.history.length)return alert('目前沒有比賽紀錄。');if(!confirm(`即將刪除全部 ${state.history.length} 筆比賽紀錄。\n球員名單與目前比分不會被刪除。`))return;const text=prompt('為避免誤刪，請輸入「清空」：','');if(text!=='清空')return alert('輸入不正確，已取消清空。');const ids=state.history.map(row=>row.matchId).filter(Boolean);forgetArchivedMatches(ids);archivedHistory=[];writePendingArchives(localStorage,roomId,[]);state.history=[];renderAll();saveSoon();if(roomId&&ids.length)void deleteArchivedMatches(ids).catch(error=>console.warn('封存戰績清空失敗',error));alert('全部比賽紀錄已清空。')}
 function renderAll(){renderRoster();renderAttendance();renderCourt();renderHistory();renderScore();renderDashboard();renderStats();renderPoll();renderChat();renderTestMode();if(!$('shuttleTubeModal')?.classList.contains('hidden'))renderShuttleTubeManager();applyRole();renderAndroidRemote()}
 function currentTestModeEnabled(){
   return !!state.testMode||!!state.match?.active&&state.match?.winner===null&&!!state.match?.testMode;

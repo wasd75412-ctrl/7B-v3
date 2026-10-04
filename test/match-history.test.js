@@ -90,7 +90,7 @@ test('each record date can delete all of its matches after confirmation',()=>{
   const remove=source.match(/function deleteHistoryDate\(dateKey\)\{[\s\S]*?\n\}/)?.[0]||'';
   assert.match(remove,/if\(!isHost\)return;/);
   assert.match(remove,/if\(!confirm\(`確定刪除 \$\{historyDateLabel\(dateKey\)\} 全部 \$\{rows\.length\} 筆戰績？`\)\)return;/);
-  assert.match(remove,/ids\.forEach\(forgetArchivedMatch\)/);
+  assert.match(remove,/forgetArchivedMatches\(ids\)/);
   assert.match(remove,/state\.history=state\.history\.filter\(h=>!rows\.includes\(h\)\);renderAll\(\);saveSoon\(\)/);
   assert.match(remove,/deleteArchivedMatches\(ids\)/);
 });
