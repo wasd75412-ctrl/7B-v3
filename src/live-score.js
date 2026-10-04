@@ -20,6 +20,7 @@ export function encodeLiveMatch(source={}){
     scoreFont:typeof source.scoreFont==='string'?source.scoreFont:'',
     testMode:!!source.testMode,
     testCompleted:!!source.testCompleted,
+    scorerDevice:typeof source.scorerDevice==='string'?source.scorerDevice:'',
     ...(Number(source.syncEpoch)>0?{syncEpoch:Number(source.syncEpoch)}:{}),
     startedAt:source.startedAt||''
   };
@@ -43,6 +44,7 @@ export function decodeLiveMatch(source={},fallback={}){
     scoreFont:match.scoreFont,
     testMode:match.testMode,
     testCompleted:match.testCompleted,
+    scorerDevice:match.scorerDevice,
     syncEpoch:Number(encoded.syncEpoch)||((encoded.matchId||null)===(base.matchId||null)?Number(base.syncEpoch)||0:0),
     startedAt:match.startedAt
   };
@@ -84,6 +86,12 @@ export function generalRoomStateWithoutMatch(encodedState={}){
 
 export function shouldShowScoreView({matchActive=false,isHost=false,androidRemote=false,requested=false}={}){
   return Boolean(matchActive&&isHost&&!androidRemote&&requested);
+}
+
+// Remote input only drives the device that opened scoring; an unclaimed match keeps the legacy behavior.
+export function ownsScoring(match={},deviceId=''){
+  const owner=String(match?.scorerDevice||'');
+  return !owner||owner===String(deviceId||'');
 }
 
 export function liveMatchKey(source={}){

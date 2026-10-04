@@ -53,7 +53,7 @@ test('remote score commands before the official start only show the double-press
   assert.doesNotMatch(main,/handleAndroidOfficialStartPress/);
   const court=main.match(/if\(courtVisible&&\['teamAPlus','teamBPlus'\]\.includes\(action\)\)\{[\s\S]*?return true;/)?.[0]||'';
   assert.doesNotMatch(court,/markMatchOfficialStarted|PreStartPress/);
-  assert.match(main,/function handleRemoteOfficialStartCommand[\s\S]*?const started=markMatchOfficialStarted[\s\S]*?if\(started&&\$\('scoreView'\)\.classList\.contains\('hidden'\)&&\$\('resultModal'\)\.classList\.contains\('hidden'\)\)\{scoreViewRequested=true;renderScore\(\)\}/);
+  assert.match(main,/function handleRemoteOfficialStartCommand[\s\S]*?const started=markMatchOfficialStarted[\s\S]*?if\(started&&ownsScoring\(state\.match,scoreDeviceId\)&&\$\('scoreView'\)\.classList\.contains\('hidden'\)&&\$\('resultModal'\)\.classList\.contains\('hidden'\)\)claimScoring\(\);/);
 });
 
 test('Android gates the official start with a double press before sending anything',()=>{
