@@ -13,6 +13,8 @@ const handlers = {
   'chat-media': chatMedia,
   'chat-sync': chatMention,
   'chat-mention': chatMention,
+  'device-check': pushTest,
+  'device-link': pushSubscription,
   'event-announcement': eventAnnouncement,
   'notify-config': pushConfig,
   'notify-subscription': pushSubscription,
@@ -22,6 +24,7 @@ const handlers = {
   'push-config': pushConfig,
   'push-subscription': pushSubscription,
   'push-test': pushTest,
+  'settings': pushConfig,
   'session-fee-notice': sessionFeeNotice,
   'weekly-poll': weeklyPoll
 };

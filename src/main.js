@@ -827,9 +827,9 @@ function apiFunctionPath(path){
   const [name,query='']=value.split('?');
   const alias={
     'chat-mention':'chat-sync',
-    'push-config':'notify-config',
-    'push-subscription':'notify-subscription',
-    'push-test':'notify-test'
+    'push-config':'settings',
+    'push-subscription':'device-link',
+    'push-test':'device-check'
   }[name]||name;
   return `${alias}${query?`?${query}`:''}`;
 }
