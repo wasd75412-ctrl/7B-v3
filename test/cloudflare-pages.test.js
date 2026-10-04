@@ -1,13 +1,14 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
+import { SCHEDULED_FUNCTIONS, runScheduledFunctions } from '../workers/scheduler/index.js';
 
 const mainSource = readFileSync(new URL('../src/main.js', import.meta.url), 'utf8');
 const serviceWorkerSource = readFileSync(new URL('../public/sw.js', import.meta.url), 'utf8');
 const pagesFunctionSource = readFileSync(new URL('../functions/api/functions/[name].js', import.meta.url), 'utf8');
 const clubFunctionSource = readFileSync(new URL('../functions/club/[name].js', import.meta.url), 'utf8');
 const wranglerSource = readFileSync(new URL('../wrangler.toml', import.meta.url), 'utf8');
-const scheduledWorkflowSource = readFileSync(new URL('../.github/workflows/scheduled-functions.yml', import.meta.url), 'utf8');
+const schedulerConfigSource = readFileSync(new URL('../workers/scheduler/wrangler.toml', import.meta.url), 'utf8');
 
 test('routes browser function calls through Cloudflare Pages functions', () => {
   assert.match(mainSource, /\/club\/\$\{apiFunctionPath\(path\)\}/);
@@ -48,15 +49,20 @@ test('uses the stable Cloudflare Pages URL for push notification links', () => {
   assert.match(pagesFunctionSource, /process\.env\.URL = cloudflareSiteUrl\(env\) \|\| CANONICAL_SITE_URL/);
 });
 
-test('triggers the formerly Netlify-scheduled functions every five minutes', () => {
-  assert.match(scheduledWorkflowSource, /^\s*schedule:\s*$/m);
-  assert.match(scheduledWorkflowSource, /- cron: '2-59\/5 \* \* \* \*'/);
-  assert.match(scheduledWorkflowSource, /https:\/\/7b-v3\.pages\.dev/);
-  assert.match(scheduledWorkflowSource, /\/api\/functions\/\$name/);
-  for(const name of ['weekly-poll', 'poll-deadline-reminder', 'packing-reminder']){
-    assert.match(scheduledWorkflowSource, new RegExp(`\\b${name}\\b`));
-    assert.match(pagesFunctionSource, new RegExp(`'${name}': `));
-  }
+test('triggers the formerly Netlify-scheduled functions from a five-minute Worker cron', async () => {
+  assert.match(schedulerConfigSource, /main = "index\.js"/);
+  assert.match(schedulerConfigSource, /crons = \["\*\/5 \* \* \* \*"\]/);
+  assert.match(schedulerConfigSource, /SITE_URL = "https:\/\/7b-v3\.pages\.dev"/);
+  assert.deepEqual(SCHEDULED_FUNCTIONS, ['weekly-poll', 'poll-deadline-reminder', 'packing-reminder']);
+  for(const name of SCHEDULED_FUNCTIONS)assert.match(pagesFunctionSource, new RegExp(`'${name}': `));
+  const calls = [];
+  const results = await runScheduledFunctions({ SITE_URL: 'https://7b-v3.pages.dev/' }, async url => {
+    calls.push(url);
+    if(url.endsWith('/packing-reminder'))throw new Error('offline');
+    return new Response('{"ok":true}', { status: url.endsWith('/weekly-poll') ? 500 : 200 });
+  });
+  assert.deepEqual(calls, SCHEDULED_FUNCTIONS.map(name => `https://7b-v3.pages.dev/api/functions/${name}`));
+  assert.deepEqual(results.map(result => result.status), [500, 200, 0]);
 });
 
 test('declares the Cloudflare Pages build output and Node compatibility', () => {
