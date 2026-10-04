@@ -1,6 +1,5 @@
 import { getBlobStore as getStore } from './lib/blob-store.mjs';
-import webpush from 'web-push';
-import { PUSH_STORE, jsonResponse, validRoomId, validSubscription } from './lib/push-shared.mjs';
+import { PUSH_STORE, configureWebPush, jsonResponse, sendWebPush, roomSubscriptions, validRoomId } from './lib/push-shared.mjs';
 
 const FIREBASE_PROJECT='badminton-7a1c3';
 const FIREBASE_API_KEY='AIzaSyBrakbTPK7UqEChPBI6pM8-i03IcLq0IvM';
@@ -67,16 +66,11 @@ export default async request=>{
   const event=room.event;
   if(!event.date||!event.time||event.publishedAt!==publishedAt)return jsonResponse({error:'球局公告尚未完成同步，請稍後再試。'},409);
 
-  const publicKey=process.env.VAPID_PUBLIC_KEY?.trim(),privateKey=process.env.VAPID_PRIVATE_KEY?.trim();
-  const siteUrl=(process.env.URL||process.env.DEPLOY_PRIME_URL||'').replace(/\/$/,'');
-  if(!publicKey||!privateKey||!siteUrl)return jsonResponse({error:'手機通知服務尚未完成設定。'},503);
-  webpush.setVapidDetails(process.env.VAPID_SUBJECT||siteUrl,publicKey,privateKey);
+  const push=configureWebPush();
+  if(!push)return jsonResponse({error:'手機通知服務尚未完成設定。'},503);
+  const siteUrl=push.siteUrl;
 
-  const store=getStore({name:PUSH_STORE,consistency:'strong'}),listing=await store.list(),records=[];
-  for(const blob of listing.blobs){
-    const record=await store.get(blob.key,{type:'json'}).catch(()=>null);
-    if(record?.roomId===roomId&&validSubscription(record.subscription))records.push({key:blob.key,record});
-  }
+  const store=getStore({name:PUSH_STORE,consistency:'strong'}),records=await roomSubscriptions(store,roomId);
   const payload=JSON.stringify({
     title:'🏸 球局已確認！',
     body:eventAnnouncementBody(event),
@@ -89,7 +83,7 @@ export default async request=>{
   for(const item of records){
     if(item.record.lastEventPublishedAt===event.publishedAt){skipped++;continue}
     try{
-      await webpush.sendNotification(item.record.subscription,payload,{TTL:EVENT_TTL_SECONDS,urgency:'high',topic:`event-${roomId}`});
+      await sendWebPush(item.record.subscription,payload,{TTL:EVENT_TTL_SECONDS,urgency:'high',topic:`event-${roomId}`});
       item.record.lastEventPublishedAt=event.publishedAt;
       item.record.lastEventAt=new Date().toISOString();
       await store.setJSON(item.key,item.record);

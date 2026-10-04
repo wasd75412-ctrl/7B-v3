@@ -1,8 +1,7 @@
 import { createHash, randomUUID } from 'node:crypto';
 import { getBlobStore as getStore } from './lib/blob-store.mjs';
-import webpush from 'web-push';
 import { chatMediaLabel, chatMessagePreview, cleanChatText, hasChatAllMention, normalizeChatMedia, normalizeChatMentionIds, playerOwnerHashes } from '../../src/chat.js';
-import { PUSH_STORE, cleanText, jsonResponse, validRoomId, validSubscription } from './lib/push-shared.mjs';
+import { PUSH_STORE, cleanText, configureWebPush, jsonResponse, sendWebPush, roomSubscriptions, validRoomId } from './lib/push-shared.mjs';
 
 const CHAT_STORE='7b-room-chat';
 export const CHAT_MEDIA_STORE='7b-room-chat-media';
@@ -82,7 +81,9 @@ export function sortedChatMessages(rows){
 export function chatIndexKey(roomId){return `index/${roomId}`}
 
 async function listedRoomMessages(store,roomId){
-  const listing=await store.list({prefix:`${roomId}/`}),rows=[];
+  let listing;
+  try{listing=await store.list({prefix:`${roomId}/`})}catch(error){console.warn(`Chat list ${roomId} skipped`,error?.message||error);return[]}
+  const rows=[];
   for(const blob of listing.blobs)rows.push(await store.get(blob.key,{type:'json'}).catch(()=>null));
   return rows;
 }
@@ -110,16 +111,12 @@ async function readRoomMessages(store,roomId){
 
 async function sendMentionNotifications(message,roomId,messageId){
   if(!message.mentionAll&&!message.mentions.length)return{checked:0,sent:0,removed:0,failed:0};
-  const publicKey=process.env.VAPID_PUBLIC_KEY?.trim(),privateKey=process.env.VAPID_PRIVATE_KEY?.trim();
-  const siteUrl=(process.env.URL||process.env.DEPLOY_PRIME_URL||'').replace(/\/$/,'');
-  if(!publicKey||!privateKey||!siteUrl)return{checked:0,sent:0,removed:0,failed:0,unavailable:true};
-  webpush.setVapidDetails(process.env.VAPID_SUBJECT||siteUrl,publicKey,privateKey);
+  const push=configureWebPush();
+  if(!push)return{checked:0,sent:0,removed:0,failed:0,unavailable:true};
+  const siteUrl=push.siteUrl;
 
-  const store=getStore({name:PUSH_STORE,consistency:'strong'}),listing=await store.list(),targets=[];
-  for(const blob of listing.blobs){
-    const record=await store.get(blob.key,{type:'json'}).catch(()=>null);
-    if(shouldNotifyChatSubscription(record,message,{roomId,messageId})&&validSubscription(record.subscription))targets.push({key:blob.key,record});
-  }
+  const store=getStore({name:PUSH_STORE,consistency:'strong'});
+  const targets=(await roomSubscriptions(store,roomId)).filter(item=>shouldNotifyChatSubscription(item.record,message,{roomId,messageId}));
 
   const payload=JSON.stringify({
     title:message.mentionAll?`📣 ${message.senderName} 通知所有人`:`💬 ${message.senderName} 標記了你`,
@@ -132,7 +129,7 @@ async function sendMentionNotifications(message,roomId,messageId){
   let sent=0,removed=0,failed=0;
   for(const item of targets){
     try{
-      await webpush.sendNotification(item.record.subscription,payload,{TTL:CHAT_TTL_SECONDS,urgency:'high'});
+      await sendWebPush(item.record.subscription,payload,{TTL:CHAT_TTL_SECONDS,urgency:'high'});
       item.record.chatMentionMessageIds=[messageId,...(item.record.chatMentionMessageIds||[]).filter(id=>id!==messageId)].slice(0,30);
       item.record.lastChatMentionAt=new Date().toISOString();
       await store.setJSON(item.key,item.record);
