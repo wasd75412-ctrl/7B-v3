@@ -19,7 +19,7 @@ self.addEventListener('install',event=>event.waitUntil(installAppShell().then(()
 self.addEventListener('activate',event=>event.waitUntil(caches.keys().then(keys=>Promise.all(keys.filter(key=>key!==CACHE).map(key=>caches.delete(key)))).then(()=>self.clients.claim())));
 
 self.addEventListener('fetch',event=>{
-  if(event.request.method!=='GET'||new URL(event.request.url).origin!==location.origin||event.request.url.includes('/api/functions/'))return;
+  if(event.request.method!=='GET'||new URL(event.request.url).origin!==location.origin||event.request.url.includes('/api/functions/')||event.request.url.includes('/bcm/'))return;
   const isNavigation=event.request.mode==='navigate',cacheKey=isNavigation?'./index.html':event.request;
   event.respondWith(fetch(event.request,{cache:isNavigation?'no-store':'default'}).then(response=>{
     if(response?.ok&&response.type==='basic'){
