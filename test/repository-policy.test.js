@@ -19,6 +19,14 @@ test('runs the shared policy workflow for every pushed branch and pull request',
   assert.match(workflow,/run: npm run build/);
 });
 
+test('deploys main to Cloudflare Pages after the shared checks pass',()=>{
+  const deploy=workflow.slice(workflow.indexOf('deploy-production:'));
+  assert.match(deploy,/needs: test-and-build/);
+  assert.match(deploy,/if: github\.event_name == 'push' && github\.ref == 'refs\/heads\/main'/);
+  assert.match(deploy,/CLOUDFLARE_API_TOKEN: \$\{\{ secrets\.CLOUDFLARE_API_TOKEN \}\}/);
+  assert.match(deploy,/pages deploy dist --project-name 7b-v3 --branch main/);
+});
+
 test('installs each new Android remote APK on the connected phone',()=>{
   assert.match(agents,/每次建立新的 Android 遙控器 APK，都必須在建置成功後直接安裝到已連線的手機/);
   assert.match(agents,/adb install -r/);
