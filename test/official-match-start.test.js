@@ -157,7 +157,12 @@ test('scoring does not speak',()=>{
 
 test('official start does not block the following score presses',()=>{
   assert.doesNotMatch(main,/OFFICIAL_START_SCORE_LOCK_MS|officialStartScoreUnlockAt|正式開始保護中/);
-  assert.match(main,/showScoreRemoteIndicator\('比賽正式開始',\{duration:500/);
+  assert.match(main,/showScoreRemoteIndicator\('比賽正式開始',\{duration:2500/);
+});
+
+test('official start notice stays readable but clears as soon as a point is scored',()=>{
+  assert.match(main,/function dismissOfficialStartIndicator\(\)\{[\s\S]*?classList\.contains\('official-start'\)[\s\S]*?hideScoreRemoteIndicator\(\)/);
+  assert.match(main,/function addPoint\(team\)\{[^}]*dismissOfficialStartIndicator\(\);state\.match\.rallies\.push\(team\)/);
 });
 
 test('camera recording start automatically becomes the millisecond timeline baseline',()=>{
@@ -199,6 +204,6 @@ test('the play button disappears as soon as the match officially starts',()=>{
 });
 
 test('official start indicator is emphasized and centered for everyone to see',()=>{
-  assert.match(main,/showScoreRemoteIndicator\('比賽正式開始',\{duration:500,icon:'✅',emphasis:'official'\}\)/);
+  assert.match(main,/showScoreRemoteIndicator\('比賽正式開始',\{duration:2500,icon:'✅',emphasis:'official'\}\)/);
   assert.match(styles,/\.score-remote-indicator\.official-start\{[^}]*top:50%;[^}]*left:50%;[^}]*transform:translate\(-50%,-50%\);[^}]*font-size:clamp\(2rem,7vw,5rem\)/);
 });
