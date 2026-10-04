@@ -3130,7 +3130,7 @@ function useOneShuttle({source='button'}={}){
   }
   state.shuttleTubes=normalizeShuttleTubes(state.shuttleTubes.map(row=>row.id===tube.id?adjustSessionShuttleUsage(row,-1,shuttleUsageSessionKey()):row));
   const updated=activeShuttleTube();
-  syncShuttleCostNotice(updated);updateUseShuttleButtons();renderShuttleTubeManager();saveSoon();
+  syncShuttleCostNotice(updated);updateUseShuttleButtons();renderShuttleTubeManager();saveShuttleChange();
   showScoreRemoteIndicator(`已使用 1 顆球｜剩餘 ${updated.remainingShuttles} 顆`,{duration:2000,icon:'🏸'});
   return true;
 }
@@ -3143,12 +3143,24 @@ function returnOneShuttle({source='button'}={}){
   }
   state.shuttleTubes=normalizeShuttleTubes(state.shuttleTubes.map(row=>row.id===tube.id?adjustSessionShuttleUsage(row,1,shuttleUsageSessionKey()):row));
   const updated=activeShuttleTube();
-  syncShuttleCostNotice(updated);updateUseShuttleButtons();renderShuttleTubeManager();saveSoon();
+  syncShuttleCostNotice(updated);updateUseShuttleButtons();renderShuttleTubeManager();saveShuttleChange();
   showScoreRemoteIndicator(`已加回 1 顆球｜剩餘 ${updated.remainingShuttles} 顆`,{duration:2000,icon:'↩️🏸'});
   return true;
 }
+// Lite sync skips room writes during an open match, and the next room snapshot would restore the old shuttle count.
+function saveShuttleChange(){if(isHost&&roomRef)void saveNow().catch(()=>saveSoon())}
+function refreshSessionFeeAmount(){
+  const event=currentSessionEvent();
+  if(!event?.sessionFee)return;
+  const {share}=sessionCombinedCosts(event);
+  if(!share||share===event.sessionFee.amount)return;
+  const updated=cleanNextEvent({...event,sessionFee:{...event.sessionFee,amount:share}});
+  state.nextEvents=upsertNextEvent(normalizeNextEvents(state),updated);
+  if(state.nextEvent&&nextEventIdentity(state.nextEvent)===updated.id)state.nextEvent=updated;
+}
 function syncShuttleCostNotice(tube){
   setAdminNotices(ensureShuttleCostNotice(normalizeAdminNotices(state),new Date().toISOString()));
+  refreshSessionFeeAmount();
   renderDashboard();
 }
 function renderShuttleTubeManager(){
@@ -3191,14 +3203,14 @@ function renderShuttleTubeManager(){
     const tubeId=button.dataset.shuttleTube,delta=Number(button.dataset.shuttleDelta)||0;
     state.shuttleTubes=normalizeShuttleTubes(tubes.map(tube=>tube.id===tubeId?adjustSessionShuttleUsage(tube,delta,shuttleUsageSessionKey()):tube));
     const updated=state.shuttleTubes.find(tube=>tube.id===tubeId);
-    syncShuttleCostNotice(updated);updateUseShuttleButtons();renderShuttleTubeManager();saveSoon();
+    syncShuttleCostNotice(updated);updateUseShuttleButtons();renderShuttleTubeManager();saveShuttleChange();
   });
   all('[data-reset-shuttle-session]').forEach(button=>button.onclick=()=>{
     if(!isHost)return;
     const tubeId=button.dataset.resetShuttleSession,tube=tubes.find(row=>row.id===tubeId);
     if(!tube||!confirm('確定結束該場次，並將該場次的用球顆數歸零？\n球桶剩餘顆數不會加回。'))return;
     state.shuttleTubes=normalizeShuttleTubes(tubes.map(row=>row.id===tubeId?{...row,sessionUsedShuttles:0,sessionUsageKey:shuttleUsageSessionKey()}:row));
-    syncShuttleCostNotice(state.shuttleTubes.find(row=>row.id===tubeId));updateUseShuttleButtons();renderShuttleTubeManager();saveSoon();
+    syncShuttleCostNotice(state.shuttleTubes.find(row=>row.id===tubeId));updateUseShuttleButtons();renderShuttleTubeManager();saveShuttleChange();
   });
   all('[data-set-shuttle-remaining]').forEach(button=>button.onclick=()=>{
     if(!isHost)return;
@@ -3209,7 +3221,7 @@ function renderShuttleTubeManager(){
     const remaining=Number(input);
     if(!Number.isInteger(remaining)||remaining<0||remaining>tube.totalShuttles)return alert(`請輸入 0～${tube.totalShuttles} 的整數。`);
     state.shuttleTubes=normalizeShuttleTubes(tubes.map(row=>row.id===tubeId?setShuttleRemaining(row,remaining):row));
-    syncShuttleCostNotice(state.shuttleTubes.find(row=>row.id===tubeId));updateUseShuttleButtons();renderShuttleTubeManager();saveSoon();
+    syncShuttleCostNotice(state.shuttleTubes.find(row=>row.id===tubeId));updateUseShuttleButtons();renderShuttleTubeManager();saveShuttleChange();
   });
   all('[data-toggle-shuttle-details]').forEach(button=>button.onclick=()=>{
     expandedShuttleTubeId=expandedShuttleTubeId===button.dataset.toggleShuttleDetails?'':button.dataset.toggleShuttleDetails;
@@ -3231,7 +3243,7 @@ function renderShuttleTubeManager(){
     const remaining=Number(remainingInput);
     if(!Number.isInteger(remaining)||remaining<0||remaining>total)return alert(`目前剩餘球數請輸入 0～${total} 的整數。`);
     state.shuttleTubes=normalizeShuttleTubes(tubes.map(row=>row.id===tubeId?updateShuttleTube(row,{name:name.trim(),price:Math.round(price),totalShuttles:total,remainingShuttles:remaining}):row));
-    syncShuttleCostNotice(state.shuttleTubes.find(row=>row.id===tubeId));renderShuttleTubeManager();saveSoon();
+    syncShuttleCostNotice(state.shuttleTubes.find(row=>row.id===tubeId));renderShuttleTubeManager();saveShuttleChange();
   });
   $('activatePendingShuttleTube')?.addEventListener('click',()=>{
     if(!isHost||!pending)return;
@@ -3251,7 +3263,7 @@ function renderShuttleTubeManager(){
     if(state.shuttleLegacyActiveTubeId===tube.id)state.shuttleLegacyActiveTubeId='';
     state.shuttleTubes=softDeleteShuttleTube(tubes,tube.id,new Date().toISOString());
     if(expandedShuttleTubeId===tube.id)expandedShuttleTubeId='';
-    updateUseShuttleButtons();renderShuttleTubeManager();saveSoon();
+    updateUseShuttleButtons();renderShuttleTubeManager();saveShuttleChange();
   });
   all('[data-finish-shuttle-tube]').forEach(button=>button.onclick=()=>{
     if(!isHost)return;
@@ -3259,14 +3271,14 @@ function renderShuttleTubeManager(){
     if(!tube||!confirm(`確定結束球桶「${tube.name}」？\n結束後會保留價格、剩餘顆數與該場次球費記錄。`))return;
     state.shuttleLegacyActiveTubeId='';
     state.shuttleTubes=finishShuttleTube(tubes,tube.id,new Date().toISOString());
-    updateUseShuttleButtons();renderShuttleTubeManager();saveSoon();
+    updateUseShuttleButtons();renderShuttleTubeManager();saveShuttleChange();
   });
   all('[data-restore-shuttle-tube]').forEach(button=>button.onclick=()=>{
     if(!isHost)return;
     const tube=tubes.find(row=>row.id===button.dataset.restoreShuttleTube);
     if(!tube||!confirm(`恢復球桶「${tube.name}」？`))return;
     state.shuttleTubes=restoreShuttleTube(tubes,tube.id);
-    updateUseShuttleButtons();renderShuttleTubeManager();saveSoon();
+    updateUseShuttleButtons();renderShuttleTubeManager();saveShuttleChange();
   });
 }
 function openShuttleTubeManager(){
@@ -3284,7 +3296,7 @@ function createNewShuttleTube(){
   const tube=createShuttleTube({id:randomToken(),name,price,totalShuttles,status:'pending',createdAt:new Date().toISOString()});
   state.shuttleTubes=normalizeShuttleTubes([tube,...state.shuttleTubes]);
   $('shuttleTubeName').value='';$('shuttleTubePrice').value='';$('shuttleTubeCount').value='12';
-  syncShuttleCostNotice(tube);renderShuttleTubeManager();saveSoon();
+  syncShuttleCostNotice(tube);renderShuttleTubeManager();saveShuttleChange();
 }
 let editingAdminNoticeId='';
 function setAdminNoticeFeedback(message='',kind=''){
