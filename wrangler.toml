@@ -6,3 +6,11 @@ compatibility_flags = ["nodejs_compat"]
 [[kv_namespaces]]
 binding = "SEVEN_B_BLOBS"
 id = "139d657934a541819ec6d56ae27933d4"
+
+[[env.production.kv_namespaces]]
+binding = "SEVEN_B_BLOBS"
+id = "139d657934a541819ec6d56ae27933d4"
+
+[[env.preview.kv_namespaces]]
+binding = "SEVEN_B_BLOBS"
+id = "139d657934a541819ec6d56ae27933d4"
