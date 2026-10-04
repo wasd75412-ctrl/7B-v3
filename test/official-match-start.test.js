@@ -132,7 +132,7 @@ test('result-screen remote next match is scoped to the finished match score keys
 });
 
 test('official start is idempotent and scoring waits for it',()=>{
-  assert.match(main,/if\(matchHasOfficiallyStarted\(match\)\)\{showScoreRemoteIndicator\('本場已正式開始'/);
+  assert.match(main,/if\(matchHasOfficiallyStarted\(match\)\)\{if\(!officialStartIndicatorVisible\(\)\)showScoreRemoteIndicator\('本場已正式開始'/);
   assert.match(main,/if\(!matchHasOfficiallyStarted\(match\)\)\{showScoreRemoteIndicator\('請先按播放鍵正式開始'/);
   assert.match(controller,/void startOfficialMatch[\s\S]*?long clientCreatedAt = System\.currentTimeMillis\(\)[\s\S]*?command\.put\("clientCreatedAt", clientCreatedAt\)/);
   assert.match(main,/function handleRemoteOfficialStartCommand[\s\S]*?markMatchOfficialStarted\(data\.officialStartCommand\.clientCreatedAt\|\|data\.officialStartCommand\.createdAt\)/);
@@ -157,7 +157,21 @@ test('scoring does not speak',()=>{
 
 test('official start does not block the following score presses',()=>{
   assert.doesNotMatch(main,/OFFICIAL_START_SCORE_LOCK_MS|officialStartScoreUnlockAt|正式開始保護中/);
-  assert.match(main,/showScoreRemoteIndicator\('比賽正式開始',\{duration:500/);
+  assert.match(main,/showScoreRemoteIndicator\('比賽正式開始',\{duration:2500/);
+});
+
+test('official start notice stays readable but clears as soon as a point is scored',()=>{
+  assert.match(main,/function officialStartIndicatorVisible\(\)\{[\s\S]*?classList\.contains\('official-start'\)&&!indicator\.classList\.contains\('hidden'\)/);
+  assert.match(main,/function dismissOfficialStartIndicator\(\)\{if\(officialStartIndicatorVisible\(\)\)hideScoreRemoteIndicator\(\)\}/);
+  assert.match(main,/function addPoint\(team\)\{[^}]*dismissOfficialStartIndicator\(\);state\.match\.rallies\.push\(team\)/);
+});
+
+test('indicator countdown starts only after the notice has been painted',()=>{
+  const show=main.match(/function showScoreRemoteIndicator\([\s\S]*?\n\}/)?.[0]||'';
+  assert.match(show,/cancelAnimationFrame\(scoreRemoteIndicatorFrame\)/);
+  assert.match(show,/requestAnimationFrame\(\(\)=>\{scoreRemoteIndicatorFrame=requestAnimationFrame\(\(\)=>\{scoreRemoteIndicatorFrame=0;scoreRemoteIndicatorTimer=setTimeout\(hideScoreRemoteIndicator,duration\)/);
+  assert.doesNotMatch(show,/\n  scoreRemoteIndicatorTimer=setTimeout/);
+  assert.match(main,/function hideScoreRemoteIndicator\(\)\{[\s\S]*?cancelAnimationFrame\(scoreRemoteIndicatorFrame\)/);
 });
 
 test('camera recording start automatically becomes the millisecond timeline baseline',()=>{
@@ -199,6 +213,6 @@ test('the play button disappears as soon as the match officially starts',()=>{
 });
 
 test('official start indicator is emphasized and centered for everyone to see',()=>{
-  assert.match(main,/showScoreRemoteIndicator\('比賽正式開始',\{duration:500,icon:'✅',emphasis:'official'\}\)/);
+  assert.match(main,/showScoreRemoteIndicator\('比賽正式開始',\{duration:2500,icon:'✅',emphasis:'official'\}\)/);
   assert.match(styles,/\.score-remote-indicator\.official-start\{[^}]*top:50%;[^}]*left:50%;[^}]*transform:translate\(-50%,-50%\);[^}]*font-size:clamp\(2rem,7vw,5rem\)/);
 });
