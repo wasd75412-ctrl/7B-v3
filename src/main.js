@@ -822,7 +822,18 @@ function supportsPush(){return 'serviceWorker'in navigator&&'PushManager'in wind
 function isIosLike(){return /iPad|iPhone|iPod/i.test(navigator.userAgent)||(navigator.platform==='MacIntel'&&navigator.maxTouchPoints>1)}
 function isStandaloneApp(){return window.matchMedia?.('(display-mode: standalone)').matches||navigator.standalone===true}
 function base64UrlBytes(value){const padded=value.padEnd(Math.ceil(value.length/4)*4,'=').replace(/-/g,'+').replace(/_/g,'/'),raw=atob(padded),bytes=new Uint8Array(raw.length);for(let i=0;i<raw.length;i++)bytes[i]=raw.charCodeAt(i);return bytes}
-async function pushApi(path,options={}){const response=await fetch(`/api/functions/${path}`,options);let data={};try{data=await response.json()}catch{}if(!response.ok){const error=new Error(data.error||'通知服務暫時無法使用');error.status=response.status;throw error}return data}
+function apiFunctionPath(path){
+  const value=String(path||'');
+  const [name,query='']=value.split('?');
+  const alias={
+    'chat-mention':'chat-sync',
+    'push-config':'notify-config',
+    'push-subscription':'notify-subscription',
+    'push-test':'notify-test'
+  }[name]||name;
+  return `${alias}${query?`?${query}`:''}`;
+}
+async function pushApi(path,options={}){const response=await fetch(`/api/functions/${apiFunctionPath(path)}`,options);let data={};try{data=await response.json()}catch{}if(!response.ok){const error=new Error(data.error||'通知服務暫時無法使用');error.status=response.status;throw error}return data}
 function pushNotificationEnabled(){return supportsPush()&&!!roomId&&localStorage.getItem(pushEnabledKey())==='1'&&Notification.permission==='granted'}
 function updatePushNotificationButton(){const button=$('pushNotificationBtn'),testButton=$('pushTestBtn');if(!button)return;const supported=supportsPush(),enabled=pushNotificationEnabled();button.setAttribute('aria-pressed',enabled?'true':'false');button.disabled=!roomId||!supported;if(testButton)testButton.disabled=!enabled||!supported;if(!supported)button.textContent='🔕 此裝置不支援通知';else if(Notification.permission==='denied')button.textContent='🔕 通知已被封鎖';else button.textContent=enabled?'🔔 本球局通知已開啟':'🔔 啟用手機通知'}
 function rememberPushPromptChoice(){if(roomId)localStorage.setItem(pushPromptKey(),PUSH_PROMPT_VERSION)}
