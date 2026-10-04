@@ -44,6 +44,7 @@ function harness(liveMatch=current,overrides={}){
     state:roomState(liveMatch),structuredClone,console,clearTimeout,
     initialState:()=>roomState(idle()),isHost:true,requestedAndroidRemote:false,scoreViewRequested:true,
     liveScoreWriteScheduled:false,pendingLiveScoreWrites:0,liveScoreSaveTimer:null,saveTimer:null,roomWriteScheduled:false,
+    roomMatchFallbackTimer:null,roomMatchFallbackKey:'',
     applying:false,liveScoreAvailable:true,liveScoreReady:false,latestLiveMatch:null,
     roomRef:'room/current',liveScoreRef:'room/current/liveScore/current',db:{},
     shouldApplyIncomingLiveMatch,decodeLiveMatch,createMatchCheckpointData,nextMatchEpoch,
@@ -75,7 +76,7 @@ function harness(liveMatch=current,overrides={}){
     return{...general,liveScoreEnabled:true};
   };
   for(const name of ['decodeState','cleanState','matchScoreSignature','canApplyMatch','keepNewerLineup','applyState',
-    'applyLiveScoreState','rememberLatestLiveMatch','saveNewMatchCheckpointNow','adoptRestoredState']){
+    'applyLiveScoreState','rememberLatestLiveMatch','roomMatchFallbackSignature','saveNewMatchCheckpointNow','adoptRestoredState']){
     vm.runInContext(productionFunction(name),context,{filename:`main.js:${name}`});
   }
   return{context,calls};

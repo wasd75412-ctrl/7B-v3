@@ -62,7 +62,7 @@ test('room, live score and remote listeners re-attach after Firestore errors',()
   assert.match(main,/function resilientSnapshot\(target,options,onNext,onError,isCurrent\)/);
   assert.match(main,/unsubscribe=resilientSnapshot\(roomRef,/);
   assert.match(main,/liveScoreUnsubscribe=resilientSnapshot\(liveScoreRef,/);
-  assert.match(main,/remoteActionUnsubscribe=resilientSnapshot\(collection\(db,'badmintonRooms',id,'remoteControl'\)/);
+  assert.match(main,/remoteActionUnsubscribe=resilientSnapshot\(remoteScoreQuery,/);
   assert.match(main,/remoteControlUnsubscribe=resilientSnapshot\(remoteControlRef,/);
 });
 

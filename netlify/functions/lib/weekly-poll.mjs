@@ -29,6 +29,23 @@ export function taipeiWeekSchedule(now=Date.now()){
   return{cycle,mondayLocalMs:monday.getTime(),opensAt,deadlineAt,options};
 }
 
+export const WEEKLY_POLL_SCAN_MS=60*60*1000;
+
+function weeklyPollOpening(schedule,now){return now>=Date.parse(schedule.opensAt)&&now<Date.parse(schedule.deadlineAt)}
+
+// Listing rooms bills one Firestore read per room, so the five-minute trigger only scans when a run can change something.
+export function shouldScanWeeklyPollRooms(scan,now=Date.now()){
+  const schedule=taipeiWeekSchedule(now),scannedAt=Number(scan?.scannedAt)||0,deadline=Date.parse(schedule.deadlineAt);
+  if(weeklyPollOpening(schedule,now)&&scan?.openedCycle!==schedule.cycle)return true;
+  if(now>=deadline&&scannedAt<deadline)return true;
+  return now-scannedAt>=WEEKLY_POLL_SCAN_MS;
+}
+
+export function nextWeeklyPollScan(scan,{now=Date.now(),failed=0}={}){
+  const schedule=taipeiWeekSchedule(now);
+  return{scannedAt:now,openedCycle:weeklyPollOpening(schedule,now)&&!failed?schedule.cycle:String(scan?.openedCycle||'')};
+}
+
 export function shouldOpenWeeklyPoll(document,now=Date.now()){
   const schedule=taipeiWeekSchedule(now);
   if(now<Date.parse(schedule.opensAt)||now>=Date.parse(schedule.deadlineAt))return false;
