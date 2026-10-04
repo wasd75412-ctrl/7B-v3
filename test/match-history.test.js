@@ -91,8 +91,18 @@ test('each record date can delete all of its matches after confirmation',()=>{
   assert.match(remove,/if\(!isHost\)return;/);
   assert.match(remove,/if\(!confirm\(`確定刪除 \$\{historyDateLabel\(dateKey\)\} 全部 \$\{rows\.length\} 筆戰績？`\)\)return;/);
   assert.match(remove,/forgetArchivedMatches\(ids\)/);
-  assert.match(remove,/state\.history=state\.history\.filter\(h=>!rows\.includes\(h\)\);renderAll\(\);saveSoon\(\)/);
+  assert.match(remove,/state\.history=state\.history\.filter\(h=>!rows\.includes\(h\)\);renderAll\(\);saveHistoryDeletion\(\)/);
   assert.match(remove,/deleteArchivedMatches\(ids\)/);
+});
+
+test('match record deletions write the room immediately even in lite sync during a match',()=>{
+  const source=readFileSync(new URL('../src/main.js',import.meta.url),'utf8');
+  assert.match(source,/function saveHistoryDeletion\(\)\{if\(isHost&&roomRef\)void saveNow\(\)\.catch\(\(\)=>saveSoon\(\)\)\}/);
+  for(const name of ['deleteHistoryRecord','deleteHistoryDate','clearAllHistory']){
+    const body=source.match(new RegExp(`function ${name}\\([^)]*\\)\\{[\\s\\S]*?\\n(?=function )`))?.[0]||'';
+    assert.match(body,/saveHistoryDeletion\(\)/,name);
+    assert.doesNotMatch(body,/\bsaveSoon\(\)/,name);
+  }
 });
 
 test('keeps match record dates readable on themed cards',()=>{

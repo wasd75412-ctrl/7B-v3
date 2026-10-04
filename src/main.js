@@ -2872,16 +2872,18 @@ function forgetArchivedMatches(matchIds){
   if(cache)writeArchiveCache(localStorage,roomId,{rows:cache.rows.filter(row=>!ids.has(row.matchId)),fullAt:cache.fullAt});
   writePendingArchives(localStorage,roomId,readPendingArchives(localStorage,roomId).filter(row=>!ids.has(row.matchId)));
 }
-function deleteHistoryRecord(index){if(!isHost)return;const h=state.history[index];if(!h)return;const title=`${(h.teams?.[0]||[]).map(pname).join('／')} ${h.scores?.[0]??0}：${h.scores?.[1]??0} ${(h.teams?.[1]||[]).map(pname).join('／')}`;if(!confirm(`確定刪除這筆比賽紀錄？\n\n${title}\n${h.time||''}`))return;forgetArchivedMatches([h.matchId]);state.history.splice(index,1);renderAll();saveSoon();if(roomId&&h.matchId)void deleteArchivedMatches([h.matchId]).catch(error=>console.warn('封存戰績刪除失敗',error))}
+// Lite sync skips room writes during an open match, so deletions must bypass saveSoon or a reload restores them.
+function saveHistoryDeletion(){if(isHost&&roomRef)void saveNow().catch(()=>saveSoon())}
+function deleteHistoryRecord(index){if(!isHost)return;const h=state.history[index];if(!h)return;const title=`${(h.teams?.[0]||[]).map(pname).join('／')} ${h.scores?.[0]??0}：${h.scores?.[1]??0} ${(h.teams?.[1]||[]).map(pname).join('／')}`;if(!confirm(`確定刪除這筆比賽紀錄？\n\n${title}\n${h.time||''}`))return;forgetArchivedMatches([h.matchId]);state.history.splice(index,1);renderAll();saveHistoryDeletion();if(roomId&&h.matchId)void deleteArchivedMatches([h.matchId]).catch(error=>console.warn('封存戰績刪除失敗',error))}
 function deleteHistoryDate(dateKey){
   if(!isHost)return;
   const rows=(groupMatchHistoryByDate(state.history,historyDate).find(group=>group.dateKey===dateKey)?.matches||[]).map(item=>item.match);if(!rows.length)return;
   if(!confirm(`確定刪除 ${historyDateLabel(dateKey)} 全部 ${rows.length} 筆戰績？`))return;
   const ids=rows.map(row=>row.matchId).filter(Boolean);forgetArchivedMatches(ids);
-  state.history=state.history.filter(h=>!rows.includes(h));renderAll();saveSoon();
+  state.history=state.history.filter(h=>!rows.includes(h));renderAll();saveHistoryDeletion();
   if(roomId&&ids.length)void deleteArchivedMatches(ids).catch(error=>console.warn('封存戰績刪除失敗',error));
 }
-function clearAllHistory(){if(!isHost)return;if(!state.history.length)return alert('目前沒有比賽紀錄。');if(!confirm(`即將刪除全部 ${state.history.length} 筆比賽紀錄。\n球員名單與目前比分不會被刪除。`))return;const text=prompt('為避免誤刪，請輸入「清空」：','');if(text!=='清空')return alert('輸入不正確，已取消清空。');const ids=state.history.map(row=>row.matchId).filter(Boolean);forgetArchivedMatches(ids);archivedHistory=[];writePendingArchives(localStorage,roomId,[]);state.history=[];renderAll();saveSoon();if(roomId&&ids.length)void deleteArchivedMatches(ids).catch(error=>console.warn('封存戰績清空失敗',error));alert('全部比賽紀錄已清空。')}
+function clearAllHistory(){if(!isHost)return;if(!state.history.length)return alert('目前沒有比賽紀錄。');if(!confirm(`即將刪除全部 ${state.history.length} 筆比賽紀錄。\n球員名單與目前比分不會被刪除。`))return;const text=prompt('為避免誤刪，請輸入「清空」：','');if(text!=='清空')return alert('輸入不正確，已取消清空。');const ids=state.history.map(row=>row.matchId).filter(Boolean);forgetArchivedMatches(ids);archivedHistory=[];writePendingArchives(localStorage,roomId,[]);state.history=[];renderAll();saveHistoryDeletion();if(roomId&&ids.length)void deleteArchivedMatches(ids).catch(error=>console.warn('封存戰績清空失敗',error));alert('全部比賽紀錄已清空。')}
 function renderAll(){renderRoster();renderAttendance();renderCourt();renderHistory();renderScore();renderDashboard();renderStats();renderPoll();renderChat();renderTestMode();if(!$('shuttleTubeModal')?.classList.contains('hidden'))renderShuttleTubeManager();applyRole();renderAndroidRemote()}
 function currentTestModeEnabled(){
   return !!state.testMode||!!state.match?.active&&state.match?.winner===null&&!!state.match?.testMode;
