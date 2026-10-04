@@ -11,9 +11,9 @@ test('routes browser function calls through Cloudflare Pages functions', () => {
   assert.match(mainSource, /\/bcm\/\$\{apiFunctionPath\(path\)\}/);
   assert.match(mainSource, /\/api\/functions\/chat-media/);
   assert.match(mainSource, /'chat-mention':'chat-sync'/);
-  assert.match(mainSource, /'push-config':'notify-config'/);
-  assert.match(mainSource, /'push-subscription':'notify-subscription'/);
-  assert.match(mainSource, /'push-test':'notify-test'/);
+  assert.match(mainSource, /'push-config':'settings'/);
+  assert.match(mainSource, /'push-subscription':'device-link'/);
+  assert.match(mainSource, /'push-test':'device-check'/);
   assert.doesNotMatch(mainSource, /\/\.netlify\/functions/);
 });
 
@@ -25,6 +25,9 @@ test('keeps Cloudflare Pages function responses out of the app shell cache', () 
 
 test('maps Cloudflare Pages function names to existing handlers', () => {
   assert.match(pagesFunctionSource, /'chat-sync': chatMention/);
+  assert.match(pagesFunctionSource, /'device-link': pushSubscription/);
+  assert.match(pagesFunctionSource, /'device-check': pushTest/);
+  assert.match(pagesFunctionSource, /'settings': pushConfig/);
   assert.match(pagesFunctionSource, /'push-subscription': pushSubscription/);
   assert.match(pagesFunctionSource, /'notify-subscription': pushSubscription/);
   assert.match(pagesFunctionSource, /'notify-config': pushConfig/);
