@@ -24,6 +24,14 @@ test('a refresh does not reload itself when the service worker takes control',()
   assert.doesNotMatch(registration,/location\.reload\(\)/);
 });
 
+test('boot shell can repair stale cached app versions without the module bundle',()=>{
+  assert.match(html,/function bcmRefreshStaleAppShell\(\)/);
+  assert.match(html,/fetch\(`\/package\.json\?_\=\$\{Date\.now\(\)\}`,\{cache:'no-store'\}\)/);
+  assert.match(html,/keys\.filter\(key=>key\.startsWith\('7b-bcm-'\)\)\.map\(key=>caches\.delete\(key\)\)/);
+  assert.match(html,/registration\.unregister\(\)/);
+  assert.match(html,/url\.searchParams\.set\('_app',latest\)/);
+});
+
 test('puts a live score board first on the dashboard and keeps support content compact',()=>{
   const dashboard=html.match(/<section id="page0"[\s\S]*?<section id="page1"/)?.[0]||'';
   assert.ok(dashboard.indexOf('id="homeLiveScore"')<dashboard.indexOf('id="adminAnnouncement"'));
