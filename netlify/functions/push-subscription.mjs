@@ -2,6 +2,20 @@ import { getBlobStore as getStore } from './lib/blob-store.mjs';
 import { EVENT_PACKING_MEMO_ITEMS, normalizePackingItems } from '../../src/event-packing-memo.js';
 import { PUSH_STORE, cleanText, jsonResponse, subscriptionKey, validEndpoint, validRoomId, validSubscription } from './lib/push-shared.mjs';
 
+const REFRESH_REWRITE_MS=7*24*60*60*1000;
+
+export function isUnchangedRefresh(existing,body,now=Date.now()){
+  if(!existing||typeof body?.packingReminderEnabled==='boolean'||body?.packingReminderMinutes!==undefined||Array.isArray(body?.packingItems))return false;
+  const updated=Date.parse(existing.updatedAt||'');
+  return Number.isFinite(updated)&&now-updated<REFRESH_REWRITE_MS
+    &&existing.subscription?.endpoint===body.subscription?.endpoint
+    &&existing.subscription?.keys?.p256dh===body.subscription?.keys?.p256dh
+    &&existing.subscription?.keys?.auth===body.subscription?.keys?.auth
+    &&existing.clientHash===cleanText(body.clientHash,128)
+    &&existing.playerId===cleanText(body.playerId,128)
+    &&existing.playerName===cleanText(body.playerName,40);
+}
+
 export default async request=>{
   if(request.method!=='POST')return jsonResponse({error:'不支援這個操作。'},405);
   if(request.headers.get('sec-fetch-site')==='cross-site')return jsonResponse({error:'不允許跨網站設定通知。'},403);
@@ -20,6 +34,7 @@ export default async request=>{
   }
   if(!validSubscription(body.subscription))return jsonResponse({error:'通知裝置資料不完整。'},400);
   const existing=await store.get(key,{type:'json'}).catch(()=>null),now=new Date().toISOString();
+  if(isUnchangedRefresh(existing,body))return jsonResponse({ok:true,enabled:true});
   const packingReminderMinutes=[30,60,90,120].includes(Number(body.packingReminderMinutes))?Number(body.packingReminderMinutes):(existing?.packingReminderMinutes||60);
   await store.setJSON(key,{
     roomId,

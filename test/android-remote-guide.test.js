@@ -9,7 +9,7 @@ test('keeps the recording controls inside the Android remote view container',()=
   const view=index.match(/<section id="androidRemoteView"[^>]*>([\s\S]*?)<\/section>/)?.[1]||'';
   assert.match(view,/id="androidRemoteRecording"/);
   assert.match(view,/id="androidRemoteOpenBroadcast"/);
-  assert.match(view,/id="androidLocalHub"/);
+  assert.doesNotMatch(index,/androidLocalHub|localScoreTestView|本機熱點/);
   assert.match(view,/id="androidRemoteMatch"/);
 });
 

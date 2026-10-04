@@ -58,6 +58,7 @@ public final class MainActivity extends Activity {
     private volatile boolean activityStarted;
     private boolean activityResumed;
     private volatile boolean recordingModeEnabled;
+    private boolean cameraLaunchPending;
     private BackgroundScoreController backgroundScoreController;
 
     @Override
@@ -88,7 +89,7 @@ public final class MainActivity extends Activity {
         settings.setDisplayZoomControls(false);
         settings.setMediaPlaybackRequiresUserGesture(false);
         settings.setMixedContentMode(WebSettings.MIXED_CONTENT_NEVER_ALLOW);
-        settings.setUserAgentString(settings.getUserAgentString() + " 7BAndroidRemote/1.3.86");
+        settings.setUserAgentString(settings.getUserAgentString() + " 7BAndroidRemote/1.3.91");
         CookieManager.getInstance().setAcceptCookie(true);
         CookieManager.getInstance().setAcceptThirdPartyCookies(view, true);
         view.setRendererPriorityPolicy(WebView.RENDERER_PRIORITY_IMPORTANT, true);
@@ -399,13 +400,6 @@ public final class MainActivity extends Activity {
             lastPointAction = action;
             lastPointActionAt = now;
         }
-        if (LocalScoreModeStore.isEnabled(this)
-                && (action == VolumeKeyInterpreter.Action.TEAM_A_PLUS
-                || action == VolumeKeyInterpreter.Action.TEAM_B_PLUS
-                || action == VolumeKeyInterpreter.Action.UNDO)) {
-            sendScoreAction(action);
-            return;
-        }
         if (action == VolumeKeyInterpreter.Action.TEAM_A_PLUS || action == VolumeKeyInterpreter.Action.TEAM_B_PLUS) {
             sendScoreAction(action);
             return;
@@ -494,7 +488,9 @@ public final class MainActivity extends Activity {
     }
 
     private void openBroadcastCamera() {
-        Intent intent = new Intent(this, LoopCameraActivity.class);
+        if (cameraLaunchPending) return;
+        Intent intent = new Intent(this, LoopCameraActivity.class)
+                .addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP | Intent.FLAG_ACTIVITY_CLEAR_TOP);
         if (intent.resolveActivity(getPackageManager()) == null) {
             Toast.makeText(this, "找不到可用的錄影相機", Toast.LENGTH_LONG).show();
             return;
@@ -506,8 +502,10 @@ public final class MainActivity extends Activity {
 
         Toast.makeText(this, "正在連接即時比分…", Toast.LENGTH_SHORT).show();
         AtomicBoolean cameraStarted = new AtomicBoolean(false);
+        cameraLaunchPending = true;
         Runnable launchCamera = () -> {
             if (!cameraStarted.compareAndSet(false, true)) return;
+            cameraLaunchPending = false;
             startActivity(intent);
         };
         Runnable timeout = () -> {
@@ -577,108 +575,6 @@ public final class MainActivity extends Activity {
         @JavascriptInterface
         public void openRecordings() {
             runOnUiThread(() -> startActivity(new Intent(MainActivity.this, RecordingsActivity.class)));
-        }
-
-        @JavascriptInterface
-        public String startLocalScoreHub() {
-            try {
-                RemoteSessionStore.Session session = RemoteSessionStore.getSession(MainActivity.this);
-                LocalScoreHubServer hub = LocalScoreHubServer.start(
-                        MainActivity.this,
-                        session.target,
-                        session.cap,
-                        session.deuce
-                );
-                LocalScoreModeStore.setMode(MainActivity.this, LocalScoreModeStore.MODE_HOST, "");
-                return hub.infoJson().toString();
-            } catch (Exception error) {
-                return errorJson(error.getMessage() == null ? "無法開啟本機主機" : error.getMessage());
-            }
-        }
-
-        @JavascriptInterface
-        public String stopLocalScoreHub() {
-            LocalScoreHubServer.stopRunning();
-            LocalScoreModeStore.setMode(MainActivity.this, LocalScoreModeStore.MODE_OFF, "");
-            try {
-                return new org.json.JSONObject().put("ok", true).put("running", false).toString();
-            } catch (Exception error) {
-                return "{\"ok\":true,\"running\":false}";
-            }
-        }
-
-        @JavascriptInterface
-        public String joinLocalScoreHub(String host) {
-            try {
-                String clean = host == null ? "" : host.trim();
-                if (clean.isEmpty()) return errorJson("請輸入主機位址");
-                LocalScoreModeStore.setMode(MainActivity.this, LocalScoreModeStore.MODE_CLIENT, clean);
-                org.json.JSONObject state = LocalScoreModeStore.fetchState(MainActivity.this);
-                org.json.JSONObject info = new org.json.JSONObject();
-                info.put("ok", true);
-                info.put("mode", LocalScoreModeStore.MODE_CLIENT);
-                info.put("host", LocalScoreModeStore.host(MainActivity.this));
-                info.put("state", state);
-                return info.toString();
-            } catch (Exception error) {
-                LocalScoreModeStore.setMode(MainActivity.this, LocalScoreModeStore.MODE_OFF, "");
-                return errorJson(error.getMessage() == null ? "無法加入本機主機" : error.getMessage());
-            }
-        }
-
-        @JavascriptInterface
-        public String localScoreHubInfo() {
-            try {
-                org.json.JSONObject info = new org.json.JSONObject();
-                info.put("mode", LocalScoreModeStore.mode(MainActivity.this));
-                info.put("host", LocalScoreModeStore.host(MainActivity.this));
-                LocalScoreHubServer hub = LocalScoreHubServer.getRunning();
-                info.put("running", hub != null);
-                if (hub != null) {
-                    org.json.JSONObject hubInfo = hub.infoJson();
-                    info.put("url", hubInfo.optString("url"));
-                    info.put("addresses", hubInfo.optJSONArray("addresses"));
-                    info.put("port", LocalScoreHubServer.PORT);
-                    info.put("state", hub.state().snapshot());
-                } else if (LocalScoreModeStore.isClient(MainActivity.this)) {
-                    info.put("url", LocalScoreModeStore.endpoint(LocalScoreModeStore.host(MainActivity.this), "/"));
-                    info.put("state", LocalScoreModeStore.fetchState(MainActivity.this));
-                }
-                return info.toString();
-            } catch (Exception error) {
-                return errorJson(error.getMessage() == null ? "無法讀取本機狀態" : error.getMessage());
-            }
-        }
-
-        @JavascriptInterface
-        public String submitLocalScoreAction(String action) {
-            try {
-                org.json.JSONObject result = LocalScoreModeStore.postAction(MainActivity.this, action);
-                return result.toString();
-            } catch (Exception error) {
-                return errorJson(error.getMessage() == null ? "本機計分失敗" : error.getMessage());
-            }
-        }
-
-        @JavascriptInterface
-        public String markLocalScoreUploaded() {
-            try {
-                if (LocalScoreModeStore.isHost(MainActivity.this)) {
-                    LocalScoreHubServer hub = LocalScoreHubServer.getRunning();
-                    if (hub != null) hub.markUploaded();
-                }
-                return new org.json.JSONObject().put("ok", true).toString();
-            } catch (Exception error) {
-                return errorJson(error.getMessage() == null ? "無法標記上傳" : error.getMessage());
-            }
-        }
-
-        private String errorJson(String message) {
-            try {
-                return new org.json.JSONObject().put("ok", false).put("error", message).toString();
-            } catch (Exception ignored) {
-                return "{\"ok\":false,\"error\":\"error\"}";
-            }
         }
     }
 

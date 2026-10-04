@@ -1,14 +1,13 @@
 import { initializeApp } from 'firebase/app';
-import { initializeFirestore, memoryLocalCache, persistentLocalCache, persistentMultipleTabManager, disableNetwork, enableNetwork, doc, getDoc, getDocFromServer, onSnapshot, setDoc, writeBatch, serverTimestamp, runTransaction, collection, getDocs, deleteDoc, query, orderBy, limit } from 'firebase/firestore';
+import { initializeFirestore, memoryLocalCache, persistentLocalCache, persistentMultipleTabManager, disableNetwork, enableNetwork, doc, getDoc, getDocFromServer, onSnapshot, setDoc, writeBatch, serverTimestamp, runTransaction, collection, getDocs, deleteDoc, query, orderBy, limit, where } from 'firebase/firestore';
 import appPackage from '../package.json';
 import { calculateCombinedPerPersonFee, calculatePerPersonFee, shouldShowNextEventAnnouncement, suggestedEventEndTime } from './next-event.js';
 import { shouldShowNotificationPrompt } from './notifications.js';
 import { normalizeMatchReplayTitle, normalizeYouTubePlaylistUrl } from './youtube.js';
 import { DEFAULT_SCORE_REMOTE_BINDINGS, VIRTUAL_REMOTE_CLICK_CODE, advanceRemotePressState, assignRemoteBinding, isEditableRemoteTarget, normalizeRemoteBindings, remoteActionForCode, remoteEventCode, shouldHandleRemoteInput } from './score-remote.js';
 import { checkpointMissedOfficialStart, createLiveScoreData, createMatchCheckpointData, decodeLiveMatch, generalRoomStateWithoutMatch, keepOfficialStart, liveMatchKey, nextMatchEpoch, shouldApplyIncomingLiveMatch, shouldShowScoreView } from './live-score.js';
-import { createLocalScoreHub, LOCAL_SCORE_PORT } from './local-score-sync.js';
 import { startLocalLinkHost } from './local-link.js';
-import { REMOTE_COMMAND_MAX_AGE_MS, shouldAcceptRemoteCommand, timestampMillis } from './remote-command.js';
+import { REMOTE_COMMAND_MAX_AGE_MS, isStaleMatchPressForCurrentMatch, shouldAcceptRemoteCommand, timestampMillis } from './remote-command.js';
 import { canAutoSyncPlayerIdentity } from './device-sync.js';
 import { shouldRequestNativeWakeLock, wakeLockButtonIntent, wakeLockControlIsActive } from './wake-lock.js';
 import { FIRESTORE_LINK_COOLDOWN_MS, FIRESTORE_LINK_TIMEOUT_MS, firestoreLinkProbeVerdict, shouldProbeFirestoreLink } from './firestore-link.js';
@@ -33,7 +32,7 @@ import { EVENT_PACKING_MEMO_ITEMS, eventPackingMemoProgress, mergePackingMemos, 
 import { ensureShuttleCostNotice, moveAdminNotice, normalizeAdminNotices } from './admin-notices.js';
 import { canReportEventPayment, eventPaymentStatus, normalizeEventPayments, normalizeSessionFee, updateEventPayment } from './event-payment.js';
 import { groupHistoryDatesByMonth, groupMatchHistoryByDate, withLiveTimelineDate } from './match-history.js';
-import { ROOM_HISTORY_KEEP, archiveDocId, decodeArchivedMatch, encodeArchivedMatch, mergeMatchHistory, normalizeSyncMode, overflowHistory, readPendingArchives, recentHistory, shouldSkipFullRoomSync, writePendingArchives } from './match-archive.js';
+import { ROOM_HISTORY_KEEP, archiveCacheNeedsFullRefresh, archiveDocId, archiveSyncCursor, decodeArchivedMatch, mergeArchiveRows, readArchiveCache, writeArchiveCache, encodeArchivedMatch, mergeMatchHistory, normalizeSyncMode, overflowHistory, readPendingArchives, recentHistory, shouldSkipFullRoomSync, writePendingArchives } from './match-archive.js';
 import { POLL_UNAVAILABLE, prunePollHistoryRows } from './poll-history.js';
 
 const firebaseConfig={apiKey:'AIzaSyBrakbTPK7UqEChPBI6pM8-i03IcLq0IvM',authDomain:'badminton-7a1c3.firebaseapp.com',projectId:'badminton-7a1c3',storageBucket:'badminton-7a1c3.firebasestorage.app',messagingSenderId:'883534015507',appId:'1:883534015507:web:a7f6fb318151b6d07563e6',measurementId:'G-C97B98H7YW'};
@@ -48,7 +47,6 @@ const brandFontRequest=document.fonts?Promise.all([
 const brandFontGate=Promise.race([brandFontRequest,wait(2500).then(()=>false)]);
 brandFontGate.then(loaded=>document.documentElement.classList.add(loaded?'brand-font-ready':'brand-font-fallback'));
 Promise.all([brandFontGate,wait(900)]).then(()=>{
-  if(new URLSearchParams(location.search).get('localScore')==='1')return;
   document.getElementById('splash')?.classList.add('hide');
 });
 const $=id=>document.getElementById(id), all=q=>[...document.querySelectorAll(q)];
@@ -97,39 +95,16 @@ const DEVICE_SYNC_CODE_KEY='bcmDeviceSyncCodeV1',DEVICE_SYNC_TOKEN_KEY='bcmDevic
 let state=initialState(), roomId='', roomRef=null, liveScoreRef=null, remoteControlRef=null, chatCollectionRef=null, isHost=false, hostToken='', adminPinHash='', unsubscribe=null, liveScoreUnsubscribe=null, remoteControlUnsubscribe=null, remoteActionUnsubscribe=null, chatUnsubscribe=null, applying=false, saveTimer=null, liveScoreSaveTimer=null, matchAutoBackupTimer=null, editId=null;const expandedPlayerNotes=new Set();let profileOriginal=null,profileDirty={name:false,gender:false,memberType:false,voiceName:false,racket:false,racketTension:false,racketString:false,backupRacket:false,backupTension:false,backupString:false,note:false};let dismissedResultKey='';const selfToken=localStorage.getItem(DEVICE_SYNC_TOKEN_KEY)||localStorage.getItem('bdV73SelfToken')||randomToken();localStorage.setItem('bdV73SelfToken',selfToken);let selfHash='',scoreViewRequested=false,expandedShuttleTubeId='';
 let deviceProfileUnsubscribe=null,deviceProfileApplying=false,deviceProfileSaveTimer=null,identitySyncing=false,roomConnectInProgress=false;
 let roomSnapshotFromCache=false,snapshotHasPendingWrites=false,pendingRoomWrites=0,roomWriteScheduled=false,archivedHistory=[],removedMatchIds=new Set();
-const SYNC_MODE_KEY='bcmRoomSyncModeV1';
+const SYNC_MODE_KEY='bcmRoomSyncModeV1',SNAPSHOT_RETRY_BASE_MS=5000,SNAPSHOT_RETRY_MAX_MS=60000;
 let liveScoreSnapshotFromCache=false,liveScoreHasPendingWrites=false,pendingLiveScoreWrites=0,liveScoreWriteScheduled=false,liveScoreConnecting=false,liveScoreAvailable=true,liveScoreReady=false,liveScoreInitialSnapshot=true,remoteControlInitialSnapshot=true,remoteActionInitialSnapshot=true,liveScoreMigrationStarted=false,latestLiveMatch=null,lastRoomSnapshotData=null,lastRemoteRecordingStartCommandId='',lastRemoteFullscreenCommandId='',lastRemoteOfficialStartCommandId='',lastRemoteNextMatchCommandId='',lastRemoteUndoFinishedCommandId='',lastRemoteStartMatchCommandId='',lastRemoteActionCommandId='',seenRemoteActionIds=new Set(),androidOfficialStartPending=null,replacedRemoteMatchId='',replacedRemoteMatchAt=0;
+const RESULT_NEXT_MATCH_GUARD_MS=2000;
+let resultShownAt=0,remoteFinishPressAt=0;
 let localLinkHost=null,localLinkOpen=false,remoteDiagnostics=[],remoteDiagnosticsTimer=null,lastFirebaseOfficialStartId='';
 let firestoreLinkRecovering=false,firestoreLinkRecoverInFlight=false,firestoreLinkProbeInFlight=false,firestoreLinkLastProbeAt=0,firestoreLinkCooldownUntil=0,firestoreLinkProbeGeneration=0,firestoreLinkServerActivityAt=0;
+const CHAT_POLL_VISIBLE_MS=4000,CHAT_POLL_BACKGROUND_MS=60000;
+let chatRefreshNow=null;
 let chatMessages=[],chatMentionIds=new Set(),chatFirstRender=true,chatMessagesRenderKey='',chatLastSentAt=0,chatRequestRunning=false,chatSendRunning=false,chatPendingMedia=null;
-const requestParams=new URLSearchParams(location.search),requestedPage=requestParams.get('page'),requestedAndroidRemote=requestParams.get('androidRemote')==='1',requestedLocalScoreTest=requestParams.get('localScore')==='1';
-if(requestedLocalScoreTest){
-  document.documentElement.classList.add('local-score-test-mode');
-  document.title=`本機熱點比分測試 ${BCM_VERSION}`;
-  $('splash')?.classList.add('hidden');
-  $('landing')?.classList.add('hidden');
-  $('app')?.classList.add('hidden');
-  $('scoreView')?.classList.add('hidden');
-  $('androidRemoteView')?.classList.add('hidden');
-  const view=$('localScoreTestView');
-  if(view)view.classList.remove('hidden');
-  const hub=createLocalScoreHub();
-  const renderLocalScoreTest=snapshot=>{
-    const match=snapshot.match||{};
-    $('localScoreTestA').textContent=match.scores?.[0]??0;
-    $('localScoreTestB').textContent=match.scores?.[1]??0;
-    const finished=match.winner===0||match.winner===1;
-    $('localScoreTestPlusA').disabled=finished;
-    $('localScoreTestPlusB').disabled=finished;
-    $('localScoreTestMeta').textContent=`rev ${snapshot.revision||0}${snapshot.pendingUpload?' · 待上傳 Firebase':''} · 埠 ${LOCAL_SCORE_PORT}`;
-  };
-  hub.subscribe(renderLocalScoreTest);
-  $('localScoreTestPlusA').onclick=()=>hub.apply('teamAPlus');
-  $('localScoreTestPlusB').onclick=()=>hub.apply('teamBPlus');
-  $('localScoreTestUndo').onclick=()=>hub.apply('undo');
-  $('localScoreTestUpload').onclick=()=>{hub.markUploaded();};
-  window.bcmMarkBooted?.();
-}
+const requestParams=new URLSearchParams(location.search),requestedPage=requestParams.get('page'),requestedAndroidRemote=requestParams.get('androidRemote')==='1';
 if(requestedAndroidRemote){
   document.documentElement.classList.add('android-remote-mode');
   document.title=`7B 控制台 ${BCM_VERSION}`;
@@ -226,77 +201,6 @@ function setAndroidRemoteFeedback(message,kind=''){
   clearTimeout(androidRemoteFeedbackTimer);feedback.textContent=message;feedback.className=`android-remote-feedback ${kind}`.trim();
   androidRemoteFeedbackTimer=setTimeout(()=>{feedback.textContent='等待快門遙控器按鍵';feedback.className='android-remote-feedback'},1800);
 }
-function parseAndroidBridgeJson(raw){
-  try{return typeof raw==='string'?JSON.parse(raw):raw||{}}catch{return {ok:false,error:'無法解析本機回應'}}
-}
-function hasAndroidLocalHubBridge(){
-  return requestedAndroidRemote&&typeof window.BcmAndroid?.startLocalScoreHub==='function';
-}
-function refreshAndroidLocalHubUi(){
-  const panel=$('androidLocalHub');if(!panel||!hasAndroidLocalHubBridge()){panel?.classList.add('hidden');return}
-  panel.classList.remove('hidden');
-  let info={mode:'off'};
-  try{info=parseAndroidBridgeJson(window.BcmAndroid.localScoreHubInfo())}catch{info={mode:'off',error:'讀取失敗'}}
-  const mode=String(info.mode||'off');
-  const running=!!info.running||mode==='host'||mode==='client';
-  const status=$('androidLocalHubStatus'),url=$('androidLocalHubUrl');
-  if(mode==='host'){
-    status.textContent='主機';
-    url.textContent=info.url||`http://0.0.0.0:${LOCAL_SCORE_PORT}/`;
-  }else if(mode==='client'){
-    status.textContent='已加入';
-    url.textContent=info.url||info.host||'';
-  }else{
-    status.textContent=info.error||'關閉';
-    url.textContent='';
-  }
-  $('androidLocalHubHost').classList.toggle('hidden',running);
-  $('androidLocalHubJoin').classList.toggle('hidden',running);
-  $('androidLocalHubStop').classList.toggle('hidden',!running);
-  $('androidLocalHubUpload').classList.toggle('hidden',mode!=='host');
-  if(info.state?.match&&(mode==='host'||mode==='client')){
-    const scores=info.state.match.scores||[0,0];
-    $('androidRemoteScoreA').textContent=scores[0]??0;
-    $('androidRemoteScoreB').textContent=scores[1]??0;
-    const finished=info.state.match.winner===0||info.state.match.winner===1;
-    const canScore=mode==='host'||mode==='client';
-    $('androidRemoteMatch').classList.toggle('hidden',!canScore);
-    $('androidRemoteAPlus').disabled=!canScore||finished;
-    $('androidRemoteBPlus').disabled=!canScore||finished;
-    $('androidRemoteUndo').disabled=!canScore||!(info.state.match.rallies||[]).length;
-  }
-}
-async function uploadAndroidLocalHubToFirebase(){
-  if(!hasAndroidLocalHubBridge()){setAndroidRemoteFeedback('此裝置不支援本機主機','error');return false}
-  if(!roomId||!liveScoreRef){setAndroidRemoteFeedback('請先連接球局','error');return false}
-  let info;
-  try{info=parseAndroidBridgeJson(window.BcmAndroid.localScoreHubInfo())}catch{setAndroidRemoteFeedback('無法讀取本機比分','error');return false}
-  const localMatch=info?.state?.match;
-  if(!localMatch){setAndroidRemoteFeedback('尚無本機比分','error');return false}
-  const payload=createLiveScoreData({
-    active:localMatch.active!==false,
-    players:[localMatch.teamA||[],localMatch.teamB||[]],
-    scores:localMatch.scores||[0,0],
-    rallies:localMatch.rallies||[],
-    winner:localMatch.winner===0||localMatch.winner===1?localMatch.winner:null,
-    matchId:localMatch.matchId||state.match.matchId||null,
-    startedAt:localMatch.startedAt||state.match.startedAt||'',
-    format:state.match.format||state.matchFormat||'doubles',
-    serving:state.match.serving||0,
-    positions:state.match.positions||[[0,1],[0,1]],
-    syncEpoch:nextMatchEpoch(state.match),
-  });
-  try{
-    await setDoc(liveScoreRef,{...payload,updatedAt:serverTimestamp()},{merge:true});
-    try{window.BcmAndroid.markLocalScoreUploaded()}catch{}
-    setAndroidRemoteFeedback('已上傳 Firebase','success');
-    refreshAndroidLocalHubUi();
-    return true;
-  }catch{
-    setAndroidRemoteFeedback('上傳 Firebase 失敗','error');
-    return false;
-  }
-}
 function renderAndroidRemote(){
   const view=$('androidRemoteView');if(!view)return;
   if(!requestedAndroidRemote||!roomId){view.classList.add('hidden');return}
@@ -320,26 +224,9 @@ function renderAndroidRemote(){
   $('androidRemoteScoreA').textContent=match.scores?.[0]??0;$('androidRemoteScoreB').textContent=match.scores?.[1]??0;
   $('androidRemoteNamesA').textContent=(match.players?.[0]||[]).map(pname).join('／')||'—';$('androidRemoteNamesB').textContent=(match.players?.[1]||[]).map(pname).join('／')||'—';
   $('androidRemoteAPlus').disabled=!ready;$('androidRemoteBPlus').disabled=!ready;$('androidRemoteUndo').disabled=!canUndo;
-  refreshAndroidLocalHubUi();
 }
 function handleAndroidRemoteAction(action){
   if(!requestedAndroidRemote)return false;
-  if(hasAndroidLocalHubBridge()){
-    let mode='off';
-    try{mode=String(parseAndroidBridgeJson(window.BcmAndroid.localScoreHubInfo()).mode||'off')}catch{}
-    if(mode==='host'||mode==='client'){
-      try{
-        const result=parseAndroidBridgeJson(window.BcmAndroid.submitLocalScoreAction(action));
-        if(result.ok===false){setAndroidRemoteFeedback(result.error||'本機計分失敗','error');return false}
-        setAndroidRemoteFeedback('本機已送出','success');
-        refreshAndroidLocalHubUi();
-        return true;
-      }catch{
-        setAndroidRemoteFeedback('本機計分失敗','error');
-        return false;
-      }
-    }
-  }
   if(!isHost){setAndroidRemoteFeedback('請先完成管理員登入','error');return false}
   if(!remoteControlRef){setAndroidRemoteFeedback('尚未連接遙控通道','error');return false}
   const id=randomToken(),command={id,action,matchId:state.match.matchId||'',clientCreatedAt:Date.now()};
@@ -1330,26 +1217,35 @@ function startChatSync(){
   chatCollectionRef=roomId;
   chatMessages=readCachedChatMessages(roomId);
   renderChat();
+  let failed=false,lastLoadAt=0;
   const load=async()=>{
     if(chatRequestRunning||!roomId||chatCollectionRef!==roomId||!navigator.onLine)return;
-    chatRequestRunning=true;
+    chatRequestRunning=true;lastLoadAt=Date.now();
     try{
       const result=await pushApi(`chat-mention?roomId=${encodeURIComponent(roomId)}`);
       chatMessages=mergeServerChatMessages(result.messages);
       cacheChatMessages(roomId);
+      if(failed){failed=false;setChatStatus('')}
       renderChat();
     }catch(error){
+      failed=true;
       $('chatConnection').textContent=navigator.onLine?'同步中斷':'離線中';
       $('chatConnection').classList.add('offline');
       setChatStatus(`聊天室暫時無法同步：${error.message}`,'error');
     }finally{chatRequestRunning=false}
   };
   void load();
-  const timer=setInterval(load,1200);
-  const refresh=()=>{if(chatPageVisible())void load()};
+  const timer=setInterval(()=>{
+    if(document.hidden)return;
+    const interval=chatPageVisible()?CHAT_POLL_VISIBLE_MS:CHAT_POLL_BACKGROUND_MS;
+    if(Date.now()-lastLoadAt>=interval)void load();
+  },1000);
+  const refresh=()=>{if(chatPageVisible()&&!document.hidden)void load()};
+  chatRefreshNow=refresh;
   document.addEventListener('visibilitychange',refresh);
   window.addEventListener('focus',refresh);
   chatUnsubscribe=()=>{
+    if(chatRefreshNow===refresh)chatRefreshNow=null;
     clearInterval(timer);
     document.removeEventListener('visibilitychange',refresh);
     window.removeEventListener('focus',refresh);
@@ -1776,14 +1672,76 @@ function updateCurrentRoomControls(){if(!roomId)return;const r=roomRecord(roomId
 function showRoomCreationError(message){if(!$('app').classList.contains('hidden'))alert(message);else setLandingError(message)}
 async function createRoom(){setLandingError('');let pin=prompt('請設定 4～8 位管理員 PIN。之後可在 iPad 或其他裝置輸入 PIN 進入管理員模式：','2580');if(pin===null)return;pin=pin.trim();if(!/^\d{4,8}$/.test(pin))return showRoomCreationError('管理員 PIN 請輸入 4～8 位數字。');const id=randomCode(),token=randomToken(),ref=doc(db,'badmintonRooms',id),initial=initialState();const pinHash=await sha256(pin);const data={...encodeState(initial),liveScoreEnabled:true,liveScoreMatchKey:liveMatchKey(initial.match),hostToken:token,adminPinHash:pinHash,createdAt:serverTimestamp(),updatedAt:serverTimestamp()};try{await setDoc(ref,data);await setDoc(doc(db,'badmintonRooms',id,'liveScore','current'),{...createLiveScoreData(initial.match),updatedAt:serverTimestamp()}).catch(error=>console.warn('即時比分初始化失敗，暫時使用完整同步',error));localStorage.setItem(hostKey(id),token);updateRoomRecord(id,{lastRole:'host',hostToken:token,lastUsed:Date.now()});await syncDeviceProfileNow().catch(()=>{});history.replaceState(null,'',currentUrl(id));await connectRoom(id)}catch(e){showRoomCreationError(formatError(e))}}
 async function enterRoom(id){id=id.trim().toUpperCase().replace(/[^A-Z0-9]/g,'').slice(0,6);if(id.length!==6)return showRoomCreationError('請輸入正確的 6 位房間代碼。');setLandingError('');history.replaceState(null,'',currentUrl(id));await connectRoom(id)}
+// Firestore ends a listener permanently after an error such as resource-exhausted, so re-attach with backoff.
+function resilientSnapshot(target,options,onNext,onError,isCurrent){
+  let stop=null,timer=null,attempt=0,closed=false;
+  const attach=()=>{
+    stop=onSnapshot(target,options,snapshot=>{attempt=0;onNext(snapshot)},error=>{
+      stop=null;onError?.(error);
+      if(closed||!isCurrent())return;
+      const delay=Math.min(SNAPSHOT_RETRY_MAX_MS,SNAPSHOT_RETRY_BASE_MS*2**attempt++);
+      timer=setTimeout(()=>{timer=null;if(!closed&&isCurrent())attach()},delay);
+    });
+  };
+  attach();
+  return ()=>{closed=true;clearTimeout(timer);stop?.();stop=null};
+}
+function startRemoteControlChannels(id){
+  if(remoteActionUnsubscribe||requestedAndroidRemote||!isHost||roomId!==id)return;
+  remoteControlInitialSnapshot=true;remoteActionInitialSnapshot=true;
+  const isCurrent=()=>roomId===id;
+  remoteActionUnsubscribe=resilientSnapshot(collection(db,'badmintonRooms',id,'remoteControl'),{includeMetadataChanges:true},snapshot=>{
+    if(snapshot.metadata.fromCache)return;
+    noteFirestoreServerActivity(false);
+    const initial=remoteActionInitialSnapshot;
+    remoteActionInitialSnapshot=false;
+    const added=[];
+    for(const change of snapshot.docChanges()){
+      if(change.type==='removed'||!change.doc.id.startsWith('score-')||change.doc.metadata.hasPendingWrites)continue;
+      const command={id:change.doc.id.slice(6),...change.doc.data()};
+      if(!command.id)continue;
+      if(seenRemoteActionIds.has(String(command.id))){if(!initial)logRemoteDiagnostic('score','firebase',command,'dup');deleteRemoteScore(change.doc.ref);continue}
+      if(initial){seenRemoteActionIds.add(String(command.id));deleteRemoteScore(change.doc.ref);continue}
+      logRemoteDiagnostic('score','firebase',command,'new');
+      added.push({command,ref:change.doc.ref});
+    }
+    added.sort((a,b)=>(Number(a.command.clientCreatedAt)||0)-(Number(b.command.clientCreatedAt)||0));
+    for(const item of added){
+      handleRemoteActionCommand({remoteActionCommand:item.command},{initial:false,skipAge:true});
+      deleteRemoteScore(item.ref);
+    }
+  },error=>{remoteActionInitialSnapshot=true;console.warn('遙控計分通道無法連線',error)},isCurrent);
+  remoteControlUnsubscribe=resilientSnapshot(remoteControlRef,{includeMetadataChanges:true},snapshot=>{
+    // Cache events cannot establish the command baseline. The first server event is skipped too.
+    if(snapshot.metadata.fromCache||snapshot.metadata.hasPendingWrites)return;
+    noteFirestoreServerActivity(false);
+    if(!snapshot.exists()){remoteControlInitialSnapshot=false;return}
+    const commandData=snapshot.data(),initial=remoteControlInitialSnapshot;
+    applyRemoteActionLog(commandData,{initial});
+    handleRemoteRecordingStartCommand(commandData,{initial});
+    handleRemoteFullscreenCommand(commandData,{initial});
+    const officialStartId=String(commandData?.officialStartCommand?.id||''),officialStartDuplicate=officialStartId===lastRemoteOfficialStartCommandId;
+    const officialStarted=handleRemoteOfficialStartCommand(commandData,{initial});
+    if(officialStartId&&officialStartId!==lastFirebaseOfficialStartId){lastFirebaseOfficialStartId=officialStartId;if(!initial)logRemoteDiagnostic('start','firebase',commandData.officialStartCommand,officialStartDuplicate?'dup':officialStarted)}
+    handleRemoteNextMatchCommand(commandData,{initial});
+    handleRemoteUndoFinishedCommand(commandData,{initial});
+    handleRemoteStartMatchCommand(commandData,{initial});
+    handleRemoteActionCommand(commandData,{initial});
+    remoteControlInitialSnapshot=false;
+  },error=>{remoteControlInitialSnapshot=true;console.warn('遙控控制通道無法連線',error)},isCurrent);
+  localLinkHost=startLocalLinkHost({db,roomId:id,canAnswer:()=>isHost&&document.visibilityState==='visible',onCommand:handleLocalLinkCommand,onOpenChange:open=>{if(localLinkOpen===open)return;localLinkOpen=open;updateSyncBadge()}});
+}
+function stopRemoteControlChannels(){
+  remoteControlUnsubscribe?.();remoteControlUnsubscribe=null;
+  remoteActionUnsubscribe?.();remoteActionUnsubscribe=null;
+  localLinkHost?.stop();localLinkHost=null;localLinkOpen=false;
+}
 async function connectRoom(id){
   if(roomConnectInProgress)return;
   roomConnectInProgress=true;
   unsubscribe?.();unsubscribe=null;
   liveScoreUnsubscribe?.();liveScoreUnsubscribe=null;
-  remoteControlUnsubscribe?.();remoteControlUnsubscribe=null;
-  remoteActionUnsubscribe?.();remoteActionUnsubscribe=null;
-  localLinkHost?.stop();localLinkHost=null;localLinkOpen=false;
+  stopRemoteControlChannels();
   clearTimeout(remoteDiagnosticsTimer);remoteDiagnosticsTimer=null;remoteDiagnostics=[];lastFirebaseOfficialStartId='';
   chatUnsubscribe?.();chatUnsubscribe=null;
   clearChatPendingMedia();
@@ -1846,11 +1804,12 @@ async function connectRoom(id){
     updatePushNotificationButton();
     reconcilePushSubscription().finally(()=>setTimeout(maybeShowPushNotificationPrompt,650));
     ensureSyncedPlayerIdentity().catch(error=>console.warn('Player identity sync failed',error));
-    startChatSync();
+    if(!requestedAndroidRemote)startChatSync();
     if(requestedPage==='poll')page(6);
     if(requestedPage==='chat')page(8);
     if(requestedPage==='payment'&&requestParams.get('event'))openSessionFeeModal(requestParams.get('event'));
-    unsubscribe=onSnapshot(roomRef,{includeMetadataChanges:true},s=>{
+    const isCurrentRoom=()=>roomId===id;
+    unsubscribe=resilientSnapshot(roomRef,{includeMetadataChanges:true},s=>{
       if(!s.exists())return;
       if(s.metadata.fromCache&&(roomServerReady||requestedAndroidRemote))return;
       if(!s.metadata.fromCache){roomServerReady=true;noteFirestoreServerActivity(false)}
@@ -1872,9 +1831,9 @@ async function connectRoom(id){
       if(!roomSnapshotFromCache&&!snapshotHasPendingWrites)ensureSyncedPlayerIdentity().catch(error=>console.warn('Player identity sync failed',error));
       updateSyncBadge();
       if(!roomSnapshotFromCache&&!snapshotHasPendingWrites)setError('');
-    },e=>{setSync(navigator.onLine?'同步中斷':isHost?'離線計分中':'離線瀏覽中',navigator.onLine?'error':'offline');setError(formatError(e))});
-    liveScoreUnsubscribe=onSnapshot(liveScoreRef,{includeMetadataChanges:true},snapshot=>{
-      liveScoreConnecting=false;
+    },e=>{setSync(navigator.onLine?'同步中斷':isHost?'離線計分中':'離線瀏覽中',navigator.onLine?'error':'offline');setError(formatError(e))},isCurrentRoom);
+    liveScoreUnsubscribe=resilientSnapshot(liveScoreRef,{includeMetadataChanges:true},snapshot=>{
+      liveScoreConnecting=false;liveScoreAvailable=true;
       liveScoreSnapshotFromCache=!!snapshot.metadata.fromCache;
       liveScoreHasPendingWrites=!!snapshot.metadata.hasPendingWrites;
       if(liveScoreSnapshotFromCache&&(liveServerReady||requestedAndroidRemote)){updateSyncBadge();return}
@@ -1894,47 +1853,8 @@ async function connectRoom(id){
       if(lastRoomSnapshotData)applyState(lastRoomSnapshotData);
       updateSyncBadge();
       console.warn('獨立即時比分無法連線，已切回完整房間同步',error);
-    });
-    remoteActionUnsubscribe=onSnapshot(collection(db,'badmintonRooms',id,'remoteControl'),{includeMetadataChanges:true},snapshot=>{
-      if(snapshot.metadata.fromCache)return;
-      noteFirestoreServerActivity(false);
-      const initial=remoteActionInitialSnapshot;
-      remoteActionInitialSnapshot=false;
-      const added=[];
-      for(const change of snapshot.docChanges()){
-        if(change.type==='removed'||!change.doc.id.startsWith('score-')||change.doc.metadata.hasPendingWrites)continue;
-        const command={id:change.doc.id.slice(6),...change.doc.data()};
-        if(!command.id)continue;
-        if(seenRemoteActionIds.has(String(command.id))){if(!initial)logRemoteDiagnostic('score','firebase',command,'dup');deleteRemoteScore(change.doc.ref);continue}
-        if(initial){seenRemoteActionIds.add(String(command.id));deleteRemoteScore(change.doc.ref);continue}
-        logRemoteDiagnostic('score','firebase',command,'new');
-        added.push({command,ref:change.doc.ref});
-      }
-      added.sort((a,b)=>(Number(a.command.clientCreatedAt)||0)-(Number(b.command.clientCreatedAt)||0));
-      for(const item of added){
-        handleRemoteActionCommand({remoteActionCommand:item.command},{initial:false,skipAge:true});
-        deleteRemoteScore(item.ref);
-      }
-    },error=>console.warn('遙控計分通道無法連線',error));
-    remoteControlUnsubscribe=onSnapshot(remoteControlRef,{includeMetadataChanges:true},snapshot=>{
-      // Cache events cannot establish the command baseline. The first server event is skipped too.
-      if(snapshot.metadata.fromCache||snapshot.metadata.hasPendingWrites)return;
-      noteFirestoreServerActivity(false);
-      if(!snapshot.exists()){remoteControlInitialSnapshot=false;return}
-      const commandData=snapshot.data(),initial=remoteControlInitialSnapshot;
-      applyRemoteActionLog(commandData,{initial});
-      handleRemoteRecordingStartCommand(commandData,{initial});
-      handleRemoteFullscreenCommand(commandData,{initial});
-      const officialStartId=String(commandData?.officialStartCommand?.id||''),officialStartDuplicate=officialStartId===lastRemoteOfficialStartCommandId;
-      const officialStarted=handleRemoteOfficialStartCommand(commandData,{initial});
-      if(officialStartId&&officialStartId!==lastFirebaseOfficialStartId){lastFirebaseOfficialStartId=officialStartId;if(!initial)logRemoteDiagnostic('start','firebase',commandData.officialStartCommand,officialStartDuplicate?'dup':officialStarted)}
-      handleRemoteNextMatchCommand(commandData,{initial});
-      handleRemoteUndoFinishedCommand(commandData,{initial});
-      handleRemoteStartMatchCommand(commandData,{initial});
-      handleRemoteActionCommand(commandData,{initial});
-      remoteControlInitialSnapshot=false;
-    },error=>console.warn('遙控控制通道無法連線',error));
-    if(!requestedAndroidRemote)localLinkHost=startLocalLinkHost({db,roomId:id,canAnswer:()=>isHost&&document.visibilityState==='visible',onCommand:handleLocalLinkCommand,onOpenChange:open=>{if(localLinkOpen===open)return;localLinkOpen=open;updateSyncBadge()}});
+    },isCurrentRoom);
+    startRemoteControlChannels(id);
     updateSyncBadge();
     if(isHost&&navigator.onLine)setTimeout(ensureGenesisAndDaily,900);
     void loadMatchArchive();
@@ -1970,6 +1890,7 @@ function applyRole(){
     el.disabled=!isHost;
   });
   if($('editVoiceName'))$('editVoiceName').disabled=!isHost;
+  if(isHost&&roomId)startRemoteControlChannels(roomId);else if(!isHost)stopRemoteControlChannels();
   if(isHost)localLinkHost?.announce();
 }
 function cleanState(d){return decodeState(d)}
@@ -2055,6 +1976,12 @@ function handleRemoteStartMatchCommand(data,{initial=false}={}){
   if(initial||requestedAndroidRemote||!isHost||state.match.active||$('page3').classList.contains('hidden'))return false;
   startMatch();showScoreRemoteIndicator('遙控器開始比賽');return true;
 }
+// Queued presses that reach the result screen together with the winning point must not start the next match.
+function isResultScreenBurstPress(command){
+  if(Date.now()-resultShownAt<RESULT_NEXT_MATCH_GUARD_MS)return true;
+  const pressedAt=timestampMillis(command?.clientCreatedAt);
+  return remoteFinishPressAt>0&&Number.isFinite(pressedAt)&&pressedAt-remoteFinishPressAt<RESULT_NEXT_MATCH_GUARD_MS;
+}
 function rememberReplacedRemoteMatch(){replacedRemoteMatchId=String(state.match?.matchId||'');replacedRemoteMatchAt=Date.now();androidOfficialStartPending=null}
 function isReplacedMatchPreStartPress(command,action){
   const match=state.match;
@@ -2121,7 +2048,8 @@ function handleRemoteActionCommand(data,{initial=false,skipAge=false}={}){
   const command=data?.remoteActionCommand||{},id=String(command.id||''),action=String(command.action||'');
   if(!id||seenRemoteActionIds.has(id))return false;
   seenRemoteActionIds.add(id);lastRemoteActionCommandId=id;
-  if(!shouldAcceptRemoteCommand({command,currentMatch:state.match,initial,skipAge})){
+  const staleForCurrentMatch=!initial&&isStaleMatchPressForCurrentMatch({command,currentMatch:state.match});
+  if(!staleForCurrentMatch&&!shouldAcceptRemoteCommand({command,currentMatch:state.match,initial,skipAge})){
     if(initial||requestedAndroidRemote||!isHost||$('scoreView').classList.contains('hidden')||!isReplacedMatchPreStartPress(command,action))return false;
     return handleAndroidPreStartPress(action,command);
   }
@@ -2137,11 +2065,19 @@ function handleRemoteActionCommand(data,{initial=false,skipAge=false}={}){
   }
   if(action==='useShuttle')return useOneShuttle({source:'remote'});
   if(action==='returnShuttle')return returnOneShuttle({source:'remote'});
-  if(resultVisible){if(action==='undo')performScoreRemoteAction('undo',{announce:false});else startNext();return true}
+  if(resultVisible){
+    if(action==='undo')performScoreRemoteAction('undo',{announce:false});
+    else if(isResultScreenBurstPress(command))showScoreRemoteIndicator('本場已結束',{duration:1200,icon:'🏁'});
+    else startNext();
+    return true;
+  }
   if(!state.match.active||state.match.winner!==null)return false;
   if(handleAndroidPreStartPress(action,command))return true;
   if(isOfficialStartScoreEcho(action,command))return true;
-  if(performScoreRemoteAction(action))showScoreRemoteIndicator(SCORE_REMOTE_ACTION_LABELS[action]);
+  if(performScoreRemoteAction(action)){
+    showScoreRemoteIndicator(SCORE_REMOTE_ACTION_LABELS[action]);
+    if(state.match.winner!==null)remoteFinishPressAt=timestampMillis(command.clientCreatedAt)||0;
+  }
   return true;
 }
 function currentSyncMode(){return normalizeSyncMode(localStorage.getItem(SYNC_MODE_KEY))}
@@ -2194,6 +2130,8 @@ function archiveUnsyncedHistory(){
 function unarchiveReopenedMatch(matchId){
   if(!matchId)return;
   archivedHistory=archivedHistory.filter(row=>row.matchId!==matchId);
+  const cache=readArchiveCache(localStorage,roomId);
+  if(cache)writeArchiveCache(localStorage,roomId,{rows:cache.rows.filter(row=>row.matchId!==matchId),fullAt:cache.fullAt});
   writePendingArchives(localStorage,roomId,readPendingArchives(localStorage,roomId).filter(row=>row.matchId!==matchId));
   if(isHost&&roomId)void deleteArchivedMatches([matchId]).catch(error=>console.warn('撤回比賽時移除封存戰績失敗',error));
 }
@@ -2206,8 +2144,14 @@ async function slimRoomHistoryIfNeeded(){
 async function loadMatchArchive(){
   if(!roomId)return;
   try{
-    const snaps=await getDocs(matchHistoryCollection());
-    archivedHistory=snaps.docs.map(item=>decodeArchivedMatch({matchId:item.id,...item.data()})).filter(row=>!removedMatchIds.has(row.matchId));
+    const archiveRoomId=roomId,cache=readArchiveCache(localStorage,archiveRoomId),now=Date.now(),full=archiveCacheNeedsFullRefresh(cache,now);
+    const cursor=full?'':archiveSyncCursor(cache.rows);
+    const snaps=await getDocs(cursor?query(matchHistoryCollection(),where('endedAt','>=',cursor)):matchHistoryCollection());
+    if(roomId!==archiveRoomId)return;
+    const fresh=snaps.docs.map(item=>encodeArchivedMatch({matchId:item.id,...item.data()}));
+    const rows=full?fresh:mergeArchiveRows(cache.rows,fresh);
+    writeArchiveCache(localStorage,archiveRoomId,{rows,fullAt:full?now:cache.fullAt});
+    archivedHistory=rows.map(decodeArchivedMatch).filter(row=>!removedMatchIds.has(row.matchId));
     const merged=mergeMatchHistory(state.history,archivedHistory,removedMatchIds);
     if(merged.length!==state.history.length||merged.some((row,index)=>row.matchId!==state.history[index]?.matchId)){
       applying=true;state.history=merged;applying=false;renderHistory();renderStats();renderDashboard();
@@ -2363,7 +2307,7 @@ function page(n){
   if(n===6){markPollSeen();renderPoll()}
   if(n===7)loadBackups();
   if(n===8){
-    renderChat();markChatSeen();
+    renderChat();markChatSeen();chatRefreshNow?.();
     syncChatKeyboardViewport();scrollChatToLatest();
   }else{syncChatKeyboardViewport();requestAnimationFrame(()=>window.scrollTo(0,0))}
 }
@@ -2914,6 +2858,7 @@ function finishMatch(){
   $('winnerTitle').textContent=`${m.winner===0?'A隊':'B隊'}獲勝${isTestMatch?'（測試，不計戰績）':''}`;
   $('finalScore').textContent=`${m.scores[0]}：${m.scores[1]}`;
   if(isHost)$('resultModal').classList.remove('hidden');else $('resultModal').classList.add('hidden');
+  resultShownAt=Date.now();
   renderAll();
   if(isHost&&!isTestMatch){bumpLineupRevision();void persistLineupNow()}
   if(isHost)saveLiveScoreSoon();
@@ -3427,7 +3372,7 @@ document.addEventListener('click',event=>{
   const pending=suppressNativeClick;suppressNativeClick=null;
   if(performance.now()<=pending.until&&event.target?.closest?.('button')===pending.button){event.preventDefault();event.stopImmediatePropagation()}
 },{capture:true,passive:false});
-$('leaveBtn').addEventListener('click',()=>{localStorage.setItem(ROOM_STAY_LOGGED_OUT_KEY,'1');localStorage.setItem(ROOM_AUTO_KEY,'0');liveScoreUnsubscribe?.();remoteControlUnsubscribe?.();chatUnsubscribe?.()},{capture:true});
+$('leaveBtn').addEventListener('click',()=>{localStorage.setItem(ROOM_STAY_LOGGED_OUT_KEY,'1');localStorage.setItem(ROOM_AUTO_KEY,'0');liveScoreUnsubscribe?.();stopRemoteControlChannels();chatUnsubscribe?.()},{capture:true});
 $('sendChat').onclick=sendChatMessage;
 $('claimPlayer').onclick=claimEditedPlayer;
 $('chatClaimHelp').onclick=()=>{
@@ -3617,35 +3562,6 @@ $('androidRemoteOpenRecordings').onclick=()=>{
   try{window.BcmAndroid?.openRecordings?.()}catch{setAndroidRemoteFeedback('無法開啟錄影上傳','error')}
 };
 $('androidRemoteRefresh').onclick=()=>location.reload();
-$('androidLocalHubHost')?.addEventListener('click',()=>{
-  if(!hasAndroidLocalHubBridge()){setAndroidRemoteFeedback('此裝置不支援本機主機','error');return}
-  try{
-    const result=parseAndroidBridgeJson(window.BcmAndroid.startLocalScoreHub());
-    if(result.ok===false||result.error){setAndroidRemoteFeedback(result.error||'無法開啟本機主機','error');return}
-    setAndroidRemoteFeedback('本機主機已開啟','success');
-    refreshAndroidLocalHubUi();
-  }catch{setAndroidRemoteFeedback('無法開啟本機主機','error')}
-});
-$('androidLocalHubJoin')?.addEventListener('click',()=>{
-  if(!hasAndroidLocalHubBridge()){setAndroidRemoteFeedback('此裝置不支援本機加入','error');return}
-  const host=prompt('主機位址', '192.168.43.1');
-  if(host===null)return;
-  try{
-    const result=parseAndroidBridgeJson(window.BcmAndroid.joinLocalScoreHub(host));
-    if(result.ok===false||result.error){setAndroidRemoteFeedback(result.error||'無法加入','error');return}
-    setAndroidRemoteFeedback('已加入本機主機','success');
-    refreshAndroidLocalHubUi();
-  }catch{setAndroidRemoteFeedback('無法加入本機主機','error')}
-});
-$('androidLocalHubStop')?.addEventListener('click',()=>{
-  if(!hasAndroidLocalHubBridge())return;
-  try{
-    window.BcmAndroid.stopLocalScoreHub();
-    setAndroidRemoteFeedback('本機熱點已關閉','success');
-    refreshAndroidLocalHubUi();
-  }catch{setAndroidRemoteFeedback('無法關閉本機主機','error')}
-});
-$('androidLocalHubUpload')?.addEventListener('click',()=>{uploadAndroidLocalHubToFirebase()});
 $('scoreRemoteBtn')?.addEventListener('click',openScoreRemoteSettings);
 $('scoreRemoteQuickBtn')?.addEventListener('click',openScoreRemoteSettings);
 $('closeScoreRemote').onclick=closeScoreRemoteSettings;
@@ -3695,7 +3611,7 @@ roomMoreMenu.addEventListener('click',e=>{const button=e.target.closest('button'
 document.addEventListener('click',e=>{if(!roomMoreMenu.classList.contains('hidden')&&!e.target.closest('.roombar'))setRoomMoreOpen(false)});
 document.addEventListener('keydown',e=>{if(e.key==='Escape')setRoomMoreOpen(false)});
 
-const tomorrow=new Date();tomorrow.setDate(tomorrow.getDate()+7);$('pollDate').value=localDateKey(tomorrow);$('backupExportBtn').onclick=exportBackup;$('backupImportBtn').onclick=()=>$('backupImportFile').click();$('backupImportFile').onchange=e=>{if(e.target.files?.[0])importBackup(e.target.files[0]);e.target.value=''};$('createCloudBackup').onclick=()=>createCloudBackup('manual').catch(e=>alert(formatError(e)));$('syncModeLite').onclick=()=>setSyncMode('lite');$('syncModeFull').onclick=()=>setSyncMode('full');renderSyncMode();$('refreshBackups').onclick=loadBackups;renderRoomLibrary();$('autoReturnRoom').checked=localStorage.getItem(ROOM_AUTO_KEY)==='1';const q=new URLSearchParams(location.search),rid=(q.get('room')||'').toUpperCase().replace(/[^A-Z0-9]/g,'').slice(0,6);const skipAutoOnce=sessionStorage.getItem(ROOM_SKIP_AUTO_ONCE)==='1';if(skipAutoOnce)sessionStorage.removeItem(ROOM_SKIP_AUTO_ONCE);if(!requestedLocalScoreTest){if(rid)connectRoom(rid);else if(!skipAutoOnce&&localStorage.getItem(ROOM_AUTO_KEY)==='1'){const lastId=lastRoomId();if(lastId)setTimeout(()=>openSavedRoom(lastId),180)}}
+const tomorrow=new Date();tomorrow.setDate(tomorrow.getDate()+7);$('pollDate').value=localDateKey(tomorrow);$('backupExportBtn').onclick=exportBackup;$('backupImportBtn').onclick=()=>$('backupImportFile').click();$('backupImportFile').onchange=e=>{if(e.target.files?.[0])importBackup(e.target.files[0]);e.target.value=''};$('createCloudBackup').onclick=()=>createCloudBackup('manual').catch(e=>alert(formatError(e)));$('syncModeLite').onclick=()=>setSyncMode('lite');$('syncModeFull').onclick=()=>setSyncMode('full');renderSyncMode();$('refreshBackups').onclick=loadBackups;renderRoomLibrary();$('autoReturnRoom').checked=localStorage.getItem(ROOM_AUTO_KEY)==='1';const q=new URLSearchParams(location.search),rid=(q.get('room')||'').toUpperCase().replace(/[^A-Z0-9]/g,'').slice(0,6);const skipAutoOnce=sessionStorage.getItem(ROOM_SKIP_AUTO_ONCE)==='1';if(skipAutoOnce)sessionStorage.removeItem(ROOM_SKIP_AUTO_ONCE);if(rid)connectRoom(rid);else if(!skipAutoOnce&&localStorage.getItem(ROOM_AUTO_KEY)==='1'){const lastId=lastRoomId();if(lastId)setTimeout(()=>openSavedRoom(lastId),180)}
 function exportBackup(){const data={schemaVersion:1,appVersion:BCM_VERSION,createdAt:new Date().toISOString(),roomId,counts:backupCounts(),data:encodeState(state)};downloadJson(data,`BCM_Backup_${roomId||'LOCAL'}_${new Date().toISOString().slice(0,19).replace(/[:T]/g,'-')}.json`)}
 function importBackup(file){const fr=new FileReader();fr.onload=async()=>{try{const b=JSON.parse(fr.result),data=b.data||b;if(!data||!Array.isArray(data.roster)||!Array.isArray(data.history))throw new Error('備份檔缺少球員或歷史資料');if(!roomRef||!isHost)throw new Error('請先以管理員身分進入球局');if(!confirm(`準備還原本機備份：\n球員 ${data.roster.length} 人\n紀錄 ${data.history.length} 場\n\n還原前會先建立 Emergency Backup。`))return;const typed=prompt('請輸入「還原」：','');if(typed!=='還原')return;await createCloudBackup('emergency',{silent:true});adoptRestoredState(data);await saveNewMatchCheckpointNow();renderAll();alert('本機備份還原成功。');await loadBackups()}catch(e){alert('無法還原：'+(e.message||e))}};fr.readAsText(file)}
 const refreshAppButtons=all('[data-refresh-app]');

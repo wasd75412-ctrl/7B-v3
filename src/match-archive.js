@@ -98,6 +98,41 @@ export function mergeMatchHistory(roomHistory,archived,removedIds){
   }).map(item=>item.row);
 }
 
+export const ARCHIVE_CACHE_FULL_REFRESH_MS=7*24*60*60*1000;
+
+export function archiveCacheKey(roomId){
+  return `bcmMatchArchiveCacheV1:${roomId||'local'}`;
+}
+
+export function readArchiveCache(storage,roomId){
+  try{
+    const parsed=JSON.parse(storage.getItem(archiveCacheKey(roomId))||'null');
+    if(!parsed||!Array.isArray(parsed.rows))return null;
+    return {rows:parsed.rows.filter(row=>row&&row.matchId).map(encodeArchivedMatch),fullAt:Number(parsed.fullAt)||0};
+  }catch{return null}
+}
+
+export function writeArchiveCache(storage,roomId,{rows,fullAt}){
+  try{storage.setItem(archiveCacheKey(roomId),JSON.stringify({rows:(rows||[]).map(encodeArchivedMatch),fullAt:Number(fullAt)||0}))}catch{}
+}
+
+export function archiveCacheNeedsFullRefresh(cache,now=Date.now()){
+  return !cache||!cache.fullAt||now-cache.fullAt>ARCHIVE_CACHE_FULL_REFRESH_MS;
+}
+
+export function archiveSyncCursor(rows){
+  let cursor='';
+  for(const row of rows||[]){const endedAt=String(row?.endedAt||'');if(endedAt>cursor)cursor=endedAt}
+  return cursor;
+}
+
+export function mergeArchiveRows(cached,fresh){
+  const byId=new Map();
+  for(const row of cached||[])if(row?.matchId)byId.set(String(row.matchId),encodeArchivedMatch(row));
+  for(const row of fresh||[])if(row?.matchId)byId.set(String(row.matchId),encodeArchivedMatch(row));
+  return [...byId.values()];
+}
+
 export function pendingArchiveKey(roomId){
   return `bcmPendingMatchArchiveV1:${roomId||'local'}`;
 }

@@ -42,7 +42,10 @@ test('direct-link messages become the same commands as their Firestore copies',(
 });
 
 test('the iPad answers the phone and handles direct commands through the existing handlers',()=>{
-  assert.match(main,/if\(!requestedAndroidRemote\)localLinkHost=startLocalLinkHost\(\{db,roomId:id,canAnswer:\(\)=>isHost&&document\.visibilityState==='visible',onCommand:handleLocalLinkCommand/);
+  const channels=main.match(/function startRemoteControlChannels\(id\)\{[\s\S]*?\n\}/)?.[0]||'';
+  assert.match(channels,/if\(remoteActionUnsubscribe\|\|requestedAndroidRemote\|\|!isHost\|\|roomId!==id\)return;/);
+  assert.match(channels,/localLinkHost=startLocalLinkHost\(\{db,roomId:id,canAnswer:\(\)=>isHost&&document\.visibilityState==='visible',onCommand:handleLocalLinkCommand/);
+  assert.match(main,/if\(isHost&&roomId\)startRemoteControlChannels\(roomId\);else if\(!isHost\)stopRemoteControlChannels\(\);/);
   const handler=main.match(/function handleLocalLinkCommand\(\{type,command\}\)\{[\s\S]*?\n\}/)?.[0]||'';
   assert.match(handler,/handleRemoteOfficialStartCommand\(\{officialStartCommand:command\}\)/);
   assert.match(handler,/handleRemoteActionCommand\(\{remoteActionCommand:command\},\{initial:false,skipAge:true\}\)/);

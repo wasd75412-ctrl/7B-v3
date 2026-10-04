@@ -33,8 +33,11 @@ test('uploads on unmetered Wi-Fi and skips a personal hotspot',()=>{
   assert.match(wifi,/a == 192 && b == 168 && c == 43/);
   assert.doesNotMatch(wifi,/AAA-5G/);
   assert.match(worker,/if \(!HomeWifi\.isConnected\(context\)\) \{[\s\S]*?個人熱點不上傳" : "等待 Wi-Fi/);
-  assert.match(worker,/if \(isStopped\(\) \|\| !HomeWifi\.isConnected\(context\)\) break;/);
-  assert.match(scheduler,/NetworkType\.CONNECTED/);
+  assert.match(worker,/if \(LoopCameraActivity\.isRecordingSessionOpen\(\)\) \{[\s\S]*?錄影結束後上傳/);
+  assert.match(worker,/return !isStopped\(\) && !LoopCameraActivity\.isRecordingSessionOpen\(\) && HomeWifi\.isConnected\(context\);/);
+  assert.match(worker,/if \(!mayUpload\(context\)\) break;\s*upload\(entry, auth\);/);
+  assert.match(worker,/public boolean keepGoing\(\) \{\s*return mayUpload\(context\);/);
+  assert.match(scheduler,/NetworkType\.UNMETERED/);
   assert.match(scheduler,/addTransportType\(NetworkCapabilities\.TRANSPORT_WIFI\)/);
   assert.match(scheduler,/NET_CAPABILITY_NOT_METERED/);
   assert.match(scheduler,/ExistingPeriodicWorkPolicy\.UPDATE/);

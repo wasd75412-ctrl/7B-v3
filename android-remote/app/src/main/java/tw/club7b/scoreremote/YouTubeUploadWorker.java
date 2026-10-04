@@ -42,6 +42,10 @@ public final class YouTubeUploadWorker extends Worker {
                 YouTubeUploadScheduler.cancelPeriodic(context);
                 return Result.success();
             }
+            if (LoopCameraActivity.isRecordingSessionOpen()) {
+                for (RecordingUploadStore.Entry entry : pending) mark(entry, RecordingUploadStore.Status.WAITING, "錄影結束後上傳");
+                return Result.success();
+            }
             if (!HomeWifi.isConnected(context)) {
                 String waiting = HomeWifi.isHotspotOnly(context) ? "個人熱點不上傳" : "等待 Wi-Fi";
                 for (RecordingUploadStore.Entry entry : pending) mark(entry, RecordingUploadStore.Status.WAITING, waiting);
@@ -55,11 +59,11 @@ public final class YouTubeUploadWorker extends Worker {
             String foregroundTitle = pending.isEmpty() ? refresh.get(0).title : pending.get(0).title;
             goForeground(foregroundTitle);
             for (RecordingUploadStore.Entry entry : pending) {
-                if (isStopped() || !HomeWifi.isConnected(context)) break;
+                if (!mayUpload(context)) break;
                 upload(entry, auth);
             }
             for (RecordingUploadStore.Entry entry : refresh) {
-                if (isStopped() || !HomeWifi.isConnected(context)) break;
+                if (!mayUpload(context)) break;
                 refreshTimeline(entry, auth);
             }
             return Result.success();
@@ -89,7 +93,7 @@ public final class YouTubeUploadWorker extends Worker {
                     String videoId = withToken(auth, token -> YouTubeUploader.upload(entry.sessionUrl, token, channel, length,
                             new YouTubeUploader.Progress() {
                                 @Override public boolean keepGoing() {
-                                    return !isStopped();
+                                    return mayUpload(context);
                                 }
 
                                 @Override public void onProgress(long sent, long total) {
@@ -135,6 +139,10 @@ public final class YouTubeUploadWorker extends Worker {
             if (error instanceof TokenMissing) mark(entry, RecordingUploadStore.Status.AUTH_REQUIRED, "");
             else mark(entry, RecordingUploadStore.Status.WAITING, "");
         }
+    }
+
+    private boolean mayUpload(Context context) {
+        return !isStopped() && !LoopCameraActivity.isRecordingSessionOpen() && HomeWifi.isConnected(context);
     }
 
     private void addToPlaylist(RecordingUploadStore.Entry entry, YouTubeAuth auth) throws Exception {

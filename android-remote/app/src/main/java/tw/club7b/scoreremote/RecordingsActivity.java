@@ -28,6 +28,8 @@ import java.util.Map;
 
 public final class RecordingsActivity extends ComponentActivity {
     private static final long REFRESH_MS = 2000L;
+    private static final long ROOM_RELOAD_MS = 5 * 60_000L;
+    private static final long HISTORY_MARGIN_MS = 60 * 60_000L;
 
     private final Handler handler = new Handler(Looper.getMainLooper());
     private final Map<String, List<RecordingTimeline.Match>> roomMatches = new HashMap<>();
@@ -65,6 +67,7 @@ public final class RecordingsActivity extends ComponentActivity {
 
     @Override protected void onResume() {
         super.onResume();
+        loadedAt.clear();
         renderWifi();
         renderList(true);
         handler.postDelayed(refresh, REFRESH_MS);
@@ -226,7 +229,7 @@ public final class RecordingsActivity extends ComponentActivity {
 
     private void reloadRoomIfStale(String roomId) {
         long age = System.currentTimeMillis() - loadedAt.getOrDefault(roomId, 0L);
-        if (age > 15_000L) loadRoom(roomId);
+        if (age > ROOM_RELOAD_MS) loadRoom(roomId);
     }
 
     private static String preferTimeline(String built, String saved) {
@@ -249,7 +252,7 @@ public final class RecordingsActivity extends ComponentActivity {
         }
         if (loadingRooms.contains(roomId)) return;
         loadingRooms.add(roomId);
-        MatchHistoryRooms.load(BackgroundScoreController.firestore(this), roomId)
+        MatchHistoryRooms.load(BackgroundScoreController.firestore(this), roomId, earliestStart(roomId) - HISTORY_MARGIN_MS)
                 .addOnCompleteListener(task -> {
                     loadingRooms.remove(roomId);
                     if (task.isSuccessful()) {
@@ -260,6 +263,15 @@ public final class RecordingsActivity extends ComponentActivity {
                     loadedAt.put(roomId, System.currentTimeMillis());
                     renderList(true);
                 });
+    }
+
+    // The full matchHistory collection has hundreds of documents; only matches near these recordings matter.
+    private long earliestStart(String roomId) {
+        long earliest = Long.MAX_VALUE;
+        for (RecordingUploadStore.Entry entry : RecordingUploadStore.all(this)) {
+            if (roomId.equals(entry.roomId) && entry.startMs > 0L) earliest = Math.min(earliest, entry.startMs);
+        }
+        return earliest == Long.MAX_VALUE ? System.currentTimeMillis() : earliest;
     }
 
     private void copy(String timeline) {

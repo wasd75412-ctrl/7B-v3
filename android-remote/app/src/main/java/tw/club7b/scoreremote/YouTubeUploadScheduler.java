@@ -66,7 +66,7 @@ final class YouTubeUploadScheduler {
 
     private static void enqueue(Context context, ExistingWorkPolicy when) {
         Constraints constraints = new Constraints.Builder()
-                .setRequiredNetworkType(NetworkType.CONNECTED)
+                .setRequiredNetworkType(NetworkType.UNMETERED)
                 .build();
         WorkManager work = WorkManager.getInstance(context);
         work.enqueueUniquePeriodicWork(PERIODIC, ExistingPeriodicWorkPolicy.UPDATE,

@@ -67,6 +67,8 @@ public final class LoopCameraActivity extends ComponentActivity {
     private static final long RECORDING_RECOVERY_MS = 750L;
     private static final String QUALITY_PREFS = "recording_video_quality";
     private static final String QUALITY_KEY = "quality";
+    private static final java.util.concurrent.atomic.AtomicInteger OPEN_SESSIONS = new java.util.concurrent.atomic.AtomicInteger();
+    private boolean sessionCounted;
     private final android.os.Handler handler = new android.os.Handler(android.os.Looper.getMainLooper());
     private final HandlerThread overlayThread = new HandlerThread("7BScoreOverlay");
     private android.os.Handler overlayHandler;
@@ -94,7 +96,6 @@ public final class LoopCameraActivity extends ComponentActivity {
     private VideoCapture<Recorder> videoCapture;
     private OverlayEffect scoreOverlayEffect;
     private LiveMatchOverlayController liveMatchOverlay;
-    private LocalScoreHubServer.Listener localHubListener;
     private final AtomicReference<LiveMatchOverlayController.OverlayState> overlayState =
             new AtomicReference<>(LiveMatchOverlayController.OverlayState.waiting());
     private Recording recording;
@@ -112,6 +113,8 @@ public final class LoopCameraActivity extends ComponentActivity {
         overlayHandler = new android.os.Handler(overlayThread.getLooper());
         getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
         RemoteSessionStore.setRecordingEnabled(this, true);
+        sessionCounted = true;
+        OPEN_SESSIONS.incrementAndGet();
         remoteScoreController = new BackgroundScoreController(this);
         remoteScoreController.warmUp((success, message) -> { });
         buildUi();
@@ -546,14 +549,12 @@ public final class LoopCameraActivity extends ComponentActivity {
         drawScoreBoard(canvas, viewportLeft, viewportTop, width, height, match);
     }
 
+    /** Uploads wait while the recording screen is open, including between files of 保存並繼續. */
+    static boolean isRecordingSessionOpen() {
+        return OPEN_SESSIONS.get() > 0;
+    }
+
     private void bindBroadcastScoreSource() {
-        LocalScoreHubServer hub = LocalScoreHubServer.getRunning();
-        if (LocalScoreModeStore.isHost(this) && hub != null) {
-            updateScoreOverlay(hub.state().overlayState());
-            localHubListener = state -> runOnUiThread(() -> updateScoreOverlay(state.overlayState()));
-            hub.addListener(localHubListener);
-            return;
-        }
         liveMatchOverlay = new LiveMatchOverlayController(this, this::updateScoreOverlay);
     }
 
@@ -761,9 +762,7 @@ public final class LoopCameraActivity extends ComponentActivity {
         android.content.Context app = getApplicationContext();
         String roomId = RemoteSessionStore.getSession(app).roomId;
         savedRecordingExecutor.execute(() -> {
-            if (RecordingUploadStore.add(app, savedUri, roomId, startedAt, endedAt, filePauses)) {
-                YouTubeUploadScheduler.schedule(app);
-            }
+            RecordingUploadStore.add(app, savedUri, roomId, startedAt, endedAt, filePauses);
         });
     }
 
@@ -840,11 +839,13 @@ public final class LoopCameraActivity extends ComponentActivity {
         if (scoreOverlayEffect != null) scoreOverlayEffect.close();
         overlayThread.quitSafely();
         if (explicitExit) RemoteSessionStore.setRecordingEnabled(this, false);
-        if (localHubListener != null && LocalScoreHubServer.getRunning() != null) {
-            LocalScoreHubServer.getRunning().removeListener(localHubListener);
+        if (sessionCounted) {
+            sessionCounted = false;
+            OPEN_SESSIONS.decrementAndGet();
         }
-        localHubListener = null;
         recordingExecutor.shutdown();
+        android.content.Context app = getApplicationContext();
+        savedRecordingExecutor.execute(() -> YouTubeUploadScheduler.scheduleIfPending(app));
         savedRecordingExecutor.shutdown();
         super.onDestroy();
     }

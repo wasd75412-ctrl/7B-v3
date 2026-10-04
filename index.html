@@ -265,23 +265,6 @@
   <footer class="score-foot"><div class="server-control host-only"><span class="server-control-label">選擇發球員</span><div id="serverButtons" class="server-buttons"></div></div><span id="serveText">準備開賽</span><div class="score-actions host-only"><button id="scoreUseShuttle" class="btn" aria-label="使用一顆球" title="使用一顆球">−1</button><button id="minusA" class="btn">A −1</button><button id="minusB" class="btn">B −1</button></div></footer>
 </section>
 
-<section id="localScoreTestView" class="local-score-test-view hidden" aria-label="本機熱點比分測試">
-  <header class="local-score-test-head"><strong>本機熱點比分測試</strong><span data-bcm-version></span></header>
-  <div class="local-score-test-board">
-    <article class="team-a"><span>A隊</span><strong id="localScoreTestA">0</strong></article>
-    <article class="team-b"><span>B隊</span><strong id="localScoreTestB">0</strong></article>
-  </div>
-  <div class="local-score-test-actions">
-    <button id="localScoreTestPlusA" class="btn primary" type="button">A ＋1</button>
-    <button id="localScoreTestUndo" class="btn" type="button">撤銷</button>
-    <button id="localScoreTestPlusB" class="btn primary" type="button">B ＋1</button>
-  </div>
-  <div id="localScoreTestMeta" class="local-score-test-meta">rev 0</div>
-  <div class="local-score-test-actions">
-    <button id="localScoreTestUpload" class="btn" type="button">標記待上傳已處理</button>
-  </div>
-</section>
-
 <section id="androidRemoteView" class="android-remote-view hidden" aria-label="7B 控制台">
   <header class="android-remote-head">
     <div class="android-remote-brand"><img src="/icons/console-icon.svg" alt="7B 控制台"><div><strong>7B 控制台</strong><span>Android 快門接收器 · <span data-bcm-version></span></span></div></div>
@@ -295,16 +278,6 @@
     <div id="androidRemoteRecording" class="android-remote-recording hidden">
       <div class="android-remote-recording-copy"><strong>🎥 錄影</strong></div>
       <div class="android-remote-recording-actions"><button id="androidRemoteOpenBroadcast" class="btn primary" type="button">比分轉播錄影</button><button id="androidRemoteOpenRecordings" class="btn hidden" type="button">錄影上傳</button></div>
-  </div>
-  <div id="androidLocalHub" class="android-local-hub hidden">
-    <div class="android-local-hub-head"><strong>本機熱點測試</strong><span id="androidLocalHubStatus">關閉</span></div>
-    <div class="android-local-hub-actions">
-      <button id="androidLocalHubHost" class="btn primary" type="button">開啟主機</button>
-      <button id="androidLocalHubJoin" class="btn" type="button">加入</button>
-      <button id="androidLocalHubStop" class="btn hidden" type="button">關閉</button>
-      <button id="androidLocalHubUpload" class="btn hidden" type="button">上傳 Firebase</button>
-    </div>
-    <div id="androidLocalHubUrl" class="android-local-hub-url"></div>
   </div>
   <div id="androidRemotePermission" class="android-remote-permission hidden">
     <strong>需要管理員權限</strong><button id="androidRemoteLogin" class="btn primary" type="button">管理員登入</button>

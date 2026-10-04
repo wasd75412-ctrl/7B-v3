@@ -37,6 +37,7 @@ final class LocalLinkClient {
     private static final long ICE_GATHER_TIMEOUT_MS = 2_000L;
     private static final long ANSWER_TIMEOUT_MS = 45_000L;
     private static final long RETRY_DELAY_MS = 3_000L;
+    private static final long RETRY_MAX_DELAY_MS = 5 * 60_000L;
     private static final String PREFS = "local_link";
 
     private static LocalLinkClient shared;
@@ -56,6 +57,7 @@ final class LocalLinkClient {
     private boolean offerSent;
     private Object ipadReadySeen;
     private String deviceId;
+    private int failedAttempts;
 
     private LocalLinkClient(Context context) {
         this.context = context.getApplicationContext();
@@ -87,7 +89,7 @@ final class LocalLinkClient {
     }
 
     private void start(RemoteSessionStore.Session session) {
-        if (!session.isAuthorized() || LocalScoreModeStore.isEnabled(context)) return;
+        if (!session.isAuthorized()) return;
         if (session.roomId.equals(roomId) && linkListener != null) return;
         if (linkListener != null) linkListener.remove();
         closePeer();
@@ -168,6 +170,7 @@ final class LocalLinkClient {
             return;
         }
         offerSent = true;
+        failedAttempts++;
         Map<String, Object> offer = new HashMap<>();
         offer.put("sessionId", id);
         offer.put("sdp", local.description);
@@ -178,7 +181,7 @@ final class LocalLinkClient {
         Map<String, Object> updates = new HashMap<>();
         updates.put("offers", offers);
         linkRef.set(updates, SetOptions.merge());
-        handler.postDelayed(restartTask, ANSWER_TIMEOUT_MS);
+        handler.postDelayed(restartTask, Math.max(ANSWER_TIMEOUT_MS, retryDelay()));
     }
 
     private void onLinkDocument(DocumentSnapshot snapshot) {
@@ -187,6 +190,7 @@ final class LocalLinkClient {
             boolean firstSeen = ipadReadySeen == null;
             ipadReadySeen = ready;
             if (!firstSeen && !isOpen()) {
+                failedAttempts = 0;
                 restart();
                 return;
             }
@@ -224,9 +228,16 @@ final class LocalLinkClient {
         if (id.equals(sessionId)) scheduleRetry();
     }
 
+    // Every attempt writes an offer and the iPad writes an answer, so an unreachable iPad must not
+    // turn this into a Firestore write loop.
     private void scheduleRetry() {
         handler.removeCallbacks(restartTask);
-        if (linkRef != null) handler.postDelayed(restartTask, RETRY_DELAY_MS);
+        if (linkRef != null) handler.postDelayed(restartTask, retryDelay());
+    }
+
+    private long retryDelay() {
+        int exponent = Math.max(0, Math.min(failedAttempts - 1, 7));
+        return Math.min(RETRY_MAX_DELAY_MS, RETRY_DELAY_MS << exponent);
     }
 
     private PeerConnectionFactory factory() {
@@ -283,9 +294,9 @@ final class LocalLinkClient {
         @Override public void onStateChange() {
             handler.post(() -> {
                 DataChannel current = channel;
-                if (id.equals(sessionId) && current != null && current.state() == DataChannel.State.CLOSED) {
-                    scheduleRetry();
-                }
+                if (!id.equals(sessionId) || current == null) return;
+                if (current.state() == DataChannel.State.OPEN) failedAttempts = 0;
+                else if (current.state() == DataChannel.State.CLOSED) scheduleRetry();
             });
         }
 
