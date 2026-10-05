@@ -2051,7 +2051,7 @@ function handleRemoteStartMatchCommand(data,{initial=false}={}){
   const id=String(data?.startMatchCommand?.id||'');if(!id||id===lastRemoteStartMatchCommandId)return false;
   lastRemoteStartMatchCommandId=id;
   if(!shouldAcceptRemoteCommand({command:data.startMatchCommand,currentMatch:state.match,initial}))return false;
-  if(initial||requestedAndroidRemote||!isHost||state.match.active||$('page3').classList.contains('hidden'))return false;
+  if(initial||requestedAndroidRemote||!isHost||!ownsScoring(state.match,scoreDeviceId)||state.match.active||$('page3').classList.contains('hidden'))return false;
   startMatch();showScoreRemoteIndicator('遙控器開始比賽');return true;
 }
 // Queued presses that reach the result screen together with the winning point must not start the next match.
