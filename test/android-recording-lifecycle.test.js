@@ -12,11 +12,18 @@ test('recording quality can be lowered from 4K and is remembered',()=>{
   assert.match(camera,/FallbackStrategy\.lowerQualityThan\(quality\)/);
   assert.match(camera,/videoBitrate\(quality\)/);
   assert.match(camera,/if \(quality == Quality\.UHD\) return 40_000_000/);
-  assert.match(camera,/if \(quality == Quality\.HD\) return 4_000_000/);
-  assert.match(camera,/return 8_000_000/);
+  assert.match(camera,/if \(quality == Quality\.HD\) return 10_000_000/);
+  assert.match(camera,/return 20_000_000/);
   assert.match(camera,/Quality\.HD/);
   assert.match(camera,/putString\(QUALITY_KEY, next\)/);
   assert.match(camera,/qualityButton\.setText\(qualityLabel\(savedQuality\(\)\)\)/);
+});
+
+test('recording quality only offers what the camera can actually encode and labels the bound quality',()=>{
+  assert.match(camera,/Recorder\.getVideoCapabilities\([\s\S]*?getSupportedQualities\(DynamicRange\.SDR\)/);
+  assert.match(camera,/cameraProvider = future\.get\(\);\s*loadSupportedQualities\(\);/);
+  assert.match(camera,/String current = selectedQuality\(\), next = nextQuality\(current\);/);
+  assert.match(camera,/if \(!bindRecording\(cameraProvider, cameraQuality\(quality\)\)\) continue;\s*qualityButton\.setText\(qualityLabel\(quality\)\);/);
 });
 
 test('suspends the hidden WebView while native recording stays active',()=>{

@@ -31,6 +31,7 @@ import androidx.activity.ComponentActivity;
 import androidx.annotation.NonNull;
 import androidx.camera.core.CameraSelector;
 import androidx.camera.core.CameraEffect;
+import androidx.camera.core.DynamicRange;
 import androidx.camera.core.Preview;
 import androidx.camera.core.resolutionselector.ResolutionSelector;
 import androidx.camera.core.resolutionselector.ResolutionStrategy;
@@ -54,6 +55,7 @@ import com.google.common.util.concurrent.ListenableFuture;
 import java.io.File;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Date;
 import java.util.List;
 import java.util.Locale;
@@ -67,6 +69,8 @@ public final class LoopCameraActivity extends ComponentActivity {
     private static final long RECORDING_RECOVERY_MS = 750L;
     private static final String QUALITY_PREFS = "recording_video_quality";
     private static final String QUALITY_KEY = "quality";
+    private static final List<String> QUALITY_ORDER = Arrays.asList("uhd", "fhd", "hd");
+    private final List<String> supportedQualities = new ArrayList<>(QUALITY_ORDER);
     private static final java.util.concurrent.atomic.AtomicInteger OPEN_SESSIONS = new java.util.concurrent.atomic.AtomicInteger();
     private boolean sessionCounted;
     private final android.os.Handler handler = new android.os.Handler(android.os.Looper.getMainLooper());
@@ -408,6 +412,7 @@ public final class LoopCameraActivity extends ComponentActivity {
             if (closing || isFinishing() || isDestroyed()) return;
             try {
                 cameraProvider = future.get();
+                loadSupportedQualities();
                 if (scoreOverlayEffect == null) scoreOverlayEffect = createScoreOverlayEffect();
                 if (!rebindSelectedQuality()) {
                     status.setText("相機啟動失敗");
@@ -421,9 +426,38 @@ public final class LoopCameraActivity extends ComponentActivity {
         }, ContextCompat.getMainExecutor(this));
     }
 
+    /** Camcorder profiles decide what the encoder really produces, so 4K is hidden on phones that would silently record 1080p. */
+    private void loadSupportedQualities() {
+        try {
+            List<Quality> available = Recorder.getVideoCapabilities(
+                    cameraProvider.getCameraInfo(CameraSelector.DEFAULT_BACK_CAMERA)).getSupportedQualities(DynamicRange.SDR);
+            List<String> supported = new ArrayList<>();
+            for (String quality : QUALITY_ORDER) if (available.contains(cameraQuality(quality))) supported.add(quality);
+            if (supported.isEmpty()) return;
+            supportedQualities.clear();
+            supportedQualities.addAll(supported);
+        } catch (Exception error) {
+            Log.w("7BRecording", "Unable to read supported recording qualities", error);
+        }
+    }
+
+    private String selectedQuality() {
+        int start = QUALITY_ORDER.indexOf(savedQuality());
+        for (int index = start; index < QUALITY_ORDER.size(); index++) {
+            if (supportedQualities.contains(QUALITY_ORDER.get(index))) return QUALITY_ORDER.get(index);
+        }
+        return supportedQualities.get(0);
+    }
+
+    private String nextQuality(String quality) {
+        int index = supportedQualities.indexOf(quality);
+        return supportedQualities.get((index + 1) % supportedQualities.size());
+    }
+
     private void cycleQuality() {
         if (qualityRestartRequested || closing || cameraProvider == null) return;
-        String next = nextQuality(savedQuality());
+        String current = selectedQuality(), next = nextQuality(current);
+        if (next.equals(current)) return;
         getSharedPreferences(QUALITY_PREFS, MODE_PRIVATE).edit().putString(QUALITY_KEY, next).apply();
         qualityButton.setText(qualityLabel(next));
         if (recording == null) {
@@ -438,21 +472,17 @@ public final class LoopCameraActivity extends ComponentActivity {
 
     private boolean rebindSelectedQuality() {
         if (cameraProvider == null) return false;
-        Quality selected = cameraQuality(savedQuality());
-        if (bindRecording(cameraProvider, selected)) return true;
-        if (selected != Quality.FHD && bindRecording(cameraProvider, Quality.FHD)) return true;
-        return selected != Quality.HD && bindRecording(cameraProvider, Quality.HD);
+        for (String quality : QUALITY_ORDER.subList(QUALITY_ORDER.indexOf(selectedQuality()), QUALITY_ORDER.size())) {
+            if (!bindRecording(cameraProvider, cameraQuality(quality))) continue;
+            qualityButton.setText(qualityLabel(quality));
+            return true;
+        }
+        return false;
     }
 
     private String savedQuality() {
         String quality = getSharedPreferences(QUALITY_PREFS, MODE_PRIVATE).getString(QUALITY_KEY, "uhd");
         if ("fhd".equals(quality) || "hd".equals(quality)) return quality;
-        return "uhd";
-    }
-
-    private static String nextQuality(String quality) {
-        if ("uhd".equals(quality)) return "fhd";
-        if ("fhd".equals(quality)) return "hd";
         return "uhd";
     }
 
@@ -470,8 +500,8 @@ public final class LoopCameraActivity extends ComponentActivity {
 
     private static int videoBitrate(Quality quality) {
         if (quality == Quality.UHD) return 40_000_000;
-        if (quality == Quality.HD) return 4_000_000;
-        return 8_000_000;
+        if (quality == Quality.HD) return 10_000_000;
+        return 20_000_000;
     }
 
     private static Size previewSize(Quality quality) {
