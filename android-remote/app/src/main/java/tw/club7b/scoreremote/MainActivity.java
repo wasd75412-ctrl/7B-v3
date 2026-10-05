@@ -42,6 +42,7 @@ public final class MainActivity extends Activity {
     private static final long UNDO_DEBOUNCE_MS = 600L;
     private static final long SHUTTLE_PRESS_COOLDOWN_MS = 2000L;
     private static final long CAMERA_PRECONNECT_TIMEOUT_MS = 5000L;
+    private static final long KEY_ACCESS_REBIND_MS = 1500L;
 
     private final VolumeKeyInterpreter volumeKeys = new VolumeKeyInterpreter();
     private final P4GestureInterpreter p4Gestures = new P4GestureInterpreter();
@@ -94,7 +95,7 @@ public final class MainActivity extends Activity {
         settings.setDisplayZoomControls(false);
         settings.setMediaPlaybackRequiresUserGesture(false);
         settings.setMixedContentMode(WebSettings.MIXED_CONTENT_NEVER_ALLOW);
-        settings.setUserAgentString(settings.getUserAgentString() + " 7BAndroidRemote/1.3.95");
+        settings.setUserAgentString(settings.getUserAgentString() + " 7BAndroidRemote/1.3.96");
         CookieManager.getInstance().setAcceptCookie(true);
         CookieManager.getInstance().setAcceptThirdPartyCookies(view, true);
         view.setRendererPriorityPolicy(WebView.RENDERER_PRIORITY_IMPORTANT, true);
@@ -149,6 +150,9 @@ public final class MainActivity extends Activity {
             webView.onResume();
         }
         notifyKeyAccessChanged();
+        if (!isRemoteKeyAccessEnabled() && KeyAccessRepair.restore(this)) {
+            keyHandler.postDelayed(this::notifyKeyAccessChanged, KEY_ACCESS_REBIND_MS);
+        }
     }
 
     @Override
