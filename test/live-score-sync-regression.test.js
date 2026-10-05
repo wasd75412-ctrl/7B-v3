@@ -7,6 +7,7 @@ import {
   keepOfficialStart,matchSessionEpoch,nextMatchEpoch,shouldApplyIncomingLiveMatch
 } from '../src/live-score.js';
 import {mergeDeletedMatchIds} from '../src/match-archive.js';
+import {decodeStatsLedger,newerStatsLedger,unsettledRows} from '../src/stats-ledger.js';
 
 const main=readFileSync(new URL('../src/main.js',import.meta.url),'utf8');
 function productionFunction(name){
@@ -51,6 +52,7 @@ function harness(liveMatch=current,overrides={}){
     shouldApplyIncomingLiveMatch,decodeLiveMatch,createMatchCheckpointData,nextMatchEpoch,
     keepOfficialStart,checkpointMissedOfficialStart,persistLiveScoreState:async()=>calls.publish++,
     mergeDeletedMatchIds,removedMatchIds:new Set(),
+    decodeStatsLedger,newerStatsLedger,unsettledRows,historyMonth:row=>String(row?.dateKey||'').slice(0,7),
     cleanTimelineDates:value=>Array.isArray(value)?value.filter(item=>/^\d{4}-\d{2}-\d{2}$/.test(String(item||''))):[],
     normalizeFinishedMatchRollback:value=>value??null,
     normalizeRetiredPlayers:value=>value??[],normalizeMatchReplayTitle:value=>value??'',
@@ -110,6 +112,22 @@ test('actual room handler preserves current game and rotation when an old fallba
   assert.equal(calls.finish,0);
   assert.equal(calls.publish,0);
   assert.equal(calls.batches.length,0);
+});
+
+test('a room snapshot with an older stats settlement keeps the newer one and drops settled matches',()=>{
+  const {context,calls}=harness();
+  const newer=decodeStatsLedger({cutoff:'2026-09',settledAt:'b',games:[0,1],ids:['a','b','c','d'],players:[0,0,0,1,1,0,0]});
+  context.state.statsLedger=newer;
+  const room=roomState(current);
+  room.statsLedger={cutoff:'2026-08',settledAt:'a',games:[0,0],ids:[],players:[]};
+  room.history=[
+    {matchId:'old',dateKey:'2026-08-30',teams:[['a','b'],['c','d']],scores:[11,5],winner:0},
+    {matchId:'new',dateKey:'2026-09-01',teams:[['a','b'],['c','d']],scores:[11,6],winner:1}
+  ];
+  context.applyState(room);
+  assert.equal(context.state.statsLedger,newer);
+  assert.deepEqual(context.state.history.map(row=>row.matchId),['new']);
+  assert.equal(calls.publish,1);
 });
 
 test('a newer local lineup survives the room echo of a live score write',()=>{
