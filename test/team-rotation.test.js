@@ -106,6 +106,16 @@ test('keeps players on their previous team when re-pairing',()=>{
   assert.deepEqual(orientLineupToReference(['A','B','C','D'],['C','D','A','B']),['C','D','A','B']);
 });
 
+test('starts exactly the lineup shown and applies teammate rules while it is being picked',()=>{
+  const source=readFileSync(new URL('../src/main.js',import.meta.url),'utf8');
+  const startMatch=source.match(/function startMatch\(\)\{[^\n]*/)?.[0]||'';
+  const startNext=source.match(/function startNext\(\)\{[\s\S]*?\n\}/)?.[0]||'';
+  assert.match(startMatch,/const ids=\[\.\.\.selected\];/);
+  assert.match(startNext,/const vals=\[\.\.\.selected\];/);
+  for(const body of[startMatch,startNext])assert.doesNotMatch(body,/teammateSafeLineup/);
+  assert.match(source,/state\.court=state\.court\.filter\(Boolean\);if\(!singles&&state\.court\.length===4\)\{const safe=teammateSafeLineup\(state\.court\);/);
+});
+
 test('only reshuffles fixable gender lineups and keeps winners on their side',()=>{
   const source=readFileSync(new URL('../src/main.js',import.meta.url),'utf8');
   assert.match(source,/genderViolation=genderGroupingEnabled&&lineupMaleCount===2&&hasMalePair/);
