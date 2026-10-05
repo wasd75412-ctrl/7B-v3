@@ -1,5 +1,6 @@
 import { getBlobStore as getStore } from './lib/blob-store.mjs';
 import { PUSH_STORE, configureWebPush, jsonResponse, sendWebPush, roomSubscriptions, validRoomId } from './lib/push-shared.mjs';
+import { PACKING_EVENTS_STORE, cacheRoomEvents, cachedRoomEvents, firestoreEventsFromDocument } from './lib/packing-reminder.mjs';
 
 const FIREBASE_PROJECT='badminton-7a1c3';
 const FIREBASE_API_KEY='AIzaSyBrakbTPK7UqEChPBI6pM8-i03IcLq0IvM';
@@ -47,7 +48,13 @@ async function getRoomAnnouncement(roomId){
   const url=`https://firestore.googleapis.com/v1/projects/${FIREBASE_PROJECT}/databases/(default)/documents/badmintonRooms/${encodeURIComponent(roomId)}?key=${encodeURIComponent(apiKey)}`;
   const response=await fetch(url,{headers:{accept:'application/json'}});
   if(!response.ok)throw new Error(`Firestore ${roomId}: ${response.status}`);
-  return roomAnnouncementFromDocument(await response.json());
+  const document=await response.json();
+  return{...roomAnnouncementFromDocument(document),events:firestoreEventsFromDocument(document)};
+}
+
+async function cachePackingEvents(roomId,events){
+  try{const store=getStore({name:PACKING_EVENTS_STORE,consistency:'strong'});await cacheRoomEvents(store,roomId,events,(await cachedRoomEvents(store,roomId))??undefined)}
+  catch(error){console.warn(`Packing events cache ${roomId}`,error?.message||error)}
 }
 
 export default async request=>{
@@ -65,6 +72,7 @@ export default async request=>{
   if(room.hostToken!==hostToken)return jsonResponse({error:'只有管理員可以發布球局通知。'},403);
   const event=room.event;
   if(!event.date||!event.time||event.publishedAt!==publishedAt)return jsonResponse({error:'球局公告尚未完成同步，請稍後再試。'},409);
+  await cachePackingEvents(roomId,room.events);
 
   const push=configureWebPush();
   if(!push)return jsonResponse({error:'手機通知服務尚未完成設定。'},503);
