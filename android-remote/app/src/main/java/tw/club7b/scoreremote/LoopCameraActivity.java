@@ -9,6 +9,10 @@ import android.graphics.Rect;
 import android.graphics.RectF;
 import android.graphics.LinearGradient;
 import android.graphics.Shader;
+import android.hardware.camera2.CameraCharacteristics;
+import android.hardware.camera2.CameraMetadata;
+import android.hardware.camera2.CaptureRequest;
+import android.hardware.camera2.params.TonemapCurve;
 import android.os.Build;
 import android.os.Bundle;
 import android.os.Environment;
@@ -29,6 +33,12 @@ import android.widget.TextView;
 import android.widget.Toast;
 import androidx.activity.ComponentActivity;
 import androidx.annotation.NonNull;
+import androidx.annotation.OptIn;
+import androidx.camera.camera2.interop.Camera2CameraControl;
+import androidx.camera.camera2.interop.Camera2CameraInfo;
+import androidx.camera.camera2.interop.CaptureRequestOptions;
+import androidx.camera.camera2.interop.ExperimentalCamera2Interop;
+import androidx.camera.core.Camera;
 import androidx.camera.core.CameraSelector;
 import androidx.camera.core.CameraEffect;
 import androidx.camera.core.DynamicRange;
@@ -537,13 +547,36 @@ public final class LoopCameraActivity extends ComponentActivity {
                     .addUseCase(preview)
                     .addUseCase(videoCapture);
             if (scoreOverlayEffect != null) groupBuilder.addEffect(scoreOverlayEffect);
-            provider.bindToLifecycle(this, CameraSelector.DEFAULT_BACK_CAMERA, groupBuilder.build());
+            Camera camera = provider.bindToLifecycle(this, CameraSelector.DEFAULT_BACK_CAMERA, groupBuilder.build());
+            applyContrastCurve(camera);
             return true;
         } catch (Exception error) {
             Log.w("7BRecording", "Unable to start recording at " + quality, error);
             videoCapture = null;
             try { provider.unbindAll(); } catch (Exception ignored) {}
             return false;
+        }
+    }
+
+    /** Stock video tonemapping leaves gym footage grey; phones without manual curves keep their default look. */
+    @OptIn(markerClass = ExperimentalCamera2Interop.class)
+    private static void applyContrastCurve(Camera camera) {
+        try {
+            Camera2CameraInfo info = Camera2CameraInfo.from(camera.getCameraInfo());
+            int[] modes = info.getCameraCharacteristic(CameraCharacteristics.TONEMAP_AVAILABLE_TONE_MAP_MODES);
+            Integer maxPoints = info.getCameraCharacteristic(CameraCharacteristics.TONEMAP_MAX_CURVE_POINTS);
+            if (modes == null || maxPoints == null || maxPoints < RecordingToneCurve.POINTS) return;
+            boolean supportsCurve = false;
+            for (int mode : modes) supportsCurve |= mode == CameraMetadata.TONEMAP_MODE_CONTRAST_CURVE;
+            if (!supportsCurve) return;
+            float[] curve = RecordingToneCurve.points();
+            Camera2CameraControl.from(camera.getCameraControl()).setCaptureRequestOptions(
+                    new CaptureRequestOptions.Builder()
+                            .setCaptureRequestOption(CaptureRequest.TONEMAP_MODE, CameraMetadata.TONEMAP_MODE_CONTRAST_CURVE)
+                            .setCaptureRequestOption(CaptureRequest.TONEMAP_CURVE, new TonemapCurve(curve, curve, curve))
+                            .build());
+        } catch (RuntimeException error) {
+            Log.w("7BRecording", "Unable to apply recording contrast curve", error);
         }
     }
 
