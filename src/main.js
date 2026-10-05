@@ -1394,7 +1394,7 @@ function renderPoll(){
   const cp=$('confirmPollOption');
   if(cp){
     const selectedOptions=confirmationPoll().options||[],current=selectedOptions.some(option=>option.id===cp.value)?cp.value:'',selectedEvent=normalizeNextEvents(state).find(event=>event.optionId===current),hasCurrentEventOption=!!selectedEvent;
-    cp.innerHTML='<option value="">請選擇已確定的日期</option>'+selectedOptions.map(o=>`<option value="${o.id}">${esc(pollOptionLabel(o))}</option>`).join('');
+    cp.innerHTML='<option value="">請選擇已確定的日期</option>'+selectedOptions.map(o=>`<option value="${o.id}">${esc(pollOptionLabel({...o,time:''}))}</option>`).join('');
     cp.value=selectedOptions.some(o=>o.id===current)?current:'';
     if(hasCurrentEventOption){const transferDetails=cleanTransferDetails(selectedEvent);$('confirmLocation').value=selectedEvent.location||'';$('confirmLocation').dataset.autoVenue='0';$('confirmEventNote').value=selectedEvent.note||'';$('confirmRentalTotal').value=selectedEvent.rentalTotal||'';$('confirmTransferBankCode').value=transferDetails.transferBankCode;$('confirmTransferAccount').value=transferDetails.transferAccount;$('confirmEndTime').value=selectedEvent.endTime||''}else applyFavoriteTransferDetails('confirmTransferBankCode','confirmTransferAccount');
     updateConfirmParticipantDefault();
