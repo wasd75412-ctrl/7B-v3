@@ -1,6 +1,6 @@
-export function highestWinStreak(results=[]){
-  let current=0;
-  let highest=0;
+export function highestWinStreak(results=[],{best=0,run=0}={}){
+  let current=Math.max(0,Number(run)||0);
+  let highest=Math.max(current,Number(best)||0);
 
   for(const result of results){
     if(result===true||result?.won===true){
@@ -14,11 +14,11 @@ export function highestWinStreak(results=[]){
   return highest;
 }
 
-export function careerAchievementBadges({games=0,wins=0,results=[]}={}){
+export function careerAchievementBadges({games=0,wins=0,results=[],settledStreak}={}){
   const safeGames=Math.max(0,Number(games)||0);
   const safeWins=Math.min(safeGames,Math.max(0,Number(wins)||0));
   const winRate=safeGames?safeWins/safeGames:0;
-  const bestWinStreak=highestWinStreak(results);
+  const bestWinStreak=highestWinStreak(results,settledStreak);
 
   return [
     ['🏸','初登場',safeGames>=1],

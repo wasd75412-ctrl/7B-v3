@@ -35,6 +35,7 @@ import { canReportEventPayment, eventPaymentStatus, normalizeEventPayments, norm
 import { groupHistoryDatesByMonth, groupMatchHistoryByDate, withLiveTimelineDate } from './match-history.js';
 import { ROOM_HISTORY_KEEP, archiveCacheNeedsFullRefresh, archiveDocId, archiveSyncCursor, decodeArchivedMatch, mergeArchiveRows, readArchiveCache, writeArchiveCache, encodeArchivedMatch, mergeDeletedMatchIds, mergeMatchHistory, normalizeSyncMode, overflowHistory, readPendingArchives, recentHistory, shouldSkipFullRoomSync, writePendingArchives } from './match-archive.js';
 import { POLL_UNAVAILABLE, prunePollHistoryRows } from './poll-history.js';
+import { decodeStatsLedger, emptyStatsLedger, encodeStatsLedger, isSettledMonth, ledgerMonthGames, ledgerMonthRecord, ledgerPlayerRecord, ledgerRelations, ledgerStreak, ledgerTotalGames, newerStatsLedger, settleMatches, unsettledRows } from './stats-ledger.js';
 
 const firebaseConfig={apiKey:'AIzaSyBrakbTPK7UqEChPBI6pM8-i03IcLq0IvM',authDomain:'badminton-7a1c3.firebaseapp.com',projectId:'badminton-7a1c3',storageBucket:'badminton-7a1c3.firebasestorage.app',messagingSenderId:'883534015507',appId:'1:883534015507:web:a7f6fb318151b6d07563e6',measurementId:'G-C97B98H7YW'};
 const fbApp=initializeApp(firebaseConfig);
@@ -91,7 +92,7 @@ const shuffle=a=>{a=[...a];const r=new Uint32Array(Math.max(1,a.length));crypto.
 function teammateSafeLineup(ids,{randomize=false}={}){const values=ids.filter(Boolean);if(values.length!==4||new Set(values).size!==4)return values;const todayHistory=state.history.filter(h=>historyDate(h)===localDateKey()),genderGroupingEnabled=state.rules?.genderGroupingEnabled!==false,genderByPlayer=Object.fromEntries(state.roster.map(p=>[p.id,normalizePlayerGender(p.gender)])),lineupMaleCount=values.filter(id=>genderByPlayer[id]===PLAYER_GENDER_MALE).length,hasMalePair=[values.slice(0,2),values.slice(2,4)].some(team=>team.every(id=>genderByPlayer[id]===PLAYER_GENDER_MALE)),genderViolation=genderGroupingEnabled&&lineupMaleCount===2&&hasMalePair;if(!randomize&&!genderViolation&&!lineupExceedsTeammateLimit(values,todayHistory))return values;const random=crypto.getRandomValues(new Uint32Array(1))[0];return orientLineupToReference(arrangeTeamsWithTeammateLimit(randomize?shuffle(values):values,todayHistory,random,2,{genderGroupingEnabled,genderByPlayer,keepLineup:!randomize}),values)}
 function wholeAmount(value){const n=Number(value);return Number.isFinite(n)&&n>0?Math.round(n):0}
 function setAdminNotices(rows){state.adminNotices=normalizeAdminNotices({adminNotices:rows});state.adminNotice=state.adminNotices[0]||null}
-const initialState=()=>({version:9.8,matchFormat:'doubles',testMode:false,testModeRevision:0,roster:[],retiredPlayers:[],adminPlayerIds:[],attendance:[],lineupRevision:0,court:[],waitingQueue:[],queueDraftChosen:[],priority:null,lastLoserReplayPlayerId:null,match:{active:false,format:'doubles',players:[[],[]],scores:[0,0],rallies:[],serving:0,positions:[[0,1],[0,1]],winner:null,startedAt:''},matchRollback:null,rules:{target:11,cap:15,deuce:true,genderGroupingEnabled:true},history:[],deletedMatchIds:[],matchTimelineStarts:{},hiddenTimelineDates:[],matchReplayPlaylistTitle:'',matchReplayPlaylistUrl:'',nextCall:null,schedulePoll:{status:'open',createdAt:'',deadlineAt:'',autoCycle:'',options:[],votes:{},voterPlayers:{},manualParticipants:{}},pollHistory:[],nextEvent:null,nextEvents:[],adminNotice:null,adminNotices:[],shuttleTubes:[],shuttleLegacyActiveTubeId:'',shuttleNoTrackingTubeIds:[],updatedAt:null});
+const initialState=()=>({version:9.8,matchFormat:'doubles',testMode:false,testModeRevision:0,roster:[],retiredPlayers:[],adminPlayerIds:[],attendance:[],lineupRevision:0,court:[],waitingQueue:[],queueDraftChosen:[],priority:null,lastLoserReplayPlayerId:null,match:{active:false,format:'doubles',players:[[],[]],scores:[0,0],rallies:[],serving:0,positions:[[0,1],[0,1]],winner:null,startedAt:''},matchRollback:null,rules:{target:11,cap:15,deuce:true,genderGroupingEnabled:true},history:[],statsLedger:emptyStatsLedger(),deletedMatchIds:[],matchTimelineStarts:{},hiddenTimelineDates:[],matchReplayPlaylistTitle:'',matchReplayPlaylistUrl:'',nextCall:null,schedulePoll:{status:'open',createdAt:'',deadlineAt:'',autoCycle:'',options:[],votes:{},voterPlayers:{},manualParticipants:{}},pollHistory:[],nextEvent:null,nextEvents:[],adminNotice:null,adminNotices:[],shuttleTubes:[],shuttleLegacyActiveTubeId:'',shuttleNoTrackingTubeIds:[],updatedAt:null});
 const DEVICE_SYNC_CODE_KEY='bcmDeviceSyncCodeV1',DEVICE_SYNC_TOKEN_KEY='bcmDeviceSyncTokenV1',DEVICE_SYNC_NAME_KEY='bcmDeviceSyncNameV1',DEVICE_SYNC_PLAYER_KEY='bcmDeviceSyncPlayerV1';
 let state=initialState(), roomId='', roomRef=null, liveScoreRef=null, remoteControlRef=null, chatCollectionRef=null, isHost=false, hostToken='', adminPinHash='', unsubscribe=null, liveScoreUnsubscribe=null, remoteControlUnsubscribe=null, remoteActionUnsubscribe=null, chatUnsubscribe=null, applying=false, saveTimer=null, liveScoreSaveTimer=null, matchAutoBackupTimer=null, editId=null;const expandedPlayerNotes=new Set();let profileOriginal=null,profileDirty={name:false,gender:false,memberType:false,voiceName:false,racket:false,racketTension:false,racketString:false,backupRacket:false,backupTension:false,backupString:false,note:false};let dismissedResultKey='';const selfToken=localStorage.getItem(DEVICE_SYNC_TOKEN_KEY)||localStorage.getItem('bdV73SelfToken')||randomToken();localStorage.setItem('bdV73SelfToken',selfToken);const SCORE_DEVICE_KEY='bcmScoreDeviceIdV1',scoreDeviceId=localStorage.getItem(SCORE_DEVICE_KEY)||randomToken();localStorage.setItem(SCORE_DEVICE_KEY,scoreDeviceId);let selfHash='',scoreViewRequested=false,expandedShuttleTubeId='';
 let deviceProfileUnsubscribe=null,deviceProfileApplying=false,deviceProfileSaveTimer=null,identitySyncing=false,roomConnectInProgress=false;
@@ -377,6 +378,7 @@ function encodeState(src){
     matchTimelineStarts:src.matchTimelineStarts&&typeof src.matchTimelineStarts==='object'?src.matchTimelineStarts:{},
     hiddenTimelineDates:cleanTimelineDates(src.hiddenTimelineDates),
     deletedMatchIds:mergeDeletedMatchIds(src.deletedMatchIds),
+    statsLedger:encodeStatsLedger(src.statsLedger),
     history:(Array.isArray(src.history)?src.history:[]).map(h=>({
       matchId:h.matchId||randomToken(),
       time:h.time||'',
@@ -419,6 +421,7 @@ function decodeState(d){
       monthKey:h.monthKey||''
     }
   }).filter(h=>!h.testMode):[];
+  const statsLedger=decodeStatsLedger(d.statsLedger);
   return {
     ...base,...d,
     matchFormat:d.matchFormat==='singles'?'singles':'doubles',
@@ -464,7 +467,8 @@ function decodeState(d){
     shuttleTubes:enforceLegacyActiveShuttleTube(d.shuttleTubes,legacyActiveTubeId),
     shuttleLegacyActiveTubeId:legacyActiveTubeId,
     shuttleNoTrackingTubeIds:noTrackingTubeIds,
-    history,
+    history:unsettledRows(history,statsLedger,historyMonth),
+    statsLedger,
     deletedMatchIds:mergeDeletedMatchIds(d.deletedMatchIds),
     matchTimelineStarts:d.matchTimelineStarts&&typeof d.matchTimelineStarts==='object'?d.matchTimelineStarts:{},
     hiddenTimelineDates:cleanTimelineDates(d.hiddenTimelineDates)
@@ -475,13 +479,14 @@ function decodeState(d){
 function historyFormat(h){return normalizeMatchFormat(h?.format)}
 function scoredHistory(){return state.history.filter(h=>!h.testMode)}
 function scoredHistoryForFormat(format='all'){return scoredHistory().filter(h=>format==='all'||historyFormat(h)===format)}
-function player(id){return state.roster.find(p=>p.id===id)}function retiredPlayer(id){return state.retiredPlayers?.find(p=>p.id===id)}function playerDisplay(id){return player(id)||retiredPlayer(id)}function pname(id){return playerDisplay(id)?.name||'未知球員'}function initials(n){return [...String(n||'?')].slice(0,2).join('').toUpperCase()}function avatar(id,size=''){const p=playerDisplay(id);return `<span class="avatar ${size}">${p?.avatar?`<img src="${p.avatar}" alt="">`:esc(initials(p?.name))}</span>`}function playerStats(id){let games=0,wins=0;for(const h of scoredHistory()){const teams=h.teams||[];for(let t=0;t<2;t++){if((teams[t]||[]).includes(id)){games++;if(h.winner===t)wins++}}}return{games,wins,losses:games-wins,rate:games?Math.round(wins/games*100):0}}
+function player(id){return state.roster.find(p=>p.id===id)}function retiredPlayer(id){return state.retiredPlayers?.find(p=>p.id===id)}function playerDisplay(id){return player(id)||retiredPlayer(id)}function pname(id){return playerDisplay(id)?.name||'未知球員'}function initials(n){return [...String(n||'?')].slice(0,2).join('').toUpperCase()}function avatar(id,size=''){const p=playerDisplay(id);return `<span class="avatar ${size}">${p?.avatar?`<img src="${p.avatar}" alt="">`:esc(initials(p?.name))}</span>`}function playerStats(id){let {games,wins}=ledgerPlayerRecord(state.statsLedger,id);for(const h of scoredHistory()){const teams=h.teams||[];for(let t=0;t<2;t++){if((teams[t]||[]).includes(id)){games++;if(h.winner===t)wins++}}}return{games,wins,losses:games-wins,rate:games?Math.round(wins/games*100):0}}
 function localDateKey(d=new Date()){return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`}function localMonthKey(d=new Date()){return localDateKey(d).slice(0,7)}
+function historyMonth(h){return historyDate(h).slice(0,7)}
 function historyDate(h){if(/^\d{4}-\d{2}-\d{2}$/.test(h.dateKey||''))return h.dateKey;if(h.endedAt){const d=new Date(h.endedAt);if(!isNaN(d.getTime()))return localDateKey(d)}const text=String(h.time||'');const m=text.match(/(\d{4})[\/.-](\d{1,2})[\/.-](\d{1,2})/);if(m)return `${m[1]}-${String(m[2]).padStart(2,'0')}-${String(m[3]).padStart(2,'0')}`;const d=new Date(text);return isNaN(d.getTime())?'':localDateKey(d)}
-function scopedStats(id,scope='career',month=localMonthKey(),format='all'){let games=0,wins=0;const list=[];for(const h of scoredHistoryForFormat(format)){const dk=historyDate(h);if(scope==='today'&&dk!==localDateKey())continue;if(scope==='month'&&!dk.startsWith(month))continue;for(let t=0;t<2;t++){if((h.teams?.[t]||[]).includes(id)){games++;if(h.winner===t)wins++;list.push({h,won:h.winner===t})}}}let streak=0,kind='';for(const x of list.slice().reverse()){const k=x.won?'W':'L';if(!kind)kind=k;if(k!==kind)break;streak++}return{games,wins,losses:games-wins,rate:games?Math.round(wins/games*100):0,streak,kind,list}}
-function relationshipStats(id){const partners=new Map(),opponents=new Map();for(const h of scoredHistory()){const teams=h.teams||[];let team=-1;for(let t=0;t<2;t++)if((teams[t]||[]).includes(id)){team=t;break}if(team<0)continue;for(const pid of teams[team]||[]){if(pid===id)continue;const x=partners.get(pid)||{id:pid,games:0,wins:0};x.games++;if(h.winner===team)x.wins++;partners.set(pid,x)}for(const oid of teams[1-team]||[]){const x=opponents.get(oid)||{id:oid,games:0,wins:0};x.games++;if(h.winner===team)x.wins++;opponents.set(oid,x)}}const finish=m=>[...m.values()].map(x=>({...x,rate:x.games?Math.round(x.wins/x.games*100):0}));return{partners:finish(partners).sort((a,b)=>b.rate-a.rate||b.games-a.games||pname(a.id).localeCompare(pname(b.id))),opponents:finish(opponents).sort((a,b)=>b.games-a.games||b.rate-a.rate)}}
+function scopedStats(id,scope='career',month=localMonthKey(),format='all'){if(scope==='month'&&isSettledMonth(state.statsLedger,month)){const {games,wins}=ledgerMonthRecord(state.statsLedger,month,id,format);return{games,wins,losses:games-wins,rate:games?Math.round(wins/games*100):0,streak:0,kind:'',list:[]}}let {games,wins}=scope==='career'?ledgerPlayerRecord(state.statsLedger,id,format):{games:0,wins:0};const list=[];for(const h of scoredHistoryForFormat(format)){const dk=historyDate(h);if(scope==='today'&&dk!==localDateKey())continue;if(scope==='month'&&!dk.startsWith(month))continue;for(let t=0;t<2;t++){if((h.teams?.[t]||[]).includes(id)){games++;if(h.winner===t)wins++;list.push({h,won:h.winner===t})}}}let streak=0,kind='';for(const x of list.slice().reverse()){const k=x.won?'W':'L';if(!kind)kind=k;if(k!==kind)break;streak++}return{games,wins,losses:games-wins,rate:games?Math.round(wins/games*100):0,streak,kind,list}}
+function relationshipStats(id){const settled=ledgerRelations(state.statsLedger,id),partners=new Map(settled.partners.map(x=>[x.id,x])),opponents=new Map(settled.opponents.map(x=>[x.id,x]));for(const h of scoredHistory()){const teams=h.teams||[];let team=-1;for(let t=0;t<2;t++)if((teams[t]||[]).includes(id)){team=t;break}if(team<0)continue;for(const pid of teams[team]||[]){if(pid===id)continue;const x=partners.get(pid)||{id:pid,games:0,wins:0};x.games++;if(h.winner===team)x.wins++;partners.set(pid,x)}for(const oid of teams[1-team]||[]){const x=opponents.get(oid)||{id:oid,games:0,wins:0};x.games++;if(h.winner===team)x.wins++;opponents.set(oid,x)}}const finish=m=>[...m.values()].map(x=>({...x,rate:x.games?Math.round(x.wins/x.games*100):0}));return{partners:finish(partners).sort((a,b)=>b.rate-a.rate||b.games-a.games||pname(a.id).localeCompare(pname(b.id))),opponents:finish(opponents).sort((a,b)=>b.games-a.games||b.rate-a.rate)}}
 function playerStatus(id){const td=scopedStats(id,'today');if(!td.games)return{label:'🌱 今日尚未出賽',kind:'idle'};if(td.kind==='W'&&td.streak>=2)return{label:`🔥 手感火熱 · ${td.streak} 連勝`,kind:'hot'};return{label:`🏸 今日 ${td.wins} 勝 ${td.losses} 敗`,kind:'normal'}}
-function careerBadges(id){const c=scopedStats(id,'career');return careerAchievementBadges({games:c.games,wins:c.wins,results:c.list})}
+function careerBadges(id){const c=scopedStats(id,'career');return careerAchievementBadges({games:c.games,wins:c.wins,results:c.list,settledStreak:ledgerStreak(state.statsLedger,id)})}
 function relationRows(list,emptyText){if(!list.length)return `<div class="sub">${emptyText}</div>`;return list.slice(0,3).map((x,i)=>`<div class="duo-row"><span class="duo-rank">${i+1}</span><span>${avatar(x.id,'tiny')} <strong>${esc(pname(x.id))}</strong><div class="duo-meta">共同 ${x.games} 場 · ${x.wins} 勝</div></span><strong>${x.rate}%</strong></div>`).join('')}
 function todayLeaders(format='all'){const rows=state.roster.map(p=>({p,s:scopedStats(p.id,'today',localMonthKey(),format)})).filter(x=>x.s.kind==='W'&&x.s.streak>=2);const hot=rows.sort((a,b)=>b.s.streak-a.s.streak||b.s.wins-a.s.wins)[0];return{hot}}
 function formatEventDate(date,time,endTime=''){if(!date)return'';const d=new Date(`${date}T${time||'00:00'}`);if(isNaN(d.getTime()))return `${date}${time?' '+time:''}${endTime?`-${endTime}`:''}`;const dateText=d.toLocaleDateString('zh-TW',{month:'long',day:'numeric',weekday:'short'});return `${dateText}${time?` ${time}${endTime?`-${endTime}`:''}`:''}`}
@@ -717,7 +722,7 @@ function renderDashboard() {
 
     $('clubMetrics').innerHTML = `
         <div class="club-metric"><span class="club-metric-icon">🏸</span><span><strong>${monthGames.length}</strong><small>本月比賽</small></span></div>
-        <div class="club-metric"><span class="club-metric-icon">🎯</span><span><strong>${recordedGames.length}</strong><small>累積比賽</small></span></div>
+        <div class="club-metric"><span class="club-metric-icon">🎯</span><span><strong>${ledgerTotalGames(state.statsLedger)+recordedGames.length}</strong><small>累積比賽</small></span></div>
         <div class="club-metric"><span class="club-metric-icon">🙌</span><span><strong>${monthPlayers.size}</strong><small>本月出賽球友</small></span></div>
         <div class="club-metric"><span class="club-metric-icon">👥</span><span><strong>${state.roster.length}</strong><small>球友人數</small></span></div>
     `;
@@ -773,8 +778,8 @@ function renderDashboard() {
 function renderStats(){
   const month=$('monthPick').value||localMonthKey(),format=$('statsFormat')?.value||'all',sortKey=$('statsSort')?.value||'career-record',order=$('statsOrder')?.value||'desc';
   $('monthPick').value=month;
-  const recordedGames=scoredHistoryForFormat(format),todayGames=recordedGames.filter(h=>historyDate(h)===localDateKey()).length,monthGames=recordedGames.filter(h=>historyDate(h).startsWith(month)).length;
-  $('statsSummary').innerHTML=`<div class="metric"><strong>${recordedGames.length}</strong><span class="sub">生涯總場次</span></div><div class="metric"><strong>${todayGames}</strong><span class="sub">今日場次</span></div><div class="metric"><strong>${monthGames}</strong><span class="sub">選定月份場次</span></div><div class="metric"><strong>${state.roster.length}</strong><span class="sub">球員人數</span></div>`;
+  const recordedGames=scoredHistoryForFormat(format),todayGames=recordedGames.filter(h=>historyDate(h)===localDateKey()).length,monthGames=isSettledMonth(state.statsLedger,month)?ledgerMonthGames(state.statsLedger,month,format):recordedGames.filter(h=>historyDate(h).startsWith(month)).length;
+  $('statsSummary').innerHTML=`<div class="metric"><strong>${ledgerTotalGames(state.statsLedger,format)+recordedGames.length}</strong><span class="sub">生涯總場次</span></div><div class="metric"><strong>${todayGames}</strong><span class="sub">今日場次</span></div><div class="metric"><strong>${monthGames}</strong><span class="sub">選定月份場次</span></div><div class="metric"><strong>${state.roster.length}</strong><span class="sub">球員人數</span></div>`;
   const {hot}=todayLeaders(format);
   const hotStats=$('hotColdStats');hotStats.classList.toggle('hidden',!hot);hotStats.innerHTML=hot?`<div class="leader-card hot"><strong>🔥 手感火熱</strong><div>${esc(hot.p.name)} · ${hot.s.streak} 連勝 · 今日 ${hot.s.wins} 勝</div></div>`:'';
   const rows=state.roster.map(p=>({p,t:scopedStats(p.id,'today',month,format),mo:scopedStats(p.id,'month',month,format),c:scopedStats(p.id,'career',month,format)})),scope=sortKey.startsWith('career')?'c':sortKey.startsWith('today')?'t':'mo',metric=sortKey.endsWith('rate')?'rate':'record',direction=order==='asc'?1:-1;
@@ -1951,10 +1956,14 @@ function applyState(data){
   if(Number(next.testModeRevision)<Number(state.testModeRevision)){next.testMode=state.testMode;next.testModeRevision=state.testModeRevision}
   next.deletedMatchIds=mergeDeletedMatchIds(state.deletedMatchIds,next.deletedMatchIds);
   next.deletedMatchIds.forEach(id=>removedMatchIds.add(id));
+  const incomingLedger=next.statsLedger;
+  next.statsLedger=newerStatsLedger(state.statsLedger,incomingLedger);
   if(typeof mergeMatchHistory==='function'){
     const incoming=mergeMatchHistory(next.history,archivedHistory,removedMatchIds);
     next.history=isHost?mergeMatchHistory(state.history,incoming,removedMatchIds):incoming;
   }
+  next.history=unsettledRows(next.history,next.statsLedger,historyMonth);
+  const restoreLedger=isHost&&next.statsLedger!==incomingLedger&&next.statsLedger.cutoff>(incomingLedger.cutoff||'');
   if(!canApplyMatch(next.match)){
     next.match=structuredClone(state.match);
     for(const key of['court','nextCall','matchRollback','waitingQueue','queueDraftChosen','priority','lastLoserReplayPlayerId'])next[key]=structuredClone(state[key]);
@@ -1966,6 +1975,7 @@ function applyState(data){
   state=next;
   if(requestedAndroidRemote)scheduleAndroidRemoteRender(true);else{applying=true;renderAll();applying=false}
   announceSyncedScore(before);
+  if(restoreLedger)saveSoon();
   // Receiving a room snapshot must never publish its fallback match back into liveScore.
 }
 // The Android app pauses WebView timers while recording, and Firestore delivers every snapshot through
@@ -2171,7 +2181,7 @@ function handleRemoteActionCommand(data,{initial=false,skipAge=false}={}){
 function currentSyncMode(){return normalizeSyncMode(localStorage.getItem(SYNC_MODE_KEY))}
 function renderSyncMode(){const mode=currentSyncMode(),lite=$('syncModeLite'),full=$('syncModeFull');lite?.classList.toggle('primary',mode==='lite');full?.classList.toggle('primary',mode==='full');lite?.setAttribute('aria-pressed',mode==='lite'?'true':'false');full?.setAttribute('aria-pressed',mode==='full'?'true':'false')}
 function setSyncMode(mode){localStorage.setItem(SYNC_MODE_KEY,normalizeSyncMode(mode));renderSyncMode();if(shouldSkipFullRoomSync({mode:currentSyncMode(),matchActive:!!state.match?.active,matchOpen:state.match?.winner==null})){clearTimeout(saveTimer);saveTimer=null;roomWriteScheduled=false;updateSyncBadge()}}
-function roomEncodedState(){const encoded=encodeState(state);encoded.history=recentHistory(encoded.history);return encoded}
+function roomEncodedState(){const encoded=encodeState(state);encoded.history=recentHistory(encoded.history);if(!encoded.statsLedger)delete encoded.statsLedger;return encoded}
 function payload(){return {...generalRoomStateWithoutMatch(roomEncodedState()),liveScoreEnabled:true,updatedAt:serverTimestamp()}}
 function matchHistoryCollection(){return collection(db,'badmintonRooms',roomId,'matchHistory')}
 function matchHistoryDoc(matchId){return doc(db,'badmintonRooms',roomId,'matchHistory',archiveDocId(matchId))}
@@ -2206,7 +2216,8 @@ async function publishMatchArchive(rows){
   }
 }
 async function flushPendingArchives(){
-  const pending=readPendingArchives(localStorage,roomId).map(decodeArchivedMatch).filter(row=>row.matchId&&!removedMatchIds.has(row.matchId));
+  const queued=readPendingArchives(localStorage,roomId),pending=queued.map(decodeArchivedMatch).filter(row=>row.matchId&&!removedMatchIds.has(row.matchId)&&!isSettledMonth(state.statsLedger,historyMonth(row)));
+  if(pending.length!==queued.length)writePendingArchives(localStorage,roomId,queued.filter(row=>pending.some(item=>item.matchId===row.matchId)));
   if(!pending.length)return;
   await publishMatchArchive(pending);
 }
@@ -2237,17 +2248,50 @@ async function loadMatchArchive(){
     const snaps=await getDocs(cursor?query(matchHistoryCollection(),where('endedAt','>=',cursor)):matchHistoryCollection());
     if(roomId!==archiveRoomId)return;
     const fresh=snaps.docs.map(item=>encodeArchivedMatch({matchId:item.id,...item.data()}));
-    const staleIds=fresh.map(row=>row.matchId).filter(id=>removedMatchIds.has(id));
-    const rows=(full?fresh:mergeArchiveRows(cache.rows,fresh)).filter(row=>!removedMatchIds.has(row.matchId));
+    const settled=row=>isSettledMonth(state.statsLedger,historyMonth(row));
+    const staleIds=fresh.filter(row=>removedMatchIds.has(row.matchId)||settled(row)).map(row=>row.matchId);
+    const rows=(full?fresh:mergeArchiveRows(cache.rows,fresh)).filter(row=>!removedMatchIds.has(row.matchId)&&!settled(row));
     writeArchiveCache(localStorage,archiveRoomId,{rows,fullAt:full?now:cache.fullAt});
     archivedHistory=rows.map(decodeArchivedMatch);
     if(isHost&&staleIds.length)void deleteArchivedMatches(staleIds).catch(error=>console.warn('封存戰績刪除失敗',error));
-    const merged=mergeMatchHistory(state.history,archivedHistory,removedMatchIds);
+    const merged=unsettledRows(mergeMatchHistory(state.history,archivedHistory,removedMatchIds),state.statsLedger,historyMonth);
     if(merged.length!==state.history.length||merged.some((row,index)=>row.matchId!==state.history[index]?.matchId)){
       applying=true;state.history=merged;applying=false;renderHistory();renderStats();renderDashboard();
     }
-    if(isHost){await flushPendingArchives();await slimRoomHistoryIfNeeded();archiveUnsyncedHistory()}
+    if(isHost){await flushPendingArchives();await slimRoomHistoryIfNeeded();archiveUnsyncedHistory();await settleStatsIfDue()}
   }catch(error){console.warn('完整戰績讀取失敗，先使用房間內的最近場次',error)}
+}
+function statsSettlementCutoff(){return localMonthKey()}
+async function settleStatsIfDue(){
+  const cutoff=statsSettlementCutoff();
+  if(!isHost||!roomRef||requestedAndroidRemote||!navigator.onLine||state.statsLedger.cutoff>=cutoff)return;
+  if(roomWriteScheduled||pendingRoomWrites>0||readPendingArchives(localStorage,roomId).length)return;
+  const settleRoomId=roomId,settleRoomRef=roomRef;
+  try{
+    const snaps=await getDocs(matchHistoryCollection());
+    if(roomId!==settleRoomId)return;
+    const archived=snaps.docs.map(item=>decodeArchivedMatch({matchId:item.id,...item.data()}));
+    const rows=mergeMatchHistory(state.history,archived,removedMatchIds);
+    const ledger=await runTransaction(db,async transaction=>{
+      const snap=await transaction.get(settleRoomRef),data=snap.data()||{};
+      const current=newerStatsLedger(state.statsLedger,decodeStatsLedger(data.statsLedger));
+      const next=settleMatches(current,rows,cutoff,historyMonth);
+      const roomHistory=(Array.isArray(data.history)?data.history:[]).filter(row=>!isSettledMonth(next,historyMonth(row)));
+      transaction.update(settleRoomRef,{statsLedger:encodeStatsLedger(next),history:roomHistory});
+      return next;
+    });
+    if(roomId!==settleRoomId)return;
+    state.statsLedger=newerStatsLedger(state.statsLedger,ledger);
+    const keep=row=>!isSettledMonth(state.statsLedger,historyMonth(row));
+    state.history=state.history.filter(keep);
+    archivedHistory=archivedHistory.filter(keep);
+    const cache=readArchiveCache(localStorage,roomId);
+    if(cache)writeArchiveCache(localStorage,roomId,{rows:cache.rows.filter(keep),fullAt:cache.fullAt});
+    renderHistory();renderStats();renderDashboard();
+    const confirmed=decodeStatsLedger((await getDocFromServer(settleRoomRef)).data()?.statsLedger);
+    if(roomId!==settleRoomId||confirmed.cutoff<state.statsLedger.cutoff)return;
+    await deleteArchivedMatches(archived.filter(row=>isSettledMonth(confirmed,historyMonth(row))).map(row=>row.matchId));
+  }catch(error){console.warn('戰績月結失敗，下次開啟時重試',error)}
 }
 async function deleteArchivedMatches(matchIds){
   const ids=[...new Set((matchIds||[]).filter(Boolean))];
@@ -2400,8 +2444,10 @@ async function syncFinishedMatchNow(matchId=''){
   }
 }
 function adoptRestoredState(data){
-  const nextEpoch=nextMatchEpoch(state.match),previousDeleted=state.deletedMatchIds;
+  const nextEpoch=nextMatchEpoch(state.match),previousDeleted=state.deletedMatchIds,previousLedger=state.statsLedger;
   state=cleanState(data);
+  state.statsLedger=newerStatsLedger(state.statsLedger,previousLedger);
+  state.history=unsettledRows(state.history,state.statsLedger,historyMonth);
   const restoredIds=new Set(state.history.map(row=>row.matchId).filter(Boolean));
   restoredIds.forEach(id=>removedMatchIds.delete(id));
   state.deletedMatchIds=mergeDeletedMatchIds(previousDeleted,state.deletedMatchIds).filter(id=>!restoredIds.has(id));

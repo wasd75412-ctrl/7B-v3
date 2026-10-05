@@ -48,7 +48,7 @@ test('deleted matches are synced through the room and purged from the local arch
   assert.match(forget,/state\.deletedMatchIds=mergeDeletedMatchIds\(state\.deletedMatchIds,ids\)/);
   assert.match(forget,/writeArchiveCache\(localStorage,roomId,\{rows:cache\.rows\.filter\(row=>!ids\.has\(row\.matchId\)\)/);
   const load=mainSource.match(/async function loadMatchArchive\(\)\{[\s\S]*?\n\}/)?.[0]||'';
-  assert.match(load,/\.filter\(row=>!removedMatchIds\.has\(row\.matchId\)\);\s*writeArchiveCache/);
+  assert.match(load,/\.filter\(row=>!removedMatchIds\.has\(row\.matchId\)&&!settled\(row\)\);\s*writeArchiveCache/);
   assert.match(load,/deleteArchivedMatches\(staleIds\)/);
 });
 

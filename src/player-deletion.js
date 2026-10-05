@@ -1,3 +1,5 @@
+import { ledgerHasPlayer } from './stats-ledger.js';
+
 function uniqueIds(values){
   return [...new Set((Array.isArray(values)?values:[]).filter(Boolean))];
 }
@@ -25,6 +27,7 @@ export function deletePlayerFromState(source,id){
   if(livePlayers.includes(playerId))return{deleted:false,reason:'active-match',state:source};
 
   const referenced=(source.history||[]).some(match=>(match.teams||[]).flat().includes(playerId))
+    ||ledgerHasPlayer(source.statsLedger,playerId)
     ||(source.match?.players||[]).flat().includes(playerId)
     ||(source.shuttleTubes||[]).some(tube=>[...Object.keys(tube?.paid||{}),...(tube?.paidPlayerIds||[]),...(tube?.paidPlayedPlayerIds||[])].includes(playerId));
   const retired=normalizeRetiredPlayers(source.retiredPlayers).filter(item=>item.id!==playerId);
