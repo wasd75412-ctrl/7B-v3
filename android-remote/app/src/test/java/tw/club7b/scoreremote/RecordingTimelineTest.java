@@ -53,9 +53,9 @@ public final class RecordingTimelineTest {
         long start = Instant.parse("2026-09-30T11:00:00.000Z").toEpochMilli();
         long end = Instant.parse("2026-09-30T12:10:00.000Z").toEpochMilli();
         String text = RecordingTimeline.timeline(RecordingTimeline.matchesFromRoom(room()), start, end);
-        assertEquals("00:00:00 準備與熱身\n"
-                + "00:10:05 Game1 建昱／于萱 11：7 Yoyo／澐緁\n"
-                + "00:30:00 Game2 建昱／于萱 9：11 Yoyo／澐緁", text);
+        assertEquals("00:00:00  準備與熱身\n"
+                + "00:10:05  Game1 建昱／于萱 11：7 Yoyo／澐緁\n"
+                + "00:30:00  Game2 建昱／于萱 9：11 Yoyo／澐緁", text);
         assertTrue(RecordingTimeline.hasValidChapters(text));
     }
 
@@ -67,9 +67,9 @@ public final class RecordingTimelineTest {
                 new long[] {Instant.parse("2026-09-30T11:05:00.000Z").toEpochMilli(), Instant.parse("2026-09-30T11:08:00.000Z").toEpochMilli()},
                 new long[] {Instant.parse("2026-09-30T11:26:00.000Z").toEpochMilli(), Instant.parse("2026-09-30T11:28:00.000Z").toEpochMilli()});
         String text = RecordingTimeline.timeline(RecordingTimeline.matchesFromRoom(room()), start, end, pauses);
-        assertEquals("00:00:00 準備與熱身\n"
-                + "00:07:05 Game1 建昱／于萱 11：7 Yoyo／澐緁\n"
-                + "00:25:00 Game2 建昱／于萱 9：11 Yoyo／澐緁", text);
+        assertEquals("00:00:00  準備與熱身\n"
+                + "00:07:05  Game1 建昱／于萱 11：7 Yoyo／澐緁\n"
+                + "00:25:00  Game2 建昱／于萱 9：11 Yoyo／澐緁", text);
         long midPause = Instant.parse("2026-09-30T11:06:00.000Z").toEpochMilli();
         assertEquals(5L * 60_000L, RecordingTimeline.videoMillis(midPause, start, pauses));
     }
@@ -79,9 +79,9 @@ public final class RecordingTimelineTest {
         long start = Instant.parse("2026-09-30T11:20:00.000Z").toEpochMilli();
         long end = Instant.parse("2026-09-30T12:10:00.000Z").toEpochMilli();
         String text = RecordingTimeline.timeline(RecordingTimeline.matchesFromRoom(room()), start, end);
-        assertEquals("00:00:00 準備與熱身\n"
-                + "00:00:10 Game1 建昱／于萱 11：7 Yoyo／澐緁\n"
-                + "00:10:00 Game2 建昱／于萱 9：11 Yoyo／澐緁", text);
+        assertEquals("00:00:00  準備與熱身\n"
+                + "00:00:10  Game1 建昱／于萱 11：7 Yoyo／澐緁\n"
+                + "00:10:00  Game2 建昱／于萱 9：11 Yoyo／澐緁", text);
         assertTrue(RecordingTimeline.hasValidChapters(text));
     }
 
@@ -90,7 +90,7 @@ public final class RecordingTimelineTest {
         long start = Instant.parse("2026-09-30T11:28:00.000Z").toEpochMilli();
         long end = Instant.parse("2026-09-30T12:10:00.000Z").toEpochMilli();
         String text = RecordingTimeline.timeline(RecordingTimeline.matchesFromRoom(room()), start, end);
-        assertTrue(text.contains("00:02:00 Game1 建昱／于萱 9：11"));
+        assertTrue(text.contains("00:02:00  Game1 建昱／于萱 9：11"));
         assertFalse(text.contains("Game2"));
     }
 
@@ -99,16 +99,18 @@ public final class RecordingTimelineTest {
         long start = Instant.parse("2026-09-30T11:20:00.000Z").toEpochMilli();
         long end = Instant.parse("2026-09-30T11:28:00.000Z").toEpochMilli();
         String text = RecordingTimeline.timeline(RecordingTimeline.matchesFromRoom(room()), start, end);
-        assertEquals("00:00:00 準備與熱身\n00:00:10 Game1 建昱／于萱 11：7 Yoyo／澐緁\n00:07:59 錄影結束", text);
-        assertFalse(RecordingTimeline.hasValidChapters("00:00:00 準備與熱身\n00:00:00 Game1 建昱／于萱 11：7 Yoyo／澐緁"));
+        assertEquals("00:00:00  準備與熱身\n00:00:10  Game1 建昱／于萱 11：7 Yoyo／澐緁\n00:07:59  錄影結束", text);
+        assertFalse(RecordingTimeline.hasValidChapters("00:00:00  準備與熱身\n00:00:00  Game1 建昱／于萱 11：7 Yoyo／澐緁"));
         assertTrue(RecordingTimeline.hasValidChapters(text));
     }
 
     @Test
     public void countsOnlyGameChapters() {
         assertEquals(0, RecordingTimeline.gameCount(null));
-        assertEquals(1, RecordingTimeline.gameCount("00:00:00 準備與熱身\n00:00:10 Game1 A 11：7 B\n00:07:59 錄影結束"));
+        assertEquals(1, RecordingTimeline.gameCount("00:00:00  準備與熱身\n00:00:10  Game1 A 11：7 B\n00:07:59  錄影結束"));
+        assertEquals(2, RecordingTimeline.gameCount("00:00:00  準備與熱身\n00:10:05  Game1 A 11：7 B\n00:30:00  Game2 A 9：11 B"));
         assertEquals(2, RecordingTimeline.gameCount("00:00:00 準備與熱身\n00:10:05 Game1 A 11：7 B\n00:30:00 Game2 A 9：11 B"));
+        assertTrue(RecordingTimeline.hasValidChapters("00:00:00 準備與熱身\n00:10:05 Game1 A 11：7 B\n00:30:00 Game2 A 9：11 B"));
     }
 
     @Test
@@ -123,7 +125,7 @@ public final class RecordingTimelineTest {
         long start = Instant.parse("2026-09-30T11:00:00.000Z").toEpochMilli();
         long end = Instant.parse("2026-09-30T12:10:00.000Z").toEpochMilli();
         String text = RecordingTimeline.timeline(RecordingTimeline.matchesFromRoom(room), start, end);
-        assertTrue(text.contains("00:55:00 Game3 建昱／于萱 4：6 Yoyo"));
+        assertTrue(text.contains("00:55:00  Game3 建昱／于萱 4：6 Yoyo"));
     }
 
     @Test
@@ -154,7 +156,7 @@ public final class RecordingTimelineTest {
         long start = Instant.parse("2026-09-30T11:00:00.000Z").toEpochMilli();
         long end = Instant.parse("2026-09-30T12:10:00.000Z").toEpochMilli();
         String text = RecordingTimeline.timeline(RecordingTimeline.matchesFromRoom(room), start, end);
-        assertEquals("00:00:00 準備與熱身\n00:10:05 Game1 建昱／于萱 11：7 Yoyo／澐緁\n01:09:59 錄影結束", text);
+        assertEquals("00:00:00  準備與熱身\n00:10:05  Game1 建昱／于萱 11：7 Yoyo／澐緁\n01:09:59  錄影結束", text);
     }
 
     @Test
@@ -167,10 +169,10 @@ public final class RecordingTimelineTest {
         long end = Instant.parse("2026-09-30T12:10:00.000Z").toEpochMilli();
         String text = RecordingTimeline.timeline(RecordingTimeline.matchesFromRoom(
                 RecordingTimeline.withArchivedHistory(room, Arrays.asList(archived))), start, end);
-        assertEquals("00:00:00 準備與熱身\n"
-                + "00:10:05 Game1 建昱／于萱 11：7 Yoyo／澐緁\n"
-                + "00:30:00 Game2 建昱／于萱 9：11 Yoyo／澐緁", text);
-        assertFalse(RecordingTimeline.hasGameChapter("00:00:00 準備與熱身"));
+        assertEquals("00:00:00  準備與熱身\n"
+                + "00:10:05  Game1 建昱／于萱 11：7 Yoyo／澐緁\n"
+                + "00:30:00  Game2 建昱／于萱 9：11 Yoyo／澐緁", text);
+        assertFalse(RecordingTimeline.hasGameChapter("00:00:00  準備與熱身"));
         assertTrue(RecordingTimeline.hasGameChapter(text));
     }
 
@@ -183,9 +185,9 @@ public final class RecordingTimelineTest {
         long end = Instant.parse("2026-09-30T12:10:00.000Z").toEpochMilli();
         String text = RecordingTimeline.timeline(RecordingTimeline.matchesFromRoom(
                 RecordingTimeline.withArchivedHistory(room, Arrays.asList(archived))), start, end);
-        assertEquals("00:00:00 準備與熱身\n"
-                + "00:10:05 Game1 建昱／于萱 11：7 Yoyo／澐緁\n"
-                + "00:30:00 Game2 建昱／于萱 9：11 Yoyo／澐緁", text);
+        assertEquals("00:00:00  準備與熱身\n"
+                + "00:10:05  Game1 建昱／于萱 11：7 Yoyo／澐緁\n"
+                + "00:30:00  Game2 建昱／于萱 9：11 Yoyo／澐緁", text);
     }
 
     @Test

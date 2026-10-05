@@ -84,7 +84,7 @@ final class RecordingTimeline {
     static int gameCount(String description) {
         if (description == null) return 0;
         int count = 0;
-        for (String line : description.split("\\n")) if (line.matches("\\d{2}:\\d{2}:\\d{2} Game\\d+ .*")) count++;
+        for (String line : description.split("\\n")) if (line.matches("\\d{2}:\\d{2}:\\d{2} +Game\\d+ .*")) count++;
         return count;
     }
 
@@ -166,14 +166,14 @@ final class RecordingTimeline {
             previousStart = match.startMs;
         }
         included = unique;
-        StringBuilder text = new StringBuilder("00:00:00 準備與熱身");
+        StringBuilder text = new StringBuilder("00:00:00  準備與熱身");
         long previous = 0L;
         for (int i = 0; i < included.size(); i++) {
             Match match = included.get(i);
             long offset = videoMillis(match.startMs, recordingStartMs, pauses) / 1000L;
             if (offset < previous + 10L) offset = previous + 10L;
             previous = offset;
-            text.append('\n').append(formatOffset(offset)).append(" Game").append(i + 1).append(' ')
+            text.append('\n').append(formatOffset(offset)).append("  Game").append(i + 1).append(' ')
                     .append(match.left).append(' ').append(match.scoreA).append('：').append(match.scoreB)
                     .append(' ').append(match.right);
         }
@@ -202,7 +202,7 @@ final class RecordingTimeline {
         long offset = duration - 1L;
         if (offset < previous + 10L) offset = previous + 10L;
         if (offset < previous + 10L || offset >= duration) return;
-        text.append('\n').append(formatOffset(offset)).append(" 錄影結束");
+        text.append('\n').append(formatOffset(offset)).append("  錄影結束");
     }
 
     static boolean hasValidChapters(String description) {

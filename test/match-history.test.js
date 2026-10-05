@@ -39,7 +39,7 @@ test('builds YouTube offsets and full session duration from recorded timestamps'
 
 test('creates a copyable YouTube chapter list from the recording start',()=>{
   const matches=[{match:{startedAt:'2026-09-25T01:22:34.000Z',teams:[['yoyo','jie'],['yu','xuan']],scores:[11,9]}}];
-  assert.equal(youtubeTimelineText(matches,'2026-09-25T01:00:00.000Z',id=>({yoyo:'Yoyo',jie:'澐緁',yu:'建昱',xuan:'于萱'})[id]),'00:00:00 準備與熱身\n00:22:34 Game1 Yoyo／澐緁 11：9 建昱／于萱');
+  assert.equal(youtubeTimelineText(matches,'2026-09-25T01:00:00.000Z',id=>({yoyo:'Yoyo',jie:'澐緁',yu:'建昱',xuan:'于萱'})[id]),'00:00:00  準備與熱身\n00:22:34  Game1 Yoyo／澐緁 11：9 建昱／于萱');
 });
 
 test('includes an official start in the timeline before that match ends',()=>{
@@ -47,7 +47,7 @@ test('includes an official start in the timeline before that match ends',()=>{
   const live={matchId:'live',startedAt:'2026-09-25T01:40:00.000Z',teams:[['yu','xuan'],['yoyo']],scores:[3,2]};
   const rows=withLiveTimelineMatch(finished,live);
   assert.equal(rows.length,2);
-  assert.equal(youtubeTimelineText(rows,'2026-09-25T01:00:00.000Z',id=>({yoyo:'Yoyo',jie:'澐緁',yu:'建昱',xuan:'于萱'})[id]),'00:00:00 準備與熱身\n00:10:00 Game1 Yoyo／澐緁 11：8 建昱／于萱\n00:40:00 Game2 建昱／于萱 3：2 Yoyo');
+  assert.equal(youtubeTimelineText(rows,'2026-09-25T01:00:00.000Z',id=>({yoyo:'Yoyo',jie:'澐緁',yu:'建昱',xuan:'于萱'})[id]),'00:00:00  準備與熱身\n00:10:00  Game1 Yoyo／澐緁 11：8 建昱／于萱\n00:40:00  Game2 建昱／于萱 3：2 Yoyo');
   assert.equal(withLiveTimelineMatch(rows,live).length,2);
   assert.deepEqual(withLiveTimelineMatch([],{startedAt:'2026-09-25T01:40:00.000Z',testMode:true}),[]);
   assert.deepEqual(withLiveTimelineDate([{dateKey:'2026-09-24',matches:[]}],{...live,dateKey:'2026-09-25'}).map(group=>group.dateKey),['2026-09-25','2026-09-24']);
@@ -60,7 +60,7 @@ test('lists one chapter when the same official start is loaded twice',()=>{
     {match:{matchId:'archive',startedAt:start,teams:[['yoyo','jie'],['yu','xuan']],scores:[11,7]}}
   ];
   const text=youtubeTimelineText(twice,'2026-09-30T11:00:00.000Z',id=>({yoyo:'Yoyo',jie:'澐緁',yu:'建昱',xuan:'于萱'})[id]);
-  assert.equal(text,'00:00:00 準備與熱身\n00:10:05 Game1 Yoyo／澐緁 11：7 建昱／于萱');
+  assert.equal(text,'00:00:00  準備與熱身\n00:10:05  Game1 Yoyo／澐緁 11：7 建昱／于萱');
   assert.equal(text.split('Game').length-1,1);
 });
 
