@@ -118,6 +118,7 @@ test('other admin devices ignore remote commands while another device is scoring
   assert.match(main,/function handleRemoteOfficialStartCommand[\s\S]*?if\(started&&ownsScoring\(state\.match,scoreDeviceId\)&&/);
   assert.match(main,/function handleRemoteNextMatchCommand[\s\S]*?!ownsScoring\(state\.match,scoreDeviceId\)[\s\S]*?startNext\(\)/);
   assert.match(main,/function handleRemoteUndoFinishedCommand[\s\S]*?!ownsScoring\(state\.match,scoreDeviceId\)[\s\S]*?performScoreRemoteAction\('undo'/);
+  assert.match(main,/lastRemoteStartMatchCommandId=id;[^\n]*\n[^\n]*\n\s*if\(initial\|\|requestedAndroidRemote\|\|!isHost\|\|!ownsScoring\(state\.match,scoreDeviceId\)\|\|state\.match\.active/);
   assert.equal((main.match(/scorerDevice:scoreDeviceId,startedAt:''/g)||[]).length,2);
   assert.doesNotMatch(main,/localStorage\.getItem\(DEVICE_SYNC_TOKEN_KEY\)[^;]*scoreDeviceId/);
 });
