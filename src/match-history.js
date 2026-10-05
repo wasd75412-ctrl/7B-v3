@@ -90,7 +90,7 @@ export function withLiveTimelineDate(groups=[],liveMatch=null){
 
 export function youtubeTimelineText(matches=[],sessionStartedAt='',playerName=id=>id){
   const timeline=matchDayTimeline(matches,sessionStartedAt);
-  const lines=['00:00:00 準備與熱身'];
+  const lines=['00:00:00  準備與熱身'];
   const seen=new Set();
   let game=0;
   timeline.rows.forEach(({match,offsetSeconds})=>{
@@ -100,7 +100,7 @@ export function youtubeTimelineText(matches=[],sessionStartedAt='',playerName=id
     game+=1;
     const left=(match.teams?.[0]||[]).map(playerName).join('／');
     const right=(match.teams?.[1]||[]).map(playerName).join('／');
-    lines.push(`${formatTimelineOffset(offsetSeconds)} Game${game} ${left} ${match.scores?.[0]??0}：${match.scores?.[1]??0} ${right}`);
+    lines.push(`${formatTimelineOffset(offsetSeconds)}  Game${game} ${left} ${match.scores?.[0]??0}：${match.scores?.[1]??0} ${right}`);
   });
   return lines.join('\n');
 }
