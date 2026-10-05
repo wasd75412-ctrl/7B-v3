@@ -1,7 +1,7 @@
 import { getBlobStore as getStore } from './lib/blob-store.mjs';
 import { EVENT_PACKING_MEMO_ITEMS, normalizePackingItems } from '../../src/event-packing-memo.js';
 import { PUSH_STORE, allRoomSubscriptions, configureWebPush, jsonResponse, sendWebPush } from './lib/push-shared.mjs';
-import { duePackingEvent, firestoreEventsFromDocument } from './lib/packing-reminder.mjs';
+import { PACKING_EVENTS_STORE, duePackingEvent, firestoreEventsFromDocument, roomEventsWithFallback } from './lib/packing-reminder.mjs';
 
 const FIREBASE_PROJECT='badminton-7a1c3';
 const FIREBASE_API_KEY='AIzaSyBrakbTPK7UqEChPBI6pM8-i03IcLq0IvM';
@@ -16,11 +16,11 @@ export default async()=>{
   const push=configureWebPush();
   if(!push)return jsonResponse({error:'提醒服務尚未完成設定。'},503);
   const siteUrl=push.siteUrl;
-  const store=getStore({name:PUSH_STORE,consistency:'strong'}),records=[...(await allRoomSubscriptions(store)).values()].flat().filter(item=>item.record.packingReminderEnabled===true);
+  const store=getStore({name:PUSH_STORE,consistency:'strong'}),eventStore=getStore({name:PACKING_EVENTS_STORE,consistency:'strong'}),records=[...(await allRoomSubscriptions(store)).values()].flat().filter(item=>item.record.packingReminderEnabled===true);
   const eventsByRoom=new Map();let sent=0,removed=0,failed=0;
   for(const item of records){
     let events=eventsByRoom.get(item.record.roomId);
-    if(!events){try{events=await getRoomEvents(item.record.roomId);eventsByRoom.set(item.record.roomId,events)}catch(error){console.error(error);failed++;continue}}
+    if(!events){try{events=await roomEventsWithFallback(eventStore,item.record.roomId,getRoomEvents);eventsByRoom.set(item.record.roomId,events)}catch(error){console.error(error);failed++;continue}}
     const event=duePackingEvent(events,item.record.lastPackingEventId,item.record.packingReminderMinutes);
     if(!event)continue;
     const items=Array.isArray(item.record.packingItems)?normalizePackingItems(item.record.packingItems):EVENT_PACKING_MEMO_ITEMS;
