@@ -36,12 +36,40 @@ import { groupHistoryDatesByMonth, groupMatchHistoryByDate, withLiveTimelineDate
 import { ROOM_HISTORY_KEEP, archiveCacheNeedsFullRefresh, archiveDocId, archiveSyncCursor, decodeArchivedMatch, mergeArchiveRows, readArchiveCache, writeArchiveCache, encodeArchivedMatch, mergeDeletedMatchIds, mergeMatchHistory, normalizeSyncMode, overflowHistory, readPendingArchives, recentHistory, shouldSkipFullRoomSync, writePendingArchives } from './match-archive.js';
 import { POLL_UNAVAILABLE, prunePollHistoryRows } from './poll-history.js';
 import { decodeStatsLedger, emptyStatsLedger, encodeStatsLedger, isSettledMonth, ledgerMonthGames, ledgerMonthRecord, ledgerPlayerRecord, ledgerRelations, ledgerStreak, ledgerTotalGames, newerStatsLedger, settleMatches, unsettledRows } from './stats-ledger.js';
+import { ERROR_LOG_KEY, ERROR_LOG_UPLOAD_GAP_MS, canUploadErrorLog, describeLoggedArgs, emptyErrorLog, errorLogPayload, markErrorLogUploaded, matchInPlay, normalizeErrorLog, reachedDailyUploads, recordErrorEntry } from './error-log.js';
 
 const firebaseConfig={apiKey:'AIzaSyBrakbTPK7UqEChPBI6pM8-i03IcLq0IvM',authDomain:'badminton-7a1c3.firebaseapp.com',projectId:'badminton-7a1c3',storageBucket:'badminton-7a1c3.firebasestorage.app',messagingSenderId:'883534015507',appId:'1:883534015507:web:a7f6fb318151b6d07563e6',measurementId:'G-C97B98H7YW'};
 const fbApp=initializeApp(firebaseConfig);
 const db=initializeFirestore(fbApp,{localCache:new URLSearchParams(location.search).get('androidRemote')==='1'?memoryLocalCache():persistentLocalCache({tabManager:persistentMultipleTabManager()})});
 const wait=ms=>new Promise(resolve=>setTimeout(resolve,ms));
 const BCM_VERSION=appPackage.version;
+let errorLog=readErrorLog(),errorLogSaveTimer=null,errorLogUploadTimer=null;
+function readErrorLog(){try{return normalizeErrorLog(JSON.parse(localStorage.getItem(ERROR_LOG_KEY)||'null'))}catch{return emptyErrorLog()}}
+function persistErrorLogSoon(){
+  if(errorLogSaveTimer)return;
+  errorLogSaveTimer=setTimeout(()=>{errorLogSaveTimer=null;try{localStorage.setItem(ERROR_LOG_KEY,JSON.stringify(errorLog))}catch{}},2000);
+}
+function noteClientError(kind,message,source=''){
+  try{errorLog=recordErrorEntry(errorLog,{kind,message,source});persistErrorLogSoon();scheduleErrorLogUpload()}catch{}
+}
+function scheduleErrorLogUpload(delay=ERROR_LOG_UPLOAD_GAP_MS){
+  if(errorLogUploadTimer||!errorLog.dirty||reachedDailyUploads(errorLog,localDateKey()))return;
+  errorLogUploadTimer=setTimeout(uploadErrorLog,delay);
+}
+function uploadErrorLog(){
+  errorLogUploadTimer=null;
+  const now=Date.now(),day=localDateKey();
+  if(!roomId||!isHost||!canUploadErrorLog(errorLog,{matchInProgress:matchInPlay(state.match),online:navigator.onLine,now,day})){scheduleErrorLogUpload();return}
+  const entries=errorLogPayload(errorLog);
+  errorLog=markErrorLogUploaded(errorLog,now,day);persistErrorLogSoon();
+  setDoc(doc(db,'badmintonRooms',roomId,'remoteControl',`errors-${scoreDeviceId}`),{platform:'web',device:scoreDeviceId,version:BCM_VERSION,agent:navigator.userAgent.slice(0,120),entries,updatedAt:serverTimestamp()}).catch(()=>{});
+}
+for(const level of ['warn','error']){
+  const original=console[level].bind(console);
+  console[level]=(...args)=>{original(...args);noteClientError(level,describeLoggedArgs(args))};
+}
+window.addEventListener('error',event=>noteClientError('error',event.message||describeLoggedArgs([event.error]),`${String(event.filename||'').split('/').pop()}:${event.lineno||0}`));
+window.addEventListener('unhandledrejection',event=>noteClientError('reject',describeLoggedArgs([event.reason])||String(event.reason??'')));
 const brandFontRequest=document.fonts?Promise.all([
   document.fonts.load('400 1em "JasonHandwriting9"','7B 羽球社'),
   document.fonts.load('400 1em "BCMBrandYu"','羽')
@@ -102,7 +130,7 @@ let roomMatchFallbackTimer=null,roomMatchFallbackKey='';
 let liveScoreSnapshotFromCache=false,liveScoreHasPendingWrites=false,pendingLiveScoreWrites=0,liveScoreWriteScheduled=false,liveScoreConnecting=false,liveScoreAvailable=true,liveScoreReady=false,liveScoreInitialSnapshot=true,remoteControlInitialSnapshot=true,remoteActionInitialSnapshot=true,liveScoreMigrationStarted=false,latestLiveMatch=null,lastRoomSnapshotData=null,lastRemoteRecordingStartCommandId='',lastRemoteFullscreenCommandId='',lastRemoteOfficialStartCommandId='',lastRemoteNextMatchCommandId='',lastRemoteUndoFinishedCommandId='',lastRemoteStartMatchCommandId='',lastRemoteActionCommandId='',seenRemoteActionIds=new Set(),androidOfficialStartPending=null,replacedRemoteMatchId='',replacedRemoteMatchAt=0;
 const RESULT_NEXT_MATCH_GUARD_MS=2000;
 let resultShownAt=0,remoteFinishPressAt=0;
-let localLinkHost=null,localLinkOpen=false,remoteDiagnostics=[],remoteDiagnosticsTimer=null,lastFirebaseOfficialStartId='';
+let localLinkHost=null,localLinkOpen=false,remoteDiagnostics=[],remoteDiagnosticsDirty=false,remoteDiagnosticsTimer=null,lastFirebaseOfficialStartId='';
 const REMOTE_SEEN_ACTION_PREFIX='bcmSeenRemoteActionsV1:',REMOTE_SEEN_ACTION_LIMIT=240;
 let firestoreLinkRecovering=false,firestoreLinkRecoverInFlight=false,firestoreLinkProbeInFlight=false,firestoreLinkLastProbeAt=0,firestoreLinkCooldownUntil=0,firestoreLinkProbeGeneration=0,firestoreLinkServerActivityAt=0,firestoreLinkPendingWritesSince=0;
 const CHAT_POLL_VISIBLE_MS=4000,CHAT_POLL_BACKGROUND_MS=60000;
@@ -1533,7 +1561,7 @@ async function submitPollVote(){
 }
 function savePollDeadline(){const input=$('pollDeadline'),value=input.value;if(!value)return alert('請先選擇投票截止日期與時間。');const deadline=new Date(value);if(isNaN(deadline.getTime()))return alert('投票截止時間格式不正確。');if(deadline.getTime()<=Date.now())return alert('投票截止時間必須晚於現在。');const wasExpired=isPollDeadlinePassed(state.schedulePoll);state.schedulePoll.deadlineAt=deadline.toISOString();if(wasExpired)state.schedulePoll.status='open';renderPoll();renderDashboard();saveSoon();alert(`投票截止時間已設定為 ${formatPollDeadline(state.schedulePoll.deadlineAt)}。`)}
 function clearPollDeadline(){const poll=state.schedulePoll;if(!poll.deadlineAt)return;const wasExpired=isPollDeadlinePassed(poll);poll.deadlineAt='';if(wasExpired)poll.status='open';renderPoll();renderDashboard();saveSoon()}
-function setError(msg=''){const b=$('cloudError');b.textContent=msg;b.classList.toggle('hidden',!msg)}function setLandingError(msg=''){const b=$('landingError');b.textContent=msg;b.classList.toggle('hidden',!msg)}
+function setError(msg=''){const b=$('cloudError');b.textContent=msg;b.classList.toggle('hidden',!msg);if(msg)noteClientError('ui',msg)}function setLandingError(msg=''){const b=$('landingError');b.textContent=msg;b.classList.toggle('hidden',!msg)}
 function setSync(text,type=''){
   const mainBadge=$('syncBadge'),scoreBadge=$('scoreSyncBadge');
   mainBadge.textContent=text;mainBadge.className='pill '+type;
@@ -1794,7 +1822,7 @@ async function connectRoom(id){
   unsubscribe?.();unsubscribe=null;
   liveScoreUnsubscribe?.();liveScoreUnsubscribe=null;
   stopRemoteControlChannels();
-  clearTimeout(remoteDiagnosticsTimer);remoteDiagnosticsTimer=null;remoteDiagnostics=[];lastFirebaseOfficialStartId='';
+  clearTimeout(remoteDiagnosticsTimer);remoteDiagnosticsTimer=null;remoteDiagnostics=[];remoteDiagnosticsDirty=false;lastFirebaseOfficialStartId='';
   chatUnsubscribe?.();chatUnsubscribe=null;
   clearChatPendingMedia();
   chatCollectionRef=null;chatMessages=[];chatMentionIds.clear();chatFirstRender=true;chatMessagesRenderKey='';chatRequestRunning=false;chatSendRunning=false;
@@ -2122,16 +2150,22 @@ function handleLocalLinkCommand({type,command}){
   return handled;
 }
 function logRemoteDiagnostic(kind,via,command,result){
-  if(requestedAndroidRemote||!isHost||!roomId)return;
+  if(requestedAndroidRemote||!isHost||!roomId||!ownsScoring(state.match,scoreDeviceId))return;
   const at=Date.now(),server=timestampMillis(command?.createdAt);
   remoteDiagnostics.push({kind,via,id:String(command?.id||''),at,client:Number(command?.clientCreatedAt)||0,server:via==='firebase'&&Number.isFinite(server)?server:0,result:String(result),sameMatch:String(command?.matchId??'')===String(state.match?.matchId||''),started:matchHasOfficiallyStarted(state.match),linkOpen:localLinkOpen});
   if(remoteDiagnostics.length>80)remoteDiagnostics=remoteDiagnostics.slice(-80);
+  remoteDiagnosticsDirty=true;
+  scheduleRemoteDiagnosticsUpload(3000);
+}
+function scheduleRemoteDiagnosticsUpload(delay){
   if(remoteDiagnosticsTimer)return;
   remoteDiagnosticsTimer=setTimeout(()=>{
     remoteDiagnosticsTimer=null;
-    if(!roomId||!isHost)return;
-    setDoc(doc(db,'badmintonRooms',roomId,'remoteControl','diagnostics'),{entries:remoteDiagnostics,version:BCM_VERSION,updatedAt:serverTimestamp()}).catch(()=>{});
-  },3000);
+    if(!remoteDiagnosticsDirty||!roomId||!isHost)return;
+    if(matchInPlay(state.match)||!navigator.onLine){scheduleRemoteDiagnosticsUpload(15000);return}
+    remoteDiagnosticsDirty=false;
+    setDoc(doc(db,'badmintonRooms',roomId,'remoteControl','diagnostics'),{entries:remoteDiagnostics,device:scoreDeviceId,version:BCM_VERSION,updatedAt:serverTimestamp()}).catch(()=>{});
+  },delay);
 }
 function deleteRemoteScore(ref){
   if(requestedAndroidRemote||!isHost||!ownsScoring(state.match,scoreDeviceId))return;

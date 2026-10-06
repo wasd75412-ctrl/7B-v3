@@ -29,6 +29,7 @@ final class KeyAccessRepair {
             return true;
         } catch (RuntimeException error) {
             Log.w("7BKeyAccess", "Unable to re-enable key access", error);
+            ErrorLog.record(context, "keyAccess", "無法恢復按鍵服務", error);
             return false;
         }
     }

@@ -244,7 +244,7 @@ final class LocalLinkClient {
         }, new SessionDescription(SessionDescription.Type.ANSWER, (String) sdp));
     }
 
-    private String deviceId() {
+    String deviceId() {
         if (deviceId != null) return deviceId;
         SharedPreferences preferences = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE);
         String stored = preferences.getString("deviceId", "");

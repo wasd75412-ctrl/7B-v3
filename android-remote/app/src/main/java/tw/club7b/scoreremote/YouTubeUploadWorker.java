@@ -122,6 +122,7 @@ public final class YouTubeUploadWorker extends Worker {
             mark(entry, RecordingUploadStore.Status.MISSING, "");
         } catch (YouTubeUploader.HttpError error) {
             Log.w("7BYouTube", "Upload failed", error);
+            ErrorLog.record(getApplicationContext(), "youtube", "上傳失敗", error);
             if (error.code == 401) {
                 mark(entry, RecordingUploadStore.Status.AUTH_REQUIRED, "");
             } else if (error.code == 404 || error.code == 410) {
@@ -136,6 +137,7 @@ public final class YouTubeUploadWorker extends Worker {
             }
         } catch (Exception error) {
             Log.w("7BYouTube", "Upload interrupted", error);
+            ErrorLog.record(getApplicationContext(), "youtube", "上傳中斷", error);
             if (error instanceof TokenMissing) mark(entry, RecordingUploadStore.Status.AUTH_REQUIRED, "");
             else mark(entry, RecordingUploadStore.Status.WAITING, "");
         }
@@ -180,6 +182,7 @@ public final class YouTubeUploadWorker extends Worker {
             RecordingUploadStore.save(context, entry);
         } catch (Exception error) {
             Log.w("7BYouTube", "Could not refresh timeline", error);
+            ErrorLog.record(getApplicationContext(), "youtube", "時間軸更新失敗", error);
         }
     }
 
@@ -192,6 +195,7 @@ public final class YouTubeUploadWorker extends Worker {
                 if (loaded != null) room = loaded;
             } catch (Exception error) {
                 Log.w("7BYouTube", "Could not load match history", error);
+                ErrorLog.record(getApplicationContext(), "youtube", "比賽紀錄讀取失敗", error);
             }
         }
         return RecordingTimeline.timeline(RecordingTimeline.matchesFromRoom(room), entry.startMs, entry.endMs, entry.pauses);
@@ -221,6 +225,7 @@ public final class YouTubeUploadWorker extends Worker {
             return auth.token();
         } catch (Exception error) {
             Log.w("7BYouTube", "Authorization unavailable", error);
+            ErrorLog.record(null, "youtube", "授權無法使用", error);
             return null;
         }
     }

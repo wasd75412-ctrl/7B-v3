@@ -85,8 +85,8 @@ test('touch events only intercept the P4 remote now that YUNTENG is removed',()=
 test('Android keeps a live match listener so the first remote press is ready',()=>{
   const loop=readFileSync(new URL('../android-remote/app/src/main/java/tw/club7b/scoreremote/LoopCameraActivity.java',import.meta.url),'utf8');
   assert.match(controller,/matchListener = liveScoreReference\(session\)\.addSnapshotListener/);
-  assert.match(controller,/if \(error != null\) onMatchListenerFailed\(roomId\);/);
-  assert.match(controller,/private synchronized void onMatchListenerFailed\(String roomId\) \{[\s\S]*?matchKnown = false;[\s\S]*?retryHandler\.postDelayed/);
+  assert.match(controller,/if \(error != null\) onMatchListenerFailed\(roomId, error\);/);
+  assert.match(controller,/private synchronized void onMatchListenerFailed\(String roomId, Exception error\) \{\s*ErrorLog\.record\(context, "score", "比分監聽中斷", error\);[\s\S]*?matchKnown = false;[\s\S]*?retryHandler\.postDelayed/);
   assert.match(controller,/void warmUp\(WarmUpCallback callback\) \{[\s\S]*?ensureMatchListener\(session\);/);
   assert.match(controller,/synchronized void release\(\) \{\s*retryHandler\.removeCallbacksAndMessages\(null\);\s*if \(matchListener != null\) matchListener\.remove\(\)/);
   assert.match(activity,/backgroundScoreController\.release\(\)/);
