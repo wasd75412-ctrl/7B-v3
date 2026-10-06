@@ -333,7 +333,7 @@ test('removes the old score remote from More and provides a no-stats test mode',
   assert.match(mainSource,/if\(isTestMatch\)\{[\s\S]*?m\.testCompleted=true/);
   assert.match(mainSource,/else\{\s*state\.history\.push/);
   assert.match(mainSource,/\.filter\(h=>!h\.testMode\)/);
-  assert.match(mainSource,/renderAll\(\);\s*if\(isHost&&!isTestMatch\)\{bumpLineupRevision\(\);void persistLineupNow\(\)\}\s*if\(isHost\)saveLiveScoreSoon\(\)/);
+  assert.match(mainSource,/renderAll\(\);\s*if\(isHost&&!isTestMatch\)bumpLineupRevision\(\);\s*if\(isHost\)saveLiveScoreSoon\(\)/);
   assert.match(mainSource,/function scoredHistory\(\)\{return state\.history\.filter\(h=>!h\.testMode\)\}/);
   assert.match(mainSource,/state\.match\.testMode=enabling;\s*saveLiveScoreSoon\(\)/);
   assert.match(mainSource,/state\.match\?\.winner===null&&!!state\.match\?\.testMode/);

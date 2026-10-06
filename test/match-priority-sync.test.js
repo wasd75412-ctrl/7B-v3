@@ -8,8 +8,9 @@ test('finished matches sync and back up their own record immediately',()=>{
   const finishFlow=source.slice(source.indexOf('function finishMatch()'),source.indexOf('function updatePriority()'));
   const finishedSyncFlow=source.slice(source.indexOf('async function syncFinishedMatchNow'),source.indexOf('function adoptRestoredState'));
   const sessionFlow=source.slice(source.indexOf('async function endTodaySession'),source.indexOf('function page(')===-1?source.length:source.indexOf('$(\'deletePlayer\')'));
-  assert.match(finishFlow,/if\(isHost&&!isTestMatch\)\{bumpLineupRevision\(\);void persistLineupNow\(\)\}\s*if\(isHost\)saveLiveScoreSoon\(\);\s*if\(firstCompletion&&!isTestMatch\)\{archiveUnsyncedHistory\(\);void syncFinishedMatchNow\(m\.matchId\)\}/);
-  assert.match(finishedSyncFlow,/await slimRoomHistoryIfNeeded\(\);[\s\S]*?await saveNow\(\);[\s\S]*?archiveUnsyncedHistory\(\);[\s\S]*?await createCloudBackup\('auto',\{id:`auto_\$\{matchId\}`,replace:true,silent:true,system:true\}\)/);
+  assert.match(finishFlow,/if\(isHost&&!isTestMatch\)bumpLineupRevision\(\);\s*if\(isHost\)saveLiveScoreSoon\(\);\s*if\(firstCompletion&&!isTestMatch\)\{archiveUnsyncedHistory\(\);void syncFinishedMatchNow\(m\.matchId,\{lineup:isHost\}\)\}\s*else if\(isHost&&!isTestMatch\)void persistLineupNow\(\);/);
+  assert.match(finishedSyncFlow,/await slimRoomHistoryIfNeeded\(\);[\s\S]*?await saveNow\(\);\s*if\(lineupPending\)\{lineupPending=false;await persistLineupAfterRoomWrites\(\)\}\s*archiveUnsyncedHistory\(\);[\s\S]*?await createCloudBackup\('auto',\{id:`auto_\$\{matchId\}`,replace:true,silent:true,system:true\}\)/);
+  assert.match(finishedSyncFlow,/finally\{\s*if\(lineupPending\)await persistLineupNow\(\);\s*\}/);
   assert.doesNotMatch(finishFlow,/saveCompletedMatchStatsNow|\bsaveSoon\(/);
   assert.match(source,/function archiveUnsyncedHistory\(\)\{[\s\S]*?!row\.testMode&&!archivedHistory\.some[\s\S]*?void publishMatchArchive\(missing\)/);
   assert.match(source,/unarchiveReopenedMatch\(matchId\);\s*return true;/);
