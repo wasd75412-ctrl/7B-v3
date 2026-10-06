@@ -1,5 +1,5 @@
 import { initializeApp } from 'firebase/app';
-import { initializeFirestore, memoryLocalCache, persistentLocalCache, persistentMultipleTabManager, disableNetwork, enableNetwork, doc, getDoc, getDocFromServer, onSnapshot, setDoc, writeBatch, serverTimestamp, runTransaction, collection, getDocs, deleteDoc, query, orderBy, limit, where, documentId } from 'firebase/firestore';
+import { initializeFirestore, memoryLocalCache, persistentLocalCache, persistentMultipleTabManager, disableNetwork, enableNetwork, waitForPendingWrites, doc, getDoc, getDocFromServer, onSnapshot, setDoc, writeBatch, serverTimestamp, runTransaction, collection, getDocs, deleteDoc, query, orderBy, limit, where, documentId } from 'firebase/firestore';
 import appPackage from '../package.json';
 import { calculateCombinedPerPersonFee, calculatePerPersonFee, shouldShowNextEventAnnouncement, suggestedEventEndTime } from './next-event.js';
 import { shouldShowNotificationPrompt } from './notifications.js';
@@ -36,6 +36,7 @@ import { groupHistoryDatesByMonth, groupMatchHistoryByDate, withLiveTimelineDate
 import { ROOM_HISTORY_KEEP, archiveCacheNeedsFullRefresh, archiveDocId, archiveSyncCursor, decodeArchivedMatch, mergeArchiveRows, readArchiveCache, writeArchiveCache, encodeArchivedMatch, mergeDeletedMatchIds, mergeMatchHistory, normalizeSyncMode, overflowHistory, readPendingArchives, recentHistory, shouldSkipFullRoomSync, writePendingArchives } from './match-archive.js';
 import { POLL_UNAVAILABLE, prunePollHistoryRows } from './poll-history.js';
 import { decodeStatsLedger, emptyStatsLedger, encodeStatsLedger, isSettledMonth, ledgerMonthGames, ledgerMonthRecord, ledgerPlayerRecord, ledgerRelations, ledgerStreak, ledgerTotalGames, newerStatsLedger, settleMatches, unsettledRows } from './stats-ledger.js';
+import { APP_UPDATE_ATTEMPT_KEY, APP_UPDATE_CHECK_MS, APP_UPDATE_RETRY_MS, canReloadForUpdate, shouldAdoptVersion } from './app-update.js';
 import { ERROR_LOG_KEY, ERROR_LOG_UPLOAD_GAP_MS, canUploadErrorLog, describeLoggedArgs, emptyErrorLog, errorLogPayload, markErrorLogUploaded, matchInPlay, normalizeErrorLog, reachedDailyUploads, recordErrorEntry } from './error-log.js';
 
 const firebaseConfig={apiKey:'AIzaSyBrakbTPK7UqEChPBI6pM8-i03IcLq0IvM',authDomain:'badminton-7a1c3.firebaseapp.com',projectId:'badminton-7a1c3',storageBucket:'badminton-7a1c3.firebasestorage.app',messagingSenderId:'883534015507',appId:'1:883534015507:web:a7f6fb318151b6d07563e6',measurementId:'G-C97B98H7YW'};
@@ -3951,3 +3952,30 @@ if('serviceWorker'in navigator&&location.protocol.startsWith('http')){
   const swRevision=BCM_VERSION;
   navigator.serviceWorker.register(`./sw.js?v=${swRevision}`,{updateViaCache:'none'}).then(registration=>registration.update()).catch(()=>{});
 }
+let pendingAppVersion='',appUpdateTimer=null,lastUserInputAt=Date.now();
+for(const type of ['pointerdown','keydown'])document.addEventListener(type,()=>{lastUserInputAt=Date.now()},{capture:true,passive:true});
+async function checkForAppUpdate(){
+  if(pendingAppVersion||!location.protocol.startsWith('http')||!navigator.onLine||matchInPlay(state.match))return;
+  try{
+    const response=await fetch('./version.json',{cache:'no-cache'});
+    if(!response.ok)return;
+    const {version}=await response.json();
+    if(!shouldAdoptVersion(version,BCM_VERSION,sessionStorage.getItem(APP_UPDATE_ATTEMPT_KEY)))return;
+    pendingAppVersion=String(version);
+    reloadForUpdateWhenIdle();
+  }catch{}
+}
+// Pages left open would otherwise keep running old remote-command code against newer devices.
+async function reloadForUpdateWhenIdle(){
+  clearTimeout(appUpdateTimer);appUpdateTimer=null;
+  if(!pendingAppVersion)return;
+  const ready=navigator.onLine&&canReloadForUpdate({matchInPlay:matchInPlay(state.match),scoreVisible:!$('scoreView').classList.contains('hidden'),modalOpen:!!document.querySelector('.modal:not(.hidden)'),editing:isEditableRemoteTarget(document.activeElement),hidden:document.visibilityState==='hidden',idleMs:Date.now()-lastUserInputAt});
+  const flushed=ready&&await Promise.race([waitForPendingWrites(db).then(()=>true,()=>false),wait(5000).then(()=>false)]);
+  if(!flushed){appUpdateTimer=setTimeout(reloadForUpdateWhenIdle,APP_UPDATE_RETRY_MS);return}
+  sessionStorage.setItem(APP_UPDATE_ATTEMPT_KEY,pendingAppVersion);
+  location.reload();
+}
+setInterval(checkForAppUpdate,APP_UPDATE_CHECK_MS);
+document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible')checkForAppUpdate();else if(pendingAppVersion)reloadForUpdateWhenIdle()});
+window.addEventListener('online',checkForAppUpdate);
+setTimeout(checkForAppUpdate,30_000);
