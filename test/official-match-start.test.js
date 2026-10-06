@@ -70,7 +70,9 @@ test('Android gates the official start with a double press before sending anythi
   assert.match(controller,/WAIT_FOR_SECOND_PRESS\) \{\s*if \(callback != null\) callback\.onComplete\(true, "再按一下正式開始", action\);\s*return;/);
   assert.match(controller,/OFFICIAL_START\) \{[\s\S]*?startOfficialMatch\(/);
   assert.doesNotMatch(controller,/doublePress|OFFICIAL_START_DOUBLE_PRESS_MS/);
-  assert.match(activity,/TEAM_A_PLUS \|\| action == VolumeKeyInterpreter\.Action\.TEAM_B_PLUS\) \{\s*sendScoreAction\(action\);\s*return;/);
+  const remoteAction=activity.match(/private void sendRemoteAction\(VolumeKeyInterpreter\.Action action\) \{[\s\S]*?\n    \}/)?.[0]||'';
+  assert.match(remoteAction,/\} else \{\s*return;\s*\}\s*sendScoreAction\(action\);/);
+  assert.doesNotMatch(remoteAction,/webView|bcmAndroidRemoteInput/);
 });
 
 test('touch events only intercept the P4 remote now that YUNTENG is removed',()=>{
@@ -115,7 +117,7 @@ test('Android appends every score press immediately instead of holding later pre
   assert.doesNotMatch(controller,/COMMAND_DELIVERY_GAP_MS|commandHandler\.postDelayed\(this::processNext|remoteActionLog/);
   assert.match(controller,/Map<String, Object> command = actionCommand\(request, matchId, id\);[\s\S]*?if \(""\.equals\(command\.get\("action"\)\)\)[\s\S]*?remoteControl\.getParent\(\)\.document\("score-" \+ id\)\.set\(command\)/);
   assert.match(controller,/command\.put\("clientCreatedAt", request\.clientCreatedAt\)/);
-  assert.match(controller,/reported\.compareAndSet\(false, true\) && request\.callback != null\) \{\s*request\.callback\.onComplete\(true, "已送出遙控器指令", request\.action\);/);
+  assert.match(controller,/\.set\(command\)\s*\.addOnSuccessListener\(ignored -> feedback\.report\(true, "已送出遙控器指令"\)\)\s*\.addOnFailureListener\(error -> feedback\.report\(false, errorMessage\(error\)\)\);\s*feedback\.awaitAck\(direct, "已送出遙控器指令"\);/);
   assert.match(main,/query\(collection\(db,'badmintonRooms',id,'remoteControl'\),where\(documentId\(\),'>=','score-'\),where\(documentId\(\),'<','score\.'\)\);\s*remoteActionUnsubscribe=resilientSnapshot\(remoteScoreQuery,[\s\S]*?change\.doc\.id\.startsWith\('score-'\)[\s\S]*?handleRemoteActionCommand\(\{remoteActionCommand:item\.command\},\{initial:false,skipAge:true\}\)/);
   assert.match(main,/if\(!id\|\|seenRemoteActionIds\.has\(id\)\)return false;\s*rememberSeenRemoteActionId\(id\)/);
   assert.match(main,/seenRemoteActionIds=loadSeenRemoteActionIds\(id\)/);
@@ -128,7 +130,7 @@ test('result-screen remote next match is scoped to the finished match score keys
   assert.match(guard,/state\.match\.active&&state\.match\.winner!==null/);
   assert.match(guard,/String\(command\?\.matchId\?\?''\)===String\(state\.match\.matchId\?\?''\)/);
   assert.match(main,/resultVisible=!\$\('resultModal'\)\.classList\.contains\('hidden'\)&&state\.match\.winner!==null/);
-  assert.match(main,/else if\(isResultScreenNextMatchPress\(command,action\)\)startNext\(\)/);
+  assert.match(main,/else if\(isResultScreenNextMatchPress\(command,action\)\)startNextFromRemote\(\)/);
 });
 
 test('official start is idempotent and scoring waits for it',()=>{
@@ -197,7 +199,7 @@ test('touchscreen scoring cannot bypass the official start timestamp',()=>{
 test('an official start pressed before the next match is shown never carries over',()=>{
   const start=controller.match(/void startOfficialMatch\(FullscreenCallback callback\) \{[\s\S]*?\n    \}/)?.[0]||'';
   assert.match(start,/ensureMatchListener\(session\);/);
-  assert.match(start,/remoteControl\.set\(updates, SetOptions\.merge\(\)\)\s*\.addOnFailureListener\(error -> callback\.onComplete\(false, errorMessage\(error\)\)\);\s*callback\.onComplete\(true, "已送出正式開始比賽"\);/);
+  assert.match(start,/remoteControl\.set\(updates, SetOptions\.merge\(\)\)\s*\.addOnSuccessListener\(ignored -> feedback\.report\(true, "已送出正式開始比賽"\)\)\s*\.addOnFailureListener\(error -> feedback\.report\(false, errorMessage\(error\)\)\);\s*feedback\.awaitAck\(direct, "已送出正式開始比賽"\);/);
   assert.doesNotMatch(controller,/cachedFinishedMatchId/);
   assert.match(start,/if \(match\.get\("winner"\) != null\) throw new IllegalStateException\("本場比賽已結束"\);/);
   assert.match(start,/\.addOnSuccessListener\(ignored -> \{\s*sendDirect\("officialStart", sentCommand\.get\(\)\);/);

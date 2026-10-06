@@ -55,7 +55,10 @@ final class BackgroundScoreController {
     private static final long START_ECHO_SUPPRESS_MS = 500L;
     private static final long LISTENER_RETRY_BASE_MS = 3_000L;
     private static final long LISTENER_RETRY_MAX_MS = 60_000L;
+    private static final long WRITE_ACK_TIMEOUT_MS = 2_500L;
+    private static final String SLOW_WRITE_MESSAGE = "網路較慢，指令排隊中，請勿重按";
     private final android.os.Handler retryHandler = new android.os.Handler(android.os.Looper.getMainLooper());
+    private final android.os.Handler feedbackHandler = new android.os.Handler(android.os.Looper.getMainLooper());
     private int listenerRetryAttempt;
     private final OfficialStartGate officialStartGate = new OfficialStartGate();
     private ListenerRegistration matchListener;
@@ -222,6 +225,8 @@ final class BackgroundScoreController {
         matchActive = nextActive;
         matchFinished = nextFinished;
         matchKnown = true;
+        DocumentReference room = snapshot.getReference().getParent().getParent();
+        if (room != null) LocalLinkClient.shared(context).setMatchActive(room.getId(), nextActive);
     }
 
     synchronized void release() {
@@ -260,10 +265,12 @@ final class BackgroundScoreController {
         String cachedMatchId = cachedPreStartMatchId();
         if (cachedMatchId != null) {
             Map<String, Object> updates = officialStartUpdates(cachedMatchId, clientCreatedAt);
-            sendDirect("officialStart", updates.get("officialStartCommand"));
+            boolean direct = sendDirect("officialStart", updates.get("officialStartCommand"));
+            Feedback feedback = new Feedback((success, message) -> callback.onComplete(success, message));
             remoteControl.set(updates, SetOptions.merge())
-                    .addOnFailureListener(error -> callback.onComplete(false, errorMessage(error)));
-            callback.onComplete(true, "已送出正式開始比賽");
+                    .addOnSuccessListener(ignored -> feedback.report(true, "已送出正式開始比賽"))
+                    .addOnFailureListener(error -> feedback.report(false, errorMessage(error)));
+            feedback.awaitAck(direct, "已送出正式開始比賽");
             return;
         }
         AtomicReference<Object> sentCommand = new AtomicReference<>();
@@ -291,14 +298,14 @@ final class BackgroundScoreController {
                 .addOnFailureListener(error -> callback.onComplete(false, errorMessage(error)));
     }
 
-    private void sendDirect(String type, Object command) {
-        if (!(command instanceof Map)) return;
+    private boolean sendDirect(String type, Object command) {
+        if (!(command instanceof Map)) return false;
         Map<String, Object> message = new HashMap<>();
         for (Map.Entry<?, ?> entry : ((Map<?, ?>) command).entrySet()) {
             if (!"createdAt".equals(entry.getKey())) message.put(String.valueOf(entry.getKey()), entry.getValue());
         }
         message.put("type", type);
-        LocalLinkClient.shared(context).send(message);
+        return LocalLinkClient.shared(context).send(message);
     }
 
     private static Map<String, Object> officialStartUpdates(String matchId, long clientCreatedAt) {
@@ -364,22 +371,42 @@ final class BackgroundScoreController {
     }
 
     private void deliverAction(DocumentReference remoteControl, Request request, String matchId) {
-        AtomicBoolean reported = new AtomicBoolean(false);
         String id = java.util.UUID.randomUUID().toString();
         Map<String, Object> command = actionCommand(request, matchId, id);
         if ("".equals(command.get("action"))) {
             if (request.callback != null) request.callback.onComplete(false, "無法辨識的計分鍵", request.action);
             return;
         }
-        sendDirect("action", command);
+        Feedback feedback = new Feedback((success, message) -> {
+            if (request.callback != null) request.callback.onComplete(success, message, request.action);
+        });
+        boolean direct = sendDirect("action", command);
         remoteControl.getParent().document("score-" + id).set(command)
-                .addOnFailureListener(error -> {
-                    if (reported.compareAndSet(false, true) && request.callback != null) {
-                        request.callback.onComplete(false, errorMessage(error), request.action);
-                    }
-                });
-        if (reported.compareAndSet(false, true) && request.callback != null) {
-            request.callback.onComplete(true, "已送出遙控器指令", request.action);
+                .addOnSuccessListener(ignored -> feedback.report(true, "已送出遙控器指令"))
+                .addOnFailureListener(error -> feedback.report(false, errorMessage(error)));
+        feedback.awaitAck(direct, "已送出遙控器指令");
+    }
+
+    // Reports once: right away when the direct link delivered, otherwise on the Firestore ack.
+    // A queued offline write still lands later, so the slow notice warns against a second press.
+    private final class Feedback {
+        private final AtomicBoolean reported = new AtomicBoolean(false);
+        private final FullscreenCallback callback;
+        private final Runnable slow = () -> report(false, SLOW_WRITE_MESSAGE);
+
+        Feedback(FullscreenCallback callback) {
+            this.callback = callback;
+        }
+
+        void awaitAck(boolean deliveredDirectly, String successMessage) {
+            if (deliveredDirectly) report(true, successMessage);
+            else feedbackHandler.postDelayed(slow, WRITE_ACK_TIMEOUT_MS);
+        }
+
+        void report(boolean success, String message) {
+            if (!reported.compareAndSet(false, true)) return;
+            feedbackHandler.removeCallbacks(slow);
+            callback.onComplete(success, message);
         }
     }
 

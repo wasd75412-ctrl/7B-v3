@@ -58,6 +58,8 @@ final class LocalLinkClient {
     private Object ipadReadySeen;
     private String deviceId;
     private int failedAttempts;
+    private String desiredRoomId = "";
+    private boolean matchActive;
 
     private LocalLinkClient(Context context) {
         this.context = context.getApplicationContext();
@@ -70,6 +72,15 @@ final class LocalLinkClient {
 
     void ensureStarted(RemoteSessionStore.Session session) {
         handler.post(() -> start(session));
+    }
+
+    // Every offer is a Firestore write, so the link only runs while the room has a match in play.
+    void setMatchActive(String roomId, boolean active) {
+        handler.post(() -> {
+            if (!roomId.equals(desiredRoomId)) return;
+            matchActive = active;
+            sync();
+        });
     }
 
     boolean isOpen() {
@@ -90,10 +101,21 @@ final class LocalLinkClient {
 
     private void start(RemoteSessionStore.Session session) {
         if (!session.isAuthorized()) return;
-        if (session.roomId.equals(roomId) && linkListener != null) return;
-        if (linkListener != null) linkListener.remove();
-        closePeer();
-        roomId = session.roomId;
+        if (!session.roomId.equals(desiredRoomId)) {
+            desiredRoomId = session.roomId;
+            matchActive = false;
+        }
+        sync();
+    }
+
+    private void sync() {
+        if (!matchActive || desiredRoomId.isEmpty()) {
+            stop();
+            return;
+        }
+        if (desiredRoomId.equals(roomId) && linkListener != null) return;
+        stop();
+        roomId = desiredRoomId;
         ipadReadySeen = null;
         linkRef = BackgroundScoreController.firestore(context).collection("badmintonRooms").document(roomId)
                 .collection("remoteControl").document(DOC_ID);
@@ -101,6 +123,16 @@ final class LocalLinkClient {
             if (error == null && snapshot != null && snapshot.exists()) onLinkDocument(snapshot);
         });
         restart();
+    }
+
+    private void stop() {
+        if (linkListener != null) linkListener.remove();
+        linkListener = null;
+        closePeer();
+        linkRef = null;
+        roomId = "";
+        ipadReadySeen = null;
+        failedAttempts = 0;
     }
 
     private void closePeer() {
