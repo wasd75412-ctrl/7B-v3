@@ -5,7 +5,9 @@ import { allRoomSubscriptions, configureWebPush, indexSubscription, normalizeVap
 
 function vapidPair(){
   const ecdh=createECDH('prime256v1');ecdh.generateKeys();
-  return{publicKey:ecdh.getPublicKey().toString('base64url'),privateKey:ecdh.getPrivateKey().toString('base64url')};
+  // getPrivateKey() drops leading zero bytes, but VAPID private keys must be exactly 32 bytes.
+  const privateKey=ecdh.getPrivateKey(),padded=Buffer.concat([Buffer.alloc(32-privateKey.length),privateKey]);
+  return{publicKey:ecdh.getPublicKey().toString('base64url'),privateKey:padded.toString('base64url')};
 }
 
 function memoryStore({listFails=false}={}){
