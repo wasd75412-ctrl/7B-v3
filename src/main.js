@@ -2482,12 +2482,21 @@ async function saveNewMatchCheckpointNow(){
   finally{pendingLiveScoreWrites=Math.max(0,pendingLiveScoreWrites-1);updateSyncBadge()}
 }
 function checkpointNewMatch(){syncLocalLinkOwner();void saveNewMatchCheckpointNow().catch(error=>console.warn('比賽切換同步失敗',error))}
-async function syncFinishedMatchNow(matchId=''){
-  if(!isHost||!roomRef||!matchId)return;
+// The lineup transaction reads the room doc, so any room write still in flight makes its commit fail and retry.
+async function persistLineupAfterRoomWrites(){
+  if(liveScoreSaveTimer)await saveLiveScoreNow().catch(()=>{});
+  if(roomMatchFallbackTimer&&roomRef)await setDoc(roomRef,takeRoomMatchFallback(),{merge:true}).catch(()=>{});
+  await Promise.race([waitForPendingWrites(db).catch(()=>{}),wait(5000)]);
+  await persistLineupNow();
+}
+async function syncFinishedMatchNow(matchId='',{lineup=false}={}){
+  if(!isHost||!roomRef||!matchId){if(lineup)await persistLineupNow();return}
+  let lineupPending=lineup;
   try{
     setSync('賽後同步中','pending');
     await slimRoomHistoryIfNeeded();
     await saveNow();
+    if(lineupPending){lineupPending=false;await persistLineupAfterRoomWrites()}
     archiveUnsyncedHistory();
     await createCloudBackup('auto',{id:`auto_${matchId}`,replace:true,silent:true,system:true});
     setSync('已同步','online');
@@ -2496,6 +2505,8 @@ async function syncFinishedMatchNow(matchId=''){
     setSync('賽後同步失敗','error');
     setError(formatError(error));
     console.warn('賽後自動同步失敗',error);
+  }finally{
+    if(lineupPending)await persistLineupNow();
   }
 }
 function adoptRestoredState(data){
@@ -3100,9 +3111,10 @@ function finishMatch(){
   if(isHost)$('resultModal').classList.remove('hidden');else $('resultModal').classList.add('hidden');
   resultShownAt=Date.now();
   renderAll();
-  if(isHost&&!isTestMatch){bumpLineupRevision();void persistLineupNow()}
+  if(isHost&&!isTestMatch)bumpLineupRevision();
   if(isHost)saveLiveScoreSoon();
-  if(firstCompletion&&!isTestMatch){archiveUnsyncedHistory();void syncFinishedMatchNow(m.matchId)}
+  if(firstCompletion&&!isTestMatch){archiveUnsyncedHistory();void syncFinishedMatchNow(m.matchId,{lineup:isHost})}
+  else if(isHost&&!isTestMatch)void persistLineupNow();
 }
 function updatePriority(){
   const format=normalizeMatchFormat(state.match.format),needed=matchPlayerCount(format),selected=selectedNextLineup(format),vals=format===MATCH_FORMAT_SINGLES?selected:selected.length===needed&&new Set(selected).size===needed?teammateSafeLineup(selected):selected,projected=projectedQueueForLineup(vals);
