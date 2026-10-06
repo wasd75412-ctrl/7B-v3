@@ -60,11 +60,13 @@ test('a Firestore copy of a command already handled over the link is dropped and
   assert.match(main,/function handleRemoteOfficialStartCommand\(data,\{initial=false\}=\{\}\)\{\s*const id=String\(data\?\.officialStartCommand\?\.id\|\|''\);if\(!id\|\|id===lastRemoteOfficialStartCommandId\)return false;/);
 });
 
-test('the iPad records when each command arrives on each path',()=>{
+test('only the scoring device records when each command arrives on each path',()=>{
   const log=main.match(/function logRemoteDiagnostic\(kind,via,command,result\)\{[\s\S]*?\n\}/)?.[0]||'';
-  assert.match(log,/if\(requestedAndroidRemote\|\|!isHost\|\|!roomId\)return;/);
+  assert.match(log,/if\(requestedAndroidRemote\|\|!isHost\|\|!roomId\|\|!ownsScoring\(state\.match,scoreDeviceId\)\)return;/);
   assert.match(log,/remoteDiagnostics\.length>80/);
-  assert.match(log,/doc\(db,'badmintonRooms',roomId,'remoteControl','diagnostics'\)/);
+  const upload=main.match(/function scheduleRemoteDiagnosticsUpload\(delay\)\{[\s\S]*?\n\}/)?.[0]||'';
+  assert.match(upload,/if\(matchInPlay\(state\.match\)\|\|!navigator\.onLine\)\{scheduleRemoteDiagnosticsUpload\(15000\);return\}/);
+  assert.match(upload,/doc\(db,'badmintonRooms',roomId,'remoteControl','diagnostics'\),\{entries:remoteDiagnostics,device:scoreDeviceId,/);
 });
 
 test('Android sends each command over the link with the same id it writes to Firestore',()=>{

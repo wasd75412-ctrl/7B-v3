@@ -448,6 +448,7 @@ public final class LoopCameraActivity extends ComponentActivity {
             supportedQualities.addAll(supported);
         } catch (Exception error) {
             Log.w("7BRecording", "Unable to read supported recording qualities", error);
+            ErrorLog.record(this, "recording", "無法讀取錄影畫質", error);
         }
     }
 
@@ -552,6 +553,7 @@ public final class LoopCameraActivity extends ComponentActivity {
             return true;
         } catch (Exception error) {
             Log.w("7BRecording", "Unable to start recording at " + quality, error);
+            ErrorLog.record(this, "recording", "無法開始錄影 " + quality, error);
             videoCapture = null;
             try { provider.unbindAll(); } catch (Exception ignored) {}
             return false;
@@ -577,6 +579,7 @@ public final class LoopCameraActivity extends ComponentActivity {
                             .build());
         } catch (RuntimeException error) {
             Log.w("7BRecording", "Unable to apply recording contrast curve", error);
+            ErrorLog.record(null, "recording", "無法套用錄影對比", error);
         }
     }
 
@@ -585,7 +588,10 @@ public final class LoopCameraActivity extends ComponentActivity {
                 CameraEffect.VIDEO_CAPTURE,
                 0,
                 overlayHandler,
-                error -> Log.e("7BRecording", "Score overlay failed", error)
+                error -> {
+                    Log.e("7BRecording", "Score overlay failed", error);
+                    ErrorLog.record(this, "recording", "比分疊加失敗", error);
+                }
         );
         effect.setOnDrawListener(frame -> {
             drawScoreOverlay(frame.getOverlayCanvas(), frame.getCropRect(), frame.getRotationDegrees(), overlayState.get());
@@ -732,6 +738,7 @@ public final class LoopCameraActivity extends ComponentActivity {
             status.setText("● 比分轉播錄影中");
         } catch (RuntimeException error) {
             Log.w("7BRecording", "Broadcast recording start interrupted", error);
+            ErrorLog.record(this, "recording", "轉播錄影啟動中斷", error);
             recording = null;
             status.setText("正在恢復錄影…");
             scheduleRecordingRecovery();
@@ -758,7 +765,10 @@ public final class LoopCameraActivity extends ComponentActivity {
             broadcastStartReported = true;
             if (remoteScoreController == null) remoteScoreController = new BackgroundScoreController(this);
             remoteScoreController.markBroadcastRecordingStarted(System.currentTimeMillis(), (success, message) -> {
-                if (!success) Log.w("7BRecording", "Could not publish recording start: " + message);
+                if (!success) {
+                    Log.w("7BRecording", "Could not publish recording start: " + message);
+                    ErrorLog.record(this, "recording", "錄影開始時間未送出 " + message, null);
+                }
             });
             return;
         }

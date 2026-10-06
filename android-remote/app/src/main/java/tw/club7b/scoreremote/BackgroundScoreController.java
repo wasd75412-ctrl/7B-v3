@@ -182,11 +182,12 @@ final class BackgroundScoreController {
                 updateMatch(snapshot);
                 return;
             }
-            if (error != null) onMatchListenerFailed(roomId);
+            if (error != null) onMatchListenerFailed(roomId, error);
         });
     }
 
-    private synchronized void onMatchListenerFailed(String roomId) {
+    private synchronized void onMatchListenerFailed(String roomId, Exception error) {
+        ErrorLog.record(context, "score", "比分監聽中斷", error);
         if (!roomId.equals(listenedRoomId)) return;
         if (matchListener != null) matchListener.remove();
         matchListener = null;
@@ -227,6 +228,7 @@ final class BackgroundScoreController {
         matchKnown = true;
         DocumentReference room = snapshot.getReference().getParent().getParent();
         if (room != null) LocalLinkClient.shared(context).setMatchActive(room.getId(), nextActive);
+        ErrorLog.setMatchInProgress(nextActive && !nextFinished);
     }
 
     synchronized void release() {
@@ -295,7 +297,10 @@ final class BackgroundScoreController {
                     sendDirect("officialStart", sentCommand.get());
                     callback.onComplete(true, "已送出正式開始比賽");
                 })
-                .addOnFailureListener(error -> callback.onComplete(false, errorMessage(error)));
+                .addOnFailureListener(error -> {
+                    ErrorLog.record(context, "score", "正式開始失敗", error);
+                    callback.onComplete(false, errorMessage(error));
+                });
     }
 
     private boolean sendDirect(String type, Object command) {
@@ -406,6 +411,7 @@ final class BackgroundScoreController {
         void report(boolean success, String message) {
             if (!reported.compareAndSet(false, true)) return;
             feedbackHandler.removeCallbacks(slow);
+            if (!success) ErrorLog.record(context, "score", message, null);
             callback.onComplete(success, message);
         }
     }
