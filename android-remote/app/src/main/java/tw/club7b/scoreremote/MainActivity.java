@@ -95,7 +95,7 @@ public final class MainActivity extends Activity {
         settings.setDisplayZoomControls(false);
         settings.setMediaPlaybackRequiresUserGesture(false);
         settings.setMixedContentMode(WebSettings.MIXED_CONTENT_NEVER_ALLOW);
-        settings.setUserAgentString(settings.getUserAgentString() + " 7BAndroidRemote/1.3.96");
+        settings.setUserAgentString(settings.getUserAgentString() + " 7BAndroidRemote/1.3.97");
         CookieManager.getInstance().setAcceptCookie(true);
         CookieManager.getInstance().setAcceptThirdPartyCookies(view, true);
         view.setRendererPriorityPolicy(WebView.RENDERER_PRIORITY_IMPORTANT, true);
@@ -365,7 +365,7 @@ public final class MainActivity extends Activity {
     private void sendScoreAction(VolumeKeyInterpreter.Action action) {
         scoreController().submit(action, (success, message, completedAction) -> keyHandler.post(() -> {
             Toast.makeText(MainActivity.this, message, Toast.LENGTH_SHORT).show();
-            vibrate(success ? 55L : 28L);
+            vibrate(success ? (completedAction == VolumeKeyInterpreter.Action.UNDO ? 90L : 55L) : 28L);
         }));
     }
 
@@ -399,7 +399,6 @@ public final class MainActivity extends Activity {
     }
 
     private void sendRemoteAction(VolumeKeyInterpreter.Action action) {
-        if (webView == null) return;
         long now = SystemClock.uptimeMillis();
         if (action == VolumeKeyInterpreter.Action.UNDO) {
             if (now - lastUndoActionAt < UNDO_DEBOUNCE_MS) return;
@@ -408,41 +407,10 @@ public final class MainActivity extends Activity {
             if (action == lastPointAction && now - lastPointActionAt < SAME_POINT_ECHO_MS) return;
             lastPointAction = action;
             lastPointActionAt = now;
-        }
-        if (action == VolumeKeyInterpreter.Action.TEAM_A_PLUS || action == VolumeKeyInterpreter.Action.TEAM_B_PLUS) {
-            sendScoreAction(action);
+        } else {
             return;
         }
-        String command;
-        String successMessage;
-        switch (action) {
-            case TEAM_A_PLUS:
-                command = "teamAPlus";
-                successMessage = "A隊 ＋1";
-                break;
-            case TEAM_B_PLUS:
-                command = "teamBPlus";
-                successMessage = "B隊 ＋1";
-                break;
-            case UNDO:
-                command = "undo";
-                successMessage = "已撤銷上一分";
-                break;
-            default:
-                return;
-        }
-        evaluateJavascript(
-                "(function(){return !!(window.bcmAndroidRemoteInput&&window.bcmAndroidRemoteInput('" + command + "'));})()",
-                result -> {
-                    boolean accepted = "true".equals(result);
-                    Toast.makeText(
-                            MainActivity.this,
-                            accepted ? successMessage : "請確認已連接球局、登入管理員並開始比賽",
-                            Toast.LENGTH_SHORT
-                    ).show();
-                    vibrate(accepted ? (action == VolumeKeyInterpreter.Action.UNDO ? 90L : 45L) : 25L);
-                }
-        );
+        sendScoreAction(action);
     }
 
     private boolean isRemoteKeyAccessEnabled() {

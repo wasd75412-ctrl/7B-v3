@@ -1778,7 +1778,10 @@ function startRemoteControlChannels(id){
     handleRemoteActionCommand(commandData,{initial});
     remoteControlInitialSnapshot=false;
   },error=>{remoteControlInitialSnapshot=true;console.warn('遙控控制通道無法連線',error)},isCurrent);
-  localLinkHost=startLocalLinkHost({db,roomId:id,canAnswer:()=>isHost&&document.visibilityState==='visible',onCommand:handleLocalLinkCommand,onOpenChange:open=>{if(localLinkOpen===open)return;localLinkOpen=open;updateSyncBadge()}});
+  localLinkHost=startLocalLinkHost({db,roomId:id,canAnswer:()=>isHost&&document.visibilityState==='visible'&&ownsScoring(state.match,scoreDeviceId),onCommand:handleLocalLinkCommand,onOpenChange:open=>{if(localLinkOpen===open)return;localLinkOpen=open;updateSyncBadge()}});
+}
+function syncLocalLinkOwner(){
+  if(localLinkHost&&isHost&&!requestedAndroidRemote)localLinkHost.refresh(ownsScoring(state.match,scoreDeviceId));
 }
 function stopRemoteControlChannels(){
   remoteControlUnsubscribe?.();remoteControlUnsubscribe=null;
@@ -1994,13 +1997,14 @@ function applyLiveScoreState(data,{announce=true}={}){
   if(!canApplyMatch(match))return false;
   const shouldFinish=beforeMatch.matchId===match.matchId&&beforeMatch.winner===null&&match.winner!==null&&isHost&&!requestedAndroidRemote&&scoreViewRequested;
   liveScoreReady=true;latestLiveMatch=structuredClone(match);
-  state.match=match;
+  state.match=match;syncLocalLinkOwner();
   if(requestedAndroidRemote)scheduleAndroidRemoteRender();else{applying=true;renderScore();renderDashboard();renderAndroidRemote();applying=false}
   announceSyncedScore(before,announce);if(shouldFinish)finishMatch();return true;
 }
 function claimScoring(){
   scoreViewRequested=true;
   if(isHost&&!requestedAndroidRemote&&state.match.active&&state.match.scorerDevice!==scoreDeviceId){state.match.scorerDevice=scoreDeviceId;saveLiveScoreSoon()}
+  syncLocalLinkOwner();
   renderScore();
 }
 function handleRemoteFullscreenCommand(data,{initial=false}={}){
@@ -2038,7 +2042,8 @@ function handleRemoteNextMatchCommand(data,{initial=false}={}){
   lastRemoteNextMatchCommandId=id;
   if(!shouldAcceptRemoteCommand({command:data.nextMatchCommand,currentMatch:state.match,initial}))return false;
   if(initial||requestedAndroidRemote||!isHost||!ownsScoring(state.match,scoreDeviceId)||!state.match.active||state.match.winner===null||$('resultModal').classList.contains('hidden'))return false;
-  startNext();showScoreRemoteIndicator('遙控器開始下一場');return true;
+  if(!startNextFromRemote())return false;
+  showScoreRemoteIndicator('遙控器開始下一場');return true;
 }
 function handleRemoteUndoFinishedCommand(data,{initial=false}={}){
   const id=String(data?.undoFinishedCommand?.id||'');if(!id||id===lastRemoteUndoFinishedCommandId)return false;
@@ -2052,7 +2057,22 @@ function handleRemoteStartMatchCommand(data,{initial=false}={}){
   lastRemoteStartMatchCommandId=id;
   if(!shouldAcceptRemoteCommand({command:data.startMatchCommand,currentMatch:state.match,initial}))return false;
   if(initial||requestedAndroidRemote||!isHost||!ownsScoring(state.match,scoreDeviceId)||state.match.active||$('page3').classList.contains('hidden'))return false;
+  return startMatchFromRemote();
+}
+// A remote press must never open a blocking alert on the scoring device.
+function remoteLineupProblem(selected,needed){
+  return selected.length!==needed||new Set(selected).size!==needed?'場上人數不足':'';
+}
+function startMatchFromRemote(){
+  const problem=remoteLineupProblem(state.court.filter(Boolean),matchPlayerCount(normalizeMatchFormat(state.matchFormat)));
+  if(problem){showScoreRemoteIndicator(problem,{duration:1600,icon:'⚠️'});return false}
   startMatch();showScoreRemoteIndicator('遙控器開始比賽');return true;
+}
+function startNextFromRemote(){
+  const format=normalizeMatchFormat(state.match.format),selected=selectedNextLineup(format),winners=state.match.players?.[state.match.winner]||[];
+  const problem=remoteLineupProblem(selected,matchPlayerCount(format))||(!currentTestModeEnabled()&&!winners.every(id=>selected.includes(id))?'勝方須留場':'');
+  if(problem){showScoreRemoteIndicator(problem,{duration:1600,icon:'⚠️'});return false}
+  startNext();return true;
 }
 // Queued presses that reach the result screen together with the winning point must not start the next match.
 function isResultScreenBurstPress(command){
@@ -2114,7 +2134,7 @@ function logRemoteDiagnostic(kind,via,command,result){
   },3000);
 }
 function deleteRemoteScore(ref){
-  if(requestedAndroidRemote||!isHost)return;
+  if(requestedAndroidRemote||!isHost||!ownsScoring(state.match,scoreDeviceId))return;
   deleteDoc(ref).catch(()=>{});
 }
 function seenRemoteActionKey(id=roomId){return `${REMOTE_SEEN_ACTION_PREFIX}${id||'none'}`}
@@ -2156,7 +2176,7 @@ function handleRemoteActionCommand(data,{initial=false,skipAge=false}={}){
   if(!scoreVisible&&!resultVisible){
     if(courtVisible&&['teamAPlus','teamBPlus'].includes(action)){
       if(state.match.active&&state.match.winner===null){claimScoring();showScoreRemoteIndicator('進入比分模式')}
-      else{startMatch();showScoreRemoteIndicator('遙控器開始比賽')}
+      else startMatchFromRemote();
       return true;
     }
     return false;
@@ -2166,7 +2186,7 @@ function handleRemoteActionCommand(data,{initial=false,skipAge=false}={}){
   if(resultVisible){
     if(action==='undo')performScoreRemoteAction('undo',{announce:false});
     else if(isResultScreenBurstPress(command))showScoreRemoteIndicator('本場已結束',{duration:1200,icon:'🏁'});
-    else if(isResultScreenNextMatchPress(command,action))startNext();
+    else if(isResultScreenNextMatchPress(command,action))startNextFromRemote();
     return true;
   }
   if(!state.match.active||state.match.winner!==null)return false;
@@ -2426,7 +2446,7 @@ async function saveNewMatchCheckpointNow(){
   catch(error){setSync('比分同步失敗','error');setError(formatError(error));throw error}
   finally{pendingLiveScoreWrites=Math.max(0,pendingLiveScoreWrites-1);updateSyncBadge()}
 }
-function checkpointNewMatch(){void saveNewMatchCheckpointNow().catch(error=>console.warn('比賽切換同步失敗',error))}
+function checkpointNewMatch(){syncLocalLinkOwner();void saveNewMatchCheckpointNow().catch(error=>console.warn('比賽切換同步失敗',error))}
 async function syncFinishedMatchNow(matchId=''){
   if(!isHost||!roomRef||!matchId)return;
   try{

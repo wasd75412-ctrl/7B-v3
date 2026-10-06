@@ -95,6 +95,13 @@ export function startLocalLinkHost({db,roomId,canAnswer,onCommand,onOpenChange})
   },()=>{});
   return {
     announce,
+    // A device that hands scoring to another keeps no peer, so the phone re-offers to the new scorer.
+    refresh(owner){
+      if(stopped)return;
+      if(owner){announce();return}
+      announced=false;
+      for(const deviceId of [...peers.keys()])closeDevice(deviceId);
+    },
     stop(){stopped=true;unsubscribe();for(const deviceId of [...peers.keys()])closeDevice(deviceId)}
   };
 }

@@ -55,6 +55,7 @@ public final class RemoteKeyAccessibilityService extends AccessibilityService {
         if (!VolumeKeyInterpreter.isSupportedRemoteKey(keyCode)) return false;
         if (RemoteKeyRelay.dispatch(event)) return true;
         if (!RemoteSessionStore.isRecordingEnabled(this)) return false;
+        if (!PhoneKeySource.isBuiltIn(event.getDevice())) return false;
         return handleBackgroundKeyEvent(event, keyCode);
     }
 

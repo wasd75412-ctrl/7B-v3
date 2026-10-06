@@ -88,7 +88,7 @@ test('routes remote keys directly without multi-press delay',()=>{
   assert.match(main,/if\(!scoreVisible&&!resultVisible\)\{\s*if\(courtVisible&&\['teamAPlus','teamBPlus'\]\.includes\(action\)\)/);
   assert.match(main,/if\(action==='useShuttle'\)return useOneShuttle/);
   assert.match(main,/if\(action==='returnShuttle'\)return returnOneShuttle/);
-  assert.match(main,/if\(resultVisible\)\{\s*if\(action==='undo'\)performScoreRemoteAction\('undo',\{announce:false\}\);\s*else if\(isResultScreenBurstPress\(command\)\)showScoreRemoteIndicator\('本場已結束'[^\n]*\n\s*else if\(isResultScreenNextMatchPress\(command,action\)\)startNext\(\);\s*return true;\s*\}/);
+  assert.match(main,/if\(resultVisible\)\{\s*if\(action==='undo'\)performScoreRemoteAction\('undo',\{announce:false\}\);\s*else if\(isResultScreenBurstPress\(command\)\)showScoreRemoteIndicator\('本場已結束'[^\n]*\n\s*else if\(isResultScreenNextMatchPress\(command,action\)\)startNextFromRemote\(\);\s*return true;\s*\}/);
 });
 
 test('YUNTENG remote support is removed and camera-key shuttle controls remain',()=>{

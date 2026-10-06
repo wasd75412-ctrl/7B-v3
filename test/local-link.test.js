@@ -44,7 +44,7 @@ test('direct-link messages become the same commands as their Firestore copies',(
 test('the iPad answers the phone and handles direct commands through the existing handlers',()=>{
   const channels=main.match(/function startRemoteControlChannels\(id\)\{[\s\S]*?\n\}/)?.[0]||'';
   assert.match(channels,/if\(remoteActionUnsubscribe\|\|requestedAndroidRemote\|\|!isHost\|\|roomId!==id\)return;/);
-  assert.match(channels,/localLinkHost=startLocalLinkHost\(\{db,roomId:id,canAnswer:\(\)=>isHost&&document\.visibilityState==='visible',onCommand:handleLocalLinkCommand/);
+  assert.match(channels,/localLinkHost=startLocalLinkHost\(\{db,roomId:id,canAnswer:\(\)=>isHost&&document\.visibilityState==='visible'&&ownsScoring\(state\.match,scoreDeviceId\),onCommand:handleLocalLinkCommand/);
   assert.match(main,/if\(isHost&&roomId\)startRemoteControlChannels\(roomId\);else if\(!isHost\)stopRemoteControlChannels\(\);/);
   const handler=main.match(/function handleLocalLinkCommand\(\{type,command\}\)\{[\s\S]*?\n\}/)?.[0]||'';
   assert.match(handler,/handleRemoteOfficialStartCommand\(\{officialStartCommand:command\}\)/);
@@ -70,7 +70,7 @@ test('the iPad records when each command arrives on each path',()=>{
 test('Android sends each command over the link with the same id it writes to Firestore',()=>{
   assert.match(controller,/LocalLinkClient\.shared\(context\)\.ensureStarted\(session\);/);
   assert.match(controller,/sendDirect\("action", command\);\s*remoteControl\.getParent\(\)\.document\("score-" \+ id\)\.set\(command\)/);
-  assert.match(controller,/sendDirect\("officialStart", updates\.get\("officialStartCommand"\)\);\s*remoteControl\.set\(updates, SetOptions\.merge\(\)\)/);
+  assert.match(controller,/sendDirect\("officialStart", updates\.get\("officialStartCommand"\)\);\s*Feedback feedback = [^\n]*\n\s*remoteControl\.set\(updates, SetOptions\.merge\(\)\)/);
   assert.match(controller,/if \(!"createdAt"\.equals\(entry\.getKey\(\)\)\)/);
   assert.match(gradle,/implementation 'io\.getstream:stream-webrtc-android:/);
 });
