@@ -393,7 +393,7 @@
   <div class="player-modal-toolbar"><button id="closeEditTop" class="btn modal-close-button" type="button" aria-label="關閉球員卡">✕ 關閉</button></div>
   <div class="hero-card">
     <span id="editAvatarPreview" class="avatar large"></span>
-    <div><div id="profileTitle" class="hero-name">球員資料</div><div id="profileSummary" class="hero-racket"></div><div id="profileStatus" class="status-chip">今日尚未出賽</div></div>
+    <div><div id="profileTitle" class="hero-name">球員資料</div><div id="profileSummary" class="hero-racket"></div><div class="hero-status-row"><div id="profileStatus" class="status-chip">今日尚未出賽</div><button id="claimPlayer" class="btn blue hero-claim-button hidden" type="button">這是我／認領資料</button></div></div>
     <div id="profileWinRing" class="win-ring"><div><strong id="ringRate">0%</strong><span>生涯勝率</span></div></div>
   </div>
   <div class="profile-stats"><div class="stat-box"><strong id="statGames">0</strong><span class="sub">生涯場次</span></div><div class="stat-box"><strong id="statWins">0</strong><span class="sub">生涯勝場</span></div><div class="stat-box"><strong id="statRate">0%</strong><span class="sub">生涯勝率</span></div></div>
@@ -420,7 +420,7 @@
   <div class="field" style="margin-top:10px"><label>備用球拍</label><div class="field-grid-3"><input id="editBackupRacket" class="input" placeholder="例如：88D Pro"><input id="editBackupTension" class="input" placeholder="磅數"><input id="editBackupString" class="input" placeholder="線種"></div></div>
   <div class="field" style="margin-top:10px"><label>備註</label><textarea id="editNote" class="input" rows="3" maxlength="120" placeholder="例如：今天九點先走、避免連打"></textarea></div>
   <div id="profileEditFields" class="photo-actions" style="margin-top:12px"><label class="btn" for="editPhoto">選擇照片</label><input id="editPhoto" type="file" accept="image/*" hidden><button id="removePhoto" class="btn" type="button">移除照片</button></div>
-  <div class="toolbar" style="margin-top:14px"><button id="claimPlayer" class="btn blue hidden">這是我／認領資料</button><button id="saveEdit" class="btn primary">儲存球員資料</button><button id="deletePlayer" class="btn red host-only">刪除</button><button id="closeEdit" class="btn">關閉</button></div>
+  <div class="toolbar" style="margin-top:14px"><button id="saveEdit" class="btn primary">儲存球員資料</button><button id="deletePlayer" class="btn red host-only">刪除</button><button id="closeEdit" class="btn">關閉</button></div>
 </div></div>
 
 <div id="sessionFeeModal" class="modal hidden"><div class="modal-card session-fee-card"><h2>💰 今日繳費</h2><div id="sessionFeeBody"></div><button id="closeSessionFee" class="btn" type="button">關閉</button></div></div>

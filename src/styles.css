@@ -2766,6 +2766,10 @@ body>.modal .modal-card option{background:#fff;color:var(--glass-ink)}
 body>.modal .modal-card .btn:not(.primary):not(.blue):not(.red):not(.danger-outline){border-color:var(--glass-line);background:rgba(255,255,255,.86);color:var(--glass-ink)}
 body>.modal .hero-card{border:1px solid rgba(80,198,229,.27);background:radial-gradient(circle at 85% 0%,rgba(55,196,225,.24),transparent 38%),linear-gradient(135deg,var(--broadcast-night),#0a4166);box-shadow:0 18px 42px rgba(6,39,65,.22)}
 body>.modal .hero-card :is(strong,.hero-name){color:#fff}
+.hero-status-row{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin-top:10px}
+.hero-status-row .status-chip{margin-top:0}
+.hero-card .btn.hero-claim-button{min-height:0;padding:7px 14px;border-radius:999px;border-color:rgba(81,181,255,.6);background:linear-gradient(135deg,#1555aa,#167fd1 62%,#17a3b9);color:#fff;font-weight:950;box-shadow:0 8px 20px rgba(8,85,164,.32)}
+@media(max-width:620px){.hero-status-row{justify-content:center}}
 body>.modal .win-ring{background:conic-gradient(var(--broadcast-cyan) calc(var(--rate)*1%),rgba(255,255,255,.17) 0)}
 body>.modal .win-ring:before{background:var(--broadcast-night)}
 
