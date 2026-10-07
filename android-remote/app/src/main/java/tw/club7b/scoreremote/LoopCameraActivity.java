@@ -835,8 +835,25 @@ public final class LoopCameraActivity extends ComponentActivity {
         android.content.Context app = getApplicationContext();
         String roomId = RemoteSessionStore.getSession(app).roomId;
         savedRecordingExecutor.execute(() -> {
+            alignAudioClock(app, savedUri);
             RecordingUploadStore.add(app, savedUri, roomId, startedAt, endedAt, filePauses);
         });
+    }
+
+    private static void alignAudioClock(android.content.Context app, android.net.Uri savedUri) {
+        try {
+            if (!AudioClockAligner.align(app.getContentResolver(), savedUri)) return;
+        } catch (Exception error) {
+            Log.w("7BRecording", "Unable to align recording audio clock", error);
+            ErrorLog.record(app, "recording", "影音同步校正失敗", error);
+            return;
+        }
+        try (android.os.ParcelFileDescriptor descriptor = app.getContentResolver().openFileDescriptor(savedUri, "r")) {
+            if (descriptor == null) return;
+            ContentValues size = new ContentValues();
+            size.put(MediaStore.Video.Media.SIZE, descriptor.getStatSize());
+            app.getContentResolver().update(savedUri, size, null, null);
+        } catch (Exception ignored) { }
     }
 
     private void returnWithoutAction() {

@@ -93,6 +93,11 @@ test('queues every saved broadcast file for YouTube upload with its own start ti
   assert.doesNotMatch(camera,/YouTubeUploadScheduler\.schedule\(app\);/);
 });
 
+test('aligns the video to the microphone clock before a saved file is queued for upload',()=>{
+  assert.match(camera,/savedRecordingExecutor\.execute\(\(\) -> \{\s*alignAudioClock\(app, savedUri\);\s*RecordingUploadStore\.add\(/);
+  assert.match(camera,/AudioClockAligner\.align\(app\.getContentResolver\(\), savedUri\)/);
+});
+
 test('uploads start only after the recording screen closes',()=>{
   assert.match(camera,/static boolean isRecordingSessionOpen\(\) \{\s*return OPEN_SESSIONS\.get\(\) > 0;/);
   assert.match(camera,/sessionCounted = true;\s*OPEN_SESSIONS\.incrementAndGet\(\);/);
