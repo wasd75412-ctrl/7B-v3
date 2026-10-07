@@ -152,10 +152,15 @@ final class RecordingTimeline {
     }
 
     static String timeline(List<Match> matches, long recordingStartMs, long recordingEndMs, List<long[]> pauses) {
+        long duration = videoMillis(recordingEndMs, recordingStartMs, pauses) / 1000L;
         List<Match> included = new ArrayList<>();
         for (Match match : matches) {
-            long end = match.endMs > 0L ? match.endMs : Long.MAX_VALUE;
-            if (match.startMs < recordingEndMs && end > recordingStartMs) included.add(match);
+            long end = match.endMs > 0L ? Math.min(match.endMs, recordingEndMs) : recordingEndMs;
+            if (match.startMs >= recordingEndMs || end <= recordingStartMs) continue;
+            // A match played entirely while paused has no footage in this file.
+            if (videoMillis(end, recordingStartMs, pauses) > videoMillis(match.startMs, recordingStartMs, pauses)) {
+                included.add(match);
+            }
         }
         Collections.sort(included, (a, b) -> Long.compare(a.startMs, b.startMs));
         List<Match> unique = new ArrayList<>();
@@ -172,12 +177,13 @@ final class RecordingTimeline {
             Match match = included.get(i);
             long offset = videoMillis(match.startMs, recordingStartMs, pauses) / 1000L;
             if (offset < previous + 10L) offset = previous + 10L;
+            if (offset >= duration) break;
             previous = offset;
             text.append('\n').append(formatOffset(offset)).append("  Game").append(i + 1).append(' ')
                     .append(match.left).append(' ').append(match.scoreA).append('：').append(match.scoreB)
                     .append(' ').append(match.right);
         }
-        appendEndChapter(text, previous, videoMillis(recordingEndMs, recordingStartMs, pauses) / 1000L);
+        appendEndChapter(text, previous, duration);
         return text.toString();
     }
 
