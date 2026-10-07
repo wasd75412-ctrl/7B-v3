@@ -18,7 +18,7 @@ import { CHAT_MEDIA_MAX_BYTES, CHAT_MEDIA_TYPES, CHAT_MENTION_ALL_ID, CHAT_MESSA
 import { adminRoleButtonState, claimedAdminPlayerId, resolveAdminSessionToken } from './admin-role.js';
 import { updateAttendanceState } from './attendance.js';
 import { playedParticipantIds } from './session-participants.js';
-import { POLL_SLOT_CAPACITY, pollSlotParticipantCount, pollWasFinalized } from './poll.js';
+import { POLL_SLOT_CAPACITY, activePollDraftSelection, createPollDraft, pollSlotParticipantCount, pollWasFinalized } from './poll.js';
 import { nonVoterPlayerIds, recruitingMessage, recruitingSlots } from './poll-recruiting.js';
 import { activateShuttleTube, adjustSessionShuttleUsage, createShuttleTube, enforceLegacyActiveShuttleTube, finishShuttleTube, normalizeShuttleTubes, restoreShuttleTube, sessionShuttleUsage, setShuttleRemaining, shuttleShareCost, shuttleUnitPrice, softDeleteShuttleTube, updateShuttleTube } from './shuttle-tube.js';
 import { careerAchievementBadges } from './player-achievements.js';
@@ -819,7 +819,7 @@ function renderStats(){
 }
 
 
-let pollDeadlineTimer=null;
+let pollDeadlineTimer=null,pollDraft=null;
 function pollDeadlineMs(poll=state.schedulePoll){const ms=Date.parse(poll?.deadlineAt||'');return Number.isFinite(ms)?ms:0}
 function isPollDeadlinePassed(poll=state.schedulePoll,now=Date.now()){const ms=pollDeadlineMs(poll);return !!ms&&ms<=now}
 function isPollClosed(poll=state.schedulePoll,now=Date.now()){return poll?.status==='closed'||isPollDeadlinePassed(poll,now)}
@@ -856,6 +856,7 @@ function formatPollDeadline(value){const d=new Date(value);if(isNaN(d.getTime())
 function pollDeadlineInputValue(value){const d=new Date(value);if(isNaN(d.getTime()))return'';return new Date(d.getTime()-d.getTimezoneOffset()*60000).toISOString().slice(0,16)}
 function schedulePollDeadlineTimer(poll=state.schedulePoll){clearTimeout(pollDeadlineTimer);pollDeadlineTimer=null;const ms=pollDeadlineMs(poll),remaining=ms-Date.now();if(!ms||remaining<=0)return;pollDeadlineTimer=setTimeout(()=>{if(isPollDeadlinePassed(state.schedulePoll)){if(state.schedulePoll.status!=='closed')state.schedulePoll.status='closed';archiveCurrentPoll();renderDashboard();renderPoll();if(isHost&&roomRef)saveSoon()}else schedulePollDeadlineTimer()},Math.min(remaining+250,2147483000))}
 function pollSelectionList(value){return String(value||'').split('|').filter(Boolean)}
+function rememberPollDraft(){const poll=state.schedulePoll||{},selected=all('.poll-choice:checked').map(x=>x.value),saved=pollSelectionList(poll.votes?.[selfHash]);pollDraft=selected.length===saved.length&&selected.every(id=>saved.includes(id))?null:createPollDraft(poll,roomId,selected)}
 function pollSignature(){return `${state.schedulePoll?.createdAt||''}|${(state.schedulePoll?.options||[]).map(o=>o.id).sort().join(',')}|${state.schedulePoll?.deadlineAt||''}`}
 function pollSeenKey(){return `bcmPollSeenV1:${roomId||'local'}`}
 function isPollUnseen(){const sig=pollSignature(),poll=state.schedulePoll||{};return (!!poll.createdAt||!!(poll.options||[]).length)&&localStorage.getItem(pollSeenKey())!==sig}
@@ -1395,7 +1396,8 @@ function updateConfirmOptionDetails(){
 function renderPoll(){
   if(!$('pollOptions'))return;
   const poll=state.schedulePoll||{status:'open',deadlineAt:'',options:[],votes:{},voterPlayers:{}};
-  const deadlineExpired=isPollDeadlinePassed(poll),closed=isPollClosed(poll),options=poll.options||[],counts=pollCounts(),mine=pollSelectionList(poll.votes?.[selfHash]),completed=closed&&!options.length,submittedCount=Object.values(poll.votes||{}).filter(value=>pollSelectionList(value).length).length;
+  const deadlineExpired=isPollDeadlinePassed(poll),closed=isPollClosed(poll),options=poll.options||[],counts=pollCounts(),draftMine=activePollDraftSelection(pollDraft,poll,{roomId,closed,extraIds:[POLL_UNAVAILABLE]}),mine=draftMine??pollSelectionList(poll.votes?.[selfHash]),completed=closed&&!options.length,submittedCount=Object.values(poll.votes||{}).filter(value=>pollSelectionList(value).length).length;
+  if(draftMine===null)pollDraft=null;
   const unavailableCount=Object.values(poll.votes||{}).filter(v=>pollSelectionList(v).includes(POLL_UNAVAILABLE)).length;
   const own=ownedPlayerId(),voter=$('pollVoter'),current=poll.voterPlayers?.[selfHash]||own||voter.value||'';
   voter.innerHTML='<option value="">請選擇姓名</option>'+state.roster.map(p=>`<option value="${p.id}">${esc(p.name)}</option>`).join('');
@@ -1414,8 +1416,8 @@ function renderPoll(){
   const unavailableRow=options.length&&(!closed||isHost)?`<label class="poll-option unavailable"><input class="viewer-enabled poll-choice poll-unavailable-choice" type="checkbox" value="${POLL_UNAVAILABLE}" ${mine.includes(POLL_UNAVAILABLE)?'checked':''} ${closed?'disabled':''}><div><strong>無法參加</strong>${isHost?`<div class="poll-voters">${unavailableVoters.length?`已選：${esc(unavailableVoters.join('、'))}`:'目前無人選擇'}</div>`:''}</div>${isHost?`<span class="poll-count">${unavailableCount} 人</span>`:''}</label>`:'';
   $('pollOptions').innerHTML=(dateRows+unavailableRow)||'<div class="poll-empty">尚無候選日期。</div>';
   $('submitVote').disabled=closed||!options.length;
-  all('.poll-date-choice').forEach(x=>x.onchange=()=>{if(x.checked){const no= document.querySelector('.poll-unavailable-choice');if(no)no.checked=false}});
-  const noChoice=document.querySelector('.poll-unavailable-choice');if(noChoice)noChoice.onchange=()=>{if(noChoice.checked)all('.poll-date-choice').forEach(x=>x.checked=false)};
+  all('.poll-date-choice').forEach(x=>x.onchange=()=>{if(x.checked){const no= document.querySelector('.poll-unavailable-choice');if(no)no.checked=false}rememberPollDraft()});
+  const noChoice=document.querySelector('.poll-unavailable-choice');if(noChoice)noChoice.onchange=()=>{if(noChoice.checked)all('.poll-date-choice').forEach(x=>x.checked=false);rememberPollDraft()};
   all('.poll-option .map-link').forEach(link=>link.onclick=event=>event.stopPropagation());
   all('[data-poll-delete]').forEach(b=>b.onclick=e=>{e.preventDefault();deletePollOption(b.dataset.pollDelete)});
   all('[data-add-manual-player]').forEach(button=>button.onclick=event=>{event.preventDefault();event.stopPropagation();addManualPollParticipant(button.dataset.addManualPlayer)});
@@ -1551,6 +1553,7 @@ async function submitPollVote(){
     });
     state.schedulePoll.votes[selfHash]=selected.join('|');
     state.schedulePoll.voterPlayers[selfHash]=voterId;
+    pollDraft=null;
     renderPoll();setSync('已同步','online');
     alert(selected.includes(POLL_UNAVAILABLE)?'已記錄為無法參加。':selected.length?'投票已更新。':'已取消本裝置的投票。');
   }catch(e){
@@ -2541,6 +2544,7 @@ async function saveNow(){
 }
 function page(n){
   if(n===3&&!isHost)n=0;
+  if(n!==6)pollDraft=null;
   all('.page').forEach(x=>x.classList.add('hidden'));$('page'+n).classList.remove('hidden');
   all('.tab').forEach(x=>x.classList.toggle('active',+x.dataset.page===n));
   if(n===0)renderDashboard();
