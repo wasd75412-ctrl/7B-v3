@@ -155,6 +155,21 @@ final class RecordingUploadStore {
         }
     }
 
+    /** Keeps the title and timeline so the new copy matches the old one. */
+    static synchronized void reupload(Context context, String id) {
+        for (Entry entry : read(context)) {
+            if (!entry.id.equals(id)) continue;
+            entry.videoId = "";
+            entry.sessionUrl = "";
+            entry.playlistAdded = false;
+            entry.progress = 0;
+            entry.status = Status.WAITING;
+            entry.message = "";
+            save(context, entry);
+            return;
+        }
+    }
+
     static synchronized int ordinal(Context context, Entry target) {
         String date = RecordingTimeline.dateKey(target.startMs);
         int ordinal = 1;

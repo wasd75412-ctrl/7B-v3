@@ -95,3 +95,14 @@ test('the Android remote opens the native recording upload screen',()=>{
   assert.match(main,/\$\('androidRemoteOpenRecordings'\)\.classList\.toggle\('hidden',typeof window\.BcmAndroid\?\.openRecordings!=='function'\)/);
   assert.match(main,/window\.BcmAndroid\?\.openRecordings\?\.\(\)/);
 });
+
+test('an uploaded recording can be uploaded again with its saved title and timeline',()=>{
+  const store=read(`${javaDir}RecordingUploadStore.java`);
+  const reupload=store.match(/static synchronized void reupload\([\s\S]*?\n    \}/)?.[0]||'';
+  assert.match(reupload,/entry\.videoId = "";\s*entry\.sessionUrl = "";\s*entry\.playlistAdded = false;/);
+  assert.match(reupload,/entry\.status = Status\.WAITING;/);
+  assert.doesNotMatch(reupload,/entry\.title =|entry\.description =/);
+  assert.match(recordings,/if \(entry\.status == RecordingUploadStore\.Status\.UPLOADED\) actions\.addView\(button\("重新上傳", v -> confirmReupload\(entry\)\)\)/);
+  assert.match(recordings,/RecordingUploadStore\.reupload\(this, entry\.id\);\s*YouTubeUploadScheduler\.schedule\(this\);/);
+  assert.match(uploader,/\.put\("privacyStatus", "unlisted"\)/);
+});
