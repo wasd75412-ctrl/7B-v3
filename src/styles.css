@@ -3108,8 +3108,9 @@ body:before{
 #app .mini-tag.stats{background:rgba(53,176,129,.18);color:#a8eed2}
 
 #app .page :is(.metric,.health-box,.profile-section,.stat-box) strong{color:#6fc8ff}
-#app .page :is(input:not([type="checkbox"]):not([type="radio"]):not([type="file"]),select,textarea),#landing :is(input,select,textarea){border-color:var(--sport-line);background:rgba(1,17,30,.76);color:var(--sport-ink);box-shadow:inset 0 1px 0 rgba(255,255,255,.04)}
-#app .page :is(input,textarea)::placeholder,#landing :is(input,textarea)::placeholder{color:#70889c}
+#app .page :is(input:not([type="checkbox"]):not([type="radio"]):not([type="file"]),select,textarea),#landing :is(input:not([type="checkbox"]):not([type="radio"]),select,textarea){border-color:var(--sport-line);background:rgba(1,17,30,.76);color:var(--sport-ink);box-shadow:inset 0 1px 0 rgba(255,255,255,.04)}
+#app .page :is(input,textarea)::placeholder{color:#70889c}
+#landing :is(input,textarea)::placeholder{color:#a9bfd2}
 #app .page option,#landing option{background:#061c2d;color:var(--sport-ink)}
 #app .page .btn:not(.primary):not(.blue):not(.red):not(.danger-outline),#landing .btn:not(.primary):not(.blue):not(.red):not(.danger-outline){border-color:var(--sport-line);background:rgba(9,45,68,.84);color:var(--sport-ink);box-shadow:0 8px 20px rgba(0,10,20,.20)}
 #app .page .btn.primary,#app .page .btn.blue,#landing .btn.primary,#landing .btn.blue{border-color:rgba(81,181,255,.52);background:linear-gradient(135deg,#1555aa,#167fd1 62%,#17a3b9);color:#fff;box-shadow:0 11px 27px rgba(8,85,164,.33),inset 0 1px 0 rgba(255,255,255,.20)}
@@ -3405,7 +3406,7 @@ body:before{
   box-shadow:0 0 20px rgba(var(--sport-tint-rgb),.08)
 }
 #app .page :is(input:not([type="checkbox"]):not([type="radio"]):not([type="file"]),select,textarea),
-#landing :is(input,select,textarea){
+#landing :is(input:not([type="checkbox"]):not([type="radio"]),select,textarea){
   border-color:rgba(var(--sport-tint-rgb),.20);
   background:linear-gradient(145deg,rgba(var(--sport-tint-rgb),.055),rgba(1,15,26,.59))
 }
