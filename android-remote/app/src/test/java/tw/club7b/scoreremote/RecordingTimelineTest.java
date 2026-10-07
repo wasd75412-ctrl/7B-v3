@@ -75,6 +75,47 @@ public final class RecordingTimelineTest {
     }
 
     @Test
+    public void leavesOutAMatchPlayedEntirelyWhilePaused() {
+        long start = Instant.parse("2026-09-30T11:00:00.000Z").toEpochMilli();
+        long end = Instant.parse("2026-09-30T12:10:00.000Z").toEpochMilli();
+        List<long[]> pauses = Arrays.<long[]>asList(new long[] {
+                Instant.parse("2026-09-30T11:29:00.000Z").toEpochMilli(), Instant.parse("2026-09-30T11:46:00.000Z").toEpochMilli()});
+        String text = RecordingTimeline.timeline(RecordingTimeline.matchesFromRoom(room()), start, end, pauses);
+        assertEquals("00:00:00  準備與熱身\n"
+                + "00:10:05  Game1 建昱／于萱 11：7 Yoyo／澐緁\n"
+                + "00:52:59  錄影結束", text);
+        assertTrue(RecordingTimeline.hasValidChapters(text));
+    }
+
+    @Test
+    public void leavesOutAMatchStartedDuringAPauseThatLastedUntilTheRecordingStopped() {
+        long start = Instant.parse("2026-09-30T11:00:00.000Z").toEpochMilli();
+        long end = Instant.parse("2026-09-30T11:40:00.000Z").toEpochMilli();
+        List<long[]> pauses = Arrays.<long[]>asList(new long[] {
+                Instant.parse("2026-09-30T11:28:00.000Z").toEpochMilli(), end});
+        String text = RecordingTimeline.timeline(RecordingTimeline.matchesFromRoom(room()), start, end, pauses);
+        assertEquals("00:00:00  準備與熱身\n"
+                + "00:10:05  Game1 建昱／于萱 11：7 Yoyo／澐緁\n"
+                + "00:27:59  錄影結束", text);
+    }
+
+    @Test
+    public void dropsChaptersPushedPastTheEndOfTheVideo() {
+        long start = 1_000_000L;
+        List<RecordingTimeline.Match> matches = Arrays.asList(
+                new RecordingTimeline.Match(start + 5_000L, 0L, "A", "B", 1, 0),
+                new RecordingTimeline.Match(start + 6_000L, 0L, "C", "D", 2, 0),
+                new RecordingTimeline.Match(start + 7_000L, 0L, "E", "F", 3, 0),
+                new RecordingTimeline.Match(start + 8_000L, 0L, "G", "H", 4, 0));
+        String text = RecordingTimeline.timeline(matches, start, start + 40_000L);
+        assertEquals("00:00:00  準備與熱身\n"
+                + "00:00:10  Game1 A 1：0 B\n"
+                + "00:00:20  Game2 C 2：0 D\n"
+                + "00:00:30  Game3 E 3：0 F", text);
+        assertTrue(RecordingTimeline.hasValidChapters(text));
+    }
+
+    @Test
     public void keepsChaptersTenSecondsApartWhenALaterVideoStartsMidGame() {
         long start = Instant.parse("2026-09-30T11:20:00.000Z").toEpochMilli();
         long end = Instant.parse("2026-09-30T12:10:00.000Z").toEpochMilli();
