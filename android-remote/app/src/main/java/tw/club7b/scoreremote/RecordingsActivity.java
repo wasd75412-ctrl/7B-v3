@@ -192,6 +192,7 @@ public final class RecordingsActivity extends ComponentActivity {
                 renderList(true);
             }));
         }
+        if (entry.status == RecordingUploadStore.Status.UPLOADED) actions.addView(button("重新上傳", v -> confirmReupload(entry)));
         card.addView(actions);
         return card;
     }
@@ -212,6 +213,18 @@ public final class RecordingsActivity extends ComponentActivity {
                 .setMessage("確定刪除這段時間軸？")
                 .setPositiveButton("刪除", (dialog, which) -> {
                     RecordingUploadStore.remove(this, entry.id);
+                    renderList(true);
+                })
+                .setNegativeButton("取消", null)
+                .show();
+    }
+
+    private void confirmReupload(RecordingUploadStore.Entry entry) {
+        new AlertDialog.Builder(this)
+                .setMessage("重新上傳這部影片？")
+                .setPositiveButton("重新上傳", (dialog, which) -> {
+                    RecordingUploadStore.reupload(this, entry.id);
+                    YouTubeUploadScheduler.schedule(this);
                     renderList(true);
                 })
                 .setNegativeButton("取消", null)
