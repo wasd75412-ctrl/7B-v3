@@ -101,7 +101,7 @@ test('groups independently selectable time slots under one date',()=>{
 
 test('shows the six-player opening note only on weekend poll choices',()=>{
   assert.match(mainSource,/function pollDurationRule\(date,time\)/);
-  assert.match(mainSource,/if\(day===0\|\|day===6\)return '滿六人開團'/);
+  assert.match(mainSource,/if\(day===0\|\|day===6\)return '滿五-六人開團\/五人01:00-03:00、六人01:00-04:00'/);
   assert.match(mainSource,/4 人 01:00–03:00｜5–6 人 01:00–04:00/);
   assert.match(mainSource,/4 人 11:00–13:00｜5–6 人 11:00–14:00/);
   assert.match(mainSource,/pollDurationRule\(o\.date,o\.time\)/);

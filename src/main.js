@@ -1361,7 +1361,7 @@ function removeManualPollParticipant(optionId,playerId){const rows=cleanManualPo
 function pollOptionLabel(o){if(!o?.date)return '未設定日期';const d=new Date(`${o.date}T${o.time||'00:00'}`);const date=isNaN(d)?o.date:d.toLocaleDateString('zh-TW',{month:'long',day:'numeric',weekday:'short'}),time=o.time?` ${o.time}${o.endTime?`-${o.endTime}`:''}`:'';return `${date}${time}${o.note?` · ${o.note}`:''}`}
 function pollDurationRule(date,time){
   const day=new Date(`${date}T00:00`).getDay();
-  if(day===0||day===6)return '滿六人開團';
+  if(day===0||day===6)return '滿五-六人開團/五人01:00-03:00、六人01:00-04:00';
   if(time==='01:00')return '4 人 01:00–03:00｜5–6 人 01:00–04:00';
   if(time==='11:00')return '4 人 11:00–13:00｜5–6 人 11:00–14:00';
   return'';
