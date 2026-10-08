@@ -9,6 +9,12 @@ const pagesFunctionSource = readFileSync(new URL('../functions/api/functions/[na
 const clubFunctionSource = readFileSync(new URL('../functions/club/[name].js', import.meta.url), 'utf8');
 const wranglerSource = readFileSync(new URL('../wrangler.toml', import.meta.url), 'utf8');
 const schedulerConfigSource = readFileSync(new URL('../workers/scheduler/wrangler.toml', import.meta.url), 'utf8');
+const androidActivitySource = readFileSync(new URL('../android-app/app/src/main/java/tw/club7b/app/MainActivity.java', import.meta.url), 'utf8');
+
+test('Android app opens the Cloudflare Pages site directly', () => {
+  assert.match(androidActivitySource, /START_URL = "https:\/\/7b-v3\.pages\.dev\/"/);
+  assert.doesNotMatch(androidActivitySource, /netlify\.app/);
+});
 
 test('routes browser function calls through Cloudflare Pages functions', () => {
   assert.match(mainSource, /\/club\/\$\{apiFunctionPath\(path\)\}/);

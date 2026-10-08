@@ -78,8 +78,8 @@ test('chat keeps one KV index per room and seeds it from the previous host once'
   const getHandler=chat.match(/if\(request\.method==='GET'\)\{[\s\S]*?\n  \}/)?.[0]||'';
   assert.match(getHandler,/readRoomMessages\(chatStore,roomId\)/);
   assert.doesNotMatch(getHandler,/\.list\(/);
-  assert.match(chat,/\/\.netlify\/functions\/chat-mention\?roomId=/);
-  assert.match(media,/\/\.netlify\/functions\/chat-media\?roomId=/);
+  assert.doesNotMatch(chat,/netlify\.app/);
+  assert.doesNotMatch(media,/netlify\.app/);
 });
 
 test('push subscription refresh skips the KV write when nothing changed',()=>{
