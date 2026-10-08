@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import { getBlobStore as getStore } from './lib/blob-store.mjs';
 import { CHAT_MEDIA_MAX_BYTES, CHAT_MEDIA_TYPES, normalizeChatMedia } from '../../src/chat.js';
-import { CHAT_MEDIA_STORE, LEGACY_SITE_URL, verifyClaimedChatSender } from './chat-mention.mjs';
+import { CHAT_MEDIA_STORE, verifyClaimedChatSender } from './chat-mention.mjs';
 import { cleanText, jsonResponse, validRoomId } from './lib/push-shared.mjs';
 
 function safeFileName(value){
@@ -35,16 +35,6 @@ function byteRange(value,size){
   return{start,end:Math.min(end,size-1)};
 }
 
-async function legacyChatMedia(method,roomId,id,range){
-  if(!globalThis.__SEVEN_B_CLOUDFLARE_ENV__)return null;
-  try{
-    const headers=range?{range}:{};
-    const response=await fetch(`${LEGACY_SITE_URL}/.netlify/functions/chat-media?roomId=${encodeURIComponent(roomId)}&id=${encodeURIComponent(id)}`,{method,headers});
-    if(!response.ok)return null;
-    return new Response(method==='HEAD'?null:response.body,{status:response.status,headers:response.headers});
-  }catch{return null}
-}
-
 export default async request=>{
   if(request.headers.get('sec-fetch-site')==='cross-site')return jsonResponse({error:'不允許跨網站使用聊天室媒體。'},403);
   const url=new URL(request.url),method=request.method.toUpperCase();
@@ -60,10 +50,7 @@ export default async request=>{
       const stored=method==='HEAD'
         ?await store.getMetadata(key)
         :await store.getWithMetadata(key,{type:'arrayBuffer'});
-      if(!stored){
-        const legacy=await legacyChatMedia(method,roomId,id,request.headers.get('range'));
-        return legacy||jsonResponse({error:'找不到這個聊天室媒體。'},404);
-      }
+      if(!stored)return jsonResponse({error:'找不到這個聊天室媒體。'},404);
       const media=normalizeChatMedia({...stored.metadata,id});
       if(!media)return jsonResponse({error:'聊天室媒體資料不完整。'},404);
       if(method==='HEAD')return new Response(null,{headers:mediaHeaders(media.contentType,media.fileName,media.size)});

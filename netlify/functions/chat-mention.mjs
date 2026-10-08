@@ -10,7 +10,6 @@ const CHAT_HISTORY_LIMIT=100;
 const CHAT_STORAGE_LIMIT=300;
 const FIREBASE_PROJECT_ID=process.env.FIREBASE_PROJECT_ID?.trim()||'badminton-7a1c3';
 const FIREBASE_WEB_API_KEY=process.env.FIREBASE_WEB_API_KEY?.trim()||'AIzaSyBrakbTPK7UqEChPBI6pM8-i03IcLq0IvM';
-export const LEGACY_SITE_URL='https://frolicking-taffy-4c3e5b.netlify.app';
 
 function decodeFirestoreValue(value={}){
   if('stringValue'in value)return String(value.stringValue||'');
@@ -88,23 +87,11 @@ async function listedRoomMessages(store,roomId){
   return rows;
 }
 
-async function legacyNetlifyRoomMessages(roomId){
-  if(!globalThis.__SEVEN_B_CLOUDFLARE_ENV__)return[];
-  try{
-    const response=await fetch(`${LEGACY_SITE_URL}/.netlify/functions/chat-mention?roomId=${encodeURIComponent(roomId)}`,{headers:{accept:'application/json'}});
-    if(!response.ok)return[];
-    const data=await response.json();
-    return Array.isArray(data?.messages)?data.messages:[];
-  }catch{return[]}
-}
-
 // One index value per room keeps every poll to a single KV read instead of a list plus one read per message.
 async function readRoomMessages(store,roomId){
   const index=await store.get(chatIndexKey(roomId),{type:'json'});
   if(Array.isArray(index?.messages))return sortedChatMessages(index.messages);
-  let messages=sortedChatMessages(await listedRoomMessages(store,roomId));
-  if(!messages.length)messages=sortedChatMessages(await legacyNetlifyRoomMessages(roomId));
-  messages=messages.slice(-CHAT_STORAGE_LIMIT);
+  const messages=sortedChatMessages(await listedRoomMessages(store,roomId)).slice(-CHAT_STORAGE_LIMIT);
   await store.setJSON(chatIndexKey(roomId),{messages});
   return messages;
 }

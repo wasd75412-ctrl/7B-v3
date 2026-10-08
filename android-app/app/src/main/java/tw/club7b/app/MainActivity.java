@@ -19,7 +19,7 @@ import androidx.activity.OnBackPressedCallback;
 import androidx.activity.ComponentActivity;
 
 public final class MainActivity extends ComponentActivity {
-    private static final String START_URL = "https://frolicking-taffy-4c3e5b.netlify.app/";
+    private static final String START_URL = "https://7b-v3.pages.dev/";
     private WebView webView;
 
     private final class NativeBridge {
