@@ -572,7 +572,8 @@ html.brand-font-fallback .brand-copy .brand-mark h1{
   background:transparent;
   box-shadow:none;
 }
-.score-head .score-actions>#syncSessionScore{
+.score-head .score-actions>#syncSessionScore,
+.score-head .score-actions>#abandonMatch{
   width:auto;
   min-width:64px;
   padding:0 10px;
