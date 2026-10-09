@@ -3043,16 +3043,16 @@ function liveOfficialMatch(dateKey=''){
 }
 function renderHistory(){
   renderMatchReplay();
-  const container=$('history'),existingMonths=all('.history-month-group'),existingDates=all('.history-date-group'),openMonths=new Set(existingMonths.filter(group=>group.open).map(group=>group.dataset.historyMonth)),openDates=new Set(existingDates.filter(group=>group.open).map(group=>group.dataset.historyDate));
+  const container=$('history'),openMonths=new Set(all('.history-month-group').filter(group=>group.open).map(group=>group.dataset.historyMonth)),openDates=new Set(all('.history-date-group').filter(group=>group.open).map(group=>group.dataset.historyDate));
   const live=liveOfficialMatch(),months=groupHistoryDatesByMonth(withLiveTimelineDate(groupMatchHistoryByDate(state.history,historyDate),live));
-  const renderDate=(group,dateIndex,monthIndex)=>{
-    const open=openDates.has(group.dateKey)||(!existingDates.length&&monthIndex===0&&dateIndex===0);
+  const renderDate=group=>{
+    const open=openDates.has(group.dateKey);
     const countText=group.matches.length?`${group.matches.length} 場`:live?.dateKey===group.dateKey?'進行中':'0 場';
     const matches=group.matches.map(({match:h,index})=>`<div class="history-item ${h.testMode?'test-record':''}"><div class="history-main"><strong><span class="match-format-badge">${historyFormat(h)===MATCH_FORMAT_SINGLES?'單打':'雙打'}</span>${h.testMode?'<span class="test-record-badge">測試</span> ':''}${esc((h.teams?.[0]||[]).map(pname).join('／'))} ${h.scores?.[0]??0}：${h.scores?.[1]??0} ${esc((h.teams?.[1]||[]).map(pname).join('／'))}</strong><div class="sub">${esc(h.time||'')}${h.testMode?' · 不計入戰績':''}</div></div><div class="history-actions host-only"><button class="btn danger-outline" data-delete-history="${index}">刪除</button></div></div>`).join('');
     return `<details class="history-date-group" data-history-date="${esc(group.dateKey)}" ${open?'open':''}><summary><span>${esc(historyDateLabel(group.dateKey))}</span><span>${countText}</span></summary>${group.matches.length?`<div class="history-date-actions host-only"><button class="btn danger-outline" type="button" data-delete-history-date="${esc(group.dateKey)}">全部刪除</button></div>`:''}<div class="history-date-matches">${matches}</div></details>`;
   };
-  container.innerHTML=months.map((month,monthIndex)=>{
-    const open=openMonths.has(month.monthKey)||(!existingMonths.length&&monthIndex===0),dates=month.dates.map((group,dateIndex)=>renderDate(group,dateIndex,monthIndex)).join('');
+  container.innerHTML=months.map(month=>{
+    const open=openMonths.has(month.monthKey),dates=month.dates.map(renderDate).join('');
     return `<details class="history-month-group" data-history-month="${esc(month.monthKey)}" ${open?'open':''}><summary><span>${esc(historyMonthLabel(month.monthKey))}</span><span>${month.dates.length} 次 · ${month.matchCount} 場</span></summary><div class="history-month-dates">${dates}</div></details>`;
   }).join('')||'<p class="sub">尚無比賽紀錄。</p>';
   all('[data-delete-history]').forEach(btn=>btn.onclick=()=>deleteHistoryRecord(+btn.dataset.deleteHistory));
