@@ -1,3 +1,5 @@
+import { normalizeServeRuns } from './player-achievements.js';
+
 export const ROOM_HISTORY_KEEP=40;
 export const DELETED_MATCH_KEEP=500;
 export const SYNC_MODE_LITE='lite';
@@ -39,6 +41,7 @@ export function encodeArchivedMatch(row={}){
     scoreB:row.scoreB??row.scores?.[1]??0,
     winner:row.winner===0||row.winner===1?row.winner:null,
     deficit:Math.max(0,Math.floor(Number(row.deficit)||0)),
+    serveRuns:normalizeServeRuns(row.serveRuns),
     format:row.format==='singles'?'singles':'doubles',
     endedAt:row.endedAt||'',
     startedAt:row.startedAt||'',
@@ -56,6 +59,7 @@ export function decodeArchivedMatch(row={}){
     scores:[encoded.scoreA,encoded.scoreB],
     winner:encoded.winner,
     deficit:encoded.deficit,
+    serveRuns:encoded.serveRuns,
     format:encoded.format,
     testMode:false,
     endedAt:encoded.endedAt,

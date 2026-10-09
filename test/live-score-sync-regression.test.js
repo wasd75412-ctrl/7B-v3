@@ -62,6 +62,7 @@ function harness(liveMatch=current,overrides={}){
     enforceLegacyActiveShuttleTube:value=>value??[],
     renderAll:()=>calls.render++,renderScore:()=>calls.render++,renderDashboard:()=>calls.render++,
     renderAndroidRemote:()=>calls.render++,announceSyncedScore:()=>{},syncLocalLinkOwner:()=>{},
+    checkAchievementUnlocks:()=>{},normalizeServeRuns:value=>value??{},
     finishMatch:()=>calls.finish++,saveLiveScoreSoon:()=>calls.publish++,saveSoon:()=>calls.publish++,persistMatchJournal:()=>{},
     setDoc:()=>{calls.publish++;return Promise.resolve()},
     serverTimestamp:()=>({serverTimestamp:true}),updateSyncBadge:()=>{},

@@ -105,13 +105,13 @@ test('分次月結與一次月結結果相同，且重複結算同一月份不�
 });
 
 test('成就累計值經過分次月結後與完整紀錄計算一致',()=>{
-  const rows=randomHistory(23).map((row,index)=>({...row,scores:[[11,0],[11,3],[12,10],[15,14],[11,7]][index%5],deficit:index%7}));
+  const rows=randomHistory(23).map((row,index)=>({...row,scores:[[11,0],[11,3],[12,10],[15,14],[11,7]][index%5],deficit:index%7,serveRuns:{[row.teams[index%2][0]]:3+index%4}}));
   const first=decodeStatsLedger(encodeStatsLedger(settleMatches(emptyStatsLedger(),rows,'2026-03',monthOf,'x')));
   const ledger=decodeStatsLedger(encodeStatsLedger(settleMatches(first,rows,'2026-05',monthOf,'x')));
   const rest=unsettledRows(rows,ledger,monthOf);
   for(const id of PLAYERS){
     const full=playerFeats(rows,id);
-    assert.ok(full.shutouts>0&&full.days>0,id);
+    assert.ok(full.shutouts>0&&full.days>0&&full.serveMachines>0,id);
     assert.deepEqual(addFeats(ledgerFeats(ledger,id),playerFeats(rest,id)),full,id);
   }
 });
