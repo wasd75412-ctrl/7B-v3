@@ -379,6 +379,13 @@
   <div id="shuttleTubeList" class="shuttle-tube-list"></div>
 </div></div>
 
+<div id="achievementModal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="achievementTitle"><div class="modal-card achievement-unlock-card">
+  <div id="achievementIcon" class="achievement-unlock-icon" aria-hidden="true"></div>
+  <h2 id="achievementTitle"></h2>
+  <p id="achievementCondition" class="sub"></p>
+  <button id="closeAchievement" class="btn primary" type="button">太棒了</button>
+</div></div>
+
 <div id="resultModal" class="modal hidden"><div class="modal-card result-card">
   <div class="result-topbar">
     <div class="result-heading"><h2 id="winnerTitle">比賽結束</h2><p id="finalScore"></p></div>
@@ -398,9 +405,10 @@
   </div>
   <div class="profile-stats"><div class="stat-box"><strong id="statGames">0</strong><span class="sub">生涯場次</span></div><div class="stat-box"><strong id="statWins">0</strong><span class="sub">生涯勝場</span></div><div class="stat-box"><strong id="statRate">0%</strong><span class="sub">生涯勝率</span></div></div>
   <div class="profile-sections"><div class="profile-section"><span class="sub">今日</span><strong id="profileToday">0勝 0敗</strong></div><div class="profile-section"><span class="sub">本月</span><strong id="profileMonth">0勝 0敗</strong></div><div class="profile-section"><span class="sub">目前狀態</span><strong id="profileStreak">—</strong></div></div>
-  <div class="profile-panel"><h3>🏅 生涯徽章</h3><div id="profileBadges" class="badge-grid"></div></div>
+  <details class="profile-panel badge-panel"><summary><h3>🏅 生涯成就</h3><span id="profileBadgeCount" class="badge-count"></span></summary><div id="profileBadges" class="badge-grid"></div></details>
   <div class="profile-panel"><h3>🤝 最佳搭檔排行</h3><div id="profilePartnerRanking" class="duo-list"></div></div>
-  <div class="profile-panel"><h3>⚔️ 最常對手</h3><div id="profileOpponent" class="duo-list"></div></div>
+  <div class="profile-panel"><h3>😈 剋星</h3><div id="profileNemesis" class="duo-list"></div></div>
+  <div class="profile-panel"><h3>🎯 苦主</h3><div id="profileVictim" class="duo-list"></div></div>
   <div class="profile-panel"><div id="profileRecent" class="recent-list"></div></div>
   <div class="profile-edit-divider"></div>
   <h3>編輯球員資料</h3>

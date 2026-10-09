@@ -4865,3 +4865,20 @@ body>.modal .event-packing-item-actions .danger-outline{border-color:#ff8798!imp
 #app .event-payment-admin em.confirmed{color:#bdf5d9;background:rgba(20,103,76,.75)}
 #app .event-payment-admin .btn{padding:8px 10px;font-size:.8rem}
 @media(max-width:620px){#app .event-payment-member .btn{width:100%}#app .event-payment-admin>span{grid-template-columns:1fr auto auto}#app .event-payment-admin>span>b{grid-column:1/-1}}
+
+/* BCM 3.2.35 — collapsible career achievements and achievement unlock popup. */
+.badge-panel>summary{display:flex;align-items:center;gap:10px;cursor:pointer;list-style:none}
+.badge-panel>summary::-webkit-details-marker{display:none}
+.badge-panel>summary h3{margin:0}
+.badge-panel>summary:after{content:'＋';font-size:1.2rem;color:var(--muted)}
+.badge-panel[open]>summary:after{content:'－'}
+.badge-panel .badge-count{margin-left:auto;font-weight:1000;opacity:.85}
+.badge-panel[open]>.badge-grid{margin-top:12px}
+#achievementModal{z-index:260;align-items:center;padding:14px}
+body>#achievementModal .achievement-unlock-card{width:min(360px,100%);display:grid;justify-items:center;gap:10px;padding:28px 22px;border-radius:26px;text-align:center}
+.achievement-unlock-icon{font-size:4.4rem;line-height:1;animation:achievement-pop .55s ease-out}
+.achievement-unlock-card h2{margin:0;font-size:1.3rem;line-height:1.4}
+.achievement-unlock-card p{margin:0;font-weight:900}
+.achievement-unlock-card .btn{min-width:150px;margin-top:6px}
+@keyframes achievement-pop{0%{transform:scale(.3);opacity:0}70%{transform:scale(1.15);opacity:1}100%{transform:scale(1)}}
+@media(prefers-reduced-motion:reduce){.achievement-unlock-icon{animation:none}}

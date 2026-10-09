@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
-import { addFeats, careerAchievementBadges, highestWinStreak, maxDeficit, playerFeats } from '../src/player-achievements.js';
+import { addFeats, careerAchievementBadges, highestWinStreak, longestServeRuns, maxDeficit, normalizeServeRuns, playerFeats, rivalLists, unseenAchievements } from '../src/player-achievements.js';
 
 const earnedMap=input=>new Map(careerAchievementBadges(input).map(([,label,on])=>[label,on]));
 const match=(dateKey,scores,winner,extra={})=>({dateKey,teams:[['me','ally'],['x','y']],scores,winner,...extra});
@@ -94,16 +94,55 @@ test('單日成就計算出賽天數、單日最多場次與全勝日',()=>{
   assert.equal(addFeats({bestDay:4,days:2},{bestDay:3,days:1}).days,3);
 });
 
-test('搭檔、對手與單打成就使用門檻',()=>{
-  const below=earnedMap({singlesWins:24,bestPartnerWins:19,partnerCount:9,bestOpponentGames:29});
-  const reached=earnedMap({singlesWins:25,bestPartnerWins:20,partnerCount:10,bestOpponentGames:30});
-  for(const label of['獨行俠','最佳拍檔','交際花','宿敵']){
+test('搭檔與對手成就使用門檻，且已移除單打成就',()=>{
+  const below=earnedMap({bestPartnerWins:19,partnerCount:9,bestOpponentGames:29});
+  const reached=earnedMap({bestPartnerWins:20,partnerCount:10,bestOpponentGames:30});
+  for(const label of['最佳拍檔','交際花','宿敵']){
     assert.equal(below.get(label),false,label);
     assert.equal(reached.get(label),true,label);
   }
+  assert.equal(reached.has('獨行俠'),false);
 });
 
-test('新成就附帶達成條件說明',()=>{
-  const badge=careerAchievementBadges().find(([,label])=>label==='理髮師');
-  assert.equal(badge[3],'零封對手 10 場');
+test('每個成就都附帶達成條件說明',()=>{
+  const badges=careerAchievementBadges();
+  assert.equal(badges.find(([,label])=>label==='理髮師')[3],'零封對手 10 場');
+  assert.equal(badges.find(([,label])=>label==='發球機器')[3],'連續發球得 5 分，累計 5 場');
+  for(const [,label,,note] of badges)assert.ok(note,label);
+  assert.equal(new Set(badges.map(([,label])=>label)).size,badges.length);
+});
+
+test('雙打連續發球得分歸給同一位發球者，換發後重新計算',()=>{
+  const players=[['a1','a2'],['b1','b2']];
+  assert.deepEqual(longestServeRuns({format:'doubles',players,rallies:[0,0,0,0,0]}),{a2:5});
+  assert.deepEqual(longestServeRuns({format:'doubles',players,rallies:[0,0,1,1,1,0,0]}),{a2:2,b1:2,a1:1});
+  assert.deepEqual(longestServeRuns({format:'singles',players:[['a'],['b']],rallies:[1,1,1,0,0]}),{b:2,a:1});
+});
+
+test('發球機器需要五場比賽各有一段連續發球得五分',()=>{
+  const rows=Array.from({length:5},(_,index)=>match(`2026-01-0${index+1}`,[11,6],index%2,{serveRuns:{me:index===4?4:5}}));
+  assert.equal(playerFeats(rows,'me').serveMachines,4);
+  rows[4].serveRuns.me=6;
+  assert.equal(playerFeats(rows,'me').serveMachines,5);
+  assert.equal(earnedMap({feats:playerFeats(rows,'me')}).get('發球機器'),true);
+  assert.deepEqual(normalizeServeRuns({a:'5',b:0,'':3,c:-1}),{a:5});
+});
+
+test('只回傳已達成且尚未看過的成就',()=>{
+  const badges=careerAchievementBadges({games:10,wins:10});
+  assert.deepEqual(unseenAchievements(badges,['初登場']).map(([,label])=>label),['10 場','10 勝']);
+  assert.deepEqual(unseenAchievements(badges,['初登場','10 場','10 勝']),[]);
+});
+
+test('剋星與苦主依交手勝率分開排序，交手太少不列入',()=>{
+  const {nemeses,victims}=rivalLists([
+    {id:'tough',games:6,wins:1},
+    {id:'even',games:4,wins:2},
+    {id:'easy',games:5,wins:5},
+    {id:'okay',games:3,wins:2},
+    {id:'rare',games:2,wins:0}
+  ]);
+  assert.deepEqual(nemeses.map(row=>row.id),['tough']);
+  assert.deepEqual(victims.map(row=>row.id),['easy','okay']);
+  assert.equal(victims[0].rate,100);
 });
