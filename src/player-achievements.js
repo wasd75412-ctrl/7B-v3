@@ -3,7 +3,7 @@ export const ROUT_MARGIN=8;
 export const CLUTCH_MARGIN=2;
 export const PERFECT_DAY_GAMES=3;
 export const SERVE_RUN_POINTS=5;
-export const RIVAL_MIN_GAMES=3;
+export const RELATION_MIN_GAMES=10;
 export const FEAT_KEYS=['shutouts','routs','clutch','comebacks','serveMachines','days','perfectDays','bestDay'];
 const MAX_FEATS=new Set(['bestDay']);
 
@@ -166,7 +166,11 @@ export function unseenAchievements(badges=[],seen=[]){
 }
 
 // Nemeses beat you more often than not; victims lose to you more often than not.
-export function rivalLists(opponents=[],{minGames=RIVAL_MIN_GAMES,limit=3}={}){
+export function partnerRanking(partners=[],{minGames=RELATION_MIN_GAMES,limit=3}={}){
+  return (Array.isArray(partners)?partners:[]).filter(row=>count(row?.games)>=minGames).slice(0,limit);
+}
+
+export function rivalLists(opponents=[],{minGames=RELATION_MIN_GAMES,limit=3}={}){
   const rows=(Array.isArray(opponents)?opponents:[]).filter(row=>count(row?.games)>=minGames).map(row=>({...row,rate:Math.round(count(row.wins)/count(row.games)*100)}));
   return{
     nemeses:rows.filter(row=>row.rate<50).sort((a,b)=>a.rate-b.rate||b.games-a.games).slice(0,limit),
