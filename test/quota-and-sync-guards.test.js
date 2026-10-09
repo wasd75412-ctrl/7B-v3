@@ -52,6 +52,7 @@ test('a press stamped with the previous match counts only when made well after t
 
 test('queued remote presses arriving with the winning point do not start the next match',()=>{
   const guard=main.match(/function isResultScreenBurstPress\(command\)\{[\s\S]*?\n\}/)?.[0]||'';
+  assert.match(main,/const RESULT_NEXT_MATCH_GUARD_MS=500;/);
   assert.match(guard,/Date\.now\(\)-resultShownAt<RESULT_NEXT_MATCH_GUARD_MS/);
   assert.match(guard,/pressedAt-remoteFinishPressAt<RESULT_NEXT_MATCH_GUARD_MS/);
   assert.match(main,/resultShownAt=Date\.now\(\);/);
