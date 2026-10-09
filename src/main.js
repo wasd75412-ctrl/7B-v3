@@ -8,6 +8,7 @@ import { DEFAULT_SCORE_REMOTE_BINDINGS, VIRTUAL_REMOTE_CLICK_CODE, advanceRemote
 import { checkpointMissedOfficialStart, createLiveScoreData, createMatchCheckpointData, decodeLiveMatch, generalRoomStateWithoutMatch, keepOfficialStart, liveMatchKey, nextMatchEpoch, ownsScoring, shouldApplyIncomingLiveMatch, shouldShowScoreView } from './live-score.js';
 import { journaledMatchToRestore, matchInProgress, matchJournalEntry, matchJournalKey } from './match-journal.js';
 import { startLocalLinkHost } from './local-link.js';
+import { MAIN_THREAD_TICK_MS, createMainThreadLagMonitor } from './main-thread-lag.js';
 import { REMOTE_COMMAND_MAX_AGE_MS, isStaleMatchPressForCurrentMatch, shouldAcceptRemoteCommand, timestampMillis } from './remote-command.js';
 import { canAutoSyncPlayerIdentity } from './device-sync.js';
 import { shouldRequestNativeWakeLock, wakeLockButtonIntent, wakeLockControlIsActive } from './wake-lock.js';
@@ -1684,6 +1685,8 @@ function runFirestoreLinkWatch(){
   void probeFirestoreLink();
 }
 setInterval(runFirestoreLinkWatch,1000);
+const mainThreadLag=createMainThreadLagMonitor();
+if(!requestedAndroidRemote)setInterval(()=>mainThreadLag.tick(Date.now()),MAIN_THREAD_TICK_MS);
 window.addEventListener('offline',()=>{updateSyncBadge();renderChat()});
 window.addEventListener('pagehide',()=>{if(roomMatchFallbackTimer)flushRoomMatchFallback()});
 window.addEventListener('online',()=>{firestoreLinkLastProbeAt=0;firestoreLinkCooldownUntil=0;setError('');if(roomRef)void recoverFirestoreLink();else updateSyncBadge();renderChat()});
@@ -2196,7 +2199,7 @@ function handleLocalLinkCommand({type,command}){
 function logRemoteDiagnostic(kind,via,command,result){
   if(requestedAndroidRemote||!isHost||!roomId||!ownsScoring(state.match,scoreDeviceId))return;
   const at=Date.now(),server=timestampMillis(command?.createdAt);
-  remoteDiagnostics.push({kind,via,id:String(command?.id||''),at,client:Number(command?.clientCreatedAt)||0,server:via==='firebase'&&Number.isFinite(server)?server:0,result:String(result),sameMatch:String(command?.matchId??'')===String(state.match?.matchId||''),started:matchHasOfficiallyStarted(state.match),linkOpen:localLinkOpen});
+  remoteDiagnostics.push({kind,via,id:String(command?.id||''),at,client:Number(command?.clientCreatedAt)||0,server:via==='firebase'&&Number.isFinite(server)?server:0,result:String(result),sameMatch:String(command?.matchId??'')===String(state.match?.matchId||''),started:matchHasOfficiallyStarted(state.match),linkOpen:localLinkOpen,pageLag:mainThreadLag.lagAt(at)});
   if(remoteDiagnostics.length>80)remoteDiagnostics=remoteDiagnostics.slice(-80);
   remoteDiagnosticsDirty=true;
   scheduleRemoteDiagnosticsUpload(3000);
