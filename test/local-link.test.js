@@ -71,7 +71,7 @@ test('only the scoring device records when each command arrives on each path',()
 
 test('Android sends each command over the link with the same id it writes to Firestore',()=>{
   assert.match(controller,/LocalLinkClient\.shared\(context\)\.ensureStarted\(session\);/);
-  assert.match(controller,/sendDirect\("action", command\);\s*remoteControl\.getParent\(\)\.document\("score-" \+ id\)\.set\(command\)/);
+  assert.match(controller,/boolean direct = sendDirect\("action", command\);[\s\S]{0,300}?remoteControl\.getParent\(\)\.document\("score-" \+ id\)\.set\(command\)/);
   assert.match(controller,/sendDirect\("officialStart", updates\.get\("officialStartCommand"\)\);\s*Feedback feedback = [^\n]*\n\s*remoteControl\.set\(updates, SetOptions\.merge\(\)\)/);
   assert.match(controller,/if \(!"createdAt"\.equals\(entry\.getKey\(\)\)\)/);
   assert.match(gradle,/implementation 'io\.getstream:stream-webrtc-android:/);

@@ -47,7 +47,7 @@ final class BackgroundScoreController {
     private void sendShuttleCommand(VolumeKeyInterpreter.Action action, String successMessage, FullscreenCallback callback) {
         sendAction(new Request(action, (success, message, ignored) -> {
             if (callback != null) callback.onComplete(success, success ? successMessage : message);
-        }, System.currentTimeMillis()));
+        }, System.currentTimeMillis(), SystemClock.uptimeMillis()));
     }
 
     private final Context context;
@@ -94,14 +94,23 @@ final class BackgroundScoreController {
     }
 
     synchronized void submitDirect(VolumeKeyInterpreter.Action action, Callback callback) {
+        submitDirect(action, callback, SystemClock.uptimeMillis());
+    }
+
+    // inputAt is the key or touch event time on the uptime clock, so a busy main thread shows up as input lag.
+    synchronized void submitDirect(VolumeKeyInterpreter.Action action, Callback callback, long inputAt) {
         if (action != VolumeKeyInterpreter.Action.TEAM_A_PLUS
                 && action != VolumeKeyInterpreter.Action.TEAM_B_PLUS
                 && action != VolumeKeyInterpreter.Action.UNDO) return;
         ensureMatchListener(RemoteSessionStore.getSession(context));
-        sendAction(new Request(action, callback, System.currentTimeMillis()));
+        sendAction(new Request(action, callback, System.currentTimeMillis(), inputAt));
     }
 
     synchronized void submit(VolumeKeyInterpreter.Action action, Callback callback) {
+        submit(action, callback, SystemClock.uptimeMillis());
+    }
+
+    synchronized void submit(VolumeKeyInterpreter.Action action, Callback callback, long inputAt) {
         if (action == null || action == VolumeKeyInterpreter.Action.NONE) return;
         boolean scoreAction = action == VolumeKeyInterpreter.Action.TEAM_A_PLUS
                 || action == VolumeKeyInterpreter.Action.TEAM_B_PLUS;
@@ -110,14 +119,14 @@ final class BackgroundScoreController {
         if (scoreAction && session.isAuthorized() && !matchKnown) {
             liveScoreReference(session).get().addOnCompleteListener(task -> {
                 if (task.isSuccessful() && task.getResult() != null) updateMatch(task.getResult());
-                submitResolved(action, callback);
+                submitResolved(action, callback, inputAt);
             });
             return;
         }
-        submitResolved(action, callback);
+        submitResolved(action, callback, inputAt);
     }
 
-    private synchronized void submitResolved(VolumeKeyInterpreter.Action action, Callback callback) {
+    private synchronized void submitResolved(VolumeKeyInterpreter.Action action, Callback callback, long inputAt) {
         boolean scoreAction = action == VolumeKeyInterpreter.Action.TEAM_A_PLUS
                 || action == VolumeKeyInterpreter.Action.TEAM_B_PLUS;
         long now = SystemClock.uptimeMillis();
@@ -143,7 +152,7 @@ final class BackgroundScoreController {
                 return;
             }
         }
-        sendAction(new Request(action, callback, System.currentTimeMillis()));
+        sendAction(new Request(action, callback, System.currentTimeMillis(), inputAt));
     }
 
     private synchronized boolean awaitingOfficialStart() {
@@ -385,7 +394,11 @@ final class BackgroundScoreController {
         Feedback feedback = new Feedback((success, message) -> {
             if (request.callback != null) request.callback.onComplete(success, message, request.action);
         });
+        long handoffAt = System.currentTimeMillis();
         boolean direct = sendDirect("action", command);
+        // Only the Firestore copy can carry the link send time, which splits a late press into phone and network parts.
+        command.put("handoffAt", handoffAt);
+        if (direct) command.put("linkSentAt", System.currentTimeMillis());
         remoteControl.getParent().document("score-" + id).set(command)
                 .addOnSuccessListener(ignored -> feedback.report(true, "已送出遙控器指令"))
                 .addOnFailureListener(error -> feedback.report(false, errorMessage(error)));
@@ -422,6 +435,7 @@ final class BackgroundScoreController {
         command.put("action", actionName(request.action));
         command.put("matchId", matchId);
         command.put("clientCreatedAt", request.clientCreatedAt);
+        command.put("inputLagMs", request.inputLagMs);
         return command;
     }
 
@@ -495,11 +509,13 @@ final class BackgroundScoreController {
         final VolumeKeyInterpreter.Action action;
         final Callback callback;
         final long clientCreatedAt;
+        final long inputLagMs;
 
-        Request(VolumeKeyInterpreter.Action action, Callback callback, long clientCreatedAt) {
+        Request(VolumeKeyInterpreter.Action action, Callback callback, long clientCreatedAt, long inputAt) {
             this.action = action;
             this.callback = callback;
             this.clientCreatedAt = clientCreatedAt;
+            this.inputLagMs = Math.max(0L, SystemClock.uptimeMillis() - inputAt);
         }
     }
 }

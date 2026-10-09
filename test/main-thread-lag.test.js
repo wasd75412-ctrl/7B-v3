@@ -30,5 +30,14 @@ test('a stall whose overdue tick has not run yet is reported',()=>{
 test('every remote diagnostic records how busy the scoring page was',()=>{
   assert.match(main,/if\(!requestedAndroidRemote\)setInterval\(\(\)=>mainThreadLag\.tick\(Date\.now\(\)\),MAIN_THREAD_TICK_MS\);/);
   const log=main.match(/function logRemoteDiagnostic\(kind,via,command,result\)\{[\s\S]*?\n\}/)?.[0]||'';
-  assert.match(log,/linkOpen:localLinkOpen,pageLag:mainThreadLag\.lagAt\(at\)\}/);
+  assert.match(log,/linkOpen:localLinkOpen,pageLag:mainThreadLag\.lagAt\(at\),/);
+});
+
+test('remote diagnostics keep the phone-side send timing of each press',()=>{
+  const log=main.match(/function logRemoteDiagnostic\(kind,via,command,result\)\{[\s\S]*?\n\}/)?.[0]||'';
+  assert.match(log,/inputLag:Number\(command\?\.inputLagMs\)\|\|0,handoff:Number\(command\?\.handoffAt\)\|\|0,linkSent:Number\(command\?\.linkSentAt\)\|\|0\}/);
+  const controller=readFileSync(new URL('../android-remote/app/src/main/java/tw/club7b/scoreremote/BackgroundScoreController.java',import.meta.url),'utf8');
+  assert.match(controller,/command\.put\("inputLagMs", request\.inputLagMs\);/);
+  assert.match(controller,/long handoffAt = System\.currentTimeMillis\(\);\s*boolean direct = sendDirect\("action", command\);/);
+  assert.match(controller,/if \(direct\) command\.put\("linkSentAt", System\.currentTimeMillis\(\)\);\s*remoteControl\.getParent\(\)\.document\("score-" \+ id\)\.set\(command\)/);
 });
