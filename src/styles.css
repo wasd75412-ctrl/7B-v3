@@ -4882,3 +4882,10 @@ body>#achievementModal .achievement-unlock-card{width:min(360px,100%);display:gr
 .achievement-unlock-card .btn{min-width:150px;margin-top:6px}
 @keyframes achievement-pop{0%{transform:scale(.3);opacity:0}70%{transform:scale(1.15);opacity:1}100%{transform:scale(1)}}
 @media(prefers-reduced-motion:reduce){.achievement-unlock-icon{animation:none}}
+/* BCM 3.2.36 — tappable achievement badges with unlock condition details. */
+button.career-badge{font:inherit;font-weight:950;line-height:1.2;cursor:pointer;-webkit-tap-highlight-color:transparent;transition:transform .15s ease}
+button.career-badge:active{transform:scale(.95)}
+button.career-badge:focus-visible{outline:2px solid #ffd479;outline-offset:2px}
+.achievement-status{border-radius:999px;padding:4px 12px;background:#fff4cf;color:#684600;font-size:.82rem;font-weight:1000}
+.achievement-unlock-card.locked .achievement-status{background:#edf1f4;color:#5d6873}
+.achievement-unlock-card.locked .achievement-unlock-icon{filter:grayscale(1);opacity:.55}
