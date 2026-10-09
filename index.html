@@ -400,16 +400,16 @@
   <div class="player-modal-toolbar"><button id="closeEditTop" class="btn modal-close-button" type="button" aria-label="關閉球員卡">✕ 關閉</button></div>
   <div class="hero-card">
     <span id="editAvatarPreview" class="avatar large"></span>
-    <div><div id="profileTitle" class="hero-name">球員資料</div><div id="profileSummary" class="hero-racket"></div><div class="hero-status-row"><div id="profileStatus" class="status-chip">今日尚未出賽</div><button id="claimPlayer" class="btn blue hero-claim-button hidden" type="button">這是我／認領資料</button></div></div>
+    <div><div id="profileTitle" class="hero-name">球員資料</div><div id="profileSummary" class="hero-racket"></div><div class="hero-status-row"><div id="profileStatus" class="status-chip">今日尚未出賽</div><div id="profileHot" class="status-chip hot hidden"></div><button id="claimPlayer" class="btn blue hero-claim-button hidden" type="button">這是我／認領資料</button></div></div>
     <div id="profileWinRing" class="win-ring"><div><strong id="ringRate">0%</strong><span>生涯勝率</span></div></div>
   </div>
   <div class="profile-stats"><div class="stat-box"><strong id="statGames">0</strong><span class="sub">生涯場次</span></div><div class="stat-box"><strong id="statWins">0</strong><span class="sub">生涯勝場</span></div><div class="stat-box"><strong id="statRate">0%</strong><span class="sub">生涯勝率</span></div></div>
-  <div class="profile-sections"><div class="profile-section"><span class="sub">今日</span><strong id="profileToday">0勝 0敗</strong></div><div class="profile-section"><span class="sub">本月</span><strong id="profileMonth">0勝 0敗</strong></div><div class="profile-section"><span class="sub">目前狀態</span><strong id="profileStreak">—</strong></div></div>
-  <details class="profile-panel badge-panel"><summary><h3>🏅 生涯成就</h3><span id="profileBadgeCount" class="badge-count"></span></summary><div id="profileBadges" class="badge-grid"></div></details>
-  <div class="profile-panel"><h3>🤝 最佳搭檔排行</h3><div id="profilePartnerRanking" class="duo-list"></div></div>
-  <div class="profile-panel"><h3>😈 剋星</h3><div id="profileNemesis" class="duo-list"></div></div>
-  <div class="profile-panel"><h3>🎯 苦主</h3><div id="profileVictim" class="duo-list"></div></div>
-  <div class="profile-panel"><div id="profileRecent" class="recent-list"></div></div>
+  <div class="profile-sections"><div class="profile-section"><span class="sub">今日</span><strong id="profileToday">0勝 0敗</strong></div><div class="profile-section"><span class="sub">本月</span><strong id="profileMonth">0勝 0敗</strong></div><div class="profile-section"><span class="sub">性別</span><strong id="profileGender">未設定</strong></div></div>
+  <details class="profile-panel fold-panel"><summary><h3>🏅 生涯成就</h3><span id="profileBadgeCount" class="badge-count"></span></summary><div id="profileBadges" class="badge-grid"></div></details>
+  <details class="profile-panel fold-panel"><summary><h3>🤝 最佳搭檔排行</h3></summary><div id="profilePartnerRanking" class="duo-list"></div></details>
+  <details class="profile-panel fold-panel"><summary><h3>😈 剋星</h3></summary><div id="profileNemesis" class="duo-list"></div></details>
+  <details class="profile-panel fold-panel"><summary><h3>🎯 苦主</h3></summary><div id="profileVictim" class="duo-list"></div></details>
+  <details class="profile-panel fold-panel"><summary><h3>🕒 最近比賽</h3></summary><div id="profileRecent" class="recent-list"></div></details>
   <div class="profile-edit-divider"></div>
   <h3>編輯球員資料</h3>
   <div class="field"><label>姓名</label><input id="editName" class="input"></div>
@@ -417,11 +417,6 @@
   <div id="membershipAdminSection" class="profile-panel host-only" style="margin-top:14px">
     <h3>👥 團員類型（僅管理員）</h3>
     <label class="field"><span>分類</span><select id="editMemberType" class="input"><option value="member">固定團員</option><option value="guest">臨打球友</option></select></label>
-  </div>
-  <div id="voiceAdminSection" class="profile-panel host-only" style="margin-top:14px">
-    <h3>🎤 播報設定（僅管理員）</h3>
-    <div class="field"><label>播報名稱</label><input id="editVoiceName" class="input" placeholder="留空時使用姓名；例如：緁可填潔"></div>
-    <div class="toolbar" style="margin-top:10px"><button id="testVoiceName" class="btn" type="button">▶ 測試播報</button></div>
   </div>
   <div class="profile-rackets"><div class="profile-racket-box"><strong>🏸 主球拍</strong><div id="profileMainRacket" class="sub">尚未填寫</div></div><div class="profile-racket-box"><strong>🏸 備用球拍</strong><div id="profileBackupRacket" class="sub">尚未填寫</div></div></div>
   <div class="field" style="margin-top:10px"><label>主球拍</label><div class="field-grid-3"><input id="editRacket" class="input" placeholder="例如：100ZZ"><input id="editRacketTension" class="input" placeholder="磅數"><input id="editRacketString" class="input" placeholder="線種"></div></div>

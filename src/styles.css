@@ -4866,14 +4866,17 @@ body>.modal .event-packing-item-actions .danger-outline{border-color:#ff8798!imp
 #app .event-payment-admin .btn{padding:8px 10px;font-size:.8rem}
 @media(max-width:620px){#app .event-payment-member .btn{width:100%}#app .event-payment-admin>span{grid-template-columns:1fr auto auto}#app .event-payment-admin>span>b{grid-column:1/-1}}
 
-/* BCM 3.2.35 — collapsible career achievements and achievement unlock popup. */
-.badge-panel>summary{display:flex;align-items:center;gap:10px;cursor:pointer;list-style:none}
-.badge-panel>summary::-webkit-details-marker{display:none}
-.badge-panel>summary h3{margin:0}
-.badge-panel>summary:after{content:'＋';font-size:1.2rem;color:var(--muted)}
-.badge-panel[open]>summary:after{content:'－'}
-.badge-panel .badge-count{margin-left:auto;font-weight:1000;opacity:.85}
-.badge-panel[open]>.badge-grid{margin-top:12px}
+/* BCM 3.2.38 — collapsible player card panels and achievement unlock popup. */
+.fold-panel>summary{display:flex;align-items:center;gap:10px;cursor:pointer;list-style:none}
+.fold-panel>summary::-webkit-details-marker{display:none}
+.fold-panel>summary h3{margin:0 auto 0 0}
+.fold-panel>summary:after{content:'＋';font-size:1.2rem;color:var(--muted)}
+.fold-panel[open]>summary:after{content:'－'}
+.fold-panel .badge-count{font-weight:1000;opacity:.85}
+.fold-panel[open]>summary{margin-bottom:12px}
+.status-chip.hot{border-color:transparent;background:linear-gradient(135deg,#ff7a3d,#ffb547);color:#3a1300}
+@media(max-width:620px){.hero-status-row{gap:6px}.hero-status-row .status-chip{padding:6px 9px;font-size:.86rem}}
+.person.card2 .status-mini.hot{background:#ffe1cc;color:#a63a00}
 #achievementModal{z-index:260;align-items:center;padding:14px}
 body>#achievementModal .achievement-unlock-card{width:min(360px,100%);display:grid;justify-items:center;gap:10px;padding:28px 22px;border-radius:26px;text-align:center}
 .achievement-unlock-icon{font-size:4.4rem;line-height:1;animation:achievement-pop .55s ease-out}
