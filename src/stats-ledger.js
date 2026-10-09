@@ -1,3 +1,5 @@
+import { FEAT_KEYS, addFeats, emptyFeats, playerFeats } from './player-achievements.js';
+
 const MONTH_PATTERN=/^\d{4}-\d{2}$/;
 const PLAYER_STRIDE=7;
 const PAIR_STRIDE=4;
@@ -13,7 +15,8 @@ function record(games,wins){
   return [total,Math.min(total,count(wins))];
 }
 function matchFormat(row){return row?.format==='singles'?'singles':'doubles'}
-function emptyPlayer(){return{singles:[0,0],doubles:[0,0],best:0,run:0}}
+function emptyPlayer(){return{singles:[0,0],doubles:[0,0],best:0,run:0,feats:emptyFeats()}}
+function defaultDayOf(row){return String(row?.dateKey||'')}
 function emptyMonth(){return{games:{singles:0,doubles:0},players:{}}}
 function addPair(map,id,otherId,won){
   const row=(map[id]||={});
@@ -51,8 +54,17 @@ export function decodeStatsLedger(source){
       singles:record(players[index+1],players[index+2]),
       doubles:record(players[index+3],players[index+4]),
       best:count(players[index+5]),
-      run:count(players[index+6])
+      run:count(players[index+6]),
+      feats:emptyFeats()
     };
+  }
+  // Older ledgers have no feats; each key maps to [idIndex,value,...] pairs with zeros omitted.
+  for(const key of FEAT_KEYS){
+    const rows=Array.isArray(source.feats?.[key])?source.feats[key]:[];
+    for(let index=0;index+2<=rows.length;index+=2){
+      const player=ledger.players[ids[rows[index]]||''];
+      if(player)player.feats[key]=count(rows[index+1]);
+    }
   }
   readPairs(source.partners,ids,(a,b,games,wins)=>{
     setPair(ledger.partners,a,b,[games,wins]);
@@ -88,9 +100,14 @@ export function encodeStatsLedger(ledger){
     if(!indexById.has(id)){indexById.set(id,ids.length);ids.push(id)}
     return indexById.get(id);
   };
-  const players=[];
+  const players=[],feats={};
   for(const [id,value] of Object.entries(ledger.players||{})){
-    players.push(indexOf(id),...record(...(value.singles||[])),...record(...(value.doubles||[])),count(value.best),count(value.run));
+    const index=indexOf(id);
+    players.push(index,...record(...(value.singles||[])),...record(...(value.doubles||[])),count(value.best),count(value.run));
+    for(const key of FEAT_KEYS){
+      const amount=count(value.feats?.[key]);
+      if(amount)(feats[key]||=[]).push(index,amount);
+    }
   }
   // Pairs are stored in both directions in memory; only the lower-index side is written.
   // Opponents keep both sides' wins because a match without a winner is a loss for everyone.
@@ -119,7 +136,7 @@ export function encodeStatsLedger(ledger){
     cutoff:ledger.cutoff,
     settledAt:String(ledger.settledAt||''),
     games:[count(ledger.games?.singles),count(ledger.games?.doubles)],
-    ids,players,partners,opponents,months
+    ids,players,partners,opponents,months,feats
   };
 }
 
@@ -140,14 +157,15 @@ export function newerStatsLedger(current,incoming){
 }
 
 // Rows must be in chronological order so win streaks carry across the cutoff.
-export function settleMatches(ledger,rows,cutoff,monthOf,settledAt=new Date().toISOString()){
+export function settleMatches(ledger,rows,cutoff,monthOf,settledAt=new Date().toISOString(),dayOf=defaultDayOf){
   const base=ledger?.cutoff?ledger:emptyStatsLedger();
   if(!MONTH_PATTERN.test(cutoff||'')||cutoff<=base.cutoff)return base;
-  const next=structuredClone(base);
+  const next=structuredClone(base),settledRows=[];
   for(const row of Array.isArray(rows)?rows:[]){
     if(!row||row.testMode)continue;
     const month=String(monthOf(row)||'');
     if(month<base.cutoff||month>=cutoff)continue;
+    settledRows.push(row);
     const format=matchFormat(row),teams=[0,1].map(team=>(row.teams?.[team]||[]).filter(Boolean));
     const bucket=MONTH_PATTERN.test(month)?(next.months[month]||=emptyMonth()):null;
     next.games[format]++;
@@ -168,6 +186,12 @@ export function settleMatches(ledger,rows,cutoff,monthOf,settledAt=new Date().to
         for(const opponentId of teams[1-team])addPair(next.opponents,id,opponentId,won);
       }
     }
+  }
+  // Settlement covers whole months, so no match day is split between the ledger and live history.
+  const settledIds=new Set(settledRows.flatMap(row=>[0,1].flatMap(team=>(row.teams?.[team]||[]).filter(Boolean))));
+  for(const id of settledIds){
+    const player=next.players[id];
+    player.feats=addFeats(player.feats,playerFeats(settledRows,id,dayOf));
   }
   next.cutoff=cutoff;
   next.settledAt=settledAt;
@@ -196,6 +220,8 @@ export function ledgerStreak(ledger,id){
   const player=ledger?.players?.[id];
   return{best:count(player?.best),run:count(player?.run)};
 }
+
+export function ledgerFeats(ledger,id){return addFeats(ledger?.players?.[id]?.feats)}
 
 export function ledgerRelations(ledger,id){
   const read=map=>Object.entries(map?.[id]||{}).map(([otherId,[games,wins]])=>({id:otherId,games,wins}));
