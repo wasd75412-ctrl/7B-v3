@@ -143,11 +143,11 @@ public final class RemoteKeyAccessibilityService extends AccessibilityService {
             else sendBackgroundReturnShuttle();
             return;
         }
-        sendBackgroundAction(action);
+        sendBackgroundAction(action, eventTime);
     }
 
     private final CameraButtonGesture.Callbacks cameraButtonCallbacks = new CameraButtonGesture.Callbacks() {
-        @Override public void undo() { sendBackgroundAction(VolumeKeyInterpreter.Action.UNDO); }
+        @Override public void undo() { sendBackgroundAction(VolumeKeyInterpreter.Action.UNDO, SystemClock.uptimeMillis()); }
         @Override public void useShuttle() { sendBackgroundUseShuttle(); }
         @Override public void returnShuttle() { sendBackgroundReturnShuttle(); }
     };
@@ -191,7 +191,7 @@ public final class RemoteKeyAccessibilityService extends AccessibilityService {
         }
     }
 
-    private void sendBackgroundAction(VolumeKeyInterpreter.Action action) {
+    private void sendBackgroundAction(VolumeKeyInterpreter.Action action, long inputAt) {
         long now = SystemClock.uptimeMillis();
         if (action == VolumeKeyInterpreter.Action.UNDO) {
             if (now - lastUndoActionAt < UNDO_DEBOUNCE_MS) return;
@@ -213,7 +213,7 @@ public final class RemoteKeyAccessibilityService extends AccessibilityService {
         scoreController.submit(action, (success, message, completedAction) -> keyHandler.post(() -> {
             Toast.makeText(RemoteKeyAccessibilityService.this, message, Toast.LENGTH_SHORT).show();
             vibrate(success ? (completedAction == VolumeKeyInterpreter.Action.UNDO ? 100L : 55L) : 28L);
-        }));
+        }), inputAt);
     }
 
     private void vibrate(long milliseconds) {

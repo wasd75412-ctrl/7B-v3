@@ -70,8 +70,8 @@ test('Android gates the official start with a double press before sending anythi
   assert.match(controller,/WAIT_FOR_SECOND_PRESS\) \{\s*if \(callback != null\) callback\.onComplete\(true, "再按一下正式開始", action\);\s*return;/);
   assert.match(controller,/OFFICIAL_START\) \{[\s\S]*?startOfficialMatch\(/);
   assert.doesNotMatch(controller,/doublePress|OFFICIAL_START_DOUBLE_PRESS_MS/);
-  const remoteAction=activity.match(/private void sendRemoteAction\(VolumeKeyInterpreter\.Action action\) \{[\s\S]*?\n    \}/)?.[0]||'';
-  assert.match(remoteAction,/\} else \{\s*return;\s*\}\s*sendScoreAction\(action\);/);
+  const remoteAction=activity.match(/private void sendRemoteAction\(VolumeKeyInterpreter\.Action action, long inputAt\) \{[\s\S]*?\n    \}/)?.[0]||'';
+  assert.match(remoteAction,/\} else \{\s*return;\s*\}\s*sendScoreAction\(action, inputAt\);/);
   assert.doesNotMatch(remoteAction,/webView|bcmAndroidRemoteInput/);
 });
 

@@ -95,7 +95,7 @@ public final class MainActivity extends Activity {
         settings.setDisplayZoomControls(false);
         settings.setMediaPlaybackRequiresUserGesture(false);
         settings.setMixedContentMode(WebSettings.MIXED_CONTENT_NEVER_ALLOW);
-        settings.setUserAgentString(settings.getUserAgentString() + " 7BAndroidRemote/1.4.1");
+        settings.setUserAgentString(settings.getUserAgentString() + " 7BAndroidRemote/1.4.2");
         CookieManager.getInstance().setAcceptCookie(true);
         CookieManager.getInstance().setAcceptThirdPartyCookies(view, true);
         view.setRendererPriorityPolicy(WebView.RENDERER_PRIORITY_IMPORTANT, true);
@@ -198,7 +198,7 @@ public final class MainActivity extends Activity {
         VolumeKeyInterpreter.Action action = p4Gestures.onTouchEvent(event, displayDensity());
         if (action != VolumeKeyInterpreter.Action.NONE) {
             cancelP4Settle();
-            deliverP4Action(action);
+            deliverP4Action(action, event.getEventTime());
         } else if (p4Gestures.isTracking()) {
             scheduleP4Settle();
         }
@@ -209,9 +209,10 @@ public final class MainActivity extends Activity {
         cancelP4Settle();
         pendingP4Settle = () -> {
             pendingP4Settle = null;
-            VolumeKeyInterpreter.Action action = p4Gestures.finishTracking(SystemClock.uptimeMillis());
+            long settledAt = SystemClock.uptimeMillis();
+            VolumeKeyInterpreter.Action action = p4Gestures.finishTracking(settledAt);
             if (action == VolumeKeyInterpreter.Action.NONE) return;
-            deliverP4Action(action);
+            deliverP4Action(action, settledAt);
         };
         keyHandler.postDelayed(pendingP4Settle, 120L);
     }
@@ -226,7 +227,7 @@ public final class MainActivity extends Activity {
         return getResources().getDisplayMetrics().density;
     }
 
-    private void deliverP4Action(VolumeKeyInterpreter.Action action) {
+    private void deliverP4Action(VolumeKeyInterpreter.Action action, long inputAt) {
         BackgroundScoreController.Callback callback = (success, message, completedAction) -> keyHandler.post(() -> {
             Toast.makeText(MainActivity.this, message, Toast.LENGTH_SHORT).show();
             vibrate(success ? 55L : 28L);
@@ -241,7 +242,7 @@ public final class MainActivity extends Activity {
             case TEAM_A_PLUS:
             case TEAM_B_PLUS:
             case UNDO:
-                scoreController().submitDirect(action, callback);
+                scoreController().submitDirect(action, callback, inputAt);
                 return;
             default:
                 return;
@@ -335,11 +336,11 @@ public final class MainActivity extends Activity {
             else sendRemoteReturnShuttleCommand();
             return;
         }
-        sendRemoteAction(action);
+        sendRemoteAction(action, eventTime);
     }
 
     private final CameraButtonGesture.Callbacks cameraButtonCallbacks = new CameraButtonGesture.Callbacks() {
-        @Override public void undo() { sendRemoteAction(VolumeKeyInterpreter.Action.UNDO); }
+        @Override public void undo() { sendRemoteAction(VolumeKeyInterpreter.Action.UNDO, SystemClock.uptimeMillis()); }
         @Override public void useShuttle() { sendRemoteUseShuttleCommand(); }
         @Override public void returnShuttle() { sendRemoteReturnShuttleCommand(); }
     };
@@ -363,11 +364,11 @@ public final class MainActivity extends Activity {
         return backgroundScoreController;
     }
 
-    private void sendScoreAction(VolumeKeyInterpreter.Action action) {
+    private void sendScoreAction(VolumeKeyInterpreter.Action action, long inputAt) {
         scoreController().submit(action, (success, message, completedAction) -> keyHandler.post(() -> {
             Toast.makeText(MainActivity.this, message, Toast.LENGTH_SHORT).show();
             vibrate(success ? (completedAction == VolumeKeyInterpreter.Action.UNDO ? 90L : 55L) : 28L);
-        }));
+        }), inputAt);
     }
 
     private boolean consumeP4Key(KeyEvent event) {
@@ -399,7 +400,7 @@ public final class MainActivity extends Activity {
         );
     }
 
-    private void sendRemoteAction(VolumeKeyInterpreter.Action action) {
+    private void sendRemoteAction(VolumeKeyInterpreter.Action action, long inputAt) {
         long now = SystemClock.uptimeMillis();
         if (action == VolumeKeyInterpreter.Action.UNDO) {
             if (now - lastUndoActionAt < UNDO_DEBOUNCE_MS) return;
@@ -411,7 +412,7 @@ public final class MainActivity extends Activity {
         } else {
             return;
         }
-        sendScoreAction(action);
+        sendScoreAction(action, inputAt);
     }
 
     private boolean isRemoteKeyAccessEnabled() {

@@ -280,20 +280,21 @@ public final class LoopCameraActivity extends ComponentActivity {
         if (action != VolumeKeyInterpreter.Action.NONE) {
             if (pendingP4Settle != null) handler.removeCallbacks(pendingP4Settle);
             pendingP4Settle = null;
-            deliverP4Action(action);
+            deliverP4Action(action, event.getEventTime());
         } else if (p4Gestures.isTracking()) {
             if (pendingP4Settle != null) handler.removeCallbacks(pendingP4Settle);
             pendingP4Settle = () -> {
                 pendingP4Settle = null;
-                VolumeKeyInterpreter.Action settled = p4Gestures.finishTracking(android.os.SystemClock.uptimeMillis());
-                if (settled != VolumeKeyInterpreter.Action.NONE) deliverP4Action(settled);
+                long settledAt = android.os.SystemClock.uptimeMillis();
+                VolumeKeyInterpreter.Action settled = p4Gestures.finishTracking(settledAt);
+                if (settled != VolumeKeyInterpreter.Action.NONE) deliverP4Action(settled, settledAt);
             };
             handler.postDelayed(pendingP4Settle, 120L);
         }
         return true;
     }
 
-    private void deliverP4Action(VolumeKeyInterpreter.Action action) {
+    private void deliverP4Action(VolumeKeyInterpreter.Action action, long inputAt) {
         if (remoteScoreController == null) remoteScoreController = new BackgroundScoreController(this);
         BackgroundScoreController.FullscreenCallback toast = (success, message) -> handler.post(() ->
                 Toast.makeText(LoopCameraActivity.this, message, Toast.LENGTH_SHORT).show());
@@ -308,7 +309,7 @@ public final class LoopCameraActivity extends ComponentActivity {
             case TEAM_B_PLUS:
             case UNDO:
                 remoteScoreController.submitDirect(action, (success, message, completedAction) -> handler.post(() ->
-                        Toast.makeText(LoopCameraActivity.this, message, Toast.LENGTH_SHORT).show()));
+                        Toast.makeText(LoopCameraActivity.this, message, Toast.LENGTH_SHORT).show()), inputAt);
                 return;
             default:
                 return;
