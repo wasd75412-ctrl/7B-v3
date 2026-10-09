@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
-import { addFeats, careerAchievementBadges, highestWinStreak, longestServeRuns, maxDeficit, normalizeServeRuns, playerFeats, rivalLists, unseenAchievements } from '../src/player-achievements.js';
+import { addFeats, careerAchievementBadges, highestWinStreak, longestServeRuns, maxDeficit, normalizeServeRuns, partnerRanking, playerFeats, rivalLists, unseenAchievements } from '../src/player-achievements.js';
 
 const earnedMap=input=>new Map(careerAchievementBadges(input).map(([,label,on])=>[label,on]));
 const match=(dateKey,scores,winner,extra={})=>({dateKey,teams:[['me','ally'],['x','y']],scores,winner,...extra});
@@ -134,15 +134,27 @@ test('只回傳已達成且尚未看過的成就',()=>{
   assert.deepEqual(unseenAchievements(badges,['初登場','10 場','10 勝']),[]);
 });
 
-test('剋星與苦主依交手勝率分開排序，交手太少不列入',()=>{
+test('剋星與苦主依交手勝率分開排序，交手未滿十場不列入',()=>{
   const {nemeses,victims}=rivalLists([
-    {id:'tough',games:6,wins:1},
-    {id:'even',games:4,wins:2},
-    {id:'easy',games:5,wins:5},
-    {id:'okay',games:3,wins:2},
-    {id:'rare',games:2,wins:0}
+    {id:'tough',games:12,wins:2},
+    {id:'even',games:10,wins:5},
+    {id:'easy',games:10,wins:10},
+    {id:'okay',games:15,wins:10},
+    {id:'rare',games:9,wins:0},
+    {id:'rareWin',games:9,wins:9}
   ]);
   assert.deepEqual(nemeses.map(row=>row.id),['tough']);
   assert.deepEqual(victims.map(row=>row.id),['easy','okay']);
   assert.equal(victims[0].rate,100);
+});
+
+test('最佳搭檔排行只列共同出賽十場以上並保留原排序',()=>{
+  const ranked=partnerRanking([
+    {id:'new',games:9,wins:9,rate:100},
+    {id:'a',games:10,wins:8,rate:80},
+    {id:'b',games:20,wins:12,rate:60},
+    {id:'c',games:11,wins:6,rate:55},
+    {id:'d',games:30,wins:15,rate:50}
+  ]);
+  assert.deepEqual(ranked.map(row=>row.id),['a','b','c']);
 });
