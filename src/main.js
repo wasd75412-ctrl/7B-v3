@@ -12,6 +12,7 @@ import { MAIN_THREAD_TICK_MS, createMainThreadLagMonitor } from './main-thread-l
 import { REMOTE_COMMAND_MAX_AGE_MS, isStaleMatchPressForCurrentMatch, shouldAcceptRemoteCommand, timestampMillis } from './remote-command.js';
 import { canAutoSyncPlayerIdentity } from './device-sync.js';
 import { shouldRequestNativeWakeLock, wakeLockButtonIntent, wakeLockControlIsActive } from './wake-lock.js';
+import { TEST_MODE_IDLE_MS, testModeIdleExpired, testModeLastActiveMs, testModeOn } from './test-mode.js';
 import { FIRESTORE_LINK_COOLDOWN_MS, FIRESTORE_LINK_TIMEOUT_MS, firestoreLinkProbeVerdict, shouldProbeFirestoreLink } from './firestore-link.js';
 import { chooseScoreTheme } from './score-theme-preference.js';
 import { arrangeTeamsWithTeammateLimit, lineupExceedsTeammateLimit, orientLineupToReference } from './team-rotation.js';
@@ -122,10 +123,11 @@ const shuffle=a=>{a=[...a];const r=new Uint32Array(Math.max(1,a.length));crypto.
 function teammateSafeLineup(ids,{randomize=false}={}){const values=ids.filter(Boolean);if(values.length!==4||new Set(values).size!==4)return values;const todayHistory=state.history.filter(h=>historyDate(h)===localDateKey()),genderGroupingEnabled=state.rules?.genderGroupingEnabled!==false,genderByPlayer=Object.fromEntries(state.roster.map(p=>[p.id,normalizePlayerGender(p.gender)])),lineupMaleCount=values.filter(id=>genderByPlayer[id]===PLAYER_GENDER_MALE).length,hasMalePair=[values.slice(0,2),values.slice(2,4)].some(team=>team.every(id=>genderByPlayer[id]===PLAYER_GENDER_MALE)),genderViolation=genderGroupingEnabled&&lineupMaleCount===2&&hasMalePair;if(!randomize&&!genderViolation&&!lineupExceedsTeammateLimit(values,todayHistory))return values;const random=crypto.getRandomValues(new Uint32Array(1))[0];return orientLineupToReference(arrangeTeamsWithTeammateLimit(randomize?shuffle(values):values,todayHistory,random,2,{genderGroupingEnabled,genderByPlayer,keepLineup:!randomize}),values)}
 function wholeAmount(value){const n=Number(value);return Number.isFinite(n)&&n>0?Math.round(n):0}
 function setAdminNotices(rows){state.adminNotices=normalizeAdminNotices({adminNotices:rows});state.adminNotice=state.adminNotices[0]||null}
-const initialState=()=>({version:9.8,matchFormat:'doubles',testMode:false,testModeRevision:0,roster:[],retiredPlayers:[],adminPlayerIds:[],attendance:[],lineupRevision:0,court:[],waitingQueue:[],queueDraftChosen:[],priority:null,lastLoserReplayPlayerId:null,match:{active:false,format:'doubles',players:[[],[]],scores:[0,0],rallies:[],serving:0,positions:[[0,1],[0,1]],winner:null,startedAt:''},matchRollback:null,rules:{target:11,cap:15,deuce:true,genderGroupingEnabled:true},history:[],statsLedger:emptyStatsLedger(),deletedMatchIds:[],matchTimelineStarts:{},hiddenTimelineDates:[],matchReplayPlaylistTitle:'',matchReplayPlaylistUrl:'',nextCall:null,schedulePoll:{status:'open',createdAt:'',deadlineAt:'',autoCycle:'',options:[],votes:{},voterPlayers:{},manualParticipants:{}},pollHistory:[],nextEvent:null,nextEvents:[],adminNotice:null,adminNotices:[],shuttleTubes:[],shuttleLegacyActiveTubeId:'',shuttleNoTrackingTubeIds:[],updatedAt:null});
+const initialState=()=>({version:9.8,matchFormat:'doubles',testMode:false,testModeRevision:0,testModeActiveAt:0,roster:[],retiredPlayers:[],adminPlayerIds:[],attendance:[],lineupRevision:0,court:[],waitingQueue:[],queueDraftChosen:[],priority:null,lastLoserReplayPlayerId:null,match:{active:false,format:'doubles',players:[[],[]],scores:[0,0],rallies:[],serving:0,positions:[[0,1],[0,1]],winner:null,startedAt:''},matchRollback:null,rules:{target:11,cap:15,deuce:true,genderGroupingEnabled:true},history:[],statsLedger:emptyStatsLedger(),deletedMatchIds:[],matchTimelineStarts:{},hiddenTimelineDates:[],matchReplayPlaylistTitle:'',matchReplayPlaylistUrl:'',nextCall:null,schedulePoll:{status:'open',createdAt:'',deadlineAt:'',autoCycle:'',options:[],votes:{},voterPlayers:{},manualParticipants:{}},pollHistory:[],nextEvent:null,nextEvents:[],adminNotice:null,adminNotices:[],shuttleTubes:[],shuttleLegacyActiveTubeId:'',shuttleNoTrackingTubeIds:[],updatedAt:null});
 const DEVICE_SYNC_CODE_KEY='bcmDeviceSyncCodeV1',DEVICE_SYNC_TOKEN_KEY='bcmDeviceSyncTokenV1',DEVICE_SYNC_NAME_KEY='bcmDeviceSyncNameV1',DEVICE_SYNC_PLAYER_KEY='bcmDeviceSyncPlayerV1';
 let state=initialState(), roomId='', roomRef=null, liveScoreRef=null, remoteControlRef=null, chatCollectionRef=null, isHost=false, hostToken='', adminPinHash='', unsubscribe=null, liveScoreUnsubscribe=null, remoteControlUnsubscribe=null, remoteActionUnsubscribe=null, chatUnsubscribe=null, applying=false, saveTimer=null, liveScoreSaveTimer=null, matchAutoBackupTimer=null, editId=null;const expandedPlayerNotes=new Set();let profileOriginal=null,profileDirty={name:false,gender:false,memberType:false,racket:false,racketTension:false,racketString:false,backupRacket:false,backupTension:false,backupString:false,note:false};let dismissedResultKey='';const selfToken=localStorage.getItem(DEVICE_SYNC_TOKEN_KEY)||localStorage.getItem('bdV73SelfToken')||randomToken();localStorage.setItem('bdV73SelfToken',selfToken);const SCORE_DEVICE_KEY='bcmScoreDeviceIdV1',scoreDeviceId=localStorage.getItem(SCORE_DEVICE_KEY)||randomToken();localStorage.setItem(SCORE_DEVICE_KEY,scoreDeviceId);let selfHash='',scoreViewRequested=false,expandedShuttleTubeId='';
 let deviceProfileUnsubscribe=null,deviceProfileApplying=false,deviceProfileSaveTimer=null,identitySyncing=false,roomConnectInProgress=false;
+let idleTestModeTimer=null;
 let roomSnapshotFromCache=false,snapshotHasPendingWrites=false,pendingRoomWrites=0,roomWriteScheduled=false,archivedHistory=[],removedMatchIds=new Set();
 const SYNC_MODE_KEY='bcmRoomSyncModeV1',SNAPSHOT_RETRY_BASE_MS=5000,SNAPSHOT_RETRY_MAX_MS=60000,ROOM_MATCH_FALLBACK_MS=60000;
 let roomMatchFallbackTimer=null,roomMatchFallbackKey='';
@@ -353,6 +355,7 @@ function encodeState(src){
     matchFormat:src.matchFormat==='singles'?'singles':'doubles',
     testMode:!!src.testMode,
     testModeRevision:Math.max(0,Number(src.testModeRevision)||0),
+    testModeActiveAt:Math.max(0,Number(src.testModeActiveAt)||0),
     roster:Array.isArray(src.roster)?src.roster.map(playerRecord=>({...playerRecord,gender:normalizePlayerGender(playerRecord.gender),memberType:normalizePlayerType(playerRecord.memberType),ownerHashes:playerOwnerHashes(playerRecord).join('|')})):[],
     retiredPlayers:normalizeRetiredPlayers(src.retiredPlayers),
     adminPlayerIds:[...new Set((Array.isArray(src.adminPlayerIds)?src.adminPlayerIds:[]).map(id=>String(id||'').trim()).filter(Boolean))].slice(0,20),
@@ -461,6 +464,7 @@ function decodeState(d){
     matchFormat:d.matchFormat==='singles'?'singles':'doubles',
     testMode:!!d.testMode,
     testModeRevision:Math.max(0,Number(d.testModeRevision)||0),
+    testModeActiveAt:Math.max(0,Number(d.testModeActiveAt)||0),
     rules:{...base.rules,...(d.rules||{})},
     match:{
       ...base.match,...m,
@@ -2031,6 +2035,7 @@ function canApplyMatch(match){
 function applyState(data){
   const before=matchScoreSignature(),next=cleanState(data);
   if(Number(next.testModeRevision)<Number(state.testModeRevision)){next.testMode=state.testMode;next.testModeRevision=state.testModeRevision}
+  next.testModeActiveAt=Math.max(Number(next.testModeActiveAt)||0,Number(state.testModeActiveAt)||0);
   next.deletedMatchIds=mergeDeletedMatchIds(state.deletedMatchIds,next.deletedMatchIds);
   next.deletedMatchIds.forEach(id=>removedMatchIds.add(id));
   const incomingLedger=next.statsLedger;
@@ -2054,6 +2059,7 @@ function applyState(data){
   announceSyncedScore(before);
   checkAchievementUnlocks();
   if(restoreLedger)saveSoon();
+  scheduleIdleTestModeCheck();
   // Receiving a room snapshot must never publish its fallback match back into liveScore.
 }
 // The Android app pauses WebView timers while recording, and Firestore delivers every snapshot through
@@ -2519,7 +2525,7 @@ async function saveNewMatchCheckpointNow(){
   const checkpoint=createMatchCheckpointData(state.match),batch=writeBatch(db);
   clearTimeout(roomMatchFallbackTimer);roomMatchFallbackTimer=null;roomMatchFallbackKey=roomMatchFallbackSignature();
   batch.set(liveScoreRef,{...checkpoint.liveScore,updatedAt:serverTimestamp()},{merge:true});
-  batch.set(roomRef,{court:state.court,nextCall:state.nextCall,waitingQueue:state.waitingQueue,queueDraftChosen:state.queueDraftChosen,priority:state.priority,lastLoserReplayPlayerId:state.lastLoserReplayPlayerId,attendance:state.attendance,lineupRevision:Number(state.lineupRevision)||0,...checkpoint.room},{merge:true});
+  batch.set(roomRef,{court:state.court,nextCall:state.nextCall,waitingQueue:state.waitingQueue,queueDraftChosen:state.queueDraftChosen,priority:state.priority,lastLoserReplayPlayerId:state.lastLoserReplayPlayerId,attendance:state.attendance,lineupRevision:Number(state.lineupRevision)||0,testMode:!!state.testMode,testModeRevision:Number(state.testModeRevision)||0,testModeActiveAt:Number(state.testModeActiveAt)||0,...checkpoint.room},{merge:true});
   pendingLiveScoreWrites++;updateSyncBadge();
   try{
     await batch.commit();
@@ -3083,10 +3089,33 @@ function deleteHistoryDate(dateKey){
 function clearAllHistory(){if(!isHost)return;if(!state.history.length)return alert('目前沒有比賽紀錄。');if(!confirm(`即將刪除全部 ${state.history.length} 筆比賽紀錄。\n球員名單與目前比分不會被刪除。`))return;const text=prompt('為避免誤刪，請輸入「清空」：','');if(text!=='清空')return alert('輸入不正確，已取消清空。');const ids=state.history.map(row=>row.matchId).filter(Boolean);forgetArchivedMatches(ids);archivedHistory=[];writePendingArchives(localStorage,roomId,[]);state.history=[];renderAll();saveHistoryDeletion();if(roomId&&ids.length)void deleteArchivedMatches(ids).catch(error=>console.warn('封存戰績清空失敗',error));alert('全部比賽紀錄已清空。')}
 function renderAll(){renderRoster();renderAttendance();renderCourt();renderHistory();renderScore();renderDashboard();renderStats();renderPoll();renderChat();renderTestMode();if(!$('shuttleTubeModal')?.classList.contains('hidden'))renderShuttleTubeManager();applyRole();renderAndroidRemote()}
 function currentTestModeEnabled(){
+  if(testModeIdleExpired(state))return false;
   return !!state.testMode||!!state.match?.active&&state.match?.winner===null&&!!state.match?.testMode;
 }
+function markTestModeActivity(){if(testModeOn(state))state.testModeActiveAt=Date.now()}
+function scheduleIdleTestModeCheck(){
+  clearTimeout(idleTestModeTimer);idleTestModeTimer=null;
+  if(!state.testMode)return;
+  const remaining=testModeLastActiveMs(state)+TEST_MODE_IDLE_MS-Date.now();
+  idleTestModeTimer=setTimeout(expireIdleTestMode,Math.min(Math.max(0,remaining)+1000,2147483000));
+}
+function expireIdleTestMode(){
+  if(!testModeIdleExpired(state))return scheduleIdleTestModeCheck();
+  if(isHost&&!requestedAndroidRemote&&roomRef&&!applying)disableTestMode({manual:false});
+  else renderTestMode();
+}
+function disableTestMode({manual=true}={}){
+  state.testMode=false;
+  state.testModeRevision=Math.max(Date.now(),Number(state.testModeRevision||0)+1);
+  const previousMatch=state.match,attending=uniqueIds(state.attendance).filter(id=>state.roster.some(player=>player.id===id));
+  state.match={...initialState().match,syncEpoch:nextMatchEpoch(previousMatch),testMode:false,scorerDevice:previousMatch.scorerDevice||''};
+  const needed=matchPlayerCount(state.matchFormat);state.matchRollback=null;state.nextCall=null;state.court=attending.slice(0,needed);state.waitingQueue=attending.slice(needed);state.queueDraftChosen=[];state.priority=state.waitingQueue[0]||null;state.lastLoserReplayPlayerId=null;
+  scoreViewRequested=false;dismissedResultKey='';$('resultModal').classList.add('hidden');
+  clearTimeout(idleTestModeTimer);idleTestModeTimer=null;
+  renderAll();if(manual)page(3);checkpointNewMatch();
+}
 function renderTestMode(){
-  const enabled=currentTestModeEnabled(),currentMatchIsTest=!!state.testMode&&!!state.match?.active&&state.match?.winner===null&&!!state.match?.testMode,button=$('testModeToggle'),scoreButton=$('scoreTestModeToggle'),quickWin=$('testQuickWin'),showQuickWin=currentMatchIsTest&&isHost;
+  const enabled=currentTestModeEnabled(),currentMatchIsTest=testModeOn(state)&&!!state.match?.active&&state.match?.winner===null&&!!state.match?.testMode,button=$('testModeToggle'),scoreButton=$('scoreTestModeToggle'),quickWin=$('testQuickWin'),showQuickWin=currentMatchIsTest&&isHost;
   if(button){button.setAttribute('aria-pressed',enabled?'true':'false');button.setAttribute('aria-label',`測試模式，${enabled?'已啟用':'未啟用'}`);button.textContent='🧪 測試模式';button.classList.toggle('test-mode-on',enabled)}
   if(scoreButton){scoreButton.setAttribute('aria-pressed',enabled?'true':'false');scoreButton.setAttribute('aria-label',`測試模式，${enabled?'已啟用':'未啟用'}`);scoreButton.title=`測試模式，${enabled?'已啟用':'未啟用'}`;scoreButton.classList.toggle('test-mode-on',enabled)}
   $('testQuickWin')?.classList.toggle('hidden',!currentMatchIsTest||!isHost||state.match.winner!==null);
@@ -3095,15 +3124,11 @@ function renderTestMode(){
 function toggleTestMode(){
   if(!isHost)return;
   const enabling=!currentTestModeEnabled();
+  if(!enabling)return disableTestMode();
   state.testMode=enabling;
   state.testModeRevision=Math.max(Date.now(),Number(state.testModeRevision||0)+1);
-  if(!enabling){
-    const previousMatch=state.match,attending=uniqueIds(state.attendance).filter(id=>state.roster.some(player=>player.id===id));
-    state.match={...initialState().match,syncEpoch:nextMatchEpoch(previousMatch),testMode:false,scorerDevice:previousMatch.scorerDevice||''};
-    const needed=matchPlayerCount(state.matchFormat);state.matchRollback=null;state.nextCall=null;state.court=attending.slice(0,needed);state.waitingQueue=attending.slice(needed);state.queueDraftChosen=[];state.priority=state.waitingQueue[0]||null;state.lastLoserReplayPlayerId=null;
-    scoreViewRequested=false;dismissedResultKey='';$('resultModal').classList.add('hidden');
-    renderAll();page(3);checkpointNewMatch();return;
-  }
+  state.testModeActiveAt=state.testModeRevision;
+  scheduleIdleTestModeCheck();
   if(state.match.active&&state.match.winner===null){
     state.match.testMode=enabling;
     saveLiveScoreSoon();
@@ -3123,13 +3148,13 @@ function finishTestMatch(team){
   m.winner=winner;
   finishMatch();
 }
-function startMatch(){if(matchInProgress(state.match)&&!confirm('目前比賽進行中，確定放棄比分並重新開始？'))return;dismissedResultKey='';const format=normalizeMatchFormat(state.matchFormat),needed=matchPlayerCount(format),selected=state.court.filter(Boolean);if(selected.length!==needed||new Set(selected).size!==needed)return alert(`請選擇${needed===2?'兩':'四'}位不同球員。`);const ids=[...selected];state.court=[...ids];reconcileWaitingQueue(ids);state.queueDraftChosen=[];state.lastLoserReplayPlayerId=null;state.matchRollback=null;randomizeScoreThemeAtMatchStart(ids);rememberReplacedRemoteMatch();state.match={active:true,format,players:teamsForLineup(ids,format),scores:[0,0],rallies:[],serving:0,positions:format===MATCH_FORMAT_SINGLES?[[0],[0]]:[[0,1],[0,1]],winner:null,matchId:randomToken(),syncEpoch:nextMatchEpoch(state.match),scoreFont:randomScoreFont(state.match?.scoreFont),testMode:!!state.testMode,scorerDevice:scoreDeviceId,startedAt:''};scoreViewRequested=true;checkpointNewMatch();renderScore();renderDashboard();renderTestMode();void enterScoreFullscreen()}
+function startMatch(){if(matchInProgress(state.match)&&!confirm('目前比賽進行中，確定放棄比分並重新開始？'))return;dismissedResultKey='';const format=normalizeMatchFormat(state.matchFormat),needed=matchPlayerCount(format),selected=state.court.filter(Boolean);if(selected.length!==needed||new Set(selected).size!==needed)return alert(`請選擇${needed===2?'兩':'四'}位不同球員。`);const ids=[...selected];state.court=[...ids];reconcileWaitingQueue(ids);state.queueDraftChosen=[];state.lastLoserReplayPlayerId=null;state.matchRollback=null;randomizeScoreThemeAtMatchStart(ids);rememberReplacedRemoteMatch();state.match={active:true,format,players:teamsForLineup(ids,format),scores:[0,0],rallies:[],serving:0,positions:format===MATCH_FORMAT_SINGLES?[[0],[0]]:[[0,1],[0,1]],winner:null,matchId:randomToken(),syncEpoch:nextMatchEpoch(state.match),scoreFont:randomScoreFont(state.match?.scoreFont),testMode:testModeOn(state),scorerDevice:scoreDeviceId,startedAt:''};markTestModeActivity();scoreViewRequested=true;checkpointNewMatch();renderScore();renderDashboard();renderTestMode();void enterScoreFullscreen()}
 function finishMatch(){
   const m=state.match;if(!m.active||m.winner===null)return;
   const format=normalizeMatchFormat(m.format),needed=matchPlayerCount(format);
   m.matchId=m.matchId||randomToken();let lineup=[];
   const isTestMatch=!!m.testMode||!!state.testMode;
-  if(isTestMatch)state.history=state.history.filter(h=>!h.testMode);
+  if(isTestMatch){state.history=state.history.filter(h=>!h.testMode);markTestModeActivity()}
   const firstCompletion=isTestMatch?!m.testCompleted:!state.history.some(h=>h.matchId===m.matchId);
   if(firstCompletion){
     const now=new Date();
@@ -3181,7 +3206,7 @@ function startNext(){
   state.waitingQueue=projectedQueueForLineup(vals);state.queueDraftChosen=[];state.priority=state.waitingQueue[0]||null;
   state.court=[...vals];state.nextCall=null;state.matchRollback=null;
   randomizeScoreThemeAtMatchStart(vals);rememberReplacedRemoteMatch();
-  state.match={active:true,format,players:teamsForLineup(vals,format),scores:[0,0],rallies:[],serving:0,positions:format===MATCH_FORMAT_SINGLES?[[0],[0]]:[[0,1],[0,1]],winner:null,matchId:randomToken(),syncEpoch:nextMatchEpoch(state.match),scoreFont:randomScoreFont(state.match?.scoreFont),testMode:!!state.testMode,scorerDevice:scoreDeviceId,startedAt:''};
+  state.match={active:true,format,players:teamsForLineup(vals,format),scores:[0,0],rallies:[],serving:0,positions:format===MATCH_FORMAT_SINGLES?[[0],[0]]:[[0,1],[0,1]],winner:null,matchId:randomToken(),syncEpoch:nextMatchEpoch(state.match),scoreFont:randomScoreFont(state.match?.scoreFont),testMode:testModeOn(state),scorerDevice:scoreDeviceId,startedAt:''};markTestModeActivity();
   scoreViewRequested=true;$('resultModal').classList.add('hidden');checkpointNewMatch();renderAll();void enterScoreFullscreen()
 }
 function abandonMatch(){
