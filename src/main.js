@@ -2180,7 +2180,7 @@ function handleAndroidPreStartPress(action,command){
     if(gap<=SCORE_REMOTE_DOUBLE_PRESS_MS){androidOfficialStartPending=null;markMatchOfficialStarted(command?.clientCreatedAt||command?.createdAt||new Date().toISOString());return true}
   }
   androidOfficialStartPending={matchId:state.match.matchId,at};
-  showScoreRemoteIndicator('按兩下＋／－正式開始',{duration:1600,icon:'▶️'});
+  showScoreRemoteIndicator('按相機鍵正式開始',{duration:1600,icon:'▶️'});
   return true;
 }
 function handleLocalLinkCommand({type,command}){

@@ -48,7 +48,7 @@ test('remote score commands before the official start only show the double-press
   assert.doesNotMatch(preStart,/SCORE_REMOTE_DOUBLE_PRESS_MIN_MS/);
   assert.match(preStart,/if\(gap<=SCORE_REMOTE_DOUBLE_PRESS_MS\)\{androidOfficialStartPending=null;markMatchOfficialStarted\(/);
   assert.match(preStart,/androidOfficialStartPending=\{matchId:state\.match\.matchId,at\}/);
-  assert.match(preStart,/showScoreRemoteIndicator\('按兩下＋／－正式開始'/);
+  assert.match(preStart,/showScoreRemoteIndicator\('按相機鍵正式開始'/);
   assert.match(main,/handleAndroidPreStartPress\(action,command\)\)return true;[\s\S]*?performScoreRemoteAction\(action\)/);
   assert.doesNotMatch(main,/handleAndroidOfficialStartPress/);
   const court=main.match(/if\(courtVisible&&\['teamAPlus','teamBPlus'\]\.includes\(action\)\)\{[\s\S]*?return true;/)?.[0]||'';
