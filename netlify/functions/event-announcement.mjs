@@ -1,5 +1,5 @@
 import { getBlobStore as getStore } from './lib/blob-store.mjs';
-import { PUSH_STORE, configureWebPush, jsonResponse, sendWebPush, roomSubscriptions, validRoomId } from './lib/push-shared.mjs';
+import { PUSH_STORE, isExpiredSubscriptionError, configureWebPush, jsonResponse, sendWebPush, roomSubscriptions, validRoomId } from './lib/push-shared.mjs';
 import { PACKING_EVENTS_STORE, cacheRoomEvents, cachedRoomEvents, firestoreEventsFromDocument } from './lib/packing-reminder.mjs';
 
 const FIREBASE_PROJECT='badminton-7a1c3';
@@ -97,7 +97,7 @@ export default async request=>{
       await store.setJSON(item.key,item.record);
       sent++;
     }catch(error){
-      if(error?.statusCode===404||error?.statusCode===410){await store.delete(item.key);removed++}
+      if(isExpiredSubscriptionError(error)){await store.delete(item.key);removed++}
       else{console.error(`Event push ${roomId} failed`,error);failed++}
     }
   }
