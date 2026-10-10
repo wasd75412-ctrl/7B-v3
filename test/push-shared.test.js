@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createECDH, randomBytes } from 'node:crypto';
-import { allRoomSubscriptions, configureWebPush, indexSubscription, normalizeVapidKey, pushSettings, roomSubscriptions, sendWebPush, subscriptionIndexKey, unindexSubscription } from '../netlify/functions/lib/push-shared.mjs';
+import { allRoomSubscriptions, configureWebPush, indexSubscription, isExpiredSubscriptionError, normalizeVapidKey, pushSettings, roomSubscriptions, sendWebPush, subscriptionIndexKey, unindexSubscription } from '../netlify/functions/lib/push-shared.mjs';
 
 function vapidPair(){
   const ecdh=createECDH('prime256v1');ecdh.generateKeys();
@@ -86,4 +86,14 @@ test('scheduled scans rebuild every room index from one list and then skip list'
   await allRoomSubscriptions(store);
   await roomSubscriptions(store,'GHIJKL');
   assert.equal(store.lists,lists);
+});
+
+test('treats gone and VAPID-mismatched subscriptions as expired, but not other push errors',()=>{
+  assert.equal(isExpiredSubscriptionError({statusCode:404}),true);
+  assert.equal(isExpiredSubscriptionError({statusCode:410}),true);
+  assert.equal(isExpiredSubscriptionError({statusCode:400,body:'{"reason":"VapidPkHashMismatch"}'}),true);
+  assert.equal(isExpiredSubscriptionError({statusCode:400,body:'{"reason":"BadDeviceToken"}'}),false);
+  assert.equal(isExpiredSubscriptionError({statusCode:403,body:'{"reason":"BadJwtToken"}'}),false);
+  assert.equal(isExpiredSubscriptionError({statusCode:429}),false);
+  assert.equal(isExpiredSubscriptionError(new Error('network')),false);
 });

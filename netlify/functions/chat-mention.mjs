@@ -1,7 +1,7 @@
 import { createHash, randomUUID } from 'node:crypto';
 import { getBlobStore as getStore } from './lib/blob-store.mjs';
 import { chatMediaLabel, chatMessagePreview, cleanChatText, hasChatAllMention, normalizeChatMedia, normalizeChatMentionIds, playerOwnerHashes } from '../../src/chat.js';
-import { PUSH_STORE, cleanText, configureWebPush, jsonResponse, sendWebPush, roomSubscriptions, validRoomId } from './lib/push-shared.mjs';
+import { PUSH_STORE, isExpiredSubscriptionError, cleanText, configureWebPush, jsonResponse, sendWebPush, roomSubscriptions, validRoomId } from './lib/push-shared.mjs';
 
 const CHAT_STORE='7b-room-chat';
 export const CHAT_MEDIA_STORE='7b-room-chat-media';
@@ -122,7 +122,7 @@ async function sendMentionNotifications(message,roomId,messageId){
       await store.setJSON(item.key,item.record);
       sent++;
     }catch(error){
-      if(error?.statusCode===404||error?.statusCode===410){await store.delete(item.key);removed++}
+      if(isExpiredSubscriptionError(error)){await store.delete(item.key);removed++}
       else{console.error(`Chat mention ${roomId}/${messageId} failed`,error);failed++}
     }
   }

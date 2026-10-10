@@ -1,6 +1,6 @@
 import { getBlobStore as getStore } from './lib/blob-store.mjs';
 import { sessionFeeNoticeFromRoom, sessionFeeNoticePayload, sessionFeeSubscriptionTargets, taipeiDateKey } from '../../src/session-fee-notice.js';
-import { PUSH_STORE, configureWebPush, jsonResponse, sendWebPush, roomSubscriptions, validRoomId } from './lib/push-shared.mjs';
+import { PUSH_STORE, isExpiredSubscriptionError, configureWebPush, jsonResponse, sendWebPush, roomSubscriptions, validRoomId } from './lib/push-shared.mjs';
 
 const FIREBASE_PROJECT='badminton-7a1c3';
 const FIREBASE_API_KEY='AIzaSyBrakbTPK7UqEChPBI6pM8-i03IcLq0IvM';
@@ -73,7 +73,7 @@ export default async request=>{
       await store.setJSON(item.key,item.record);
       sent++;
     }catch(error){
-      if(error?.statusCode===404||error?.statusCode===410){await store.delete(item.key);removed++}
+      if(isExpiredSubscriptionError(error)){await store.delete(item.key);removed++}
       else{console.error(`Session fee push ${roomId} failed`,error);failed++}
     }
   }

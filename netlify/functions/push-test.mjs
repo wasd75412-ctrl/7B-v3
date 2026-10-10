@@ -1,5 +1,5 @@
 import { getBlobStore as getStore } from './lib/blob-store.mjs';
-import { PUSH_STORE, configureWebPush, jsonResponse, sendWebPush, subscriptionKey, unindexSubscription, validEndpoint, validRoomId, validSubscription } from './lib/push-shared.mjs';
+import { PUSH_STORE, isExpiredSubscriptionError, configureWebPush, jsonResponse, sendWebPush, subscriptionKey, unindexSubscription, validEndpoint, validRoomId, validSubscription } from './lib/push-shared.mjs';
 
 export default async request=>{
   if(request.method!=='POST')return jsonResponse({error:'不支援這個操作。'},405);
@@ -31,7 +31,7 @@ export default async request=>{
     await store.setJSON(key,record);
     return jsonResponse({ok:true});
   }catch(error){
-    if(error?.statusCode===404||error?.statusCode===410){await store.delete(key);await unindexSubscription(store,roomId,key);return jsonResponse({error:'通知訂閱已失效，請重新啟用。'},410)}
+    if(isExpiredSubscriptionError(error)){await store.delete(key);await unindexSubscription(store,roomId,key);return jsonResponse({error:'通知訂閱已失效，請重新啟用。'},410)}
     console.error(`Push test ${roomId} failed`,error);
     return jsonResponse({error:'測試通知暫時無法送出，請稍後再試。'},502);
   }

@@ -1,6 +1,6 @@
 import { getBlobStore as getStore } from './lib/blob-store.mjs';
 import { EVENT_PACKING_MEMO_ITEMS, normalizePackingItems } from '../../src/event-packing-memo.js';
-import { PUSH_STORE, allRoomSubscriptions, configureWebPush, jsonResponse, sendWebPush } from './lib/push-shared.mjs';
+import { PUSH_STORE, isExpiredSubscriptionError, allRoomSubscriptions, configureWebPush, jsonResponse, sendWebPush } from './lib/push-shared.mjs';
 import { PACKING_EVENTS_STORE, duePackingEvent, firestoreEventsFromDocument, roomEventsWithFallback } from './lib/packing-reminder.mjs';
 
 const FIREBASE_PROJECT='badminton-7a1c3';
@@ -27,7 +27,7 @@ export default async()=>{
     if(!items.length)continue;
     const when=`${event.date} ${event.time}`,place=event.location?` · ${event.location}`:'',payload=JSON.stringify({title:'🎒 出發前記得帶',body:`${when}${place}\n${items.join('、')}`,url:`${siteUrl}/?room=${encodeURIComponent(item.record.roomId)}`,icon:`${siteUrl}/icons/icon-192.png`,badge:`${siteUrl}/icons/icon-192.png`,tag:`7b-packing-${item.record.roomId}-${event.id}`});
     try{await sendWebPush(item.record.subscription,payload,{TTL:7200,urgency:'high',topic:`packing-${item.record.roomId}`});item.record.lastPackingEventId=event.id;item.record.lastPackingReminderAt=new Date().toISOString();await store.setJSON(item.key,item.record);sent++}
-    catch(error){if(error?.statusCode===404||error?.statusCode===410){await store.delete(item.key);removed++}else{console.error(`Packing push ${item.record.roomId} failed`,error);failed++}}
+    catch(error){if(isExpiredSubscriptionError(error)){await store.delete(item.key);removed++}else{console.error(`Packing push ${item.record.roomId} failed`,error);failed++}}
   }
   return jsonResponse({ok:true,checked:records.length,sent,removed,failed});
 };

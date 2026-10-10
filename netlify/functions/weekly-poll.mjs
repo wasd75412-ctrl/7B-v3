@@ -1,5 +1,5 @@
 import { getBlobStore as getStore } from './lib/blob-store.mjs';
-import { PUSH_STORE, configureWebPush, jsonResponse, sendWebPush, roomSubscriptions, validRoomId } from './lib/push-shared.mjs';
+import { PUSH_STORE, isExpiredSubscriptionError, configureWebPush, jsonResponse, sendWebPush, roomSubscriptions, validRoomId } from './lib/push-shared.mjs';
 import { archivePollHistoryFirestoreValue, nextWeeklyPollScan, shouldArchiveExpiredPoll, shouldOpenWeeklyPoll, shouldScanWeeklyPollRooms, taipeiWeekSchedule, weeklyPollFirestoreValue, weeklyPollPushPayload } from './lib/weekly-poll.mjs';
 
 const FIREBASE_PROJECT='badminton-7a1c3';
@@ -61,7 +61,7 @@ export default async()=>{
     const payload=JSON.stringify(weeklyPollPushPayload({siteUrl:push.siteUrl,roomId:id,cycle:schedule.cycle}));
     for(const item of await roomSubscriptions(store,id)){
       try{await sendWebPush(item.record.subscription,payload,{TTL:86400,urgency:'normal',topic:`weekly-${id}`});sent++}
-      catch(error){if(error?.statusCode===404||error?.statusCode===410){await store.delete(item.key);removed++}else{console.error(`Push ${id} failed`,error);failed++}}
+      catch(error){if(isExpiredSubscriptionError(error)){await store.delete(item.key);removed++}else{console.error(`Push ${id} failed`,error);failed++}}
     }
   }
   await saveScan();

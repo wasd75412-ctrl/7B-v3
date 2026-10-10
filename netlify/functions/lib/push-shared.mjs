@@ -64,6 +64,12 @@ export function configureWebPush(env=process.env){
   return settings;
 }
 
+// Apple rejects subscriptions made with an older VAPID key with VapidPkHashMismatch; they can never succeed again.
+export function isExpiredSubscriptionError(error){
+  const status=error?.statusCode;
+  return status===404||status===410||(status===400&&/VapidPkHashMismatch/.test(String(error?.body||'')));
+}
+
 // Cloudflare Workers has no node:https request, so the encrypted request from web-push is sent with fetch.
 export async function sendWebPush(subscription,payload,options={}){
   const details=webpush.generateRequestDetails(subscription,payload,options);
