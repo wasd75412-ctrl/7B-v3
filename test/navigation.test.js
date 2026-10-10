@@ -362,10 +362,11 @@ test('removes the old score remote from More and provides a no-stats test mode',
   assert.match(html,/id="testWinA"[^>]*>A隊獲勝<\/button>/);
   assert.match(html,/id="testWinB"[^>]*>B隊獲勝<\/button>/);
   assert.match(mainSource,/function finishTestMatch\(team\)/);
-  assert.match(mainSource,/currentMatchIsTest=!!state\.testMode&&!!state\.match\?\.active&&state\.match\?\.winner===null&&!!state\.match\?\.testMode/);
+  assert.match(mainSource,/currentMatchIsTest=testModeOn\(state\)&&!!state\.match\?\.active&&state\.match\?\.winner===null&&!!state\.match\?\.testMode/);
   assert.match(mainSource,/\$\('testQuickWin'\)\?\.classList\.toggle\('hidden',!currentMatchIsTest\|\|!isHost\|\|state\.match\.winner!==null\)/);
   assert.match(mainSource,/function finishTestMatch\(team\)\{[\s\S]*?!state\.testMode\|\|!m\.active\|\|m\.winner!==null\|\|!m\.testMode\)return;/);
-  assert.match(mainSource,/if\(!enabling\)\{[\s\S]*?state\.match=\{\.\.\.initialState\(\)\.match,syncEpoch:nextMatchEpoch\(previousMatch\),testMode:false,scorerDevice:previousMatch\.scorerDevice\|\|''\}[\s\S]*?const needed=matchPlayerCount\(state\.matchFormat\);[\s\S]*?state\.court=attending\.slice\(0,needed\)[\s\S]*?checkpointNewMatch\(\);return;/);
+  assert.match(mainSource,/if\(!enabling\)return disableTestMode\(\);/);
+  assert.match(mainSource,/function disableTestMode\(\{manual=true\}=\{\}\)\{[\s\S]*?state\.match=\{\.\.\.initialState\(\)\.match,syncEpoch:nextMatchEpoch\(previousMatch\),testMode:false,scorerDevice:previousMatch\.scorerDevice\|\|''\}[\s\S]*?const needed=matchPlayerCount\(state\.matchFormat\);[\s\S]*?state\.court=attending\.slice\(0,needed\)[\s\S]*?if\(manual\)page\(3\);checkpointNewMatch\(\);\s*\}/);
   assert.match(styles,/\.test-quick-win\{position:fixed;z-index:120/);
   assert.doesNotMatch(styles,/immersive-mode \.test-quick-win\{display:none\}/);
 });
