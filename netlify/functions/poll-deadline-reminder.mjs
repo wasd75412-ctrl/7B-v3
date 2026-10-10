@@ -4,9 +4,8 @@ import { PUSH_STORE, allRoomSubscriptions, configureWebPush, jsonResponse, sendW
 const FIREBASE_PROJECT='badminton-7a1c3';
 const FIREBASE_API_KEY='AIzaSyBrakbTPK7UqEChPBI6pM8-i03IcLq0IvM';
 const TAIPEI_OFFSET_MS=8*60*60*1000;
-const DEFAULT_REMINDER_LEAD_MS=24*60*60*1000;
-// Weekly polls close Saturday 23:00 in Taipei. The reminder starts Friday 12:00, 35 hours earlier.
-const WEEKLY_FRIDAY_NOON_LEAD_MS=35*60*60*1000;
+const DAY_MS=24*60*60*1000;
+const REMINDER_WEEKDAY=6,REMINDER_HOUR=12;
 
 function fieldString(field){return field?.stringValue||field?.timestampValue||''}
 
@@ -19,17 +18,26 @@ export function firestorePollFromDocument(document){
   };
 }
 
-export function reminderLeadMs(deadlineAt){
+// The reminder always starts at the last Saturday 12:00 in Taipei before the deadline.
+export function reminderStartMs(deadlineAt){
   const deadline=Date.parse(deadlineAt||'');
-  if(!Number.isFinite(deadline))return DEFAULT_REMINDER_LEAD_MS;
+  if(!Number.isFinite(deadline))return NaN;
   const local=new Date(deadline+TAIPEI_OFFSET_MS);
-  const weeklySaturdayNight=local.getUTCDay()===6&&local.getUTCHours()===23&&local.getUTCMinutes()===0&&local.getUTCSeconds()===0&&local.getUTCMilliseconds()===0;
-  return weeklySaturdayNight?WEEKLY_FRIDAY_NOON_LEAD_MS:DEFAULT_REMINDER_LEAD_MS;
+  let start=Date.UTC(local.getUTCFullYear(),local.getUTCMonth(),local.getUTCDate()-((local.getUTCDay()-REMINDER_WEEKDAY+7)%7),REMINDER_HOUR)-TAIPEI_OFFSET_MS;
+  if(start>=deadline)start-=7*DAY_MS;
+  return start;
 }
 
 export function isReminderDue(poll,lastReminderDeadline='',now=Date.now()){
-  const deadline=Date.parse(poll?.deadlineAt||''),remaining=deadline-now;
-  return poll?.status!=='closed'&&poll?.optionCount>0&&Number.isFinite(deadline)&&remaining>0&&remaining<=reminderLeadMs(poll?.deadlineAt)&&lastReminderDeadline!==poll.deadlineAt;
+  const deadline=Date.parse(poll?.deadlineAt||'');
+  return poll?.status!=='closed'&&poll?.optionCount>0&&Number.isFinite(deadline)&&now<deadline&&now>=reminderStartMs(poll?.deadlineAt)&&lastReminderDeadline!==poll.deadlineAt;
+}
+
+function taipeiDayNumber(ms){return Math.floor((ms+TAIPEI_OFFSET_MS)/DAY_MS)}
+
+export function reminderTitle(deadlineAt,now=Date.now()){
+  const days=taipeiDayNumber(Date.parse(deadlineAt||''))-taipeiDayNumber(now);
+  return days===0?'🔥投票今日截止🔥':days===1?'🔥投票明日截止🔥':'🔥投票即將截止🔥';
 }
 
 async function getRoomPoll(roomId){
@@ -53,7 +61,7 @@ export default async()=>{
     for(const item of items){
       if(!isReminderDue(poll,item.record.lastReminderDeadline))continue;
       const payload=JSON.stringify({
-        title:'🔥投票明日截止🔥',
+        title:reminderTitle(poll.deadlineAt),
         body:'還沒投票的球友們，點一下進行投票🏸',
         url:`${siteUrl}/?room=${encodeURIComponent(roomId)}&page=poll`,
         icon:`${siteUrl}/icons/icon-192.png`,
@@ -61,7 +69,7 @@ export default async()=>{
         tag:`7b-poll-${roomId}-${poll.deadlineAt}`
       });
       try{
-        await sendWebPush(item.record.subscription,payload,{TTL:reminderLeadMs(poll.deadlineAt)/1000,urgency:'normal',topic:`poll-${roomId}`});
+        await sendWebPush(item.record.subscription,payload,{TTL:Math.max(60,Math.ceil((Date.parse(poll.deadlineAt)-Date.now())/1000)),urgency:'normal',topic:`poll-${roomId}`});
         item.record.lastReminderDeadline=poll.deadlineAt;
         item.record.lastReminderAt=new Date().toISOString();
         await store.setJSON(item.key,item.record);
