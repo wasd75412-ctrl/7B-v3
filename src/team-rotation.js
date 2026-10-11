@@ -1,3 +1,7 @@
+export function genderGroupingActive(rules={},dateKey=''){
+  return rules?.genderGroupingEnabled!==false||!dateKey||String(rules?.genderGroupingOffDate||'')!==dateKey;
+}
+
 function teammatePair(team=[]){
   return [team[0],team[1]].filter(Boolean);
 }
@@ -63,14 +67,17 @@ export function orientLineupToReference(lineup=[],reference=[]){
   return swap?[...teams[1],...teams[0]]:[...teams[0],...teams[1]];
 }
 
-export function arrangeTeamsWithTeammateLimit(players=[],history=[],randomValue=0,maxConsecutiveGames=2,{genderGroupingEnabled=true,genderByPlayer={},keepLineup=false}={}){
+export function arrangeTeamsWithTeammateLimit(players=[],history=[],randomValue=0,maxConsecutiveGames=2,{genderGroupingEnabled=true,genderByPlayer={},keepLineup=false,avoidLineup=null}={}){
   const ids=[...new Set(players.filter(Boolean))].slice(0,4);
   if(ids.length!==4)return ids;
   const [a,b,c,d]=ids;
   const pairings=[[a,b,c,d],[a,c,b,d],[a,d,b,c]];
   const lineupMaleCount=ids.filter(id=>genderByPlayer[id]==='male').length;
   const genderSafe=!genderGroupingEnabled||lineupMaleCount===3?pairings:pairings.filter(lineup=>!hasMaleTeammates(lineup,genderByPlayer));
-  const genderCandidates=genderSafe.length?genderSafe:pairings;
+  const genderPool=genderSafe.length?genderSafe:pairings;
+  const avoidKey=Array.isArray(avoidLineup)&&avoidLineup.length===4?pairingKey(avoidLineup):'';
+  const changed=avoidKey?genderPool.filter(lineup=>pairingKey(lineup)!==avoidKey):genderPool;
+  const genderCandidates=changed.length?changed:genderPool;
   const safe=genderCandidates.filter(lineup=>!lineupExceedsTeammateLimit(lineup,history,maxConsecutiveGames));
   const candidates=safe.length?safe:genderCandidates;
   const lowestRepeat=Math.min(...candidates.map(lineup=>repeatPenalty(lineup,history)));

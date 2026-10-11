@@ -15,7 +15,7 @@ import { shouldRequestNativeWakeLock, wakeLockButtonIntent, wakeLockControlIsAct
 import { TEST_MODE_IDLE_MS, testModeIdleExpired, testModeLastActiveMs, testModeOn } from './test-mode.js';
 import { FIRESTORE_LINK_COOLDOWN_MS, FIRESTORE_LINK_TIMEOUT_MS, firestoreLinkProbeVerdict, shouldProbeFirestoreLink } from './firestore-link.js';
 import { chooseScoreTheme } from './score-theme-preference.js';
-import { arrangeTeamsWithTeammateLimit, lineupExceedsTeammateLimit, orientLineupToReference } from './team-rotation.js';
+import { arrangeTeamsWithTeammateLimit, genderGroupingActive, lineupExceedsTeammateLimit, orientLineupToReference } from './team-rotation.js';
 import { CHAT_MEDIA_MAX_BYTES, CHAT_MEDIA_TYPES, CHAT_MENTION_ALL_ID, CHAT_MESSAGE_MAX_LENGTH, addPlayerOwnerHash, chatMediaLabel, chatMentionSearch, claimedChatPlayerId, cleanChatText, hasChatAllMention, mentionIdsFromText, normalizeChatMedia, normalizeChatMentionIds, playerOwnerHashes, removeChatAllMention, removeChatMention } from './chat.js';
 import { adminRoleButtonState, claimedAdminPlayerId, resolveAdminSessionToken } from './admin-role.js';
 import { updateAttendanceState } from './attendance.js';
@@ -120,7 +120,7 @@ const esc=s=>String(s??'').replace(/[&<>'"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&
 const randomCode=()=>{const chars='ABCDEFGHJKLMNPQRSTUVWXYZ23456789';let x='';crypto.getRandomValues(new Uint32Array(6)).forEach(n=>x+=chars[n%chars.length]);return x};
 const randomToken=()=>crypto.randomUUID?.()||([...crypto.getRandomValues(new Uint32Array(4))].map(n=>n.toString(36)).join(''));
 const shuffle=a=>{a=[...a];const r=new Uint32Array(Math.max(1,a.length));crypto.getRandomValues(r);for(let i=a.length-1;i>0;i--){const j=r[i]% (i+1);[a[i],a[j]]=[a[j],a[i]]}return a};
-function teammateSafeLineup(ids,{randomize=false}={}){const values=ids.filter(Boolean);if(values.length!==4||new Set(values).size!==4)return values;const todayHistory=state.history.filter(h=>historyDate(h)===localDateKey()),genderGroupingEnabled=state.rules?.genderGroupingEnabled!==false,genderByPlayer=Object.fromEntries(state.roster.map(p=>[p.id,normalizePlayerGender(p.gender)])),lineupMaleCount=values.filter(id=>genderByPlayer[id]===PLAYER_GENDER_MALE).length,hasMalePair=[values.slice(0,2),values.slice(2,4)].some(team=>team.every(id=>genderByPlayer[id]===PLAYER_GENDER_MALE)),genderViolation=genderGroupingEnabled&&lineupMaleCount===2&&hasMalePair;if(!randomize&&!genderViolation&&!lineupExceedsTeammateLimit(values,todayHistory))return values;const random=crypto.getRandomValues(new Uint32Array(1))[0];return orientLineupToReference(arrangeTeamsWithTeammateLimit(randomize?shuffle(values):values,todayHistory,random,2,{genderGroupingEnabled,genderByPlayer,keepLineup:!randomize}),values)}
+function teammateSafeLineup(ids,{randomize=false,regroup=false}={}){const values=ids.filter(Boolean);if(values.length!==4||new Set(values).size!==4)return values;const todayHistory=state.history.filter(h=>historyDate(h)===localDateKey()),genderGroupingEnabled=genderGroupingActive(state.rules,localDateKey()),genderByPlayer=Object.fromEntries(state.roster.map(p=>[p.id,normalizePlayerGender(p.gender)])),lineupMaleCount=values.filter(id=>genderByPlayer[id]===PLAYER_GENDER_MALE).length,hasMalePair=[values.slice(0,2),values.slice(2,4)].some(team=>team.every(id=>genderByPlayer[id]===PLAYER_GENDER_MALE)),genderViolation=genderGroupingEnabled&&lineupMaleCount===2&&hasMalePair;if(!randomize&&!genderViolation&&!lineupExceedsTeammateLimit(values,todayHistory))return values;const random=crypto.getRandomValues(new Uint32Array(1))[0];return orientLineupToReference(arrangeTeamsWithTeammateLimit(randomize?shuffle(values):values,todayHistory,random,2,{genderGroupingEnabled,genderByPlayer,keepLineup:!randomize,avoidLineup:regroup?values:null}),values)}
 function wholeAmount(value){const n=Number(value);return Number.isFinite(n)&&n>0?Math.round(n):0}
 function setAdminNotices(rows){state.adminNotices=normalizeAdminNotices({adminNotices:rows});state.adminNotice=state.adminNotices[0]||null}
 const initialState=()=>({version:9.8,matchFormat:'doubles',testMode:false,testModeRevision:0,testModeActiveAt:0,roster:[],retiredPlayers:[],adminPlayerIds:[],attendance:[],lineupRevision:0,court:[],waitingQueue:[],queueDraftChosen:[],priority:null,lastLoserReplayPlayerId:null,match:{active:false,format:'doubles',players:[[],[]],scores:[0,0],rallies:[],serving:0,positions:[[0,1],[0,1]],winner:null,startedAt:''},matchRollback:null,rules:{target:11,cap:15,deuce:true,genderGroupingEnabled:true},history:[],statsLedger:emptyStatsLedger(),deletedMatchIds:[],matchTimelineStarts:{},hiddenTimelineDates:[],matchReplayPlaylistTitle:'',matchReplayPlaylistUrl:'',nextCall:null,schedulePoll:{status:'open',createdAt:'',deadlineAt:'',autoCycle:'',options:[],votes:{},voterPlayers:{},manualParticipants:{}},pollHistory:[],nextEvent:null,nextEvents:[],adminNotice:null,adminNotices:[],shuttleTubes:[],shuttleLegacyActiveTubeId:'',shuttleNoTrackingTubeIds:[],updatedAt:null});
@@ -2750,7 +2750,7 @@ function renderCourt(){
   $('courtLayout').classList.toggle('singles-layout',singles);$('formatDoubles').classList.toggle('active',!singles);$('formatSingles').classList.toggle('active',singles);$('formatDoubles').setAttribute('aria-pressed',singles?'false':'true');$('formatSingles').setAttribute('aria-pressed',singles?'true':'false');
   $('goCourt').textContent=singles?'安排場上兩人':'安排場上四人';$('randomCourt').textContent=singles?'完全隨機兩人':'完全隨機四人';
   for(let i=0;i<4;i++){const s=$('p'+i),stateIndex=map[i],value=stateIndex===null?'':state.court[stateIndex]||'';s.innerHTML=options(value);s.value=value;s.onchange=()=>{if(!isHost||stateIndex===null)return;state.court[stateIndex]=s.value;state.court=state.court.filter(Boolean);if(!singles&&state.court.length===4){const safe=teammateSafeLineup(state.court);if(safe.join('|')!==state.court.join('|')){state.court=safe;renderCourt()}}reconcileWaitingQueue(state.court);bumpLineupRevision();renderWaiting();void persistLineupNow();saveSoon()}}
-  $('target').value=state.rules.target;$('cap').value=state.rules.cap;$('deuce').value=state.rules.deuce?'1':'0';$('genderGrouping').value=state.rules.genderGroupingEnabled===false?'0':'1';renderWaiting()
+  $('target').value=state.rules.target;$('cap').value=state.rules.cap;$('deuce').value=state.rules.deuce?'1':'0';$('genderGrouping').value=genderGroupingActive(state.rules,localDateKey())?'1':'0';$('regroupCourt').classList.toggle('hidden',singles||uniqueIds(state.court.filter(Boolean)).length!==4||matchInProgress(state.match));renderWaiting()
 }
 function renderWaiting(){if(currentTestModeEnabled()){state.waitingQueue=[];state.queueDraftChosen=[];state.priority=null;$('waiting').innerHTML='';return}const expected=matchPlayerCount(state.match?.active?state.match.format:state.matchFormat),scheduled=state.match?.active&&state.match.winner!==null&&state.nextCall?.players?.length===expected?state.nextCall.players:state.court,used=scheduled.filter(Boolean),eligible=selectablePlayerIds().filter(id=>!used.includes(id)),preferred=eligible.includes(state.priority)?[state.priority]:[];const ordered=uniqueIds([...preferred,...state.waitingQueue]).filter(id=>eligible.includes(id));for(const id of eligible)if(!ordered.includes(id))ordered.push(id);state.waitingQueue=ordered;state.priority=ordered[0]||null;$('waiting').innerHTML=ordered.map((id,i)=>`<span class="chip ${i===0?'priority':''}">${esc(queueLabel(i,ordered.length))} · ${esc(pname(id))}</span>`).join('')||'<span class="sub">目前沒有候場球員</span>'}
 function winFor(sc){const {target,cap,deuce}=state.rules;for(let t=0;t<2;t++){const o=1-t;if(!deuce&&sc[t]>=target)return t;if(deuce&&sc[t]>=target&&sc[t]-sc[o]>=2)return t;if(deuce&&sc[t]>=cap)return t}return null}
@@ -3710,7 +3710,16 @@ function guardUnofficialTouchScoring(event){
   showScoreRemoteIndicator('請先按播放鍵正式開始',{duration:1600,icon:'▶️'});
 }
 document.addEventListener('click',guardUnofficialTouchScoring,{capture:true});
-$('genderGrouping').onchange=()=>{state.rules.genderGroupingEnabled=$('genderGrouping').value==='1';saveSoon()};
+$('genderGrouping').onchange=()=>{
+  const enabled=$('genderGrouping').value==='1';
+  state.rules.genderGroupingEnabled=enabled;state.rules.genderGroupingOffDate=enabled?'':localDateKey();
+  const court=uniqueIds(state.court.filter(Boolean));
+  if(enabled&&normalizeMatchFormat(state.matchFormat)!==MATCH_FORMAT_SINGLES&&court.length===4&&!matchInProgress(state.match)){
+    const safe=teammateSafeLineup(court);
+    if(safe.join('|')!==state.court.join('|')){state.court=safe;reconcileWaitingQueue(state.court);bumpLineupRevision();renderCourt();void persistLineupNow()}
+  }
+  saveSoon();
+};
 let fastTap=null,fastTapDispatching=false,suppressNativeClick=null;
 function fastTapButton(target){return target?.closest?.('button:not(:disabled)')||null}
 document.addEventListener('pointerdown',event=>{
@@ -3788,6 +3797,12 @@ $('randomCourt').onclick=()=>{
   const needed=matchPlayerCount(state.matchFormat),players=shuffle(selectablePlayerIds()).slice(0,needed);
   state.court=needed===2?players:teammateSafeLineup(players,{randomize:true});
   reconcileWaitingQueue(state.court);renderAll();saveSoon();
+};
+$('regroupCourt').onclick=()=>{
+  const court=uniqueIds(state.court.filter(Boolean));
+  if(normalizeMatchFormat(state.matchFormat)===MATCH_FORMAT_SINGLES||court.length!==4||matchInProgress(state.match))return;
+  state.court=teammateSafeLineup(court,{randomize:true,regroup:true});
+  reconcileWaitingQueue(state.court);bumpLineupRevision();renderAll();void persistLineupNow();saveSoon();
 };
 $('shuffleNext').onclick=()=>{
   const format=state.match.format,indices=nextSelectIndices(format),selected=selectedNextLineup(format),vals=normalizeMatchFormat(format)===MATCH_FORMAT_SINGLES?shuffle(selected):teammateSafeLineup(selected,{randomize:true});
