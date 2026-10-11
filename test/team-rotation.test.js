@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { arrangeTeamsWithTeammateLimit, consecutiveTeammateGames, lineupExceedsTeammateLimit, orientLineupToReference } from '../src/team-rotation.js';
+import { arrangeTeamsWithTeammateLimit, consecutiveTeammateGames, genderGroupingActive, lineupExceedsTeammateLimit, orientLineupToReference } from '../src/team-rotation.js';
 
 const game=(teamA,teamB)=>({teams:[teamA,teamB]});
 const pairs=lineup=>[lineup.slice(0,2).sort().join('|'),lineup.slice(2,4).sort().join('|')];
@@ -74,6 +74,32 @@ test('uses the original teammate rules when gender grouping is disabled',()=>{
   assert.deepEqual(pairs(lineup),['A|B','C|D']);
 });
 
+test('gender grouping turns back on after the day it was disabled',()=>{
+  assert.equal(genderGroupingActive({},'2026-10-11'),true);
+  assert.equal(genderGroupingActive({genderGroupingEnabled:false},'2026-10-11'),true);
+  assert.equal(genderGroupingActive({genderGroupingEnabled:false,genderGroupingOffDate:'2026-10-10'},'2026-10-11'),true);
+  assert.equal(genderGroupingActive({genderGroupingEnabled:false,genderGroupingOffDate:'2026-10-11'},'2026-10-11'),false);
+});
+
+test('regrouping the court changes pairings without breaking gender grouping',()=>{
+  const genderByPlayer={A:'male',B:'female',C:'male',D:'female'};
+  for(const random of[0,1,2]){
+    const lineup=arrangeTeamsWithTeammateLimit(['A','B','C','D'],[],random,2,{genderByPlayer,avoidLineup:['A','B','C','D']});
+    assert.deepEqual(pairs(lineup),['A|D','B|C']);
+  }
+  const free=arrangeTeamsWithTeammateLimit(['A','B','C','D'],[],0,2,{genderGroupingEnabled:false,genderByPlayer,avoidLineup:['A','B','C','D']});
+  assert.notDeepEqual(pairs(free),['A|B','C|D']);
+});
+
+test('regroup button only re-pairs the players already on court',()=>{
+  const html=readFileSync(new URL('../index.html',import.meta.url),'utf8');
+  const source=readFileSync(new URL('../src/main.js',import.meta.url),'utf8');
+  assert.match(html,/id="regroupCourt"/);
+  const handler=source.match(/\$\('regroupCourt'\)\.onclick=\(\)=>\{[\s\S]*?\n\};/)?.[0]||'';
+  assert.match(handler,/teammateSafeLineup\(court,\{randomize:true,regroup:true\}\)/);
+  assert.doesNotMatch(handler,/selectablePlayerIds|attendance|waitingQueue\[/);
+});
+
 test('random court still prefers the least-used gender-safe pairing',()=>{
   const genderByPlayer={A:'male',B:'male',C:'female',D:'female'};
   const first=arrangeTeamsWithTeammateLimit(['A','B','C','D'],[game(['A','C'],['B','D'])],0,2,{genderByPlayer,malePresentCount:2,randomizeAll:true});
@@ -119,7 +145,7 @@ test('starts exactly the lineup shown and applies teammate rules while it is bei
 test('only reshuffles fixable gender lineups and keeps winners on their side',()=>{
   const source=readFileSync(new URL('../src/main.js',import.meta.url),'utf8');
   assert.match(source,/genderViolation=genderGroupingEnabled&&lineupMaleCount===2&&hasMalePair/);
-  assert.match(source,/orientLineupToReference\(arrangeTeamsWithTeammateLimit\(randomize\?shuffle\(values\):values,[^)]*keepLineup:!randomize\}\),values\)/);
+  assert.match(source,/orientLineupToReference\(arrangeTeamsWithTeammateLimit\(randomize\?shuffle\(values\):values,[^)]*keepLineup:!randomize,avoidLineup:regroup\?values:null\}\),values\)/);
   assert.match(source,/teammateSafeLineup\(m\.winner===0\?\[\.\.\.winners,\.\.\.chosen\]:\[\.\.\.chosen,\.\.\.winners\],\{randomize:true\}\)/);
   assert.match(source,/lineup=m\.winner===1\?\[\.\.\.rotation\.players\]\.reverse\(\):rotation\.players/);
 });
