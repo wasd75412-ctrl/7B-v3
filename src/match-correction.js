@@ -65,6 +65,25 @@ export function inferFinishedMatchRollback(state,record){
   });
 }
 
+// Taken just before the next match replaces a finished one, so a mistaken finish can still be undone later.
+export function createPreviousMatchSnapshot(state,nextMatchId){
+  const match=state?.match,id=String(match?.matchId||'').trim(),next=String(nextMatchId||'').trim();
+  if(!id||!next||!match?.active||(match.winner!==0&&match.winner!==1)||!Array.isArray(match.rallies)||!match.rallies.length)return null;
+  const stored=normalizeFinishedMatchRollback(state?.matchRollback);
+  const record=(Array.isArray(state?.history)?state.history:[]).find(row=>row?.matchId===id)||null;
+  const rollback=stored?.matchId===id?stored:inferFinishedMatchRollback(state,record);
+  return{nextMatchId:next,match:structuredClone(match),rollback,savedAt:new Date().toISOString()};
+}
+
+export function previousMatchToRestore(snapshot,currentMatch){
+  const match=snapshot?.match;
+  if(!match?.matchId||!Array.isArray(match.rallies)||!match.rallies.length||(match.winner!==0&&match.winner!==1))return null;
+  if(!currentMatch?.active||(currentMatch.winner!==null&&currentMatch.winner!==undefined))return null;
+  if(!snapshot.nextMatchId||String(currentMatch.matchId||'')!==String(snapshot.nextMatchId))return null;
+  const rollback=normalizeFinishedMatchRollback(snapshot.rollback);
+  return{match:structuredClone(match),rollback:rollback?.matchId===match.matchId?rollback:null};
+}
+
 export function reopenFinishedMatchState(state,matchId){
   const id=String(matchId||'').trim(),history=Array.isArray(state?.history)?state.history:[];
   if(!id)return{reopened:false};

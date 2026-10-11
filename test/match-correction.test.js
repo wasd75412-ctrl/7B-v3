@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { createFinishedMatchRollback, inferFinishedMatchRollback, reopenFinishedMatchState } from '../src/match-correction.js';
+import { readFileSync } from 'node:fs';
+import { createFinishedMatchRollback, createPreviousMatchSnapshot, inferFinishedMatchRollback, previousMatchToRestore, reopenFinishedMatchState } from '../src/match-correction.js';
 
 test('reopening a newly finished match removes its result and restores scheduling exactly',()=>{
   const before={
@@ -40,4 +41,51 @@ test('older finished matches can infer their pre-finish queue without rollback m
 
 test('reopen is safe when there is no matching finished result',()=>{
   assert.deepEqual(reopenFinishedMatchState({history:[{matchId:'other'}]},'missing'),{reopened:false});
+});
+
+const finishedMatch=()=>({active:true,matchId:'match-1',winner:0,players:[['p1','p2'],['p3','p4']],scores:[11,9],rallies:[0,1,0],startedAt:'2026-10-10T10:00:00.000Z'});
+
+test('starting the next match keeps the finished match and its pre-finish queue',()=>{
+  const before={waitingQueue:['p5','p6'],queueDraftChosen:[],priority:'p5',nextCall:null,court:['p1','p2','p3','p4']};
+  const state={...before,match:finishedMatch(),history:[{matchId:'match-1',teams:[['p1','p2'],['p3','p4']],winner:0}],matchRollback:createFinishedMatchRollback(before,'match-1'),waitingQueue:['p3','p4'],nextCall:{players:['p1','p2','p5','p6']}};
+  const snapshot=createPreviousMatchSnapshot(state,'match-2');
+  assert.equal(snapshot.nextMatchId,'match-2');
+  assert.deepEqual(snapshot.match.rallies,[0,1,0]);
+  assert.deepEqual(snapshot.rollback.waitingQueue,['p5','p6']);
+  state.match.rallies.push(1);
+  assert.deepEqual(snapshot.match.rallies,[0,1,0]);
+});
+
+test('the previous match can be restored only while the next match is still being played',()=>{
+  const before={waitingQueue:['p5','p6'],queueDraftChosen:[],priority:'p5',nextCall:null,court:['p1','p2','p3','p4']};
+  const snapshot=createPreviousMatchSnapshot({...before,match:finishedMatch(),history:[],matchRollback:createFinishedMatchRollback(before,'match-1')},'match-2');
+  const restore=previousMatchToRestore(snapshot,{active:true,matchId:'match-2',winner:null,rallies:[1,1]});
+  assert.equal(restore.match.matchId,'match-1');
+  assert.deepEqual(restore.match.rallies,[0,1,0]);
+  assert.deepEqual(restore.rollback.court,['p1','p2','p3','p4']);
+  assert.equal(previousMatchToRestore(snapshot,{active:true,matchId:'match-2',winner:1,rallies:[1]}),null);
+  assert.equal(previousMatchToRestore(snapshot,{active:true,matchId:'match-3',winner:null,rallies:[]}),null);
+  assert.equal(previousMatchToRestore(snapshot,{active:false,winner:null}),null);
+});
+
+test('a finished match without rollback metadata still infers its queue for a later restore',()=>{
+  const state={match:finishedMatch(),history:[{matchId:'match-1',teams:[['p1','p2'],['p3','p4']],winner:0}],nextCall:{players:['p1','p2','p5','p6']},waitingQueue:['p7','p3','p4']};
+  const snapshot=createPreviousMatchSnapshot(state,'match-2');
+  assert.equal(snapshot.rollback.inferred,true);
+  assert.deepEqual(snapshot.rollback.waitingQueue,['p5','p6','p7']);
+});
+
+test('no snapshot is kept for a match that never finished',()=>{
+  assert.equal(createPreviousMatchSnapshot({match:{...finishedMatch(),winner:null}},'match-2'),null);
+  assert.equal(createPreviousMatchSnapshot({match:finishedMatch()},''),null);
+});
+
+test('the score view offers a confirmed return to the previous match',()=>{
+  const html=readFileSync(new URL('../index.html',import.meta.url),'utf8');
+  const source=readFileSync(new URL('../src/main.js',import.meta.url),'utf8');
+  assert.match(html,/id="returnPreviousMatch"/);
+  assert.match(source,/const nextMatchId=randomToken\(\);savePreviousMatchSnapshot\(createPreviousMatchSnapshot\(state,nextMatchId\)\);/);
+  const handler=source.match(/function returnToPreviousMatch\(\)\{[\s\S]*?\n\}/)?.[0]||'';
+  assert.match(handler,/confirm\(/);
+  assert.match(handler,/state\.matchRollback=restore\.rollback;\s*performScoreRemoteAction\('undo'\)/);
 });
