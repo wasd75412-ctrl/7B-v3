@@ -101,7 +101,8 @@ test('groups independently selectable time slots under one date',()=>{
 
 test('shows the six-player opening note only on weekend poll choices',()=>{
   assert.match(mainSource,/function pollDurationRule\(date,time\)/);
-  assert.match(mainSource,/if\(day===0\|\|day===6\)return '滿五-六人開團\/五人01:00-03:00、六人01:00-04:00'/);
+  assert.match(mainSource,/if\(weekend&&time==='11:00'\)return '滿五-六人開團\/五人11:00-13:00、六人11:00-14:00'/);
+  assert.match(mainSource,/if\(weekend\)return '滿五-六人開團\/五人01:00-03:00、六人01:00-04:00'/);
   assert.match(mainSource,/4 人 01:00–03:00｜5–6 人 01:00–04:00/);
   assert.match(mainSource,/4 人 11:00–13:00｜5–6 人 11:00–14:00/);
   assert.match(mainSource,/pollDurationRule\(o\.date,o\.time\)/);
@@ -226,11 +227,13 @@ test('publishing an event does not close or clear the active poll',()=>{
   assert.doesNotMatch(publishFlow,/state\.schedulePoll=\{status:'closed'/);
 });
 
-test('derives an editable event end time from historical poll attendance',()=>{
+test('labels historical poll choices by date, venue, and vote count and leaves the end time to the admin',()=>{
   assert.match(mainSource,/function historicalPollChoiceLabel\(choice\)/);
-  assert.match(mainSource,/pollParticipantIds\(choice\.option\.id,choice\.poll\)\.length/);
-  assert.match(mainSource,/pollOptionLabel\(\{\.\.\.choice\.option,endTime\}\)/);
+  assert.match(mainSource,/\(\$\{pollParticipantCount\(option\.id,poll\)\}\)`/);
+  assert.doesNotMatch(mainSource.slice(mainSource.indexOf('function historicalPollChoiceLabel'),mainSource.indexOf('function renderHistoricalPollChoices')),/time|endTime/);
   assert.match(mainSource,/historicalPollChoiceLabel\(choice\)/);
+  assert.match(mainSource,/if\(nextEventEditorMode!=='create'\|\|selectedHistoricalPollChoice\(\)\)return;/);
+  assert.match(mainSource,/\$\('editNextEventEndTime'\)\.value='';\$\('editNextEventLocation'\)\.value=option\.note/);
   assert.match(mainSource,/function updateNextEventCreateEndTimeDefault\(\)/);
   assert.match(mainSource,/suggestedEventEndTime\(start,participants\)/);
   assert.doesNotMatch(mainSource,/option\.endTime\|\|suggestedEventEndTime/);

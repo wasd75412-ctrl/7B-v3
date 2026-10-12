@@ -680,15 +680,15 @@ function setNextEventEditorMode(mode='edit'){
 }
 function historicalPollChoices(){const today=taipeiDateKey();return state.pollHistory.slice().reverse().flatMap(poll=>(poll.options||[]).filter(option=>option.date>=today).map(option=>({value:`${poll.id}::${option.id}`,poll,option})))}
 function selectedHistoricalPollChoice(){const value=$('editNextEventPollOption')?.value||'';return historicalPollChoices().find(choice=>choice.value===value)||null}
-function historicalPollChoiceLabel(choice){const participants=pollParticipantIds(choice.option.id,choice.poll).length,endTime=suggestedEventEndTime(choice.option.time,participants);return pollOptionLabel({...choice.option,endTime})}
+function historicalPollChoiceLabel(choice){const {option,poll}=choice,date=option.date?pollDateLabel(option.date):'未設定日期';return `${date}${option.note?` · ${option.note}`:''} (${pollParticipantCount(option.id,poll)})`}
 function renderHistoricalPollChoices(){const select=$('editNextEventPollOption'),choices=historicalPollChoices();if(!select)return;select.innerHTML='<option value="">手動輸入</option>'+choices.map(choice=>`<option value="${esc(choice.value)}">${esc(historicalPollChoiceLabel(choice))}</option>`).join('');select.value=''}
 function updateNextEventCreateEndTimeDefault(){
-  if(nextEventEditorMode!=='create')return;
+  if(nextEventEditorMode!=='create'||selectedHistoricalPollChoice())return;
   const start=$('editNextEventTime')?.value,participants=$('editNextEventParticipants')?.value;
   if(start)$('editNextEventEndTime').value=suggestedEventEndTime(start,participants);
 }
 function updateNextEventCreateDefaults(){updateNextEventCreateEndTimeDefault();updateNextEventEditFeePreview()}
-function applyHistoricalPollChoice(){const choice=selectedHistoricalPollChoice();if(!choice)return;const {poll,option}=choice,participantIds=pollParticipantIds(option.id,poll);$('editNextEventDate').value=option.date||'';$('editNextEventTime').value=option.time||'';$('editNextEventLocation').value=option.note||'';$('editNextEventParticipants').value=participantIds.length||'';updateNextEventCreateEndTimeDefault();renderEventPlayerChoices('editNextEventPlayerChoices',participantIds,()=>syncParticipantCountFromChoices('editNextEventPlayerChoices','editNextEventParticipants',updateNextEventCreateDefaults));updateNextEventEditFeePreview();updateVenueMapPreviews()}
+function applyHistoricalPollChoice(){const choice=selectedHistoricalPollChoice();if(!choice)return;const {poll,option}=choice,participantIds=pollParticipantIds(option.id,poll);$('editNextEventDate').value=option.date||'';$('editNextEventTime').value=option.time||'';$('editNextEventEndTime').value='';$('editNextEventLocation').value=option.note||'';$('editNextEventParticipants').value=participantIds.length||'';renderEventPlayerChoices('editNextEventPlayerChoices',participantIds,()=>syncParticipantCountFromChoices('editNextEventPlayerChoices','editNextEventParticipants',updateNextEventCreateDefaults));updateNextEventEditFeePreview();updateVenueMapPreviews()}
 function openNextEventEditor(eventId=''){
   const event=normalizeNextEvents(state).find(row=>row.id===eventId)||cleanNextEvent(state.nextEvent);
   if(!isHost||!event?.date)return;
@@ -1405,8 +1405,9 @@ function addManualPollParticipant(optionId){if(!isHost||!isPollDeadlinePassed(st
 function removeManualPollParticipant(optionId,playerId){const rows=cleanManualPollParticipants(state.schedulePoll.manualParticipants),next=(rows[optionId]||[]).filter(id=>id!==playerId);if(next.length)rows[optionId]=next;else delete rows[optionId];state.schedulePoll.manualParticipants=rows;archiveCurrentPoll();renderPoll();saveSoon()}
 function pollOptionLabel(o){if(!o?.date)return '未設定日期';const d=new Date(`${o.date}T${o.time||'00:00'}`);const date=isNaN(d)?o.date:d.toLocaleDateString('zh-TW',{month:'long',day:'numeric',weekday:'short'}),time=o.time?` ${o.time}${o.endTime?`-${o.endTime}`:''}`:'';return `${date}${time}${o.note?` · ${o.note}`:''}`}
 function pollDurationRule(date,time){
-  const day=new Date(`${date}T00:00`).getDay();
-  if(day===0||day===6)return '滿五-六人開團/五人01:00-03:00、六人01:00-04:00';
+  const day=new Date(`${date}T00:00`).getDay(),weekend=day===0||day===6;
+  if(weekend&&time==='11:00')return '滿五-六人開團/五人11:00-13:00、六人11:00-14:00';
+  if(weekend)return '滿五-六人開團/五人01:00-03:00、六人01:00-04:00';
   if(time==='01:00')return '4 人 01:00–03:00｜5–6 人 01:00–04:00';
   if(time==='11:00')return '4 人 11:00–13:00｜5–6 人 11:00–14:00';
   return'';
