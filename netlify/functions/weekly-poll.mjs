@@ -77,7 +77,8 @@ async function notifyWeeklyPoll(now,openedRooms,stateStore){
     const payload=JSON.stringify(weeklyPollPushPayload({siteUrl:push.siteUrl,roomId,cycle}));
     for(const item of pending){
       try{
-        await sendWebPush(item.record.subscription,payload,{TTL:86400,urgency:'normal',topic:`weekly-${roomId}`});
+        // Apple rejects a 13-character topic such as weekly-RTYBSJ with BadWebPushTopic, and one push a week needs no collapsing.
+        await sendWebPush(item.record.subscription,payload,{TTL:86400,urgency:'normal'});
         item.record.lastWeeklyPollCycle=cycle;
         item.record.lastWeeklyPollAt=new Date().toISOString();
         await store.setJSON(item.key,item.record);
