@@ -1,5 +1,5 @@
 import { getBlobStore as getStore } from './lib/blob-store.mjs';
-import { PUSH_STORE, isExpiredSubscriptionError, allRoomSubscriptions, configureWebPush, jsonResponse, sendWebPush } from './lib/push-shared.mjs';
+import { PUSH_STORE, isExpiredSubscriptionError, allRoomSubscriptions, configureWebPush, jsonResponse, pushFailure, sendWebPush } from './lib/push-shared.mjs';
 
 const FIREBASE_PROJECT='badminton-7a1c3';
 const FIREBASE_API_KEY='AIzaSyBrakbTPK7UqEChPBI6pM8-i03IcLq0IvM';
@@ -40,19 +40,7 @@ export function reminderTitle(deadlineAt,now=Date.now()){
   return days===0?'🔥投票今日截止🔥':days===1?'🔥投票明日截止🔥':'🔥投票即將截止🔥';
 }
 
-function endpointHost(endpoint){try{return new URL(endpoint).host}catch{return ''}}
-
-// Only the push host is exposed, never the full endpoint or keys.
-export function pushFailure(record,error){
-  return{
-    roomId:record?.roomId||'',
-    playerName:record?.playerName||'',
-    host:endpointHost(record?.subscription?.endpoint),
-    status:Number(error?.statusCode)||0,
-    error:String(error?.body||error?.message||error||'').slice(0,160),
-    updatedAt:record?.updatedAt||''
-  };
-}
+export { pushFailure };
 
 async function getRoomPoll(roomId){
   const apiKey=process.env.FIREBASE_API_KEY||FIREBASE_API_KEY;

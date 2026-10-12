@@ -1,9 +1,9 @@
 import { getBlobStore as getStore } from './lib/blob-store.mjs';
-import { PUSH_STORE, isExpiredSubscriptionError, configureWebPush, jsonResponse, sendWebPush, roomSubscriptions, validRoomId } from './lib/push-shared.mjs';
-import { archivePollHistoryFirestoreValue, nextWeeklyPollScan, shouldArchiveExpiredPoll, shouldOpenWeeklyPoll, shouldScanWeeklyPollRooms, taipeiWeekSchedule, weeklyPollFirestoreValue, weeklyPollPushPayload } from './lib/weekly-poll.mjs';
+import { PUSH_STORE, allRoomSubscriptions, isExpiredSubscriptionError, configureWebPush, jsonResponse, pushFailure, sendWebPush, unindexSubscription, validRoomId } from './lib/push-shared.mjs';
+import { archivePollHistoryFirestoreValue, isWeeklyPollNotifyWindow, needsWeeklyPollPush, nextWeeklyPollScan, shouldArchiveExpiredPoll, shouldOpenWeeklyPoll, shouldScanWeeklyPollRooms, taipeiWeekSchedule, weeklyPollFirestoreValue, weeklyPollNotifySummary, weeklyPollPushPayload } from './lib/weekly-poll.mjs';
 
 const FIREBASE_PROJECT='badminton-7a1c3';
-const WEEKLY_POLL_STATE_STORE='weekly-poll-state',WEEKLY_POLL_SCAN_KEY='scan';
+const WEEKLY_POLL_STATE_STORE='weekly-poll-state',WEEKLY_POLL_SCAN_KEY='scan',WEEKLY_POLL_NOTIFY_KEY='notify';
 const FIREBASE_API_KEY='AIzaSyBrakbTPK7UqEChPBI6pM8-i03IcLq0IvM';
 
 function firestoreUrl(path=''){
@@ -22,6 +22,12 @@ async function listRooms(){
     pageToken=body.nextPageToken||'';
   }while(pageToken);
   return rooms;
+}
+
+async function roomWeeklyPollCycle(roomId){
+  const response=await fetch(`${firestoreUrl(`badmintonRooms/${encodeURIComponent(roomId)}`)}&mask.fieldPaths=weeklyPollCycle`,{headers:{accept:'application/json'}});
+  if(!response.ok)throw new Error(`Firestore ${roomId}: ${response.status}`);
+  return (await response.json()).fields?.weeklyPollCycle?.stringValue||'';
 }
 
 async function openPoll(roomId,document,now){
@@ -43,30 +49,63 @@ async function readScanState(){
   return{store,scan};
 }
 
-export default async()=>{
-  const now=Date.now(),schedule=taipeiWeekSchedule(now),{store:scanStore,scan}=await readScanState();
-  if(!shouldScanWeeklyPollRooms(scan,now))return jsonResponse({ok:true,cycle:schedule.cycle,skipped:true});
-  const rooms=await listRooms();
+async function scanRooms(scan,scanStore,now){
+  const rooms=await listRooms(),opened=new Set();
   const due=rooms.filter(({document})=>shouldOpenWeeklyPoll(document,now));
   const expired=rooms.filter(({document})=>shouldArchiveExpiredPoll(document,now));
-  let archived=0,failed=0,writeFailed=0;
-  for(const {id,document} of expired){try{await archiveExpiredPoll(id,document,now);archived++}catch(error){console.error(error);failed++;writeFailed++}}
-  const saveScan=()=>scanStore.setJSON(WEEKLY_POLL_SCAN_KEY,nextWeeklyPollScan(scan,{now,failed:writeFailed})).catch(error=>console.error('Weekly poll scan state',error));
-  if(!due.length){await saveScan();return jsonResponse({ok:true,cycle:schedule.cycle,checked:rooms.length,archived,opened:0,sent:0,failed})}
-  const push=configureWebPush(),store=getStore({name:PUSH_STORE,consistency:'strong'});
-  let opened=0,sent=0,removed=0;
-  for(const {id,document} of due){
-    try{await openPoll(id,document,now);opened++}catch(error){console.error(error);failed++;writeFailed++;continue}
-    if(!push)continue;
-    const payload=JSON.stringify(weeklyPollPushPayload({siteUrl:push.siteUrl,roomId:id,cycle:schedule.cycle}));
-    for(const item of await roomSubscriptions(store,id)){
-      try{await sendWebPush(item.record.subscription,payload,{TTL:86400,urgency:'normal',topic:`weekly-${id}`});sent++}
-      catch(error){if(isExpiredSubscriptionError(error)){await store.delete(item.key);removed++}else{console.error(`Push ${id} failed`,error);failed++}}
+  let archived=0,failed=0;
+  for(const {id,document} of expired){try{await archiveExpiredPoll(id,document,now);archived++}catch(error){console.error(error);failed++}}
+  for(const {id,document} of due){try{await openPoll(id,document,now);opened.add(id)}catch(error){console.error(error);failed++}}
+  await scanStore.setJSON(WEEKLY_POLL_SCAN_KEY,nextWeeklyPollScan(scan,{now,failed})).catch(error=>console.error('Weekly poll scan state',error));
+  return{opened,result:{checked:rooms.length,archived,opened:opened.size,failed}};
+}
+
+// Each device records the cycle it was told about, so a failed or interrupted send is retried instead of lost.
+async function notifyWeeklyPoll(now,openedRooms,stateStore){
+  if(!isWeeklyPollNotifyWindow(now))return null;
+  const push=configureWebPush();
+  if(!push)return{error:'push not configured'};
+  const cycle=taipeiWeekSchedule(now).cycle,store=getStore({name:PUSH_STORE,consistency:'strong'}),byRoom=await allRoomSubscriptions(store);
+  let sent=0,removed=0,failed=0;const failures=[];
+  for(const [roomId,items] of byRoom){
+    const pending=items.filter(item=>needsWeeklyPollPush(item.record,cycle));
+    if(!pending.length)continue;
+    if(!openedRooms.has(roomId)){
+      try{if(await roomWeeklyPollCycle(roomId)!==cycle)continue}
+      catch(error){console.error(error);failed+=pending.length;failures.push({roomId,error:String(error?.message||error).slice(0,160)});continue}
+    }
+    const payload=JSON.stringify(weeklyPollPushPayload({siteUrl:push.siteUrl,roomId,cycle}));
+    for(const item of pending){
+      try{
+        await sendWebPush(item.record.subscription,payload,{TTL:86400,urgency:'normal',topic:`weekly-${roomId}`});
+        item.record.lastWeeklyPollCycle=cycle;
+        item.record.lastWeeklyPollAt=new Date().toISOString();
+        await store.setJSON(item.key,item.record);
+        sent++;
+      }catch(error){
+        if(isExpiredSubscriptionError(error)){await store.delete(item.key);await unindexSubscription(store,roomId,item.key);removed++}
+        else{console.error(`Push ${roomId} failed`,error);failed++;failures.push(pushFailure(item.record,error))}
+      }
     }
   }
-  await saveScan();
-  const response={ok:true,cycle:schedule.cycle,checked:rooms.length,archived,opened,sent,removed,failed};
-  console.log('Weekly poll run',response);return jsonResponse(response);
+  const summary=weeklyPollNotifySummary({cycle,sent,removed,failed,failures});
+  if(sent||removed||failed){
+    const previous=await stateStore.get(WEEKLY_POLL_NOTIFY_KEY,{type:'json'}).catch(()=>null);
+    if(JSON.stringify({...previous,at:undefined})!==JSON.stringify(summary))await stateStore.setJSON(WEEKLY_POLL_NOTIFY_KEY,{...summary,at:new Date(now).toISOString()}).catch(error=>console.error('Weekly poll notify state',error));
+  }
+  return summary;
+}
+
+export default async()=>{
+  const now=Date.now(),schedule=taipeiWeekSchedule(now),{store:scanStore,scan}=await readScanState();
+  const response={ok:true,cycle:schedule.cycle};
+  let opened=new Set();
+  if(shouldScanWeeklyPollRooms(scan,now)){const run=await scanRooms(scan,scanStore,now);opened=run.opened;Object.assign(response,run.result)}
+  else response.skipped=true;
+  const notify=await notifyWeeklyPoll(now,opened,scanStore);
+  if(notify)response.notify=notify;
+  if(!response.skipped||notify?.sent||notify?.failed)console.log('Weekly poll run',response);
+  return jsonResponse(response);
 };
 
 // Every five minutes lets a delayed deploy recover automatically after Monday 08:00 in Taipei.

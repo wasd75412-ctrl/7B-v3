@@ -52,6 +52,20 @@ export function shouldOpenWeeklyPoll(document,now=Date.now()){
   return document?.fields?.weeklyPollCycle?.stringValue!==schedule.cycle;
 }
 
+export const WEEKLY_POLL_NOTIFY_MS=24*60*60*1000;
+
+// A send that failed or never ran is retried on every run during the first day after opening.
+export function isWeeklyPollNotifyWindow(now=Date.now()){
+  const opens=Date.parse(taipeiWeekSchedule(now).opensAt);
+  return now>=opens&&now<opens+WEEKLY_POLL_NOTIFY_MS;
+}
+
+export function needsWeeklyPollPush(record,cycle){return record?.lastWeeklyPollCycle!==cycle}
+
+export function weeklyPollNotifySummary({cycle,sent=0,removed=0,failed=0,failures=[]}){
+  return{cycle,sent,removed,failed,failures:failures.map(({roomId='',host='',status=0,error=''})=>({roomId,host,status,error}))};
+}
+
 export function weeklyPollPushPayload({siteUrl,roomId,cycle}){
   return{
     title:'🏸 新投票開始了',

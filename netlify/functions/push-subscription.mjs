@@ -50,6 +50,8 @@ export default async request=>{
     updatedAt:now,
     lastReminderDeadline:existing?.lastReminderDeadline||'',
     lastReminderAt:existing?.lastReminderAt||'',
+    lastWeeklyPollCycle:existing?.lastWeeklyPollCycle||'',
+    lastWeeklyPollAt:existing?.lastWeeklyPollAt||'',
     lastEventPublishedAt:existing?.lastEventPublishedAt||'',
     lastEventAt:existing?.lastEventAt||'',
     lastSessionFeeNoticeId:existing?.lastSessionFeeNoticeId||'',

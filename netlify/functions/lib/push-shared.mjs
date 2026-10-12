@@ -70,6 +70,20 @@ export function isExpiredSubscriptionError(error){
   return status===404||status===410||(status===400&&/VapidPkHashMismatch/.test(String(error?.body||'')));
 }
 
+function endpointHost(endpoint){try{return new URL(endpoint).host}catch{return ''}}
+
+// Only the push host is exposed, never the full endpoint or keys.
+export function pushFailure(record,error){
+  return{
+    roomId:record?.roomId||'',
+    playerName:record?.playerName||'',
+    host:endpointHost(record?.subscription?.endpoint),
+    status:Number(error?.statusCode)||0,
+    error:String(error?.body||error?.message||error||'').slice(0,160),
+    updatedAt:record?.updatedAt||''
+  };
+}
+
 // Cloudflare Workers has no node:https request, so the encrypted request from web-push is sent with fetch.
 export async function sendWebPush(subscription,payload,options={}){
   const details=webpush.generateRequestDetails(subscription,payload,options);
