@@ -44,6 +44,7 @@ test('sends the weekly poll push to devices missed when the poll opened, once ea
       return new Response(JSON.stringify({fields:{weeklyPollCycle:{stringValue:cycle}}}),{status:200});
     }
     pushes.push(url);
+    assert.equal(Object.keys(options.headers||{}).some(name=>name.toLowerCase()==='topic'),false);
     return new Response('',{status:url.endsWith('/fail')&&failing?500:201});
   };
   t.after(()=>{globalThis.fetch=originals.fetch;Date.now=originals.now;globalThis.__SEVEN_B_CLOUDFLARE_ENV__=originals.env;process.env=originals.processEnv});
