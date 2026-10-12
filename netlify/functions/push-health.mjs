@@ -19,6 +19,7 @@ export default async request => {
       subscriptionError = error?.message || 'subscription index read failed';
     }
   }
+  const weeklyPollNotify = await getStore({name:'weekly-poll-state',consistency:'strong'}).get('notify', {type:'json'}).catch(() => null);
   return jsonResponse({
     ok: true,
     cloudflareEnv: !!globalThis.__SEVEN_B_CLOUDFLARE_ENV__,
@@ -33,6 +34,7 @@ export default async request => {
     roomId,
     subscriptionKeys,
     subscriptionIndexComplete,
-    subscriptionError
+    subscriptionError,
+    weeklyPollNotify
   });
 };

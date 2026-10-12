@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { WEEKLY_POLL_SCAN_MS, archivePollHistoryFirestoreValue, nextWeeklyPollScan, shouldArchiveExpiredPoll, shouldOpenWeeklyPoll, shouldScanWeeklyPollRooms, taipeiWeekSchedule, weeklyPollFirestoreValue, weeklyPollPushPayload } from '../netlify/functions/lib/weekly-poll.mjs';
+import { WEEKLY_POLL_SCAN_MS, archivePollHistoryFirestoreValue, isWeeklyPollNotifyWindow, needsWeeklyPollPush, nextWeeklyPollScan, shouldArchiveExpiredPoll, shouldOpenWeeklyPoll, shouldScanWeeklyPollRooms, taipeiWeekSchedule, weeklyPollFirestoreValue, weeklyPollNotifySummary, weeklyPollPushPayload } from '../netlify/functions/lib/weekly-poll.mjs';
 
 test('the five-minute trigger lists rooms only when opening, just past the deadline, or hourly',()=>{
   const opens=Date.parse('2026-08-10T00:00:00.000Z'),deadline=Date.parse('2026-08-16T14:00:00.000Z');
@@ -56,6 +56,18 @@ test('announces the new weekly poll and links directly to voting',()=>{
   assert.equal(payload.body,'下週球局投票已開放，請前往投票。');
   assert.equal(payload.url,'https://example.com/?room=7B%20room&page=poll');
   assert.equal(payload.tag,'7b-weekly-poll-7B room-2026-08-10');
+});
+
+test('retries the weekly poll push only during the first day after Monday 08:00 and once per device',()=>{
+  assert.equal(isWeeklyPollNotifyWindow(Date.parse('2026-10-11T23:59:59.999Z')),false);
+  assert.equal(isWeeklyPollNotifyWindow(Date.parse('2026-10-12T00:00:00.000Z')),true);
+  assert.equal(isWeeklyPollNotifyWindow(Date.parse('2026-10-12T23:59:59.999Z')),true);
+  assert.equal(isWeeklyPollNotifyWindow(Date.parse('2026-10-13T00:00:00.000Z')),false);
+  assert.equal(needsWeeklyPollPush({},'2026-10-12'),true);
+  assert.equal(needsWeeklyPollPush({lastWeeklyPollCycle:'2026-10-05'},'2026-10-12'),true);
+  assert.equal(needsWeeklyPollPush({lastWeeklyPollCycle:'2026-10-12'},'2026-10-12'),false);
+  const summary=weeklyPollNotifySummary({cycle:'2026-10-12',sent:1,failed:1,failures:[{roomId:'ROOM01',playerName:'A',host:'web.push.apple.com',status:403,error:'BadJwtToken',updatedAt:'x'}]});
+  assert.deepEqual(summary.failures,[{roomId:'ROOM01',host:'web.push.apple.com',status:403,error:'BadJwtToken'}]);
 });
 
 test('archives the previous poll before a new weekly poll overwrites it',()=>{
