@@ -4255,9 +4255,11 @@ html.chat-keyboard-open .chat-autocomplete{
   border-radius:18px;
   background:rgba(var(--sport-tint-rgb),.06)
 }
-.shuttle-preset-list{grid-column:1/-1;display:flex;flex-wrap:wrap;align-items:center;gap:8px}
-.shuttle-preset-list.hidden{display:none}
-.shuttle-preset-list>span:first-child{color:var(--sport-muted);font-size:.8rem;font-weight:900}
+.shuttle-preset-box{grid-column:1/-1}
+.shuttle-preset-box.hidden{display:none}
+.shuttle-preset-section summary,.shuttle-history-section summary{cursor:pointer;color:var(--sport-muted);font-weight:900}
+.shuttle-preset-section[open] summary{margin-bottom:10px}
+.shuttle-preset-list{display:flex;flex-wrap:wrap;align-items:center;gap:8px}
 .shuttle-preset{display:inline-flex;align-items:center;gap:2px}
 .shuttle-preset-remove{width:30px;height:30px;border:0;border-radius:50%;background:transparent;color:var(--sport-muted);font-weight:900;cursor:pointer}
 .shuttle-preset-remove:hover{color:#ff8a8a;background:rgba(255,138,138,.12)}
@@ -4391,8 +4393,15 @@ html.chat-keyboard-open .chat-autocomplete{
   box-shadow:0 0 18px rgba(58,210,143,.10)
 }
 .shuttle-player.paid-played small{color:#83efbd}
-.shuttle-history-section{display:grid;gap:8px;margin-top:4px}
-.shuttle-history-section h3{margin:5px 0}
+.shuttle-history-section{
+  margin-top:4px;
+  padding:12px;
+  border:1px solid rgba(var(--sport-tint-rgb),.16);
+  border-radius:17px;
+  background:rgba(3,24,40,.3)
+}
+.shuttle-history-section[open] summary{margin-bottom:10px}
+.shuttle-history-section .shuttle-history-wrap+.shuttle-history-wrap{margin-top:8px}
 .shuttle-history-wrap{
   overflow:hidden;
   border:1px solid rgba(var(--sport-tint-rgb),.16);
