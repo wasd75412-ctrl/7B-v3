@@ -3420,7 +3420,8 @@ function renderShuttleTubeManager(){
     return `<article class="shuttle-history-wrap"><div class="shuttle-tube-history"><div><strong>${esc(tube.name)}</strong><span>${esc(shuttleTubeTime(tube.activatedAt||tube.createdAt))} · ${formatMoney(tube.price)} 元 / 12 顆 · 每顆 ${formatMoney(shuttleUnitPrice(tube.price))} 元</span></div><span>剩餘 ${tube.remainingShuttles} 顆</span><div class="shuttle-history-actions"><button class="btn" type="button" data-edit-shuttle-tube="${esc(tube.id)}">編輯球桶</button><button class="btn danger-outline" type="button" data-delete-shuttle-tube="${esc(tube.id)}">刪除</button></div></div></article>`;
   }).join('');
   const deletedMarkup=deleted.map(tube=>`<article class="shuttle-tube-history shuttle-tube-deleted"><div><strong>${esc(tube.name)}</strong><span>${esc(shuttleTubeTime(tube.activatedAt||tube.createdAt))} · ${formatMoney(tube.price)} 元</span></div><span>刪除日期：${esc(shuttleTubeTime(tube.deletedAt))}</span><button class="btn" type="button" data-restore-shuttle-tube="${esc(tube.id)}">恢復球桶</button></article>`).join('');
-  list.innerHTML=`${activeMarkup}${pendingMarkup}${previous?`<section class="shuttle-history-section"><h3>過往球桶</h3>${previous}</section>`:''}${deletedMarkup?`<details class="shuttle-deleted-section"><summary>已刪除球桶（${deleted.length}）</summary>${deletedMarkup}</details>`:''}`;
+  list.innerHTML=`${activeMarkup}${pendingMarkup}${previous?`<details class="shuttle-history-section" data-shuttle-section="history"${shuttleSectionOpen('history')}><summary>過往球桶（${finished.length}）</summary>${previous}</details>`:''}${deletedMarkup?`<details class="shuttle-deleted-section" data-shuttle-section="deleted"${shuttleSectionOpen('deleted')}><summary>已刪除球桶（${deleted.length}）</summary>${deletedMarkup}</details>`:''}`;
+  bindShuttleSectionToggles(list);
   all('[data-shuttle-delta]').forEach(button=>button.onclick=()=>{
     if(!isHost)return;
     const tubeId=button.dataset.shuttleTube,delta=Number(button.dataset.shuttleDelta)||0;
@@ -3519,12 +3520,21 @@ function createNewShuttleTube(){
   if(!addPendingShuttleTube(name,price,totalShuttles))return;
   $('shuttleTubeName').value='';$('shuttleTubePrice').value='';$('shuttleTubeCount').value='12';
 }
+const openShuttleSections=new Set();
+function shuttleSectionOpen(name){return openShuttleSections.has(name)?' open':''}
+function bindShuttleSectionToggles(root){
+  root.querySelectorAll('[data-shuttle-section]').forEach(section=>section.ontoggle=()=>{
+    if(section.open)openShuttleSections.add(section.dataset.shuttleSection);
+    else openShuttleSections.delete(section.dataset.shuttleSection);
+  });
+}
 function renderShuttlePresets(){
   const box=$('shuttlePresetList');
   if(!box)return;
   const presets=seedShuttlePresets(state.shuttlePresets,state.shuttleTubes);
   box.classList.toggle('hidden',!presets.length);
-  box.innerHTML=presets.length?`<span>常用</span>${presets.map((preset,index)=>`<span class="shuttle-preset"><button class="btn" type="button" data-shuttle-preset="${index}">${esc(preset.name)} · ${formatMoney(preset.price)} 元</button><button class="shuttle-preset-remove" type="button" aria-label="移除常用 ${esc(preset.name)}" title="移除" data-remove-shuttle-preset="${index}">✕</button></span>`).join('')}`:'';
+  box.innerHTML=presets.length?`<details class="shuttle-preset-section" data-shuttle-section="presets"${shuttleSectionOpen('presets')}><summary>常用（${presets.length}）</summary><div class="shuttle-preset-list">${presets.map((preset,index)=>`<span class="shuttle-preset"><button class="btn" type="button" data-shuttle-preset="${index}">${esc(preset.name)} · ${formatMoney(preset.price)} 元</button><button class="shuttle-preset-remove" type="button" aria-label="移除常用 ${esc(preset.name)}" title="移除" data-remove-shuttle-preset="${index}">✕</button></span>`).join('')}</div></details>`:'';
+  bindShuttleSectionToggles(box);
   all('[data-shuttle-preset]').forEach(button=>button.onclick=()=>{
     const preset=presets[Number(button.dataset.shuttlePreset)];
     if(isHost&&preset)addPendingShuttleTube(preset.name,preset.price);
