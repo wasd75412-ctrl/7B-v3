@@ -692,22 +692,17 @@ function syncNextEventTransferPanel(open){
 }
 function initTime24Picker(id){
   const box=$(id);if(!box||box.dataset.ready)return;box.dataset.ready='1';
-  const pad=n=>String(n).padStart(2,'0'),label=box.dataset.label||'',hour=document.createElement('select'),minute=document.createElement('select'),colon=document.createElement('span');
-  hour.className=minute.className='input';
-  hour.setAttribute('aria-label',`${label}（時）`);minute.setAttribute('aria-label',`${label}（分）`);
-  hour.innerHTML='<option value="">--</option>'+Array.from({length:24},(_,h)=>`<option value="${pad(h)}">${pad(h)}</option>`).join('');
-  minute.innerHTML='<option value="">--</option>'+Array.from({length:12},(_,m)=>`<option value="${pad(m*5)}">${pad(m*5)}</option>`).join('');
-  colon.className='time24-colon';colon.textContent=':';
-  box.replaceChildren(hour,colon,minute);
-  hour.addEventListener('change',()=>{if(hour.value&&!minute.value)minute.value='00';if(!hour.value)minute.value=''});
-  minute.addEventListener('change',()=>{if(minute.value&&!hour.value)hour.value='00';if(!minute.value)hour.value=''});
+  const select=document.createElement('select');
+  select.className='input';select.setAttribute('aria-label',box.dataset.label||'');
+  select.innerHTML='<option value="">--:--</option>'+Array.from({length:24},(_,h)=>{const time=`${String(h).padStart(2,'0')}:00`;return`<option value="${time}">${time}</option>`}).join('');
+  box.replaceChildren(select);
   Object.defineProperty(box,'value',{
-    get:()=>hour.value&&minute.value?`${hour.value}:${minute.value}`:'',
+    get:()=>select.value,
     set:value=>{
-      const match=String(value||'').match(/^(\d{2}):(\d{2})/);
-      if(!match||Number(match[1])>23||Number(match[2])>59){hour.value='';minute.value='';return}
-      if(![...minute.options].some(option=>option.value===match[2]))minute.add(new Option(match[2],match[2]),[...minute.options].find(option=>option.value>match[2])||null);
-      hour.value=match[1];minute.value=match[2];
+      const match=String(value||'').match(/^(\d{2}):(\d{2})/),time=match?`${match[1]}:${match[2]}`:'';
+      if(!match||Number(match[1])>23||Number(match[2])>59){select.value='';return}
+      if(![...select.options].some(option=>option.value===time))select.add(new Option(time,time),[...select.options].find(option=>option.value>time)||null);
+      select.value=time;
     }
   });
 }

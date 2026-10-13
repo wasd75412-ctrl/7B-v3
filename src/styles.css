@@ -1787,9 +1787,7 @@ html.brand-font-fallback .brand-copy .brand-mark h1{
 .next-event-edit-grid .field{min-width:0}
 .next-event-edit-grid .field>span{display:block;margin-bottom:6px;color:var(--muted);font-size:.82rem;font-weight:900}
 .next-event-edit-grid .next-event-edit-date,.next-event-edit-grid .location-field,.next-event-edit-note{grid-column:1/-1}
-.time24-picker{display:grid;grid-template-columns:minmax(0,1fr) auto minmax(0,1fr);align-items:center;gap:6px}
 .time24-picker select{text-align:center;text-align-last:center;font-variant-numeric:tabular-nums;font-weight:900}
-.time24-colon{color:var(--muted);font-weight:1000}
 .next-event-fold{border:1px solid var(--line);border-radius:14px;background:rgba(255,255,255,.04)}
 .next-event-fold>summary{display:flex;align-items:center;gap:10px;padding:12px 14px;cursor:pointer;list-style:none;font-weight:900}
 .next-event-fold>summary::-webkit-details-marker{display:none}
