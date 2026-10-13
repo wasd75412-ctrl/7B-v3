@@ -1,6 +1,6 @@
 import { calculateCombinedPerPersonFee } from './next-event.js';
 import { playedParticipantIds } from './session-participants.js';
-import { normalizeShuttleTubes, sessionShuttleUsage, shuttleUnitPrice } from './shuttle-tube.js';
+import { sessionShuttleTotals } from './shuttle-tube.js';
 
 const DATE_KEY=/^\d{4}-\d{2}-\d{2}$/;
 
@@ -49,9 +49,8 @@ export function sessionFeeNoticeFromRoom(room={},today=''){
   const eventId=nextEventIdentity(event);
   const playerIds=playedParticipantIds((Array.isArray(room.history)?room.history:[]).map(historyMatch).filter(match=>match&&matchDateKey(match)===date));
   if(!playerIds.length)return null;
-  const tube=normalizeShuttleTubes(room.shuttleTubes).find(row=>row.status==='active')||null;
-  const used=sessionShuttleUsage(tube,eventId);
-  const amount=calculateCombinedPerPersonFee(Math.max(0,Math.round(Number(event.rentalTotal)||0)),used*shuttleUnitPrice(tube?.price),playerIds.length);
+  const {cost}=sessionShuttleTotals(room.shuttleTubes,eventId);
+  const amount=calculateCombinedPerPersonFee(Math.max(0,Math.round(Number(event.rentalTotal)||0)),cost,playerIds.length);
   if(!amount)return null;
   const transfer={transferBankCode:String(event.transferBankCode||''),transferAccount:String(event.transferAccount||'')};
   return {eventId,amount,playerIds,...transfer,...sessionFeeNoticeText(amount,transfer)};
