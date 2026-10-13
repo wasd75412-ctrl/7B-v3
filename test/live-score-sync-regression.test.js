@@ -59,7 +59,7 @@ function harness(liveMatch=current,overrides={}){
     normalizeYouTubePlaylistUrl:value=>value??'',cleanManualPollParticipants:value=>value??{},
     cleanPollHistory:value=>value??[],cleanNextEvent:value=>value??null,
     normalizeNextEvents:value=>value.nextEvents??[],normalizeAdminNotices:value=>value.adminNotices??[],
-    enforceLegacyActiveShuttleTube:value=>value??[],
+    enforceLegacyActiveShuttleTube:value=>value??[],seedShuttlePresets:value=>value??[],
     renderAll:()=>calls.render++,renderScore:()=>calls.render++,renderDashboard:()=>calls.render++,
     renderAndroidRemote:()=>calls.render++,announceSyncedScore:()=>{},syncLocalLinkOwner:()=>{},
     checkAchievementUnlocks:()=>{},normalizeServeRuns:value=>value??{},

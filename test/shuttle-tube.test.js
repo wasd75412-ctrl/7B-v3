@@ -6,8 +6,11 @@ import {
   createShuttleTube,
   enforceLegacyActiveShuttleTube,
   finishShuttleTube,
+  forgetShuttlePreset,
   normalizeShuttleTubes,
+  rememberShuttlePreset,
   restoreShuttleTube,
+  seedShuttlePresets,
   sessionShuttleTotals,
   sessionShuttleUsage,
   setShuttlePaymentStatus,
@@ -43,6 +46,27 @@ test('sums session usage across a finished tube and the newly activated tube',()
   ];
   assert.deepEqual(sessionShuttleTotals(tubes,'event-today'),{used:3,cost:200});
   assert.deepEqual(sessionShuttleTotals(tubes,'event-none'),{used:0,cost:0});
+});
+
+test('seeds presets from past tubes once, then keeps the saved list',()=>{
+  const tubes=[
+    {name:'Volar-30',price:720,createdAt:'2026-07-27T15:35:27.074Z'},
+    {name:'Nicofly 紅3',price:720,createdAt:'2026-10-04T09:26:12.522Z'},
+    {name:'Nicofly 紅3',price:700,createdAt:'2026-08-28T02:30:42.131Z'},
+    {name:'Volar-10',price:590,createdAt:'2026-07-27T15:34:24.799Z',status:'deleted'}
+  ];
+  assert.deepEqual(seedShuttlePresets(undefined,tubes),[
+    {name:'Nicofly 紅3',price:720},{name:'Volar-30',price:720},{name:'Volar-10',price:590}
+  ]);
+  assert.deepEqual(seedShuttlePresets([],tubes),[]);
+  assert.deepEqual(seedShuttlePresets([{name:'AS-30',price:950},{name:'',price:1},{name:'AS-30',price:900}],tubes),[{name:'AS-30',price:950}]);
+});
+
+test('remembers a newly bought tube at the front and forgets a removed preset',()=>{
+  const presets=[{name:'Nicofly 紅3',price:720},{name:'Volar-30',price:720}];
+  assert.deepEqual(rememberShuttlePreset(presets,{name:'AS-30',price:950}),[{name:'AS-30',price:950},...presets]);
+  assert.deepEqual(rememberShuttlePreset(presets,{name:'Volar-30',price:750}),[{name:'Volar-30',price:750},{name:'Nicofly 紅3',price:720}]);
+  assert.deepEqual(forgetShuttlePreset(presets,'Volar-30'),[{name:'Nicofly 紅3',price:720}]);
 });
 
 test('returns a used shuttle to zero usage and restores the inventory',()=>{

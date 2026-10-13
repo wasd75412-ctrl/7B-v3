@@ -47,13 +47,25 @@ test('shows one-shuttle controls in scoring and next-match result views plus das
 
 test('persists shuttle changes during lite-sync matches and refreshes the session fee',()=>{
   assert.match(main,/function saveShuttleChange\(\)\{if\(isHost&&roomRef\)void saveNow\(\)\.catch\(\(\)=>saveSoon\(\)\)\}/);
-  for(const name of ['useOneShuttle','returnOneShuttle','renderShuttleTubeManager','createNewShuttleTube']){
+  for(const name of ['useOneShuttle','returnOneShuttle','renderShuttleTubeManager','createNewShuttleTube','addPendingShuttleTube','renderShuttlePresets']){
     const body=main.slice(main.indexOf(`function ${name}(`),main.indexOf('\nfunction ',main.indexOf(`function ${name}(`)+1));
     assert.doesNotMatch(body,/saveSoon\(\);/,`${name} must not rely on saveSoon`);
   }
   assert.match(main,/adjustSessionShuttleUsage\(row,-1,shuttleUsageSessionKey\(\)\):row\)\);\s*const updated=activeShuttleTube\(\);\s*syncShuttleCostNotice\(updated\);updateUseShuttleButtons\(\);renderShuttleTubeManager\(\);saveShuttleChange\(\);/);
   assert.match(main,/function syncShuttleCostNotice\(tube\)\{[^}]*refreshSessionFeeAmount\(\);\s*renderDashboard\(\);/);
   assert.match(main,/function refreshSessionFeeAmount\(\)\{[\s\S]*?sessionFee:\{\.\.\.event\.sessionFee,amount:share\}/);
+});
+
+test('tube manager keeps one finish action and offers saved tubes as one-tap presets',()=>{
+  assert.doesNotMatch(main,/data-reset-shuttle-session|用球顆數歸零/);
+  assert.match(main,/data-finish-shuttle-tube="\$\{esc\(active\.id\)\}">結束此球桶<\/button>/);
+  assert.doesNotMatch(main,/<span>每顆單價<\/span>|<span>球桶價格 \/ 顆數<\/span>/);
+  assert.match(html,/class="shuttle-tube-create">\s*<div id="shuttlePresetList" class="shuttle-preset-list hidden"><\/div>/);
+  assert.match(main,/data-shuttle-preset="\$\{index\}"/);
+  assert.match(main,/if\(isHost&&preset\)addPendingShuttleTube\(preset\.name,preset\.price\)/);
+  assert.match(main,/state\.shuttlePresets=rememberShuttlePreset\(state\.shuttlePresets,\{name,price\}\)/);
+  assert.match(main,/shuttlePresets:seedShuttlePresets\(src\.shuttlePresets,src\.shuttleTubes\)/);
+  assert.match(main,/shuttlePresets:seedShuttlePresets\(d\.shuttlePresets,d\.shuttleTubes\)/);
 });
 
 test('routes remote keys directly without multi-press delay',()=>{
