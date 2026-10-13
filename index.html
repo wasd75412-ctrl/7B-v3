@@ -347,16 +347,18 @@
   <div class="next-event-edit-grid">
     <label id="editNextEventHistoryField" class="field next-event-edit-date hidden"><span>從歷史投票帶入（選填）</span><select id="editNextEventPollOption" class="input"></select></label>
     <label class="field next-event-edit-date"><span>打球日期</span><input id="editNextEventDate" class="input" type="date"></label>
-    <label class="field"><span>開始時間</span><input id="editNextEventTime" class="input" type="time"></label>
-    <label class="field"><span>結束時間</span><input id="editNextEventEndTime" class="input" type="time"></label>
+    <div class="field"><span>開始時間</span><div id="editNextEventTime" class="time24-picker" data-label="開始時間"></div></div>
+    <div class="field"><span>結束時間</span><div id="editNextEventEndTime" class="time24-picker" data-label="結束時間"></div></div>
     <div class="field location-field"><label for="editNextEventLocation">場地</label><div class="venue-picker"><input id="editNextEventLocation" class="input" autocomplete="off" placeholder="例如：立羽"><div id="editVenueOptions" class="venue-options hidden" role="listbox" aria-label="常用場地"></div></div><div class="venue-tools"><a id="editNextEventLocationMap" class="map-preview-link hidden" href="#" target="_blank" rel="noopener noreferrer">📍 在 Google Maps 查看</a><button id="saveEditVenue" class="venue-save-btn" type="button">＋ 常用</button></div></div>
+    <label class="field next-event-edit-note"><span>場地／場號備註（選填）</span><input id="editNextEventNote" class="input" maxlength="120" placeholder="例如：3、4 號場；請提前 10 分鐘到"></label>
     <label class="field"><span>場租總額（元）</span><input id="editNextEventRentalTotal" class="input" type="number" min="1" step="1" inputmode="numeric"></label>
     <label class="field"><span>預計參與總人數</span><input id="editNextEventParticipants" class="input" type="number" min="1" step="1" inputmode="numeric"></label>
-    <div id="editNextEventPlayerField" class="field next-event-edit-note hidden"><span>參與球員</span><details class="event-player-editor"><summary>選擇／修改參與球員</summary><div id="editNextEventPlayerChoices" class="event-player-choices"></div></details></div>
-    <label class="field"><span>每人需繳</span><input id="editNextEventPerPersonFee" class="input" type="text" readonly></label>
-    <label class="field"><span>銀行代碼（選填）</span><input id="editNextEventTransferBankCode" class="input" type="text" maxlength="3" inputmode="numeric" autocomplete="off" placeholder="例如：000"></label>
-    <div class="field transfer-account-field"><label for="editNextEventTransferAccount">轉帳帳號（選填）</label><div class="transfer-picker"><input id="editNextEventTransferAccount" class="input" type="text" maxlength="40" inputmode="numeric" autocomplete="off" placeholder="點選可套用常用帳號"><div id="editTransferOptions" class="venue-options hidden" role="listbox" aria-label="常用轉帳帳號"></div></div><div class="venue-tools transfer-tools"><button id="saveEditTransferDetails" class="venue-save-btn" type="button">＋ 常用</button></div></div>
-    <label class="field next-event-edit-note"><span>場地／場號備註（選填）</span><input id="editNextEventNote" class="input" maxlength="120" placeholder="例如：3、4 號場；請提前 10 分鐘到"></label>
+    <div id="editNextEventPlayerField" class="field next-event-edit-note"><details class="next-event-fold event-player-editor"><summary><span>參與球員</span><span id="editNextEventPlayerCount" class="next-event-fold-meta">未選擇</span></summary><div id="editNextEventPlayerChoices" class="event-player-choices"></div></details></div>
+    <div class="field next-event-edit-note next-event-fee-readout"><span>每人需繳</span><output id="editNextEventPerPersonFee">—</output></div>
+    <details id="editNextEventTransferPanel" class="field next-event-edit-note next-event-fold next-event-transfer-panel"><summary><span>轉帳帳號</span><span id="editNextEventTransferSummary" class="next-event-fold-meta">未設定</span></summary><div class="next-event-transfer-grid">
+      <label class="field"><span>銀行代碼（選填）</span><input id="editNextEventTransferBankCode" class="input" type="text" maxlength="3" inputmode="numeric" autocomplete="off" placeholder="例如：000"></label>
+      <div class="field transfer-account-field"><label for="editNextEventTransferAccount">轉帳帳號（選填）</label><div class="transfer-picker"><input id="editNextEventTransferAccount" class="input" type="text" maxlength="40" inputmode="numeric" autocomplete="off" placeholder="點選可套用常用帳號"><div id="editTransferOptions" class="venue-options hidden" role="listbox" aria-label="常用轉帳帳號"></div></div><div class="venue-tools transfer-tools"><button id="saveEditTransferDetails" class="venue-save-btn" type="button">＋ 常用</button></div></div>
+    </div></details>
   </div>
   <div class="next-event-editor-actions"><button id="saveNextEventEdits" class="btn primary" type="button">儲存公告</button><button id="cancelNextEventEdits" class="btn" type="button">取消</button></div>
 </div></div>

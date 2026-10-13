@@ -182,11 +182,37 @@ test('lets the admin add players after voting closes and edit them later',()=>{
   assert.match(mainSource,/function addManualPollParticipant\(optionId\)/);
   assert.match(mainSource,/state\.schedulePoll\.manualParticipants=rows;archiveCurrentPoll\(\);renderPoll\(\);saveSoon\(\)/);
   assert.match(mainSource,/manualParticipants:cleanManualPollParticipants/);
-  assert.match(html,/id="editNextEventPlayerField"[^>]*hidden/);
+  assert.doesNotMatch(html,/id="editNextEventPlayerField"[^>]*hidden/);
   assert.match(html,/id="editNextEventPlayerChoices" class="event-player-choices"/);
-  assert.match(mainSource,/editNextEventPlayerField'\)\.classList\.toggle\('hidden',nextEventEditorMode==='create'\)/);
-  assert.match(mainSource,/renderEventPlayerChoices\('editNextEventPlayerChoices',event\.participantIds/);
+  assert.match(html,/id="editNextEventPlayerCount"/);
+  assert.doesNotMatch(mainSource,/editNextEventPlayerField'\)\.classList\.toggle/);
+  assert.match(mainSource,/renderEditorPlayerChoices\(event\.participantIds,updateNextEventEditFeePreview\)/);
+  assert.match(mainSource,/renderEditorPlayerChoices\(\[\],updateNextEventCreateDefaults\)/);
   assert.match(mainSource,/participantIds=eventPlayerChoiceIds\('editNextEventPlayerChoices'\)/);
+  assert.match(mainSource,/group\('固定團員',members\)\+group\('臨打球友',guests\)/);
+  assert.match(styles,/\.event-player-choice:has\(input:checked\)\{/);
+});
+
+test('selected event players only raise the planned participant count',()=>{
+  const sync=mainSource.slice(mainSource.indexOf('function syncParticipantCountFromChoices('),mainSource.indexOf('function renderEditorPlayerChoices('));
+  assert.match(sync,/input\.min=Math\.max\(1,ids\.length\)/);
+  assert.match(sync,/if\(ids\.length>wholeAmount\(input\.value\)\)input\.value=ids\.length/);
+  assert.doesNotMatch(sync,/input\.value=ids\.length\|\|''/);
+  assert.match(mainSource,/editNextEventParticipants'\)\.addEventListener\('change',clampParticipantCountToChoices\)/);
+  assert.match(mainSource,/if\(participantCount<participantIds\.length\)return alert/);
+});
+
+test('next-event editor uses 24-hour time pickers and a collapsible transfer panel',()=>{
+  for(const id of ['editNextEventTime','editNextEventEndTime']){
+    assert.match(html,new RegExp(`id="${id}" class="time24-picker"`));
+    assert.match(mainSource,new RegExp(`initTime24Picker\\('${id}'\\)`));
+  }
+  assert.match(mainSource,/Array\.from\(\{length:24\},\(_,h\)=>/);
+  assert.match(mainSource,/Object\.defineProperty\(box,'value',\{/);
+  assert.match(html,/<details id="editNextEventTransferPanel"[^>]*next-event-fold/);
+  assert.match(html,/id="editNextEventTransferSummary"/);
+  assert.match(mainSource,/syncNextEventTransferPanel\(!transferDetails\.transferAccount\)/);
+  assert.match(mainSource,/account\.dispatchEvent\(new Event\('change'\)\)/);
 });
 
 test('upgrades the legacy noon venue name in current polls, history, and announcements',()=>{
@@ -239,7 +265,7 @@ test('labels historical poll choices by date, venue, and vote count and leaves t
   assert.doesNotMatch(mainSource,/option\.endTime\|\|suggestedEventEndTime/);
   assert.match(mainSource,/editNextEventParticipants'\)\.addEventListener\('input',updateNextEventCreateDefaults\)/);
   assert.match(mainSource,/editNextEventTime'\)\.addEventListener\('change',updateNextEventCreateEndTimeDefault\)/);
-  assert.match(html,/id="editNextEventEndTime"[^>]*type="time"/);
+  assert.match(html,/id="editNextEventEndTime" class="time24-picker"/);
   assert.doesNotMatch(html,/id="editNextEventEndTime"[^>]*readonly/);
 });
 

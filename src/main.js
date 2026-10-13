@@ -581,7 +581,7 @@ function saveFavoriteTransferDetails(transferBankCode,transferAccount,{cloud=tru
 function saveFavoriteTransferDetailsFromInputs(bankCodeId,accountId){const transferBankCode=cleanTransferBankCode($(bankCodeId)?.value),transferAccount=cleanTransferAccount($(accountId)?.value);if(!transferAccount)return alert('請先輸入轉帳帳號。');if(transferBankCode.length!==3)return alert('銀行代碼請輸入 3 碼。');saveFavoriteTransferDetails(transferBankCode,transferAccount);alert(`已加入常用轉帳資料：${transferBankCode}｜${transferAccount}`)}
 function applyFavoriteTransferDetails(bankCodeId,accountId){const bankCode=$(bankCodeId),account=$(accountId),details=favoriteTransferDetails();if(bankCode&&!bankCode.value)bankCode.value=details.transferBankCode;if(account&&!account.value)account.value=details.transferAccount}
 function closeTransferOptions(exceptId=''){for(const[,,panelId]of TRANSFER_PICKERS)if(panelId!==exceptId)$(panelId)?.classList.add('hidden')}
-function renderTransferOptions(bankCodeId,accountId,panelId,open=false){const account=$(accountId),panel=$(panelId);if(!account||!panel)return;const query=account.value.trim(),rows=favoriteTransferAccounts().filter(row=>!query||row.transferAccount.includes(query));panel.innerHTML=rows.map(row=>`<button class="venue-option transfer-option" type="button" role="option" data-bank-code="${esc(row.transferBankCode)}" data-transfer-account="${esc(row.transferAccount)}"><strong>${esc(row.transferBankCode)}</strong><span>${esc(row.transferAccount)}</span></button>`).join('');panel.classList.toggle('hidden',!open||!rows.length);panel.querySelectorAll('[data-transfer-account]').forEach(button=>button.onclick=()=>{$(bankCodeId).value=button.dataset.bankCode;account.value=button.dataset.transferAccount;panel.classList.add('hidden')})}
+function renderTransferOptions(bankCodeId,accountId,panelId,open=false){const account=$(accountId),panel=$(panelId);if(!account||!panel)return;const query=account.value.trim(),rows=favoriteTransferAccounts().filter(row=>!query||row.transferAccount.includes(query));panel.innerHTML=rows.map(row=>`<button class="venue-option transfer-option" type="button" role="option" data-bank-code="${esc(row.transferBankCode)}" data-transfer-account="${esc(row.transferAccount)}"><strong>${esc(row.transferBankCode)}</strong><span>${esc(row.transferAccount)}</span></button>`).join('');panel.classList.toggle('hidden',!open||!rows.length);panel.querySelectorAll('[data-transfer-account]').forEach(button=>button.onclick=()=>{$(bankCodeId).value=button.dataset.bankCode;account.value=button.dataset.transferAccount;account.dispatchEvent(new Event('change'));panel.classList.add('hidden')})}
 function renderFavoriteTransferOptions(){for(const[bankCodeId,accountId,panelId]of TRANSFER_PICKERS)renderTransferOptions(bankCodeId,accountId,panelId,false)}
 function bindTransferPicker(bankCodeId,accountId,panelId){const input=$(accountId);if(!input)return;const open=()=>{closeTransferOptions(panelId);renderTransferOptions(bankCodeId,accountId,panelId,true)};input.addEventListener('focus',open);input.addEventListener('click',open);input.addEventListener('input',open)}
 function googleMapsUrl(place){const query=String(place||'').trim();return query?`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(query)}`:''}
@@ -655,20 +655,68 @@ async function moderateNextEventPayment(eventId,playerId,status){
 async function copyNextEventTransferAccount(eventId=''){const event=normalizeNextEvents(state).find(row=>row.id===eventId)||state.nextEvent,account=cleanTransferDetails(event).transferAccount;if(!account)return;try{await navigator.clipboard.writeText(account);alert('已複製帳號，不包含銀行代碼。')}catch{prompt('請複製帳號（不包含銀行代碼）：',account)}}
 function updateNextEventEditFeePreview(){
   const rentalTotal=wholeAmount($('editNextEventRentalTotal')?.value),participantCount=wholeAmount($('editNextEventParticipants')?.value),perPersonFee=calculatePerPersonFee(rentalTotal,participantCount);
-  if($('editNextEventPerPersonFee'))$('editNextEventPerPersonFee').value=perPersonFee?`${formatMoney(perPersonFee)} 元`:'';
+  if($('editNextEventPerPersonFee'))$('editNextEventPerPersonFee').value=perPersonFee?`${formatMoney(perPersonFee)} 元`:'—';
   if($('editNextEventFeeHint'))$('editNextEventFeeHint').textContent=!rentalTotal?'輸入場租總額後自動計算。':!participantCount?'請輸入預計參與總人數。':`場租 ${formatMoney(rentalTotal)} 元 ÷ ${formatMoney(participantCount)} 人＝每人 ${formatMoney(perPersonFee)} 元`;
   return{rentalTotal,participantCount,perPersonFee};
 }
-function renderEventPlayerChoices(containerId,selectedIds=[],onChange){const box=$(containerId);if(!box)return;const selected=new Set(cleanEventParticipantIds(selectedIds));box.innerHTML=state.roster.map(p=>`<label class="event-player-choice"><input type="checkbox" value="${esc(p.id)}" ${selected.has(p.id)?'checked':''}><span>${avatar(p.id,'tiny')} ${esc(p.name)}</span></label>`).join('')||'<span class="sub">尚無球員名單</span>';box.querySelectorAll('input').forEach(input=>input.addEventListener('change',()=>onChange?.(eventPlayerChoiceIds(containerId))))}
+function renderEventPlayerChoices(containerId,selectedIds=[],onChange){
+  const box=$(containerId);if(!box)return;
+  const selected=new Set(cleanEventParticipantIds(selectedIds)),rosterIds=new Set(state.roster.map(p=>p.id)),retired=[...selected].filter(id=>!rosterIds.has(id)).map(playerDisplay).filter(Boolean);
+  const members=state.roster.filter(p=>!isGuestPlayer(p)),guests=[...state.roster.filter(p=>isGuestPlayer(p)),...retired],grouped=members.length&&guests.length;
+  const chip=p=>`<label class="event-player-choice"><input type="checkbox" value="${esc(p.id)}" ${selected.has(p.id)?'checked':''}>${avatar(p.id,'tiny')}<span class="event-player-name">${esc(p.name)}</span></label>`;
+  const group=(title,rows)=>rows.length?`<div class="event-player-group">${grouped?`<div class="event-player-group-title">${title}</div>`:''}<div class="event-player-grid">${rows.map(chip).join('')}</div></div>`:'';
+  box.innerHTML=group('固定團員',members)+group('臨打球友',guests)||'<span class="sub">尚無球員名單</span>';
+  box.querySelectorAll('input').forEach(input=>input.addEventListener('change',()=>onChange?.(eventPlayerChoiceIds(containerId))));
+}
 function eventPlayerChoiceIds(containerId){return cleanEventParticipantIds([...($(containerId)?.querySelectorAll('input:checked')||[])].map(input=>input.value))}
-function syncParticipantCountFromChoices(containerId,inputId,preview){const ids=eventPlayerChoiceIds(containerId);$(inputId).value=ids.length||'';preview();return ids}
+function syncParticipantCountFromChoices(containerId,inputId,preview){
+  const ids=eventPlayerChoiceIds(containerId),input=$(inputId);
+  input.min=Math.max(1,ids.length);
+  if(ids.length>wholeAmount(input.value))input.value=ids.length;
+  if($('editNextEventPlayerCount'))$('editNextEventPlayerCount').textContent=ids.length?`已選 ${ids.length} 人`:'未選擇';
+  preview();return ids;
+}
+function renderEditorPlayerChoices(selectedIds,preview){
+  const sync=()=>syncParticipantCountFromChoices('editNextEventPlayerChoices','editNextEventParticipants',preview);
+  renderEventPlayerChoices('editNextEventPlayerChoices',selectedIds,sync);sync();
+}
+function clampParticipantCountToChoices(){
+  const input=$('editNextEventParticipants'),selected=eventPlayerChoiceIds('editNextEventPlayerChoices').length;
+  if(selected&&wholeAmount(input.value)<selected){input.value=selected;updateNextEventCreateDefaults()}
+}
+function syncNextEventTransferPanel(open){
+  const {transferBankCode,transferAccount}=cleanTransferDetails({transferBankCode:$('editNextEventTransferBankCode').value,transferAccount:$('editNextEventTransferAccount').value});
+  $('editNextEventTransferSummary').textContent=transferAccount?`${transferBankCode?`${transferBankCode}｜`:''}${transferAccount}`:'未設定';
+  if(open!==undefined)$('editNextEventTransferPanel').open=open;
+  return transferAccount;
+}
+function initTime24Picker(id){
+  const box=$(id);if(!box||box.dataset.ready)return;box.dataset.ready='1';
+  const pad=n=>String(n).padStart(2,'0'),label=box.dataset.label||'',hour=document.createElement('select'),minute=document.createElement('select'),colon=document.createElement('span');
+  hour.className=minute.className='input';
+  hour.setAttribute('aria-label',`${label}（時）`);minute.setAttribute('aria-label',`${label}（分）`);
+  hour.innerHTML='<option value="">--</option>'+Array.from({length:24},(_,h)=>`<option value="${pad(h)}">${pad(h)}</option>`).join('');
+  minute.innerHTML='<option value="">--</option>'+Array.from({length:12},(_,m)=>`<option value="${pad(m*5)}">${pad(m*5)}</option>`).join('');
+  colon.className='time24-colon';colon.textContent=':';
+  box.replaceChildren(hour,colon,minute);
+  hour.addEventListener('change',()=>{if(hour.value&&!minute.value)minute.value='00';if(!hour.value)minute.value=''});
+  minute.addEventListener('change',()=>{if(minute.value&&!hour.value)hour.value='00';if(!minute.value)hour.value=''});
+  Object.defineProperty(box,'value',{
+    get:()=>hour.value&&minute.value?`${hour.value}:${minute.value}`:'',
+    set:value=>{
+      const match=String(value||'').match(/^(\d{2}):(\d{2})/);
+      if(!match||Number(match[1])>23||Number(match[2])>59){hour.value='';minute.value='';return}
+      if(![...minute.options].some(option=>option.value===match[2]))minute.add(new Option(match[2],match[2]),[...minute.options].find(option=>option.value>match[2])||null);
+      hour.value=match[1];minute.value=match[2];
+    }
+  });
+}
 let nextEventEditorMode='edit',nextEventEditorId='';
 function setNextEventEditorMode(mode='edit'){
   nextEventEditorMode=mode==='create'?'create':'edit';
   $('nextEventEditorTitle').textContent=nextEventEditorMode==='create'?'新增球局':'編輯下一次打球公告';
   $('saveNextEventEdits').textContent=nextEventEditorMode==='create'?'新增並發布球局':'儲存公告';
   $('editNextEventHistoryField').classList.toggle('hidden',nextEventEditorMode!=='create');
-  $('editNextEventPlayerField').classList.toggle('hidden',nextEventEditorMode==='create');
 }
 function historicalPollChoices(){const today=taipeiDateKey();return state.pollHistory.slice().reverse().flatMap(poll=>(poll.options||[]).filter(option=>option.date>=today).map(option=>({value:`${poll.id}::${option.id}`,poll,option})))}
 function selectedHistoricalPollChoice(){const value=$('editNextEventPollOption')?.value||'';return historicalPollChoices().find(choice=>choice.value===value)||null}
@@ -680,7 +728,7 @@ function updateNextEventCreateEndTimeDefault(){
   if(start)$('editNextEventEndTime').value=suggestedEventEndTime(start,participants);
 }
 function updateNextEventCreateDefaults(){updateNextEventCreateEndTimeDefault();updateNextEventEditFeePreview()}
-function applyHistoricalPollChoice(){const choice=selectedHistoricalPollChoice();if(!choice)return;const {poll,option}=choice,participantIds=pollParticipantIds(option.id,poll);$('editNextEventDate').value=option.date||'';$('editNextEventTime').value=option.time||'';$('editNextEventEndTime').value='';$('editNextEventLocation').value=option.note||'';$('editNextEventParticipants').value=participantIds.length||'';renderEventPlayerChoices('editNextEventPlayerChoices',participantIds,()=>syncParticipantCountFromChoices('editNextEventPlayerChoices','editNextEventParticipants',updateNextEventCreateDefaults));updateNextEventEditFeePreview();updateVenueMapPreviews()}
+function applyHistoricalPollChoice(){const choice=selectedHistoricalPollChoice();if(!choice)return;const {poll,option}=choice,participantIds=pollParticipantIds(option.id,poll);$('editNextEventDate').value=option.date||'';$('editNextEventTime').value=option.time||'';$('editNextEventEndTime').value='';$('editNextEventLocation').value=option.note||'';$('editNextEventParticipants').value=participantIds.length||'';renderEditorPlayerChoices(participantIds,updateNextEventCreateDefaults);updateVenueMapPreviews()}
 function openNextEventEditor(eventId=''){
   const event=normalizeNextEvents(state).find(row=>row.id===eventId)||cleanNextEvent(state.nextEvent);
   if(!isHost||!event?.date)return;
@@ -692,10 +740,10 @@ function openNextEventEditor(eventId=''){
   $('editNextEventLocation').value=event.location||'';
   $('editNextEventRentalTotal').value=wholeAmount(event.rentalTotal)||'';
   $('editNextEventParticipants').value=wholeAmount(event.participantCount)||'';
-  renderEventPlayerChoices('editNextEventPlayerChoices',event.participantIds,()=>syncParticipantCountFromChoices('editNextEventPlayerChoices','editNextEventParticipants',updateNextEventEditFeePreview));
+  renderEditorPlayerChoices(event.participantIds,updateNextEventEditFeePreview);
   const transferDetails=cleanTransferDetails(event);$('editNextEventTransferBankCode').value=transferDetails.transferBankCode;$('editNextEventTransferAccount').value=transferDetails.transferAccount;
+  syncNextEventTransferPanel(!transferDetails.transferAccount);
   $('editNextEventNote').value=event.note||'';
-  updateNextEventEditFeePreview();
   updateVenueMapPreviews();
   setNextEventEditorOpen(true);
 }
@@ -707,8 +755,9 @@ function openDirectNextEventCreator(){
   const start='01:00';
   $('editNextEventDate').value='';$('editNextEventTime').value=start;$('editNextEventEndTime').value=suggestedEventEndTime(start,0);
   $('editNextEventLocation').value='';$('editNextEventRentalTotal').value='';$('editNextEventParticipants').value='';$('editNextEventTransferBankCode').value='';$('editNextEventTransferAccount').value='';$('editNextEventNote').value='';applyFavoriteTransferDetails('editNextEventTransferBankCode','editNextEventTransferAccount');
-  renderEventPlayerChoices('editNextEventPlayerChoices',[],()=>syncParticipantCountFromChoices('editNextEventPlayerChoices','editNextEventParticipants',updateNextEventEditFeePreview));
-  updateNextEventEditFeePreview();updateVenueMapPreviews();setNextEventEditorOpen(true);
+  syncNextEventTransferPanel(!$('editNextEventTransferAccount').value);
+  renderEditorPlayerChoices([],updateNextEventCreateDefaults);
+  updateVenueMapPreviews();setNextEventEditorOpen(true);
 }
 let nextEventEditorScrollY=0;
 function setNextEventEditorOpen(open){
@@ -1500,6 +1549,7 @@ async function saveNextEventEdits(){
   const {rentalTotal,participantCount,perPersonFee}=updateNextEventEditFeePreview();
   if(!rentalTotal)return alert('請填寫場租總額。');
   if(!participantCount)return alert('請填寫預計參與總人數。');
+  if(participantCount<participantIds.length)return alert(`預計參與總人數不可少於已選球員 ${participantIds.length} 人。`);
   const summary=`${formatEventDate(date,time,endTime)}\n${location}${note?`\n場地備註：${note}`:''}\n預計 ${participantCount} 人｜每人 ${formatMoney(perPersonFee)} 元${transferAccount?`\n銀行代碼：${transferBankCode||'未填'}｜帳號：${transferAccount}`:''}`;
   if(!confirm(`${creating?'確定新增並發布球局？':'確定更新下一次打球公告？'}\n\n${summary}`))return;
   const button=$('saveNextEventEdits'),publishedAt=creating?new Date().toISOString():(previous?.publishedAt||new Date().toISOString());
@@ -3816,8 +3866,12 @@ $('closeNextEventEditor').onclick=closeNextEventEditor;
 $('cancelNextEventEdits').onclick=closeNextEventEditor;
 $('saveNextEventEdits').onclick=saveNextEventEdits;
 $('editNextEventRentalTotal').addEventListener('input',updateNextEventEditFeePreview);
+initTime24Picker('editNextEventTime');
+initTime24Picker('editNextEventEndTime');
 $('editNextEventParticipants').addEventListener('input',updateNextEventCreateDefaults);
+$('editNextEventParticipants').addEventListener('change',clampParticipantCountToChoices);
 $('editNextEventTime').addEventListener('change',updateNextEventCreateEndTimeDefault);
+for(const id of ['editNextEventTransferBankCode','editNextEventTransferAccount'])for(const type of ['input','change'])$(id).addEventListener(type,()=>syncNextEventTransferPanel());
 $('editNextEventLocation').addEventListener('input',()=>updateMapPreview('editNextEventLocation','editNextEventLocationMap'));
 $('savePollVenue').onclick=()=>saveFavoriteVenue('pollNote');
 $('saveConfirmVenue').onclick=()=>saveFavoriteVenue('confirmLocation');
