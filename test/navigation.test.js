@@ -207,7 +207,8 @@ test('next-event editor uses 24-hour time pickers and a collapsible transfer pan
     assert.match(html,new RegExp(`id="${id}" class="time24-picker"`));
     assert.match(mainSource,new RegExp(`initTime24Picker\\('${id}'\\)`));
   }
-  assert.match(mainSource,/Array\.from\(\{length:24\},\(_,h\)=>/);
+  assert.match(mainSource,/Array\.from\(\{length:24\},\(_,h\)=>\{const time=`\$\{String\(h\)\.padStart\(2,'0'\)\}:00`/);
+  assert.doesNotMatch(mainSource.slice(mainSource.indexOf('function initTime24Picker('),mainSource.indexOf('function historicalPollChoices(')),/minute/);
   assert.match(mainSource,/Object\.defineProperty\(box,'value',\{/);
   assert.match(html,/<details id="editNextEventTransferPanel"[^>]*next-event-fold/);
   assert.match(html,/id="editNextEventTransferSummary"/);
