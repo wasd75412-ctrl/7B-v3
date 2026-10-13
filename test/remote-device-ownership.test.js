@@ -17,18 +17,17 @@ function productionFunction(name){
   return main.slice(declaration.index,declaration.index+declaration[0].length+next.index);
 }
 
-function harness(state,{testMode=false,nextLineup=[]}={}){
-  const calls={alerts:0,startMatch:0,startNext:0,indicators:[]};
+function harness(state,{nextLineup=[]}={}){
+  const calls={alerts:0,startMatch:0,startNext:0,nextOptions:[],indicators:[]};
   const context=vm.createContext({
     state,
     matchPlayerCount:format=>format==='singles'?2:4,
     normalizeMatchFormat:format=>format==='singles'?'singles':'doubles',
     selectedNextLineup:()=>nextLineup,
-    currentTestModeEnabled:()=>testMode,
     showScoreRemoteIndicator:message=>calls.indicators.push(message),
     alert:()=>calls.alerts++,
     startMatch:()=>calls.startMatch++,
-    startNext:()=>calls.startNext++
+    startNext:options=>{calls.startNext++;calls.nextOptions.push(options)}
   });
   for(const name of ['remoteLineupProblem','startMatchFromRemote','startNextFromRemote']){
     vm.runInContext(productionFunction(name),context);
@@ -55,11 +54,16 @@ test('a remote next match checks the lineup and the staying winners first',()=>{
   const winnersLeft=harness({match:finished},{nextLineup:['a','e','f','g']});
   assert.equal(winnersLeft.context.startNextFromRemote(),false);
   assert.deepEqual(winnersLeft.calls.indicators,['勝方須留場']);
-  const testMode=harness({match:finished},{nextLineup:['a','e','f','g'],testMode:true});
-  assert.equal(testMode.context.startNextFromRemote(),true);
+  const practiceWinnersLeft=harness({match:{...finished,practice:true}},{nextLineup:['a','e','f','g']});
+  assert.equal(practiceWinnersLeft.context.startNextFromRemote(),false);
+  assert.deepEqual(practiceWinnersLeft.calls.indicators,['勝方須留場']);
   const ready=harness({match:finished},{nextLineup:['a','b','e','f']});
   assert.equal(ready.context.startNextFromRemote(),true);
-  for(const run of [short,winnersLeft,testMode,ready])assert.equal(run.calls.alerts,0);
+  assert.equal(ready.calls.nextOptions[0].practice,false);
+  const practice=harness({match:{...finished,practice:true}},{nextLineup:['a','b','e','f']});
+  assert.equal(practice.context.startNextFromRemote(),true);
+  assert.equal(practice.calls.nextOptions[0].practice,true);
+  for(const run of [short,winnersLeft,practiceWinnersLeft,ready,practice])assert.equal(run.calls.alerts,0);
 });
 
 test('remote start paths never call startMatch or startNext directly',()=>{

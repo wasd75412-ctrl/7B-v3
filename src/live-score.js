@@ -18,8 +18,7 @@ export function encodeLiveMatch(source={}){
     winner:source.winner===0||source.winner===1?source.winner:null,
     matchId:source.matchId||null,
     scoreFont:typeof source.scoreFont==='string'?source.scoreFont:'',
-    testMode:!!source.testMode,
-    testCompleted:!!source.testCompleted,
+    practice:!!source.practice||!!source.testMode,
     scorerDevice:typeof source.scorerDevice==='string'?source.scorerDevice:'',
     ...(Number(source.syncEpoch)>0?{syncEpoch:Number(source.syncEpoch)}:{}),
     startedAt:source.startedAt||''
@@ -42,8 +41,7 @@ export function decodeLiveMatch(source={},fallback={}){
     winner:match.winner,
     matchId:match.matchId,
     scoreFont:match.scoreFont,
-    testMode:match.testMode,
-    testCompleted:match.testCompleted,
+    practice:match.practice,
     scorerDevice:match.scorerDevice,
     syncEpoch:Number(encoded.syncEpoch)||((encoded.matchId||null)===(base.matchId||null)?Number(base.syncEpoch)||0:0),
     startedAt:match.startedAt

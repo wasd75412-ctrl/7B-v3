@@ -134,8 +134,8 @@ test('keeps players on their previous team when re-pairing',()=>{
 
 test('starts exactly the lineup shown and applies teammate rules while it is being picked',()=>{
   const source=readFileSync(new URL('../src/main.js',import.meta.url),'utf8');
-  const startMatch=source.match(/function startMatch\(\)\{[^\n]*/)?.[0]||'';
-  const startNext=source.match(/function startNext\(\)\{[\s\S]*?\n\}/)?.[0]||'';
+  const startMatch=source.match(/function startMatch\(\{practice=false\}=\{\}\)\{[^\n]*/)?.[0]||'';
+  const startNext=source.match(/function startNext\(\{practice=false\}=\{\}\)\{[\s\S]*?\n\}/)?.[0]||'';
   assert.match(startMatch,/const ids=\[\.\.\.selected\];/);
   assert.match(startNext,/const vals=\[\.\.\.selected\];/);
   for(const body of[startMatch,startNext])assert.doesNotMatch(body,/teammateSafeLineup/);

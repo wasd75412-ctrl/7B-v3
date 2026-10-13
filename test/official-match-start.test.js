@@ -17,8 +17,8 @@ test('P4 key 5 starts the match on both of its alternating volume keys',()=>{
 });
 
 test('new score screens wait for the explicit official start timestamp',()=>{
-  const startMatch=main.match(/function startMatch\(\)\{[\s\S]*?\nfunction finishMatch/)?.[0]||'';
-  const startNext=main.match(/function startNext\(\)\{[\s\S]*?\n\}/)?.[0]||'';
+  const startMatch=main.match(/function startMatch\(\{practice=false\}=\{\}\)\{[\s\S]*?\nfunction finishMatch/)?.[0]||'';
+  const startNext=main.match(/function startNext\(\{practice=false\}=\{\}\)\{[\s\S]*?\n\}/)?.[0]||'';
   assert.match(startMatch,/startedAt:''/);
   assert.doesNotMatch(startMatch,/startedAt:new Date/);
   assert.match(startNext,/startedAt:''/);
@@ -95,8 +95,8 @@ test('Android keeps a live match listener so the first remote press is ready',()
 });
 
 test('presses stamped with the just-replaced match still count toward the official start',()=>{
-  const startMatch=main.match(/function startMatch\(\)\{[\s\S]*?\n/)?.[0]||'';
-  const startNext=main.match(/function startNext\(\)\{[\s\S]*?\n\}/)?.[0]||'';
+  const startMatch=main.match(/function startMatch\(\{practice=false\}=\{\}\)\{[\s\S]*?\n/)?.[0]||'';
+  const startNext=main.match(/function startNext\(\{practice=false\}=\{\}\)\{[\s\S]*?\n\}/)?.[0]||'';
   for(const source of [startMatch,startNext])assert.match(source,/rememberReplacedRemoteMatch\(\);\s*state\.match=\{active:true/);
   const replaced=main.match(/function isReplacedMatchPreStartPress\(command,action\)\{[\s\S]*?\n\}/)?.[0]||'';
   assert.match(replaced,/!matchHasOfficiallyStarted\(match\)&&!match\.rallies\.length/);
@@ -206,7 +206,7 @@ test('an official start pressed before the next match is shown never carries ove
   const handler=main.match(/function handleRemoteOfficialStartCommand\(data,\{initial=false\}=\{\}\)\{[\s\S]*?\n\}/)?.[0]||'';
   assert.match(handler,/if\(!shouldAcceptRemoteCommand\(\{command,currentMatch:state\.match,initial\}\)\)return false;/);
   assert.doesNotMatch(main,/pendingOfficialStartAfterMatch|startPendingOfficialStart|isReplacedMatchOfficialStart/);
-  const startNext=main.match(/function startNext\(\)\{[\s\S]*?\n\}/)?.[0]||'';
+  const startNext=main.match(/function startNext\(\{practice=false\}=\{\}\)\{[\s\S]*?\n\}/)?.[0]||'';
   assert.match(startNext,/checkpointNewMatch\(\);renderAll\(\);/);
 });
 

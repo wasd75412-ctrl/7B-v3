@@ -58,6 +58,8 @@ test('stores a flat match record that Firestore can write',()=>{
   assert.equal(encoded.teamB2,'');
   assert.equal(Array.isArray(encoded.teams),false);
   assert.equal(decodeArchivedMatch(encoded).teams[0][0],'a');
+  assert.equal(decodeArchivedMatch(encoded).practice,false);
+  assert.equal(decodeArchivedMatch(encodeArchivedMatch({matchId:'p1',practice:true})).practice,true);
 });
 
 test('lite mode skips full room writes only while a match is still open',()=>{

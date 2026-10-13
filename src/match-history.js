@@ -66,7 +66,7 @@ export function formatTimelineOffset(seconds){
 }
 
 export function withLiveTimelineMatch(matches=[],liveMatch=null){
-  if(!liveMatch?.startedAt||liveMatch.testMode)return matches;
+  if(!liveMatch?.startedAt)return matches;
   const liveId=String(liveMatch.matchId||'');
   const already=matches.some(entry=>{
     const match=entry.match||entry;
@@ -84,7 +84,7 @@ export function withLiveTimelineMatch(matches=[],liveMatch=null){
 
 export function withLiveTimelineDate(groups=[],liveMatch=null){
   const dateKey=liveMatch?.dateKey||'';
-  if(!dateKey||!liveMatch?.startedAt||liveMatch.testMode||groups.some(group=>group.dateKey===dateKey))return groups;
+  if(!dateKey||!liveMatch?.startedAt||liveMatch.practice||groups.some(group=>group.dateKey===dateKey))return groups;
   return [{dateKey,matches:[]},...groups].sort((a,b)=>b.dateKey.localeCompare(a.dateKey));
 }
 

@@ -12,7 +12,6 @@ import { MAIN_THREAD_TICK_MS, createMainThreadLagMonitor } from './main-thread-l
 import { REMOTE_COMMAND_MAX_AGE_MS, isStaleMatchPressForCurrentMatch, shouldAcceptRemoteCommand, timestampMillis } from './remote-command.js';
 import { canAutoSyncPlayerIdentity } from './device-sync.js';
 import { shouldRequestNativeWakeLock, wakeLockButtonIntent, wakeLockControlIsActive } from './wake-lock.js';
-import { TEST_MODE_IDLE_MS, testModeIdleExpired, testModeLastActiveMs, testModeOn } from './test-mode.js';
 import { FIRESTORE_LINK_COOLDOWN_MS, FIRESTORE_LINK_TIMEOUT_MS, firestoreLinkProbeVerdict, shouldProbeFirestoreLink } from './firestore-link.js';
 import { chooseScoreTheme } from './score-theme-preference.js';
 import { arrangeTeamsWithTeammateLimit, genderGroupingActive, lineupExceedsTeammateLimit, orientLineupToReference } from './team-rotation.js';
@@ -123,11 +122,10 @@ const shuffle=a=>{a=[...a];const r=new Uint32Array(Math.max(1,a.length));crypto.
 function teammateSafeLineup(ids,{randomize=false,regroup=false}={}){const values=ids.filter(Boolean);if(values.length!==4||new Set(values).size!==4)return values;const todayHistory=state.history.filter(h=>historyDate(h)===localDateKey()),genderGroupingEnabled=genderGroupingActive(state.rules,localDateKey()),genderByPlayer=Object.fromEntries(state.roster.map(p=>[p.id,normalizePlayerGender(p.gender)])),lineupMaleCount=values.filter(id=>genderByPlayer[id]===PLAYER_GENDER_MALE).length,hasMalePair=[values.slice(0,2),values.slice(2,4)].some(team=>team.every(id=>genderByPlayer[id]===PLAYER_GENDER_MALE)),genderViolation=genderGroupingEnabled&&lineupMaleCount===2&&hasMalePair;if(!randomize&&!genderViolation&&!lineupExceedsTeammateLimit(values,todayHistory))return values;const random=crypto.getRandomValues(new Uint32Array(1))[0];return orientLineupToReference(arrangeTeamsWithTeammateLimit(randomize?shuffle(values):values,todayHistory,random,2,{genderGroupingEnabled,genderByPlayer,keepLineup:!randomize,avoidLineup:regroup?values:null}),values)}
 function wholeAmount(value){const n=Number(value);return Number.isFinite(n)&&n>0?Math.round(n):0}
 function setAdminNotices(rows){state.adminNotices=normalizeAdminNotices({adminNotices:rows});state.adminNotice=state.adminNotices[0]||null}
-const initialState=()=>({version:9.8,matchFormat:'doubles',testMode:false,testModeRevision:0,testModeActiveAt:0,roster:[],retiredPlayers:[],adminPlayerIds:[],attendance:[],lineupRevision:0,court:[],waitingQueue:[],queueDraftChosen:[],priority:null,lastLoserReplayPlayerId:null,match:{active:false,format:'doubles',players:[[],[]],scores:[0,0],rallies:[],serving:0,positions:[[0,1],[0,1]],winner:null,startedAt:''},matchRollback:null,rules:{target:11,cap:15,deuce:true,genderGroupingEnabled:true},history:[],statsLedger:emptyStatsLedger(),deletedMatchIds:[],matchTimelineStarts:{},hiddenTimelineDates:[],matchReplayPlaylistTitle:'',matchReplayPlaylistUrl:'',nextCall:null,schedulePoll:{status:'open',createdAt:'',deadlineAt:'',autoCycle:'',options:[],votes:{},voterPlayers:{},manualParticipants:{}},pollHistory:[],nextEvent:null,nextEvents:[],adminNotice:null,adminNotices:[],shuttleTubes:[],shuttleLegacyActiveTubeId:'',shuttleNoTrackingTubeIds:[],updatedAt:null});
+const initialState=()=>({version:9.8,matchFormat:'doubles',roster:[],retiredPlayers:[],adminPlayerIds:[],attendance:[],lineupRevision:0,court:[],waitingQueue:[],queueDraftChosen:[],priority:null,lastLoserReplayPlayerId:null,match:{active:false,format:'doubles',players:[[],[]],scores:[0,0],rallies:[],serving:0,positions:[[0,1],[0,1]],winner:null,startedAt:''},matchRollback:null,rules:{target:11,cap:15,deuce:true,genderGroupingEnabled:true},history:[],statsLedger:emptyStatsLedger(),deletedMatchIds:[],matchTimelineStarts:{},hiddenTimelineDates:[],matchReplayPlaylistTitle:'',matchReplayPlaylistUrl:'',nextCall:null,schedulePoll:{status:'open',createdAt:'',deadlineAt:'',autoCycle:'',options:[],votes:{},voterPlayers:{},manualParticipants:{}},pollHistory:[],nextEvent:null,nextEvents:[],adminNotice:null,adminNotices:[],shuttleTubes:[],shuttleLegacyActiveTubeId:'',shuttleNoTrackingTubeIds:[],updatedAt:null});
 const DEVICE_SYNC_CODE_KEY='bcmDeviceSyncCodeV1',DEVICE_SYNC_TOKEN_KEY='bcmDeviceSyncTokenV1',DEVICE_SYNC_NAME_KEY='bcmDeviceSyncNameV1',DEVICE_SYNC_PLAYER_KEY='bcmDeviceSyncPlayerV1';
 let state=initialState(), roomId='', roomRef=null, liveScoreRef=null, remoteControlRef=null, chatCollectionRef=null, isHost=false, hostToken='', adminPinHash='', unsubscribe=null, liveScoreUnsubscribe=null, remoteControlUnsubscribe=null, remoteActionUnsubscribe=null, chatUnsubscribe=null, applying=false, saveTimer=null, liveScoreSaveTimer=null, matchAutoBackupTimer=null, editId=null;const expandedPlayerNotes=new Set();let profileOriginal=null,profileDirty={name:false,gender:false,memberType:false,racket:false,racketTension:false,racketString:false,backupRacket:false,backupTension:false,backupString:false,note:false};let dismissedResultKey='';const selfToken=localStorage.getItem(DEVICE_SYNC_TOKEN_KEY)||localStorage.getItem('bdV73SelfToken')||randomToken();localStorage.setItem('bdV73SelfToken',selfToken);const SCORE_DEVICE_KEY='bcmScoreDeviceIdV1',scoreDeviceId=localStorage.getItem(SCORE_DEVICE_KEY)||randomToken();localStorage.setItem(SCORE_DEVICE_KEY,scoreDeviceId);let selfHash='',scoreViewRequested=false,expandedShuttleTubeId='';
 let deviceProfileUnsubscribe=null,deviceProfileApplying=false,deviceProfileSaveTimer=null,identitySyncing=false,roomConnectInProgress=false;
-let idleTestModeTimer=null;
 let roomSnapshotFromCache=false,snapshotHasPendingWrites=false,pendingRoomWrites=0,roomWriteScheduled=false,archivedHistory=[],removedMatchIds=new Set();
 const SYNC_MODE_KEY='bcmRoomSyncModeV1',SNAPSHOT_RETRY_BASE_MS=5000,SNAPSHOT_RETRY_MAX_MS=60000,ROOM_MATCH_FALLBACK_MS=60000;
 let roomMatchFallbackTimer=null,roomMatchFallbackKey='';
@@ -295,8 +293,7 @@ window.bcmAndroidRemoteInput=action=>handleAndroidRemoteAction(String(action||''
 window.bcmAndroidRemoteUseShuttle=()=>handleAndroidRemoteAction('useShuttle');
 window.bcmAndroidRemoteReturnShuttle=()=>handleAndroidRemoteAction('returnShuttle');
 window.bcmAndroidRemoteOfficialStart=()=>{
-  const canStartTest=currentTestModeEnabled()&&!state.match.active&&new Set(state.court.filter(Boolean)).size===matchPlayerCount(state.matchFormat);
-  if(!requestedAndroidRemote||!isHost||(!state.match.active&&!canStartTest)||state.match.winner!==null||!remoteControlRef){setAndroidRemoteFeedback('目前無法正式開始比賽','error');return false}
+  if(!requestedAndroidRemote||!isHost||!state.match.active||state.match.winner!==null||!remoteControlRef){setAndroidRemoteFeedback('目前無法正式開始比賽','error');return false}
   const command={id:randomToken(),matchId:state.match.matchId||'',createdAt:new Date().toISOString()};
   setDoc(remoteControlRef,{officialStartCommand:command,updatedAt:serverTimestamp()},{merge:true}).then(()=>setAndroidRemoteFeedback('已送出正式開始比賽','success')).catch(()=>setAndroidRemoteFeedback('正式開始指令傳送失敗','error'));
   return true;
@@ -353,9 +350,6 @@ function encodeState(src){
   return {
     version:9.8,
     matchFormat:src.matchFormat==='singles'?'singles':'doubles',
-    testMode:!!src.testMode,
-    testModeRevision:Math.max(0,Number(src.testModeRevision)||0),
-    testModeActiveAt:Math.max(0,Number(src.testModeActiveAt)||0),
     roster:Array.isArray(src.roster)?src.roster.map(playerRecord=>({...playerRecord,gender:normalizePlayerGender(playerRecord.gender),memberType:normalizePlayerType(playerRecord.memberType),ownerHashes:playerOwnerHashes(playerRecord).join('|')})):[],
     retiredPlayers:normalizeRetiredPlayers(src.retiredPlayers),
     adminPlayerIds:[...new Set((Array.isArray(src.adminPlayerIds)?src.adminPlayerIds:[]).map(id=>String(id||'').trim()).filter(Boolean))].slice(0,20),
@@ -379,8 +373,7 @@ function encodeState(src){
       winner:m.winner===0||m.winner===1?m.winner:null,
       matchId:m.matchId||null,
       ...(Number(m.syncEpoch)>0?{syncEpoch:Number(m.syncEpoch)}:{}),
-      testMode:!!m.testMode,
-      testCompleted:!!m.testCompleted,
+      practice:!!m.practice,
       startedAt:m.startedAt||''
     },
     matchRollback:normalizeFinishedMatchRollback(src.matchRollback),
@@ -425,7 +418,7 @@ function encodeState(src){
       deficit:Math.max(0,Math.floor(Number(h.deficit)||0)),
       serveRuns:normalizeServeRuns(h.serveRuns),
       format:h.format==='singles'?'singles':'doubles',
-      testMode:!!h.testMode,
+      practice:!!h.practice,
       endedAt:h.endedAt||'',
       startedAt:h.startedAt||'',
       dateKey:h.dateKey||'',
@@ -452,6 +445,7 @@ function decodeState(d){
       serveRuns:normalizeServeRuns(h.serveRuns),
       format:h.format==='singles'?'singles':'doubles',
       testMode:!!h.testMode,
+      practice:!!h.practice,
       endedAt:h.endedAt||'',
       startedAt:h.startedAt||'',
       dateKey:h.dateKey||'',
@@ -462,13 +456,11 @@ function decodeState(d){
   return {
     ...base,...d,
     matchFormat:d.matchFormat==='singles'?'singles':'doubles',
-    testMode:!!d.testMode,
-    testModeRevision:Math.max(0,Number(d.testModeRevision)||0),
-    testModeActiveAt:Math.max(0,Number(d.testModeActiveAt)||0),
     rules:{...base.rules,...(d.rules||{})},
     match:{
       ...base.match,...m,
       format:(m.format||d.matchFormat)==='singles'?'singles':'doubles',
+      practice:!!m.practice||!!m.testMode,
       players:Array.isArray(m.players)?m.players:[Array.isArray(m.teamA)?m.teamA:[],Array.isArray(m.teamB)?m.teamB:[]],
       positions:Array.isArray(m.positions)?m.positions:[Array.isArray(m.posA)?m.posA:[0,1],Array.isArray(m.posB)?m.posB:[0,1]]
     },
@@ -515,7 +507,7 @@ function decodeState(d){
 
 
 function historyFormat(h){return normalizeMatchFormat(h?.format)}
-function scoredHistory(){return state.history.filter(h=>!h.testMode)}
+function scoredHistory(){return state.history.filter(h=>!h.practice)}
 function scoredHistoryForFormat(format='all'){return scoredHistory().filter(h=>format==='all'||historyFormat(h)===format)}
 function player(id){return state.roster.find(p=>p.id===id)}function retiredPlayer(id){return state.retiredPlayers?.find(p=>p.id===id)}function playerDisplay(id){return player(id)||retiredPlayer(id)}function pname(id){return playerDisplay(id)?.name||'未知球員'}function initials(n){return [...String(n||'?')].slice(0,2).join('').toUpperCase()}function avatar(id,size=''){const p=playerDisplay(id);return `<span class="avatar ${size}">${p?.avatar?`<img src="${p.avatar}" alt="">`:esc(initials(p?.name))}</span>`}function playerStats(id){let {games,wins}=ledgerPlayerRecord(state.statsLedger,id);for(const h of scoredHistory()){const teams=h.teams||[];for(let t=0;t<2;t++){if((teams[t]||[]).includes(id)){games++;if(h.winner===t)wins++}}}return{games,wins,losses:games-wins,rate:games?Math.round(wins/games*100):0}}
 function localDateKey(d=new Date()){return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`}function localMonthKey(d=new Date()){return localDateKey(d).slice(0,7)}
@@ -809,7 +801,7 @@ function renderDashboard() {
     }
     $('homeShuttleManagerBtn')?.addEventListener('click',openShuttleTubeManager);
 
-    const recent = state.history.slice(-3).reverse();
+    const recent = recordedGames.slice(-3).reverse();
     $('homeRecentMatches').innerHTML = recent.map(h => {
         const scoreA = h.scores?.[0] ?? 0, scoreB = h.scores?.[1] ?? 0;
         const teamA = esc((h.teams?.[0] || []).map(pname).join('／') || 'A 隊');
@@ -2035,8 +2027,6 @@ function canApplyMatch(match){
 }
 function applyState(data){
   const before=matchScoreSignature(),next=cleanState(data);
-  if(Number(next.testModeRevision)<Number(state.testModeRevision)){next.testMode=state.testMode;next.testModeRevision=state.testModeRevision}
-  next.testModeActiveAt=Math.max(Number(next.testModeActiveAt)||0,Number(state.testModeActiveAt)||0);
   next.deletedMatchIds=mergeDeletedMatchIds(state.deletedMatchIds,next.deletedMatchIds);
   next.deletedMatchIds.forEach(id=>removedMatchIds.add(id));
   const incomingLedger=next.statsLedger;
@@ -2060,7 +2050,6 @@ function applyState(data){
   announceSyncedScore(before);
   checkAchievementUnlocks();
   if(restoreLedger)saveSoon();
-  scheduleIdleTestModeCheck();
   // Receiving a room snapshot must never publish its fallback match back into liveScore.
 }
 // The Android app pauses WebView timers while recording, and Firestore delivers every snapshot through
@@ -2152,9 +2141,9 @@ function startMatchFromRemote(){
 }
 function startNextFromRemote(){
   const format=normalizeMatchFormat(state.match.format),selected=selectedNextLineup(format),winners=state.match.players?.[state.match.winner]||[];
-  const problem=remoteLineupProblem(selected,matchPlayerCount(format))||(!currentTestModeEnabled()&&!winners.every(id=>selected.includes(id))?'勝方須留場':'');
+  const problem=remoteLineupProblem(selected,matchPlayerCount(format))||(!winners.every(id=>selected.includes(id))?'勝方須留場':'');
   if(problem){showScoreRemoteIndicator(problem,{duration:1600,icon:'⚠️'});return false}
-  startNext();return true;
+  startNext({practice:!!state.match.practice});return true;
 }
 // Queued presses that reach the result screen together with the winning point must not start the next match.
 function isResultScreenBurstPress(command){
@@ -2294,7 +2283,7 @@ function payload(){return {...generalRoomStateWithoutMatch(roomEncodedState()),l
 function matchHistoryCollection(){return collection(db,'badmintonRooms',roomId,'matchHistory')}
 function matchHistoryDoc(matchId){return doc(db,'badmintonRooms',roomId,'matchHistory',archiveDocId(matchId))}
 async function writeArchivedMatches(rows){
-  const pending=(rows||[]).filter(row=>row?.matchId&&!row.testMode);
+  const pending=(rows||[]).filter(row=>row?.matchId);
   for(let index=0;index<pending.length;index+=400){
     const batch=writeBatch(db);
     for(const row of pending.slice(index,index+400))batch.set(matchHistoryDoc(row.matchId),encodeArchivedMatch(row),{merge:true});
@@ -2303,11 +2292,11 @@ async function writeArchivedMatches(rows){
 }
 function rememberFailedArchives(rows){
   const existing=readPendingArchives(localStorage,roomId),seen=new Set(existing.map(row=>row.matchId)),next=existing.slice();
-  for(const row of rows||[]){if(!row?.matchId||row.testMode||seen.has(row.matchId)||removedMatchIds.has(row.matchId))continue;next.push(encodeArchivedMatch(row));seen.add(row.matchId)}
+  for(const row of rows||[]){if(!row?.matchId||seen.has(row.matchId)||removedMatchIds.has(row.matchId))continue;next.push(encodeArchivedMatch(row));seen.add(row.matchId)}
   writePendingArchives(localStorage,roomId,next);
 }
 async function publishMatchArchive(rows){
-  const pending=(rows||[]).filter(row=>row?.matchId&&!row.testMode&&!removedMatchIds.has(row.matchId));
+  const pending=(rows||[]).filter(row=>row?.matchId&&!removedMatchIds.has(row.matchId));
   if(!pending.length||!roomId)return;
   try{
     await writeArchivedMatches(pending);
@@ -2331,7 +2320,7 @@ async function flushPendingArchives(){
 }
 function archiveUnsyncedHistory(){
   if(!isHost||!roomRef)return;
-  const missing=state.history.filter(row=>row?.matchId&&!row.testMode&&!archivedHistory.some(item=>item.matchId===row.matchId));
+  const missing=state.history.filter(row=>row?.matchId&&!archivedHistory.some(item=>item.matchId===row.matchId));
   if(missing.length)void publishMatchArchive(missing);
 }
 function unarchiveReopenedMatch(matchId){
@@ -2526,7 +2515,7 @@ async function saveNewMatchCheckpointNow(){
   const checkpoint=createMatchCheckpointData(state.match),batch=writeBatch(db);
   clearTimeout(roomMatchFallbackTimer);roomMatchFallbackTimer=null;roomMatchFallbackKey=roomMatchFallbackSignature();
   batch.set(liveScoreRef,{...checkpoint.liveScore,updatedAt:serverTimestamp()},{merge:true});
-  batch.set(roomRef,{court:state.court,nextCall:state.nextCall,waitingQueue:state.waitingQueue,queueDraftChosen:state.queueDraftChosen,priority:state.priority,lastLoserReplayPlayerId:state.lastLoserReplayPlayerId,attendance:state.attendance,lineupRevision:Number(state.lineupRevision)||0,testMode:!!state.testMode,testModeRevision:Number(state.testModeRevision)||0,testModeActiveAt:Number(state.testModeActiveAt)||0,...checkpoint.room},{merge:true});
+  batch.set(roomRef,{court:state.court,nextCall:state.nextCall,waitingQueue:state.waitingQueue,queueDraftChosen:state.queueDraftChosen,priority:state.priority,lastLoserReplayPlayerId:state.lastLoserReplayPlayerId,attendance:state.attendance,lineupRevision:Number(state.lineupRevision)||0,...checkpoint.room},{merge:true});
   pendingLiveScoreWrites++;updateSyncBadge();
   try{
     await batch.commit();
@@ -2625,12 +2614,10 @@ function renderRoster(){
 }
 function uniqueIds(ids){return [...new Set((ids||[]).filter(Boolean))]}
 function currentCourtIds(){const live=state.match?.active?state.match.players?.flat?.()||[]:state.court||[];return uniqueIds(live)}
-function selectablePlayerIds(){return currentTestModeEnabled()?state.roster.map(p=>p.id):state.attendance}
+function selectablePlayerIds(){return state.attendance}
 function currentMatchFormat(){return normalizeMatchFormat(state.match?.active?state.match.format:state.matchFormat)}
 function currentPlayerCount(){return matchPlayerCount(currentMatchFormat())}
-function randomTestLineup(){return shuffle(state.roster.map(player=>player.id)).slice(0,matchPlayerCount(state.matchFormat))}
 function reconcileWaitingQueue(excludeIds=currentCourtIds()){
-  if(currentTestModeEnabled()){state.waitingQueue=[];state.queueDraftChosen=[];state.priority=null;return}
   const exclude=new Set(excludeIds||[]),eligible=selectablePlayerIds().filter(id=>!exclude.has(id));
   const preferred=eligible.includes(state.priority)?[state.priority]:[];
   const kept=uniqueIds([...preferred,...state.waitingQueue]).filter(id=>eligible.includes(id));
@@ -2639,7 +2626,6 @@ function reconcileWaitingQueue(excludeIds=currentCourtIds()){
   state.priority=state.waitingQueue[0]||null;
 }
 function projectedQueueForLineup(vals){
-  if(currentTestModeEnabled())return[];
   const selected=new Set((vals||[]).filter(Boolean));
   const eligible=selectablePlayerIds();
   const ordered=uniqueIds([...(state.queueDraftChosen||[]),state.priority,...(state.waitingQueue||[])]).filter(id=>eligible.includes(id)&&!selected.has(id));
@@ -2753,13 +2739,12 @@ function renderCourt(){
   for(let i=0;i<4;i++){const s=$('p'+i),stateIndex=map[i],value=stateIndex===null?'':state.court[stateIndex]||'';s.innerHTML=options(value);s.value=value;s.onchange=()=>{if(!isHost||stateIndex===null)return;state.court[stateIndex]=s.value;state.court=state.court.filter(Boolean);if(!singles&&state.court.length===4){const safe=teammateSafeLineup(state.court);if(safe.join('|')!==state.court.join('|')){state.court=safe;renderCourt()}}reconcileWaitingQueue(state.court);bumpLineupRevision();renderWaiting();void persistLineupNow();saveSoon()}}
   $('target').value=state.rules.target;$('cap').value=state.rules.cap;$('deuce').value=state.rules.deuce?'1':'0';$('genderGrouping').value=genderGroupingActive(state.rules,localDateKey())?'1':'0';$('regroupCourt').classList.toggle('hidden',singles||uniqueIds(state.court.filter(Boolean)).length!==4||matchInProgress(state.match));renderWaiting()
 }
-function renderWaiting(){if(currentTestModeEnabled()){state.waitingQueue=[];state.queueDraftChosen=[];state.priority=null;$('waiting').innerHTML='';return}const expected=matchPlayerCount(state.match?.active?state.match.format:state.matchFormat),scheduled=state.match?.active&&state.match.winner!==null&&state.nextCall?.players?.length===expected?state.nextCall.players:state.court,used=scheduled.filter(Boolean),eligible=selectablePlayerIds().filter(id=>!used.includes(id)),preferred=eligible.includes(state.priority)?[state.priority]:[];const ordered=uniqueIds([...preferred,...state.waitingQueue]).filter(id=>eligible.includes(id));for(const id of eligible)if(!ordered.includes(id))ordered.push(id);state.waitingQueue=ordered;state.priority=ordered[0]||null;$('waiting').innerHTML=ordered.map((id,i)=>`<span class="chip ${i===0?'priority':''}">${esc(queueLabel(i,ordered.length))} · ${esc(pname(id))}</span>`).join('')||'<span class="sub">目前沒有候場球員</span>'}
+function renderWaiting(){const expected=matchPlayerCount(state.match?.active?state.match.format:state.matchFormat),scheduled=state.match?.active&&state.match.winner!==null&&state.nextCall?.players?.length===expected?state.nextCall.players:state.court,used=scheduled.filter(Boolean),eligible=selectablePlayerIds().filter(id=>!used.includes(id)),preferred=eligible.includes(state.priority)?[state.priority]:[];const ordered=uniqueIds([...preferred,...state.waitingQueue]).filter(id=>eligible.includes(id));for(const id of eligible)if(!ordered.includes(id))ordered.push(id);state.waitingQueue=ordered;state.priority=ordered[0]||null;$('waiting').innerHTML=ordered.map((id,i)=>`<span class="chip ${i===0?'priority':''}">${esc(queueLabel(i,ordered.length))} · ${esc(pname(id))}</span>`).join('')||'<span class="sub">目前沒有候場球員</span>'}
 function winFor(sc){const {target,cap,deuce}=state.rules;for(let t=0;t<2;t++){const o=1-t;if(!deuce&&sc[t]>=target)return t;if(deuce&&sc[t]>=target&&sc[t]-sc[o]>=2)return t;if(deuce&&sc[t]>=cap)return t}return null}
 function reopenRecordedMatch(){
   const matchId=state.match?.matchId,result=reopenFinishedMatchState(state,matchId);
   if(!result.reopened)return false;
   state.history=result.history;state.waitingQueue=result.waitingQueue;state.queueDraftChosen=result.queueDraftChosen;state.priority=result.priority;state.nextCall=result.nextCall;state.court=result.court;state.lastLoserReplayPlayerId=result.lastLoserReplayPlayerId;state.matchRollback=null;
-  state.match.testCompleted=false;
   dismissedResultKey='';$('resultModal').classList.add('hidden');
   clearTimeout(matchAutoBackupTimer);matchAutoBackupTimer=null;
   if(isHost&&roomId&&matchId)void deleteDoc(backupDocRef(`auto_${matchId}`)).catch(error=>console.warn('撤回比賽時移除舊自動備份失敗',error));
@@ -2902,12 +2887,13 @@ function renderFinishedMatchResult(){
   const singles=m.format==='singles',needed=singles?2:4,players=hasCurrentCall&&state.nextCall?.players?.length===needed?state.nextCall.players:m.players.flat(),indices=singles?[0,2]:[0,1,2,3];
   $('nextMatchLayout').classList.toggle('singles-layout',singles);
   for(let i=0;i<4;i++){const select=$('n'+i),position=indices.indexOf(i),value=position<0?'':players[position]||'';select.innerHTML=options(value);select.value=value;select.onchange=updatePriority}
-  $('winnerTitle').textContent=`${m.winner===0?'A隊':'B隊'}獲勝${m.testMode||state.testMode?'（測試，不計戰績）':''}`;
+  $('winnerTitle').textContent=winnerTitleText(m);
   $('finalScore').textContent=`${m.scores[0]}：${m.scores[1]}`;
   updateUseShuttleButtons();
 }
 function renderScore(){
   const m=state.match;
+  renderPracticeMatch();
   $('scoreView').classList.toggle('singles-match',normalizeMatchFormat(m.format)===MATCH_FORMAT_SINGLES);
   $('scoreView').dataset.scoreFont=normalizeScoreFont(m.scoreFont);
   const scoreAEl=$('scoreA'),scoreBEl=$('scoreB');
@@ -3045,21 +3031,22 @@ function historyDateLabel(dateKey){if(!/^\d{4}-\d{2}-\d{2}$/.test(dateKey))retur
 function historyMonthLabel(monthKey){if(!/^\d{4}-\d{2}$/.test(monthKey))return monthKey;const [year,month]=monthKey.split('-');return `${year} 年 ${Number(month)} 月`}
 function liveOfficialMatch(dateKey=''){
   const match=state.match;
-  if(!match?.active||!match.startedAt||match.testMode||state.testMode)return null;
+  if(!match?.active||!match.startedAt||match.practice)return null;
   const started=new Date(match.startedAt);
   if(isNaN(started.getTime()))return null;
   const key=localDateKey(started);
   if(dateKey&&key!==dateKey)return null;
-  return {matchId:match.matchId||'',startedAt:match.startedAt,endedAt:'',dateKey:key,teams:match.players,scores:match.scores||[0,0],testMode:false};
+  return {matchId:match.matchId||'',startedAt:match.startedAt,endedAt:'',dateKey:key,teams:match.players,scores:match.scores||[0,0]};
 }
+function officialHistoryGroups(){return groupMatchHistoryByDate(state.history,historyDate).map(group=>({...group,matches:group.matches.filter(({match})=>!match.practice)})).filter(group=>group.matches.length)}
 function renderHistory(){
   renderMatchReplay();
   const container=$('history'),openMonths=new Set(all('.history-month-group').filter(group=>group.open).map(group=>group.dataset.historyMonth)),openDates=new Set(all('.history-date-group').filter(group=>group.open).map(group=>group.dataset.historyDate));
-  const live=liveOfficialMatch(),months=groupHistoryDatesByMonth(withLiveTimelineDate(groupMatchHistoryByDate(state.history,historyDate),live));
+  const live=liveOfficialMatch(),months=groupHistoryDatesByMonth(withLiveTimelineDate(officialHistoryGroups(),live));
   const renderDate=group=>{
     const open=openDates.has(group.dateKey);
     const countText=group.matches.length?`${group.matches.length} 場`:live?.dateKey===group.dateKey?'進行中':'0 場';
-    const matches=group.matches.map(({match:h,index})=>`<div class="history-item ${h.testMode?'test-record':''}"><div class="history-main"><strong><span class="match-format-badge">${historyFormat(h)===MATCH_FORMAT_SINGLES?'單打':'雙打'}</span>${h.testMode?'<span class="test-record-badge">測試</span> ':''}${esc((h.teams?.[0]||[]).map(pname).join('／'))} ${h.scores?.[0]??0}：${h.scores?.[1]??0} ${esc((h.teams?.[1]||[]).map(pname).join('／'))}</strong><div class="sub">${esc(h.time||'')}${h.testMode?' · 不計入戰績':''}</div></div><div class="history-actions host-only"><button class="btn danger-outline" data-delete-history="${index}">刪除</button></div></div>`).join('');
+    const matches=group.matches.map(({match:h,index})=>`<div class="history-item"><div class="history-main"><strong><span class="match-format-badge">${historyFormat(h)===MATCH_FORMAT_SINGLES?'單打':'雙打'}</span>${esc((h.teams?.[0]||[]).map(pname).join('／'))} ${h.scores?.[0]??0}：${h.scores?.[1]??0} ${esc((h.teams?.[1]||[]).map(pname).join('／'))}</strong><div class="sub">${esc(h.time||'')}</div></div><div class="history-actions host-only"><button class="btn danger-outline" data-delete-history="${index}">刪除</button></div></div>`).join('');
     return `<details class="history-date-group" data-history-date="${esc(group.dateKey)}" ${open?'open':''}><summary><span>${esc(historyDateLabel(group.dateKey))}</span><span>${countText}</span></summary>${group.matches.length?`<div class="history-date-actions host-only"><button class="btn danger-outline" type="button" data-delete-history-date="${esc(group.dateKey)}">全部刪除</button></div>`:''}<div class="history-date-matches">${matches}</div></details>`;
   };
   container.innerHTML=months.map(month=>{
@@ -3083,98 +3070,33 @@ function deleteHistoryRecord(index){if(!isHost)return;const h=state.history[inde
 function deleteHistoryDate(dateKey){
   if(!isHost)return;
   const rows=(groupMatchHistoryByDate(state.history,historyDate).find(group=>group.dateKey===dateKey)?.matches||[]).map(item=>item.match);if(!rows.length)return;
-  if(!confirm(`確定刪除 ${historyDateLabel(dateKey)} 全部 ${rows.length} 筆戰績？`))return;
+  if(!confirm(`確定刪除 ${historyDateLabel(dateKey)} 全部 ${rows.filter(row=>!row.practice).length} 筆戰績？`))return;
   const ids=rows.map(row=>row.matchId).filter(Boolean);forgetArchivedMatches(ids);
   state.history=state.history.filter(h=>!rows.includes(h));renderAll();saveHistoryDeletion();
   if(roomId&&ids.length)void deleteArchivedMatches(ids).catch(error=>console.warn('封存戰績刪除失敗',error));
 }
-function clearAllHistory(){if(!isHost)return;if(!state.history.length)return alert('目前沒有比賽紀錄。');if(!confirm(`即將刪除全部 ${state.history.length} 筆比賽紀錄。\n球員名單與目前比分不會被刪除。`))return;const text=prompt('為避免誤刪，請輸入「清空」：','');if(text!=='清空')return alert('輸入不正確，已取消清空。');const ids=state.history.map(row=>row.matchId).filter(Boolean);forgetArchivedMatches(ids);archivedHistory=[];writePendingArchives(localStorage,roomId,[]);state.history=[];renderAll();saveHistoryDeletion();if(roomId&&ids.length)void deleteArchivedMatches(ids).catch(error=>console.warn('封存戰績清空失敗',error));alert('全部比賽紀錄已清空。')}
-function renderAll(){renderRoster();renderAttendance();renderCourt();renderHistory();renderScore();renderDashboard();renderStats();renderPoll();renderChat();renderTestMode();if(!$('shuttleTubeModal')?.classList.contains('hidden'))renderShuttleTubeManager();applyRole();renderAndroidRemote()}
-function currentTestModeEnabled(){
-  if(testModeIdleExpired(state))return false;
-  return !!state.testMode||!!state.match?.active&&state.match?.winner===null&&!!state.match?.testMode;
-}
-function markTestModeActivity(){if(testModeOn(state))state.testModeActiveAt=Date.now()}
-function scheduleIdleTestModeCheck(){
-  clearTimeout(idleTestModeTimer);idleTestModeTimer=null;
-  if(!state.testMode)return;
-  const remaining=testModeLastActiveMs(state)+TEST_MODE_IDLE_MS-Date.now();
-  idleTestModeTimer=setTimeout(expireIdleTestMode,Math.min(Math.max(0,remaining)+1000,2147483000));
-}
-function expireIdleTestMode(){
-  if(!testModeIdleExpired(state))return scheduleIdleTestModeCheck();
-  if(isHost&&!requestedAndroidRemote&&roomRef&&!applying)disableTestMode({manual:false});
-  else renderTestMode();
-}
-function disableTestMode({manual=true}={}){
-  state.testMode=false;
-  state.testModeRevision=Math.max(Date.now(),Number(state.testModeRevision||0)+1);
-  const previousMatch=state.match,attending=uniqueIds(state.attendance).filter(id=>state.roster.some(player=>player.id===id));
-  state.match={...initialState().match,syncEpoch:nextMatchEpoch(previousMatch),testMode:false,scorerDevice:previousMatch.scorerDevice||''};
-  const needed=matchPlayerCount(state.matchFormat);state.matchRollback=null;state.nextCall=null;state.court=attending.slice(0,needed);state.waitingQueue=attending.slice(needed);state.queueDraftChosen=[];state.priority=state.waitingQueue[0]||null;state.lastLoserReplayPlayerId=null;
-  scoreViewRequested=false;dismissedResultKey='';$('resultModal').classList.add('hidden');
-  clearTimeout(idleTestModeTimer);idleTestModeTimer=null;
-  renderAll();if(manual)page(3);checkpointNewMatch();
-}
-function renderTestMode(){
-  const enabled=currentTestModeEnabled(),currentMatchIsTest=testModeOn(state)&&!!state.match?.active&&state.match?.winner===null&&!!state.match?.testMode,button=$('testModeToggle'),scoreButton=$('scoreTestModeToggle'),quickWin=$('testQuickWin'),showQuickWin=currentMatchIsTest&&isHost;
-  if(button){button.setAttribute('aria-pressed',enabled?'true':'false');button.setAttribute('aria-label',`測試模式，${enabled?'已啟用':'未啟用'}`);button.textContent='🧪 測試模式';button.classList.toggle('test-mode-on',enabled)}
-  if(scoreButton){scoreButton.setAttribute('aria-pressed',enabled?'true':'false');scoreButton.setAttribute('aria-label',`測試模式，${enabled?'已啟用':'未啟用'}`);scoreButton.title=`測試模式，${enabled?'已啟用':'未啟用'}`;scoreButton.classList.toggle('test-mode-on',enabled)}
-  $('testQuickWin')?.classList.toggle('hidden',!currentMatchIsTest||!isHost||state.match.winner!==null);
-  if(quickWin){quickWin.hidden=!showQuickWin;quickWin.setAttribute('aria-hidden',showQuickWin?'false':'true');quickWin.style.setProperty('display',showQuickWin?'flex':'none','important')}
-}
-function toggleTestMode(){
-  if(!isHost)return;
-  const enabling=!currentTestModeEnabled();
-  if(!enabling)return disableTestMode();
-  state.testMode=enabling;
-  state.testModeRevision=Math.max(Date.now(),Number(state.testModeRevision||0)+1);
-  state.testModeActiveAt=state.testModeRevision;
-  scheduleIdleTestModeCheck();
-  if(state.match.active&&state.match.winner===null){
-    state.match.testMode=enabling;
-    saveLiveScoreSoon();
-  }
-  if(enabling&&!(state.match.active&&state.match.winner===null)){
-    state.court=randomTestLineup();state.waitingQueue=[];state.queueDraftChosen=[];state.priority=null;state.nextCall=null;
-    renderAll();page(3);
-  }else renderAll();
-  saveSoon();
-}
-function finishTestMatch(team){
-  const m=state.match;
-  if(!isHost||!state.testMode||!m.active||m.winner!==null||!m.testMode)return;
-  const winner=team===1?1:0,loser=1-winner,target=Math.max(1,Number(state.rules.target)||11);
-  m.scores[winner]=Math.max(target,m.scores[winner]);
-  m.scores[loser]=Math.min(m.scores[loser],Math.max(0,m.scores[winner]-2));
-  m.winner=winner;
-  finishMatch();
-}
-function startMatch(){if(matchInProgress(state.match)&&!confirm('目前比賽進行中，確定放棄比分並重新開始？'))return;dismissedResultKey='';const format=normalizeMatchFormat(state.matchFormat),needed=matchPlayerCount(format),selected=state.court.filter(Boolean);if(selected.length!==needed||new Set(selected).size!==needed)return alert(`請選擇${needed===2?'兩':'四'}位不同球員。`);const ids=[...selected];state.court=[...ids];reconcileWaitingQueue(ids);state.queueDraftChosen=[];state.lastLoserReplayPlayerId=null;state.matchRollback=null;randomizeScoreThemeAtMatchStart(ids);rememberReplacedRemoteMatch();state.match={active:true,format,players:teamsForLineup(ids,format),scores:[0,0],rallies:[],serving:0,positions:format===MATCH_FORMAT_SINGLES?[[0],[0]]:[[0,1],[0,1]],winner:null,matchId:randomToken(),syncEpoch:nextMatchEpoch(state.match),scoreFont:randomScoreFont(state.match?.scoreFont),testMode:testModeOn(state),scorerDevice:scoreDeviceId,startedAt:''};markTestModeActivity();scoreViewRequested=true;checkpointNewMatch();renderScore();renderDashboard();renderTestMode();void enterScoreFullscreen()}
+function clearAllHistory(){if(!isHost)return;const officialCount=scoredHistory().length;if(!officialCount)return alert('目前沒有比賽紀錄。');if(!confirm(`即將刪除全部 ${officialCount} 筆比賽紀錄。\n球員名單與目前比分不會被刪除。`))return;const text=prompt('為避免誤刪，請輸入「清空」：','');if(text!=='清空')return alert('輸入不正確，已取消清空。');const ids=state.history.map(row=>row.matchId).filter(Boolean);forgetArchivedMatches(ids);archivedHistory=[];writePendingArchives(localStorage,roomId,[]);state.history=[];renderAll();saveHistoryDeletion();if(roomId&&ids.length)void deleteArchivedMatches(ids).catch(error=>console.warn('封存戰績清空失敗',error));alert('全部比賽紀錄已清空。')}
+function renderAll(){renderRoster();renderAttendance();renderCourt();renderHistory();renderScore();renderDashboard();renderStats();renderPoll();renderChat();if(!$('shuttleTubeModal')?.classList.contains('hidden'))renderShuttleTubeManager();applyRole();renderAndroidRemote()}
+function winnerTitleText(m){return `${m.winner===0?'A隊':'B隊'}獲勝${m.practice?'（練習賽）':''}`}
+function renderPracticeMatch(){$('practiceBadge')?.classList.toggle('hidden',!(state.match?.active&&state.match.practice))}
+function startMatch({practice=false}={}){if(matchInProgress(state.match)&&!confirm('目前比賽進行中，確定放棄比分並重新開始？'))return;dismissedResultKey='';const format=normalizeMatchFormat(state.matchFormat),needed=matchPlayerCount(format),selected=state.court.filter(Boolean);if(selected.length!==needed||new Set(selected).size!==needed)return alert(`請選擇${needed===2?'兩':'四'}位不同球員。`);const ids=[...selected];state.court=[...ids];reconcileWaitingQueue(ids);state.queueDraftChosen=[];state.lastLoserReplayPlayerId=null;state.matchRollback=null;randomizeScoreThemeAtMatchStart(ids);rememberReplacedRemoteMatch();state.match={active:true,format,players:teamsForLineup(ids,format),scores:[0,0],rallies:[],serving:0,positions:format===MATCH_FORMAT_SINGLES?[[0],[0]]:[[0,1],[0,1]],winner:null,matchId:randomToken(),syncEpoch:nextMatchEpoch(state.match),scoreFont:randomScoreFont(state.match?.scoreFont),practice:!!practice,scorerDevice:scoreDeviceId,startedAt:''};scoreViewRequested=true;checkpointNewMatch();renderScore();renderDashboard();void enterScoreFullscreen()}
 function finishMatch(){
   const m=state.match;if(!m.active||m.winner===null)return;
   const format=normalizeMatchFormat(m.format),needed=matchPlayerCount(format);
   m.matchId=m.matchId||randomToken();let lineup=[];
-  const isTestMatch=!!m.testMode||!!state.testMode;
-  if(isTestMatch){state.history=state.history.filter(h=>!h.testMode);markTestModeActivity()}
-  const firstCompletion=isTestMatch?!m.testCompleted:!state.history.some(h=>h.matchId===m.matchId);
+  const firstCompletion=!state.history.some(h=>h.matchId===m.matchId);
   if(firstCompletion){
     const now=new Date();
     state.matchRollback=createFinishedMatchRollback(state,m.matchId);
-    if(isTestMatch){
-      m.testCompleted=true;state.waitingQueue=[];state.queueDraftChosen=[];state.priority=null;state.lastLoserReplayPlayerId=null;
-      lineup=randomTestLineup();
+    state.history.push({matchId:m.matchId,time:now.toLocaleString('zh-TW'),startedAt:m.startedAt||'',endedAt:now.toISOString(),dateKey:localDateKey(now),monthKey:localMonthKey(now),format,teams:structuredClone(m.players),scores:[...m.scores],winner:m.winner,deficit:maxDeficit(m.rallies,m.winner),serveRuns:longestServeRuns({format,players:m.players,rallies:m.rallies}),...(m.practice?{practice:true}:{})});
+    const winners=[...m.players[m.winner]],losers=[...m.players[1-m.winner]],previousCourt=m.players.flat();
+    reconcileWaitingQueue(previousCourt);
+    if(format===MATCH_FORMAT_SINGLES){
+      const rotation=rotateSinglesAfterMatch({winner:winners[0],loser:losers[0],waitingQueue:state.waitingQueue,attendance:selectablePlayerIds()});
+      lineup=m.winner===1?[...rotation.players].reverse():rotation.players;state.waitingQueue=rotation.waitingQueue;state.queueDraftChosen=lineup.filter(id=>!winners.includes(id)&&!losers.includes(id));state.priority=rotation.priority;state.lastLoserReplayPlayerId=null;
     }else{
-      state.history.push({matchId:m.matchId,time:now.toLocaleString('zh-TW'),startedAt:m.startedAt||'',endedAt:now.toISOString(),dateKey:localDateKey(now),monthKey:localMonthKey(now),format,teams:structuredClone(m.players),scores:[...m.scores],winner:m.winner,deficit:maxDeficit(m.rallies,m.winner),serveRuns:longestServeRuns({format,players:m.players,rallies:m.rallies})});
-      const winners=[...m.players[m.winner]],losers=[...m.players[1-m.winner]],previousCourt=m.players.flat();
-      reconcileWaitingQueue(previousCourt);
-      if(format===MATCH_FORMAT_SINGLES){
-        const rotation=rotateSinglesAfterMatch({winner:winners[0],loser:losers[0],waitingQueue:state.waitingQueue,attendance:selectablePlayerIds()});
-        lineup=m.winner===1?[...rotation.players].reverse():rotation.players;state.waitingQueue=rotation.waitingQueue;state.queueDraftChosen=lineup.filter(id=>!winners.includes(id)&&!losers.includes(id));state.priority=rotation.priority;state.lastLoserReplayPlayerId=null;
-      }else{
-        const randomValue=crypto.getRandomValues(new Uint32Array(1))[0],rotation=rotateAfterMatch({winners,losers,waitingQueue:state.waitingQueue,attendance:selectablePlayerIds(),lastLoserReplayPlayerId:state.lastLoserReplayPlayerId,randomValue}),chosen=rotation.chosen;
-        state.waitingQueue=rotation.waitingQueue;state.queueDraftChosen=[...chosen];state.priority=rotation.priority;state.lastLoserReplayPlayerId=rotation.lastLoserReplayPlayerId;lineup=teammateSafeLineup(m.winner===0?[...winners,...chosen]:[...chosen,...winners],{randomize:true});
-      }
+      const randomValue=crypto.getRandomValues(new Uint32Array(1))[0],rotation=rotateAfterMatch({winners,losers,waitingQueue:state.waitingQueue,attendance:selectablePlayerIds(),lastLoserReplayPlayerId:state.lastLoserReplayPlayerId,randomValue}),chosen=rotation.chosen;
+      state.waitingQueue=rotation.waitingQueue;state.queueDraftChosen=[...chosen];state.priority=rotation.priority;state.lastLoserReplayPlayerId=rotation.lastLoserReplayPlayerId;lineup=teammateSafeLineup(m.winner===0?[...winners,...chosen]:[...chosen,...winners],{randomize:true});
     }
     state.nextCall={players:[...lineup],createdAt:new Date().toISOString()};
   }else{
@@ -3182,15 +3104,15 @@ function finishMatch(){
   }
   renderNextLineup(lineup,format);
   updatePriority();
-  $('winnerTitle').textContent=`${m.winner===0?'A隊':'B隊'}獲勝${isTestMatch?'（測試，不計戰績）':''}`;
+  $('winnerTitle').textContent=winnerTitleText(m);
   $('finalScore').textContent=`${m.scores[0]}：${m.scores[1]}`;
   if(isHost)$('resultModal').classList.remove('hidden');else $('resultModal').classList.add('hidden');
   resultShownAt=Date.now();
   renderAll();
-  if(isHost&&!isTestMatch)bumpLineupRevision();
+  if(isHost)bumpLineupRevision();
   if(isHost)saveLiveScoreSoon();
-  if(firstCompletion&&!isTestMatch){archiveUnsyncedHistory();void syncFinishedMatchNow(m.matchId,{lineup:isHost})}
-  else if(isHost&&!isTestMatch)void persistLineupNow();
+  if(firstCompletion){archiveUnsyncedHistory();void syncFinishedMatchNow(m.matchId,{lineup:isHost})}
+  else if(isHost)void persistLineupNow();
 }
 function updatePriority(){
   const format=normalizeMatchFormat(state.match.format),needed=matchPlayerCount(format),selected=selectedNextLineup(format),vals=format===MATCH_FORMAT_SINGLES?selected:selected.length===needed&&new Set(selected).size===needed?teammateSafeLineup(selected):selected,projected=projectedQueueForLineup(vals);
@@ -3199,17 +3121,17 @@ function updatePriority(){
   if(vals.length===needed&&new Set(vals).size===needed)state.nextCall={players:[...vals],createdAt:state.nextCall?.createdAt||new Date().toISOString()};
   renderDashboard()
 }
-function startNext(){
+function startNext({practice=false}={}){
   dismissedResultKey='';const format=normalizeMatchFormat(state.match.format),needed=matchPlayerCount(format),selected=selectedNextLineup(format);
   if(!state.match.active||state.match.winner===null)return alert('本場比分尚未結束，請先完成比賽。');
   if(selected.length!==needed||new Set(selected).size!==needed)return alert(`下一場需要${needed===2?'兩':'四'}位不同球員。`);
   const vals=[...selected];
-  const winners=state.match.players[state.match.winner];if(!currentTestModeEnabled()&&!winners.every(id=>vals.includes(id)))return alert(format===MATCH_FORMAT_SINGLES?'勝方必須留場。':'勝方兩位必須留場。');
+  const winners=state.match.players[state.match.winner];if(!winners.every(id=>vals.includes(id)))return alert(format===MATCH_FORMAT_SINGLES?'勝方必須留場。':'勝方兩位必須留場。');
   const nextMatchId=randomToken();savePreviousMatchSnapshot(createPreviousMatchSnapshot(state,nextMatchId));
   state.waitingQueue=projectedQueueForLineup(vals);state.queueDraftChosen=[];state.priority=state.waitingQueue[0]||null;
   state.court=[...vals];state.nextCall=null;state.matchRollback=null;
   randomizeScoreThemeAtMatchStart(vals);rememberReplacedRemoteMatch();
-  state.match={active:true,format,players:teamsForLineup(vals,format),scores:[0,0],rallies:[],serving:0,positions:format===MATCH_FORMAT_SINGLES?[[0],[0]]:[[0,1],[0,1]],winner:null,matchId:nextMatchId,syncEpoch:nextMatchEpoch(state.match),scoreFont:randomScoreFont(state.match?.scoreFont),testMode:testModeOn(state),scorerDevice:scoreDeviceId,startedAt:''};markTestModeActivity();
+  state.match={active:true,format,players:teamsForLineup(vals,format),scores:[0,0],rallies:[],serving:0,positions:format===MATCH_FORMAT_SINGLES?[[0],[0]]:[[0,1],[0,1]],winner:null,matchId:nextMatchId,syncEpoch:nextMatchEpoch(state.match),scoreFont:randomScoreFont(state.match?.scoreFont),practice:!!practice,scorerDevice:scoreDeviceId,startedAt:''};
   scoreViewRequested=true;$('resultModal').classList.add('hidden');checkpointNewMatch();renderAll();void enterScoreFullscreen()
 }
 function previousMatchKey(){return `bcmPreviousMatchV1:${roomId}`}
@@ -3724,7 +3646,7 @@ async function endTodaySession(triggerButton=null){
   }
 }
 
-$('clearHistory').onclick=clearAllHistory;$('addPollOption').onclick=addPollOption;$('submitVote').onclick=submitPollVote;$('confirmNextEvent').onclick=confirmNextEvent;$('clearNextEvent').onclick=clearNextEvent;$('monthPick').value=localMonthKey();$('monthPick').onchange=renderStats;$('thisMonthBtn').onclick=()=>{$('monthPick').value=localMonthKey();renderStats()};$('createRoom').onclick=createRoom;$('joinRoom').onclick=()=>enterRoom($('joinCode').value);$('favoriteRoomBtn').onclick=()=>{const r=roomRecord(roomId)||rememberRoom(roomId,isHost);updateRoomRecord(roomId,{favorite:!r.favorite})};$('renameRoomBtn').onclick=()=>{const r=roomRecord(roomId)||rememberRoom(roomId,isHost),name=prompt('替這台裝置上的球局取一個名稱：',r.name||'7B 羽球團');if(name===null)return;updateRoomRecord(roomId,{name:name.trim().slice(0,30)})};$('autoReturnRoom').checked=localStorage.getItem(ROOM_AUTO_KEY)==='1';$('autoReturnRoom').onchange=()=>localStorage.setItem(ROOM_AUTO_KEY,$('autoReturnRoom').checked?'1':'0');$('adminLoginBtn').onclick=async()=>{const pin=prompt('輸入管理員 PIN：');if(pin===null)return;const h=await sha256(pin.trim());if(!adminPinHash||h!==adminPinHash)return alert('PIN 不正確。');hostToken=(await getDoc(roomRef)).data().hostToken;localStorage.setItem(hostKey(roomId),hostToken);isHost=true;$('roleBadge').textContent='管理員';$('roleBadge').className='pill host';$('viewerNote').classList.add('hidden');applyRole();renderAll();alert('已切換為管理員模式。')};$('qrBtn').onclick=()=>{const url=currentUrl();$('qrImage').src='https://api.qrserver.com/v1/create-qr-code/?size=300x300&data='+encodeURIComponent(url);$('qrRoomCode').textContent='房間代碼：'+roomId;$('qrModal').classList.remove('hidden')};$('closeQr').onclick=()=>$('qrModal').classList.add('hidden');$('claimPlayer').onclick=async()=>{const p=player(editId);if(!p)return;if(p.ownerHash&&p.ownerHash!==selfHash&&!confirm(`「${p.name}」目前綁定在另一台裝置。確定這是你的資料，並改綁到目前裝置嗎？`))return;const updated={...p,ownerHash:selfHash};await saveSelfPlayer(updated);$('selfNote').textContent=`你已認領「${p.name}」，現在可在這台裝置修改姓名、球拍與備註。`;$('selfNote').classList.remove('hidden');state.roster=state.roster.map(x=>x.id===p.id?updated:x);updateProfilePermissions();renderRoster()};$('joinCode').onkeydown=e=>{if(e.key==='Enter')enterRoom(e.target.value)};$('leaveBtn').onclick=()=>{if(unsubscribe)unsubscribe();sessionStorage.setItem(ROOM_SKIP_AUTO_ONCE,'1');history.replaceState(null,'',location.pathname);location.reload()};$('shareBtn').onclick=async()=>{const url=currentUrl();try{await navigator.clipboard.writeText(url);alert(`觀看網址已複製。\n房間代碼：${roomId}`)}catch{prompt('複製觀看網址：',url)}};$('openPollReminder').onclick=()=>page(6);all('.tab').forEach(b=>b.onclick=()=>page(+b.dataset.page));$('addPlayer').onclick=()=>{const n=$('newName').value.trim();if(!n)return;if(state.roster.some(p=>p.name===n))return alert('已有相同姓名');state.roster.push({id:randomToken(),name:n,voiceName:defaultVoiceName(n),avatar:'',racket:'',racketTension:'',racketString:'',backupRacket:'',backupTension:'',backupString:'',note:'',favorite:false,ownerHash:''});$('newName').value='';renderAll();saveSoon()};$('allAttend').onclick=()=>{state.attendance=state.roster.map(p=>p.id);reconcileWaitingQueue();renderAll();saveSoon()};$('clearAttend').onclick=()=>{state.attendance=[];state.court=[];state.waitingQueue=[];state.queueDraftChosen=[];state.priority=null;renderAll();saveSoon()};$('goCourt').onclick=()=>{if(state.attendance.length<4)return alert('至少需要四位出席球員');if(state.court.length<4)state.court=state.attendance.slice(0,4);reconcileWaitingQueue(state.court);renderAll();page(3);saveSoon()};$('randomCourt').onclick=()=>{state.court=shuffle(state.attendance).slice(0,4);reconcileWaitingQueue(state.court);renderAll();saveSoon()};$('target').onchange=()=>{state.rules.target=Math.max(1,+$('target').value||11);saveSoon()};$('cap').onchange=()=>{state.rules.cap=Math.max(state.rules.target,+$('cap').value||15);saveSoon()};$('deuce').onchange=()=>{state.rules.deuce=$('deuce').value==='1';saveSoon()};$('startMatch').onclick=startMatch;$('resumeScore').onclick=()=>{if(!isHost||!state.match.active)return;claimScoring()};function addPoint(team){if(!isHost||state.match.winner!==null)return;dismissOfficialStartIndicator();state.match.rallies.push(team);replay()}const scoreSideA=$('namesA').closest('.score-side'),scoreSideB=$('namesB').closest('.score-side');scoreSideA.classList.add('clickable');scoreSideB.classList.add('clickable');scoreSideA.onclick=()=>addPoint(0);scoreSideB.onclick=()=>addPoint(1);$('scoreA').onclick=e=>{e.stopPropagation();addPoint(0)};$('scoreB').onclick=e=>{e.stopPropagation();addPoint(1)};$('undo').onclick=()=>{if(state.match.rallies.length){state.match.rallies.pop();replay()}};$('minusA').onclick=()=>{const i=state.match.rallies.lastIndexOf(0);if(i>=0){state.match.rallies.splice(i,1);replay()}};$('minusB').onclick=()=>{const i=state.match.rallies.lastIndexOf(1);if(i>=0){state.match.rallies.splice(i,1);replay()}};$('exitScore').onclick=()=>{scoreViewRequested=false;renderScore()};$('abandonMatch').onclick=abandonMatch;$('shuffleNext').onclick=()=>{const vals=shuffle([0,1,2,3].map(i=>$('n'+i).value));vals.forEach((v,i)=>{$('n'+i).value=v});updatePriority()};$('startNext').onclick=startNext;$('closeResult').onclick=()=>{dismissedResultKey=currentResultKey();$('resultModal').classList.add('hidden')};$('editName').addEventListener('input',()=>profileDirty.name=true);$('editRacket').addEventListener('input',()=>profileDirty.racket=true);$('editRacketTension').addEventListener('input',()=>profileDirty.racketTension=true);$('editRacketString').addEventListener('input',()=>profileDirty.racketString=true);$('editBackupRacket').addEventListener('input',()=>profileDirty.backupRacket=true);$('editBackupTension').addEventListener('input',()=>profileDirty.backupTension=true);$('editBackupString').addEventListener('input',()=>profileDirty.backupString=true);$('editNote').addEventListener('input',()=>profileDirty.note=true);$('editPhoto').onchange=async e=>{const file=e.target.files?.[0];if(!file)return;try{pendingAvatar=await compressPhoto(file);refreshProfilePreview()}catch(err){alert(err.message||'照片處理失敗')}e.target.value=''};$('removePhoto').onclick=()=>{pendingAvatar='';refreshProfilePreview()};$('saveEdit').onclick=saveEdit;$('deletePlayer').onclick=()=>{if(!confirm('刪除這位球員？'))return;state.roster=state.roster.filter(p=>p.id!==editId);state.attendance=state.attendance.filter(x=>x!==editId);state.court=state.court.filter(x=>x!==editId);state.waitingQueue=state.waitingQueue.filter(x=>x!==editId);state.queueDraftChosen=state.queueDraftChosen.filter(x=>x!==editId);$('editModal').classList.add('hidden');renderAll();saveSoon()};$('closeEdit').onclick=()=>$('editModal').classList.add('hidden');$('playerSearch').addEventListener('input',renderRoster);$('playerSort').addEventListener('change',renderRoster);document.addEventListener('dblclick',e=>e.preventDefault(),{passive:false});
+$('clearHistory').onclick=clearAllHistory;$('addPollOption').onclick=addPollOption;$('submitVote').onclick=submitPollVote;$('confirmNextEvent').onclick=confirmNextEvent;$('clearNextEvent').onclick=clearNextEvent;$('monthPick').value=localMonthKey();$('monthPick').onchange=renderStats;$('thisMonthBtn').onclick=()=>{$('monthPick').value=localMonthKey();renderStats()};$('createRoom').onclick=createRoom;$('joinRoom').onclick=()=>enterRoom($('joinCode').value);$('favoriteRoomBtn').onclick=()=>{const r=roomRecord(roomId)||rememberRoom(roomId,isHost);updateRoomRecord(roomId,{favorite:!r.favorite})};$('renameRoomBtn').onclick=()=>{const r=roomRecord(roomId)||rememberRoom(roomId,isHost),name=prompt('替這台裝置上的球局取一個名稱：',r.name||'7B 羽球團');if(name===null)return;updateRoomRecord(roomId,{name:name.trim().slice(0,30)})};$('autoReturnRoom').checked=localStorage.getItem(ROOM_AUTO_KEY)==='1';$('autoReturnRoom').onchange=()=>localStorage.setItem(ROOM_AUTO_KEY,$('autoReturnRoom').checked?'1':'0');$('adminLoginBtn').onclick=async()=>{const pin=prompt('輸入管理員 PIN：');if(pin===null)return;const h=await sha256(pin.trim());if(!adminPinHash||h!==adminPinHash)return alert('PIN 不正確。');hostToken=(await getDoc(roomRef)).data().hostToken;localStorage.setItem(hostKey(roomId),hostToken);isHost=true;$('roleBadge').textContent='管理員';$('roleBadge').className='pill host';$('viewerNote').classList.add('hidden');applyRole();renderAll();alert('已切換為管理員模式。')};$('qrBtn').onclick=()=>{const url=currentUrl();$('qrImage').src='https://api.qrserver.com/v1/create-qr-code/?size=300x300&data='+encodeURIComponent(url);$('qrRoomCode').textContent='房間代碼：'+roomId;$('qrModal').classList.remove('hidden')};$('closeQr').onclick=()=>$('qrModal').classList.add('hidden');$('claimPlayer').onclick=async()=>{const p=player(editId);if(!p)return;if(p.ownerHash&&p.ownerHash!==selfHash&&!confirm(`「${p.name}」目前綁定在另一台裝置。確定這是你的資料，並改綁到目前裝置嗎？`))return;const updated={...p,ownerHash:selfHash};await saveSelfPlayer(updated);$('selfNote').textContent=`你已認領「${p.name}」，現在可在這台裝置修改姓名、球拍與備註。`;$('selfNote').classList.remove('hidden');state.roster=state.roster.map(x=>x.id===p.id?updated:x);updateProfilePermissions();renderRoster()};$('joinCode').onkeydown=e=>{if(e.key==='Enter')enterRoom(e.target.value)};$('leaveBtn').onclick=()=>{if(unsubscribe)unsubscribe();sessionStorage.setItem(ROOM_SKIP_AUTO_ONCE,'1');history.replaceState(null,'',location.pathname);location.reload()};$('shareBtn').onclick=async()=>{const url=currentUrl();try{await navigator.clipboard.writeText(url);alert(`觀看網址已複製。\n房間代碼：${roomId}`)}catch{prompt('複製觀看網址：',url)}};$('openPollReminder').onclick=()=>page(6);all('.tab').forEach(b=>b.onclick=()=>page(+b.dataset.page));$('addPlayer').onclick=()=>{const n=$('newName').value.trim();if(!n)return;if(state.roster.some(p=>p.name===n))return alert('已有相同姓名');state.roster.push({id:randomToken(),name:n,voiceName:defaultVoiceName(n),avatar:'',racket:'',racketTension:'',racketString:'',backupRacket:'',backupTension:'',backupString:'',note:'',favorite:false,ownerHash:''});$('newName').value='';renderAll();saveSoon()};$('allAttend').onclick=()=>{state.attendance=state.roster.map(p=>p.id);reconcileWaitingQueue();renderAll();saveSoon()};$('clearAttend').onclick=()=>{state.attendance=[];state.court=[];state.waitingQueue=[];state.queueDraftChosen=[];state.priority=null;renderAll();saveSoon()};$('goCourt').onclick=()=>{if(state.attendance.length<4)return alert('至少需要四位出席球員');if(state.court.length<4)state.court=state.attendance.slice(0,4);reconcileWaitingQueue(state.court);renderAll();page(3);saveSoon()};$('randomCourt').onclick=()=>{state.court=shuffle(state.attendance).slice(0,4);reconcileWaitingQueue(state.court);renderAll();saveSoon()};$('target').onchange=()=>{state.rules.target=Math.max(1,+$('target').value||11);saveSoon()};$('cap').onchange=()=>{state.rules.cap=Math.max(state.rules.target,+$('cap').value||15);saveSoon()};$('deuce').onchange=()=>{state.rules.deuce=$('deuce').value==='1';saveSoon()};$('startMatch').onclick=()=>startMatch();$('startPracticeMatch').onclick=()=>startMatch({practice:true});$('resumeScore').onclick=()=>{if(!isHost||!state.match.active)return;claimScoring()};function addPoint(team){if(!isHost||state.match.winner!==null)return;dismissOfficialStartIndicator();state.match.rallies.push(team);replay()}const scoreSideA=$('namesA').closest('.score-side'),scoreSideB=$('namesB').closest('.score-side');scoreSideA.classList.add('clickable');scoreSideB.classList.add('clickable');scoreSideA.onclick=()=>addPoint(0);scoreSideB.onclick=()=>addPoint(1);$('scoreA').onclick=e=>{e.stopPropagation();addPoint(0)};$('scoreB').onclick=e=>{e.stopPropagation();addPoint(1)};$('undo').onclick=()=>{if(state.match.rallies.length){state.match.rallies.pop();replay()}};$('minusA').onclick=()=>{const i=state.match.rallies.lastIndexOf(0);if(i>=0){state.match.rallies.splice(i,1);replay()}};$('minusB').onclick=()=>{const i=state.match.rallies.lastIndexOf(1);if(i>=0){state.match.rallies.splice(i,1);replay()}};$('exitScore').onclick=()=>{scoreViewRequested=false;renderScore()};$('abandonMatch').onclick=abandonMatch;$('shuffleNext').onclick=()=>{const vals=shuffle([0,1,2,3].map(i=>$('n'+i).value));vals.forEach((v,i)=>{$('n'+i).value=v});updatePriority()};$('startNext').onclick=()=>startNext();$('startNextPractice').onclick=()=>startNext({practice:true});$('closeResult').onclick=()=>{dismissedResultKey=currentResultKey();$('resultModal').classList.add('hidden')};$('editName').addEventListener('input',()=>profileDirty.name=true);$('editRacket').addEventListener('input',()=>profileDirty.racket=true);$('editRacketTension').addEventListener('input',()=>profileDirty.racketTension=true);$('editRacketString').addEventListener('input',()=>profileDirty.racketString=true);$('editBackupRacket').addEventListener('input',()=>profileDirty.backupRacket=true);$('editBackupTension').addEventListener('input',()=>profileDirty.backupTension=true);$('editBackupString').addEventListener('input',()=>profileDirty.backupString=true);$('editNote').addEventListener('input',()=>profileDirty.note=true);$('editPhoto').onchange=async e=>{const file=e.target.files?.[0];if(!file)return;try{pendingAvatar=await compressPhoto(file);refreshProfilePreview()}catch(err){alert(err.message||'照片處理失敗')}e.target.value=''};$('removePhoto').onclick=()=>{pendingAvatar='';refreshProfilePreview()};$('saveEdit').onclick=saveEdit;$('deletePlayer').onclick=()=>{if(!confirm('刪除這位球員？'))return;state.roster=state.roster.filter(p=>p.id!==editId);state.attendance=state.attendance.filter(x=>x!==editId);state.court=state.court.filter(x=>x!==editId);state.waitingQueue=state.waitingQueue.filter(x=>x!==editId);state.queueDraftChosen=state.queueDraftChosen.filter(x=>x!==editId);$('editModal').classList.add('hidden');renderAll();saveSoon()};$('closeEdit').onclick=()=>$('editModal').classList.add('hidden');$('playerSearch').addEventListener('input',renderRoster);$('playerSort').addEventListener('change',renderRoster);document.addEventListener('dblclick',e=>e.preventDefault(),{passive:false});
 function guardUnofficialTouchScoring(event){
   if(!isHost||matchHasOfficiallyStarted(state.match))return;
   const target=event.target;
@@ -3811,7 +3733,7 @@ $('deletePlayer').onclick=()=>{
 $('clearAttend').onclick=()=>{state.attendance=[];state.court=[];state.waitingQueue=[];state.queueDraftChosen=[];state.priority=null;state.lastLoserReplayPlayerId=null;bumpLineupRevision();renderAll();void persistLineupNow();saveSoon()};
 $('goCourt').onclick=()=>{
   const eligible=selectablePlayerIds(),needed=matchPlayerCount(state.matchFormat),countText=needed===2?'兩':'四';
-  if(eligible.length<needed)return alert(currentTestModeEnabled()?`球員名單至少需要${countText}位球員`:`至少需要${countText}位出席球員`);
+  if(eligible.length<needed)return alert(`至少需要${countText}位出席球員`);
   const current=uniqueIds(state.court.length>=needed?state.court:eligible.slice(0,needed)).slice(0,needed);
   state.court=needed===2?current:teammateSafeLineup(current,{randomize:state.court.length<needed});
   reconcileWaitingQueue(state.court);renderAll();page(3);saveSoon();
@@ -3973,10 +3895,6 @@ document.addEventListener('keypress',handleScoreRemoteKeyboard,true);
 document.addEventListener('keyup',handleScoreRemoteKeyboard,true);
 document.addEventListener('click',handleScoreRemoteVirtualClick,true);
 updateScoreRemoteUi();
-$('testModeToggle').onclick=toggleTestMode;
-$('scoreTestModeToggle').onclick=toggleTestMode;
-$('testWinA').onclick=()=>finishTestMatch(0);
-$('testWinB').onclick=()=>finishTestMatch(1);
 if(!$('pollTime').value)$('pollTime').value='01:00';
 if(!$('pollEndTime').value)$('pollEndTime').value=suggestedEventEndTime($('pollTime').value,0);
 $('pollTime').addEventListener('change',()=>{$('pollEndTime').value=suggestedEventEndTime($('pollTime').value,0)});

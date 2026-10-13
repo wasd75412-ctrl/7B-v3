@@ -62,13 +62,14 @@ test('理髮師需要累計零封對手十場',()=>{
   assert.equal(earnedMap({feats:playerFeats(rows,'me')}).get('理髮師'),true);
 });
 
-test('比分類成就依勝方分差計算，輸球與測試比賽不計',()=>{
+test('比分類成就依勝方分差計算，輸球、練習賽與測試比賽不計',()=>{
   const feats=playerFeats([
     match('2026-01-01',[11,3],0),
     match('2026-01-01',[12,10],0),
     match('2026-01-01',[15,14],0),
     match('2026-01-01',[11,9],1),
     match('2026-01-01',[11,0],0,{testMode:true}),
+    match('2026-01-01',[11,0],0,{practice:true}),
     match('2026-01-01',[11,7],0,{deficit:5})
   ],'me');
   assert.equal(feats.routs,1);

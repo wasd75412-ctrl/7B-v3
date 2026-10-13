@@ -162,7 +162,7 @@ export function settleMatches(ledger,rows,cutoff,monthOf,settledAt=new Date().to
   if(!MONTH_PATTERN.test(cutoff||'')||cutoff<=base.cutoff)return base;
   const next=structuredClone(base),settledRows=[];
   for(const row of Array.isArray(rows)?rows:[]){
-    if(!row||row.testMode)continue;
+    if(!row||row.testMode||row.practice)continue;
     const month=String(monthOf(row)||'');
     if(month<base.cutoff||month>=cutoff)continue;
     settledRows.push(row);
