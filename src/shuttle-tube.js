@@ -90,6 +90,31 @@ export function enforceLegacyActiveShuttleTube(tubes=[],tubeId=''){
   }));
 }
 
+export function normalizeShuttlePresets(value,maxCount=12){
+  const seen=new Set(),presets=[];
+  for(const row of Array.isArray(value)?value:[]){
+    const name=cleanText(row?.name,60),price=Math.max(0,Math.round(Number(row?.price)||0));
+    if(!name||!price||seen.has(name))continue;
+    seen.add(name);
+    presets.push({name,price});
+  }
+  return presets.slice(0,maxCount);
+}
+
+export function seedShuttlePresets(presets,tubes=[]){
+  if(Array.isArray(presets))return normalizeShuttlePresets(presets);
+  const rows=(Array.isArray(tubes)?tubes:[]).slice().sort((a,b)=>(Date.parse(b?.createdAt)||0)-(Date.parse(a?.createdAt)||0));
+  return normalizeShuttlePresets(rows);
+}
+
+export function rememberShuttlePreset(presets=[],{name='',price=0}={}){
+  return normalizeShuttlePresets([{name,price},...normalizeShuttlePresets(presets).filter(row=>row.name!==cleanText(name,60))]);
+}
+
+export function forgetShuttlePreset(presets=[],name=''){
+  return normalizeShuttlePresets(presets).filter(row=>row.name!==cleanText(name,60));
+}
+
 export function createShuttleTube({id='',name='',price=0,createdAt='',totalShuttles=12,status='pending'}={}){
   return normalizeShuttleTubes([{id,name,price,createdAt,totalShuttles,remainingShuttles:totalShuttles,status}])[0];
 }
