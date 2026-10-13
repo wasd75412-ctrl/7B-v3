@@ -21,7 +21,7 @@ import { updateAttendanceState } from './attendance.js';
 import { playedParticipantIds } from './session-participants.js';
 import { POLL_SLOT_CAPACITY, activePollDraftSelection, createPollDraft, pollSlotParticipantCount, pollWasFinalized } from './poll.js';
 import { nonVoterPlayerIds, recruitingMessage, recruitingSlots } from './poll-recruiting.js';
-import { activateShuttleTube, adjustSessionShuttleUsage, createShuttleTube, enforceLegacyActiveShuttleTube, finishShuttleTube, normalizeShuttleTubes, restoreShuttleTube, sessionShuttleUsage, setShuttleRemaining, shuttleShareCost, shuttleUnitPrice, softDeleteShuttleTube, updateShuttleTube } from './shuttle-tube.js';
+import { activateShuttleTube, adjustSessionShuttleUsage, createShuttleTube, enforceLegacyActiveShuttleTube, finishShuttleTube, normalizeShuttleTubes, restoreShuttleTube, sessionShuttleTotals, sessionShuttleUsage, setShuttleRemaining, shuttleUnitPrice, softDeleteShuttleTube, updateShuttleTube } from './shuttle-tube.js';
 import { addFeats, careerAchievementBadges, longestServeRuns, maxDeficit, normalizeServeRuns, partnerRanking, playerFeats, rivalLists, unseenAchievements } from './player-achievements.js';
 import { PLAYER_TYPE_GUEST, isGuestPlayer, normalizePlayerType, splitPlayersByMembership } from './player-membership.js';
 import { PLAYER_GENDER_MALE, normalizePlayerGender, playerGenderLabel } from './player-gender.js';
@@ -837,7 +837,7 @@ function renderDashboard() {
     `;
     const activeTube=activeShuttleTube(),shuttleSummary=$('homeShuttleSummary');
     if(activeTube){
-      const used=currentSessionShuttleUsage(activeTube),players=shuttleParticipantCount(),share=shuttleShareCost(activeTube.price,used,players);
+      const {used,cost}=currentSessionShuttleTotals(),players=shuttleParticipantCount(),share=players?cost/players:0;
       shuttleSummary.className='home-shuttle-summary';
       shuttleSummary.innerHTML=`<span><strong>🏸 ${esc(activeTube.name)}</strong><small>已使用 ${used} 顆 · 剩餘 ${activeTube.remainingShuttles} 顆</small></span><div class="home-shuttle-summary-actions"><strong class="home-shuttle-fee-amount">${players?`每人 ${formatMoney(share)} 元`:'等待完成比賽'}</strong>${isHost?'<button id="homeShuttleManagerBtn" class="btn" type="button">球桶管理</button>':''}</div>`;
     }else{
@@ -3330,9 +3330,10 @@ function shuttleParticipantCount(){return sessionPlayedParticipantIds().length}
 function activeShuttleTube(){return normalizeShuttleTubes(state.shuttleTubes).find(tube=>tube.status==='active')||null}
 function shuttleUsageSessionKey(){return currentSessionEvent()?.id||`date:${localDateKey()}`}
 function currentSessionShuttleUsage(tube){return sessionShuttleUsage(tube,shuttleUsageSessionKey())}
+function currentSessionShuttleTotals(){return sessionShuttleTotals(state.shuttleTubes,shuttleUsageSessionKey())}
 function currentSessionEvent(){return normalizeNextEvents(state).find(event=>event.date===localDateKey())||null}
 function sessionCombinedCosts(event=currentSessionEvent()){
-  const tube=activeShuttleTube(),applies=!!event&&event.date===localDateKey(),used=currentSessionShuttleUsage(tube),shuttleTotal=used*shuttleUnitPrice(tube?.price),players=shuttleParticipantCount(),rentalTotal=wholeAmount(event?.rentalTotal),share=calculateCombinedPerPersonFee(rentalTotal,shuttleTotal,players);
+  const applies=!!event&&event.date===localDateKey(),{used,cost:shuttleTotal}=currentSessionShuttleTotals(),players=shuttleParticipantCount(),rentalTotal=wholeAmount(event?.rentalTotal),share=calculateCombinedPerPersonFee(rentalTotal,shuttleTotal,players);
   return{applies,rentalTotal,shuttleTotal,used,players,share};
 }
 function updateUseShuttleButtons(){
@@ -3398,7 +3399,7 @@ function renderShuttleTubeManager(){
     return;
   }
   const costPanel=tube=>{
-    const used=currentSessionShuttleUsage(tube),players=shuttleParticipantCount(),share=shuttleShareCost(tube.price,used,players);
+    const {used,cost}=currentSessionShuttleTotals(),players=shuttleParticipantCount(),share=players?cost/players:0;
     return `<div class="shuttle-cost-panel"><div><span>球桶價格 / 顆數</span><strong>${formatMoney(tube.price)} 元 / 12 顆</strong></div><div><span>每顆單價</span><strong>${formatMoney(shuttleUnitPrice(tube.price))} 元</strong></div><div><span>該場次已使用</span><strong>${used} 顆</strong></div><div><span>實際出賽人數</span><strong>${players} 人</strong><small>完成比賽即計入，退席後不扣除；購球者若參與也計入</small></div><div class="shuttle-share-total"><span>該場次每人分攤</span><strong>${players?`${formatMoney(share)} 元`:'等待完成比賽'}</strong></div></div>`;
   };
   const activeMarkup=active?`<article class="shuttle-tube-current">

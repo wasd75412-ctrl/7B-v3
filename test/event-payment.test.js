@@ -56,6 +56,21 @@ test('伺服器依當日出賽紀錄計算金額，並包含提早退席的球�
   assert.equal(sessionFeeNoticeFromRoom(room,'2026-10-01'),null);
 });
 
+test('當日中途換球桶時，舊桶已用的球仍計入繳費金額',()=>{
+  const room={
+    nextEvents:[{id:'e1',date:'2026-10-04',rentalTotal:1500}],
+    history:[
+      {dateKey:'2026-10-04',teamA1:'p1',teamA2:'p2',teamB1:'p3',teamB2:'p4'},
+      {dateKey:'2026-10-04',teamA1:'p5',teamA2:'p6',teamB1:'p7',teamB2:'p1'}
+    ],
+    shuttleTubes:[
+      {id:'new',name:'新桶',price:720,status:'active',createdAt:'2026-10-04T09:26:00.000Z',sessionUsageKey:'e1',sessionUsedShuttles:0},
+      {id:'old',name:'舊桶',price:720,status:'finished',createdAt:'2026-08-28T02:30:00.000Z',sessionUsageKey:'e1',sessionUsedShuttles:2}
+    ]
+  };
+  assert.equal(sessionFeeNoticeFromRoom(room,'2026-10-04').amount,232);
+});
+
 test('繳費通知只送給出賽球員，點開後回到可複製帳號與回報繳費的畫面',()=>{
   const records=[{playerId:'early'},{playerId:'absent'},{playerId:'p2'}];
   assert.deepEqual(sessionFeeSubscriptionTargets(records,['early','p2']),[records[0],records[2]]);

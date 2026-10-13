@@ -17,6 +17,13 @@ export function sessionShuttleUsage(tube,sessionKey=''){
   return key&&cleanText(tube?.sessionUsageKey,180)===key?clamp(tube?.sessionUsedShuttles||0,0,100):0;
 }
 
+export function sessionShuttleTotals(tubes=[],sessionKey=''){
+  return normalizeShuttleTubes(tubes).filter(tube=>tube.status!=='deleted').reduce((totals,tube)=>{
+    const used=sessionShuttleUsage(tube,sessionKey);
+    return{used:totals.used+used,cost:totals.cost+used*shuttleUnitPrice(tube.price)};
+  },{used:0,cost:0});
+}
+
 export function adjustSessionShuttleUsage(tube,remainingDelta=0,sessionKey=''){
   const normalized=normalizeShuttleTubes([tube])[0],delta=Math.round(Number(remainingDelta)||0);
   if(!normalized)return normalized;

@@ -8,6 +8,7 @@ import {
   finishShuttleTube,
   normalizeShuttleTubes,
   restoreShuttleTube,
+  sessionShuttleTotals,
   sessionShuttleUsage,
   setShuttlePaymentStatus,
   setShuttlePayment,
@@ -31,6 +32,17 @@ test('counts shuttle usage only for the current session key',()=>{
   assert.equal(sessionShuttleUsage(tube,'event-new'),0);
   assert.equal(sessionShuttleUsage(tube,'event-old'),2);
   assert.equal(sessionShuttleUsage({sessionUsedShuttles:2},'event-new'),0);
+});
+
+test('sums session usage across a finished tube and the newly activated tube',()=>{
+  const tubes=[
+    {id:'old',name:'舊桶',price:720,status:'finished',createdAt:'2026-10-01T00:00:00.000Z',sessionUsageKey:'event-today',sessionUsedShuttles:2},
+    {id:'new',name:'新桶',price:960,status:'active',createdAt:'2026-10-04T00:00:00.000Z',sessionUsageKey:'event-today',sessionUsedShuttles:1},
+    {id:'gone',name:'刪除桶',price:720,status:'deleted',createdAt:'2026-09-01T00:00:00.000Z',sessionUsageKey:'event-today',sessionUsedShuttles:5},
+    {id:'past',name:'過往桶',price:720,status:'finished',createdAt:'2026-08-01T00:00:00.000Z',sessionUsageKey:'event-old',sessionUsedShuttles:3}
+  ];
+  assert.deepEqual(sessionShuttleTotals(tubes,'event-today'),{used:3,cost:200});
+  assert.deepEqual(sessionShuttleTotals(tubes,'event-none'),{used:0,cost:0});
 });
 
 test('returns a used shuttle to zero usage and restores the inventory',()=>{
