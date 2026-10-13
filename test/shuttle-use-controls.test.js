@@ -61,8 +61,10 @@ test('tube manager keeps one finish action and offers saved tubes as one-tap pre
   assert.match(main,/data-finish-shuttle-tube="\$\{esc\(active\.id\)\}">結束此球桶<\/button>/);
   assert.doesNotMatch(main,/<span>每顆單價<\/span>|<span>球桶價格 \/ 顆數<\/span>/);
   assert.match(html,/class="shuttle-tube-create">\s*<div id="shuttlePresetList" class="shuttle-preset-box hidden"><\/div>/);
-  assert.match(main,/<details class="shuttle-preset-section" data-shuttle-section="presets"\$\{shuttleSectionOpen\('presets'\)\}><summary>常用（\$\{presets\.length\}）<\/summary>/);
-  assert.match(main,/<details class="shuttle-history-section" data-shuttle-section="history"\$\{shuttleSectionOpen\('history'\)\}><summary>過往球桶（\$\{finished\.length\}）<\/summary>/);
+  assert.match(main,/<details class="shuttle-preset-section"><summary>常用（\$\{presets\.length\}）<\/summary>/);
+  assert.match(main,/<details class="shuttle-history-section"><summary>過往球桶（\$\{finished\.length\}）<\/summary>/);
+  assert.match(main,/<details class="shuttle-deleted-section"><summary>已刪除球桶/);
+  assert.doesNotMatch(main,/openShuttleSections|shuttleSectionOpen/);
   assert.doesNotMatch(main,/<h3>過往球桶<\/h3>/);
   assert.match(main,/data-shuttle-preset="\$\{index\}"/);
   assert.match(main,/if\(isHost&&preset\)addPendingShuttleTube\(preset\.name,preset\.price\)/);
