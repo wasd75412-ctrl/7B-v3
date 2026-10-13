@@ -49,8 +49,9 @@ test('includes an official start in the timeline before that match ends',()=>{
   assert.equal(rows.length,2);
   assert.equal(youtubeTimelineText(rows,'2026-09-25T01:00:00.000Z',id=>({yoyo:'Yoyo',jie:'澐緁',yu:'建昱',xuan:'于萱'})[id]),'00:00:00  準備與熱身\n00:10:00  Game1 Yoyo／澐緁 11：8 建昱／于萱\n00:40:00  Game2 建昱／于萱 3：2 Yoyo');
   assert.equal(withLiveTimelineMatch(rows,live).length,2);
-  assert.deepEqual(withLiveTimelineMatch([],{startedAt:'2026-09-25T01:40:00.000Z',testMode:true}),[]);
+  assert.equal(withLiveTimelineMatch([],{startedAt:'2026-09-25T01:40:00.000Z',practice:true}).length,1);
   assert.deepEqual(withLiveTimelineDate([{dateKey:'2026-09-24',matches:[]}],{...live,dateKey:'2026-09-25'}).map(group=>group.dateKey),['2026-09-25','2026-09-24']);
+  assert.deepEqual(withLiveTimelineDate([{dateKey:'2026-09-24',matches:[]}],{...live,dateKey:'2026-09-25',practice:true}).map(group=>group.dateKey),['2026-09-24']);
 });
 
 test('lists one chapter when the same official start is loaded twice',()=>{
@@ -89,7 +90,7 @@ test('each record date can delete all of its matches after confirmation',()=>{
   assert.match(source,/all\('\[data-delete-history-date\]'\)\.forEach\(btn=>btn\.onclick=\(\)=>deleteHistoryDate\(btn\.dataset\.deleteHistoryDate\)\)/);
   const remove=source.match(/function deleteHistoryDate\(dateKey\)\{[\s\S]*?\n\}/)?.[0]||'';
   assert.match(remove,/if\(!isHost\)return;/);
-  assert.match(remove,/if\(!confirm\(`確定刪除 \$\{historyDateLabel\(dateKey\)\} 全部 \$\{rows\.length\} 筆戰績？`\)\)return;/);
+  assert.match(remove,/if\(!confirm\(`確定刪除 \$\{historyDateLabel\(dateKey\)\} 全部 \$\{rows\.filter\(row=>!row\.practice\)\.length\} 筆戰績？`\)\)return;/);
   assert.match(remove,/forgetArchivedMatches\(ids\)/);
   assert.match(remove,/state\.history=state\.history\.filter\(h=>!rows\.includes\(h\)\);renderAll\(\);saveHistoryDeletion\(\)/);
   assert.match(remove,/deleteArchivedMatches\(ids\)/);

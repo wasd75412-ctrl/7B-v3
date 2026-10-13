@@ -90,7 +90,7 @@ export function addFeats(...sources){
 export function playerFeats(rows=[],id,dayOf=row=>String(row?.dateKey||'')){
   const feats=emptyFeats(),days=new Map();
   for(const row of Array.isArray(rows)?rows:[]){
-    if(!row||row.testMode)continue;
+    if(!row||row.testMode||row.practice)continue;
     const team=[0,1].find(side=>(row.teams?.[side]||[]).includes(id));
     if(team===undefined)continue;
     const won=row.winner===team;

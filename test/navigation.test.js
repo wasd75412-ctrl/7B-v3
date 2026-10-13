@@ -321,70 +321,48 @@ test('places chat second and marks court as hidden for viewers',()=>{
   assert.match(nav,/class="tab viewer-hidden-tab" data-page="3">場上/);
 });
 
-test('removes the old score remote from More and provides a no-stats test mode',()=>{
+test('removes the old score remote and test mode and offers practice matches that skip stats',()=>{
   const moreMenu=html.match(/id="roomMoreMenu"[\s\S]*?<\/details>\s*<\/div>/)?.[0]||'';
   assert.doesNotMatch(moreMenu,/id="scoreRemoteBtn"/);
-  assert.doesNotMatch(moreMenu,/id="testModeToggle"/);
-  assert.match(html,/id="refreshAppMenu"[\s\S]*?id="testModeToggle"[\s\S]*?id="roomMoreBtn"/);
-  assert.doesNotMatch(html,/id="testModeBanner"/);
-  assert.match(html,/id="scoreTestModeToggle"/);
-  assert.doesNotMatch(mainSource,/confirm\(['"]開啟測試模式/);
-  assert.match(mainSource,/\$\('scoreTestModeToggle'\)\.onclick=toggleTestMode/);
+  for(const id of ['testModeToggle','scoreTestModeToggle','testQuickWin','testWinA','testWinB','testModeBanner'])assert.doesNotMatch(html,new RegExp(`id="${id}"`));
+  assert.doesNotMatch(mainSource,/testModeRevision|currentTestModeEnabled|toggleTestMode|finishTestMatch|randomTestLineup|testCompleted/);
+  assert.doesNotMatch(styles,/test-mode-on|\.test-quick-win|test-record/);
   assert.match(styles,/immersive-mode \.score-head \.score-actions>button:not\(#fullscreenScore\):not\(#officialStartScore\):not\(#undo\):not\(#syncSessionScore\)/);
-  assert.doesNotMatch(styles,/button:not\(#fullscreenScore\):not\(#undo\):not\(#scoreTestModeToggle\)/);
-  assert.match(mainSource,/const isTestMatch=!!m\.testMode\|\|!!state\.testMode/);
-  assert.match(mainSource,/if\(isTestMatch\)\{[\s\S]*?m\.testCompleted=true/);
-  assert.match(mainSource,/else\{\s*state\.history\.push/);
-  assert.match(mainSource,/\.filter\(h=>!h\.testMode\)/);
-  assert.match(mainSource,/renderAll\(\);\s*if\(isHost&&!isTestMatch\)bumpLineupRevision\(\);\s*if\(isHost\)saveLiveScoreSoon\(\)/);
-  assert.match(mainSource,/function scoredHistory\(\)\{return state\.history\.filter\(h=>!h\.testMode\)\}/);
-  assert.match(mainSource,/state\.match\.testMode=enabling;\s*saveLiveScoreSoon\(\)/);
-  assert.match(mainSource,/state\.match\?\.winner===null&&!!state\.match\?\.testMode/);
-  assert.match(mainSource,/function currentTestModeEnabled\(\)\{[\s\S]*?!!state\.testMode\|\|!!state\.match\?\.active/);
-  assert.match(mainSource,/const enabling=!currentTestModeEnabled\(\)/);
-  assert.match(mainSource,/function selectablePlayerIds\(\)\{return currentTestModeEnabled\(\)\?state\.roster\.map\(p=>p\.id\):state\.attendance\}/);
-  assert.match(mainSource,/function randomTestLineup\(\)\{return shuffle\(state\.roster\.map\(player=>player\.id\)\)\.slice\(0,matchPlayerCount\(state\.matchFormat\)\)\}/);
-  assert.match(mainSource,/if\(enabling&&!\(state\.match\.active&&state\.match\.winner===null\)\)\{[\s\S]*?state\.court=randomTestLineup\(\)[\s\S]*?state\.waitingQueue=\[\][\s\S]*?renderAll\(\);page\(3\)/);
+  assert.match(html,/id="startPracticeMatch"[^>]*>練習賽<\/button><button id="startMatch" class="btn primary">開始比賽<\/button>/);
+  assert.match(html,/id="startNextPractice"[^>]*>練習賽<\/button><button id="startNext" class="btn primary">下一場<\/button>/);
+  assert.match(html,/id="practiceBadge" class="practice-badge hidden">練習賽<\/span>/);
+  assert.match(mainSource,/\$\('startMatch'\)\.onclick=\(\)=>startMatch\(\);\$\('startPracticeMatch'\)\.onclick=\(\)=>startMatch\(\{practice:true\}\)/);
+  assert.match(mainSource,/\$\('startNext'\)\.onclick=\(\)=>startNext\(\);\$\('startNextPractice'\)\.onclick=\(\)=>startNext\(\{practice:true\}\)/);
+  assert.match(mainSource,/startNext\(\{practice:!!state\.match\.practice\}\);return true/);
+  assert.match(mainSource,/function scoredHistory\(\)\{return state\.history\.filter\(h=>!h\.practice\)\}/);
+  assert.match(mainSource,/\}\)\.filter\(h=>!h\.testMode\):\[\]/);
+  assert.match(mainSource,/practice:!!m\.practice\|\|!!m\.testMode/);
+  assert.match(mainSource,/serveRuns:longestServeRuns\(\{format,players:m\.players,rallies:m\.rallies\}\),\.\.\.\(m\.practice\?\{practice:true\}:\{\}\)\}\)/);
+  assert.match(mainSource,/renderAll\(\);\s*if\(isHost\)bumpLineupRevision\(\);\s*if\(isHost\)saveLiveScoreSoon\(\);\s*if\(firstCompletion\)\{archiveUnsyncedHistory\(\)/);
+  assert.match(mainSource,/function selectablePlayerIds\(\)\{return state\.attendance\}/);
   assert.match(mainSource,/function options\(selected=''\).*selectablePlayerIds\(\)\.map/);
-  assert.match(mainSource,/function reconcileWaitingQueue\(excludeIds=currentCourtIds\(\)\)\{\s*if\(currentTestModeEnabled\(\)\)\{state\.waitingQueue=\[\]/);
-  assert.match(mainSource,/function renderWaiting\(\)\{if\(currentTestModeEnabled\(\)\)\{[\s\S]*?\$\('waiting'\)\.innerHTML='';return\}/);
   assert.match(mainSource,/attendance:selectablePlayerIds\(\)/);
   assert.match(mainSource,/shuffle\(selectablePlayerIds\(\)\)\.slice\(0,needed\)/);
-  assert.match(mainSource,/button\.textContent='🧪 測試模式'/);
-  assert.doesNotMatch(styles,/@keyframes test-mode-glow/);
-  assert.match(styles,/#app #testModeToggle\.test-mode-on,\.score-head #scoreTestModeToggle\.test-mode-on\{[^}]*background:#ffd400!important;color:#171100!important/);
+  assert.match(mainSource,/if\(!winners\.every\(id=>vals\.includes\(id\)\)\)return alert/);
+  assert.match(mainSource,/const recent = recordedGames\.slice\(-3\)\.reverse\(\)/);
+  assert.match(mainSource,/function officialHistoryGroups\(\)\{[\s\S]*?filter\(\(\{match\}\)=>!match\.practice\)/);
+  assert.match(mainSource,/if\(!match\?\.active\|\|!match\.startedAt\|\|match\.practice\)return null/);
   assert.match(mainSource,/SCORE_REMOTE_DOUBLE_PRESS_MS=500/);
-  assert.match(mainSource,/testModeRevision:Math\.max\(0,Number\(src\.testModeRevision\)\|\|0\)/);
-  assert.match(mainSource,/if\(Number\(next\.testModeRevision\)<Number\(state\.testModeRevision\)\)\{next\.testMode=state\.testMode;next\.testModeRevision=state\.testModeRevision\}/);
-  assert.match(mainSource,/state\.testModeRevision=Math\.max\(Date\.now\(\),Number\(state\.testModeRevision\|\|0\)\+1\)/);
   assert.match(mainSource,/scoreRemoteStartPressAt=0;markMatchOfficialStarted\(new Date\(\)\.toISOString\(\)\);return/);
   assert.match(mainSource,/function handleRemoteFullscreenCommand[\s\S]*?return markMatchOfficialStarted\(data\.fullscreenCommand\.clientCreatedAt\|\|data\.fullscreenCommand\.createdAt\)/);
-  assert.match(mainSource,/if\(isTestMatch\)\{[\s\S]*?lineup=randomTestLineup\(\)/);
-  assert.match(mainSource,/if\(!currentTestModeEnabled\(\)&&!winners\.every/);
-  assert.match(html,/id="testQuickWin" class="test-quick-win hidden host-only"/);
-  assert.match(html,/id="testWinA"[^>]*>A隊獲勝<\/button>/);
-  assert.match(html,/id="testWinB"[^>]*>B隊獲勝<\/button>/);
-  assert.match(mainSource,/function finishTestMatch\(team\)/);
-  assert.match(mainSource,/currentMatchIsTest=testModeOn\(state\)&&!!state\.match\?\.active&&state\.match\?\.winner===null&&!!state\.match\?\.testMode/);
-  assert.match(mainSource,/\$\('testQuickWin'\)\?\.classList\.toggle\('hidden',!currentMatchIsTest\|\|!isHost\|\|state\.match\.winner!==null\)/);
-  assert.match(mainSource,/function finishTestMatch\(team\)\{[\s\S]*?!state\.testMode\|\|!m\.active\|\|m\.winner!==null\|\|!m\.testMode\)return;/);
-  assert.match(mainSource,/if\(!enabling\)return disableTestMode\(\);/);
-  assert.match(mainSource,/function disableTestMode\(\{manual=true\}=\{\}\)\{[\s\S]*?state\.match=\{\.\.\.initialState\(\)\.match,syncEpoch:nextMatchEpoch\(previousMatch\),testMode:false,scorerDevice:previousMatch\.scorerDevice\|\|''\}[\s\S]*?const needed=matchPlayerCount\(state\.matchFormat\);[\s\S]*?state\.court=attending\.slice\(0,needed\)[\s\S]*?if\(manual\)page\(3\);checkpointNewMatch\(\);\s*\}/);
-  assert.match(styles,/\.test-quick-win\{position:fixed;z-index:120/);
-  assert.doesNotMatch(styles,/immersive-mode \.test-quick-win\{display:none\}/);
 });
 
 test('keeps only the requested controls in normal score mode',()=>{
   const scoreActions=html.match(/<div class="score-actions">([\s\S]*?)<\/div>\s*<\/header>/)?.[1]||'';
-  for(const id of ['randomThemeToggle','fullscreenScore','refreshApp','scoreTestModeToggle','syncSessionScore','undo','exitScore'])assert.match(scoreActions,new RegExp(`id="${id}"`));
+  for(const id of ['randomThemeToggle','fullscreenScore','refreshApp','syncSessionScore','undo','exitScore'])assert.match(scoreActions,new RegExp(`id="${id}"`));
   assert.match(scoreActions,/id="scoreTheme"/);
   for(const id of ['voiceToggle','speakerTest','scoreRemoteQuickBtn','audioHelp'])assert.doesNotMatch(scoreActions,new RegExp(`id="${id}"`));
 });
 
 test('enters fullscreen whenever a match starts',()=>{
-  const startMatchSource=mainSource.match(/function startMatch\(\)\{[\s\S]*?\nfunction finishMatch/)?.[0]||'';
-  const startNextSource=mainSource.match(/function startNext\(\)\{[\s\S]*?\n\}/)?.[0]||'';
-  assert.match(startMatchSource,/renderTestMode\(\);void enterScoreFullscreen\(\)/);
+  const startMatchSource=mainSource.match(/function startMatch\(\{practice=false\}=\{\}\)\{[\s\S]*?\nfunction finishMatch/)?.[0]||'';
+  const startNextSource=mainSource.match(/function startNext\(\{practice=false\}=\{\}\)\{[\s\S]*?\n\}/)?.[0]||'';
+  assert.match(startMatchSource,/renderDashboard\(\);void enterScoreFullscreen\(\)/);
   assert.match(startNextSource,/renderAll\(\);void enterScoreFullscreen\(\)/);
   assert.match(mainSource,/async function enterScoreFullscreen\(\)\{[\s\S]*?requestFullscreen/);
   assert.match(mainSource,/if\(enter\)\{try\{await enter\.call\(fullscreenScoreView\)/);
@@ -426,7 +404,7 @@ test('offers ending today session at the bottom right of the finished match page
 
 test('lays out finished-match primary actions below teams and returns close to court',()=>{
   assert.match(html,/class="result-tools"><button id="shuffleNext"[\s\S]*?id="resultReturnShuttle"[\s\S]*?id="resultUseShuttle"[\s\S]*?id="closeResult"/);
-  assert.match(html,/class="next-grid"[\s\S]*?class="result-main-actions host-only"><button id="undoFinishedMatch"[^>]*>撤銷上一分<\/button><button id="startNext"[^>]*>下一場<\/button>/);
+  assert.match(html,/class="next-grid"[\s\S]*?class="result-main-actions host-only"><button id="undoFinishedMatch"[^>]*>撤銷上一分<\/button><button id="startNextPractice"[^>]*>練習賽<\/button><button id="startNext"[^>]*>下一場<\/button>/);
   assert.match(styles,/#resultModal \.result-main-actions \.btn\{[^}]*min-height:72px[^}]*font-size:1\.3rem/);
   assert.match(styles,/#resultModal \.result-tools \.btn\{[^}]*min-width:58px[^}]*min-height:54px/);
   assert.match(mainSource,/\$\('closeResult'\)\.onclick=async\(\)=>\{[\s\S]*?scoreViewRequested=false;[\s\S]*?await exitScoreFullscreen\(\);[\s\S]*?renderScore\(\);[\s\S]*?page\(3\)/);
@@ -459,9 +437,9 @@ test('separates fixed members and guest players while shuttle costs use complete
 });
 
 test('shows refresh without a visible favorite control and keeps low-frequency actions collapsed',()=>{
-  const favoriteIndex=html.indexOf('id="favoriteRoomBtn"'),refreshIndex=html.indexOf('id="refreshAppMenu"'),testModeIndex=html.indexOf('id="testModeToggle"'),moreButtonIndex=html.indexOf('id="roomMoreBtn"'),moreIndex=html.indexOf('id="roomMoreMenu"'),advancedIndex=html.indexOf('id="roomMoreAdvanced"',moreIndex);
+  const favoriteIndex=html.indexOf('id="favoriteRoomBtn"'),refreshIndex=html.indexOf('id="refreshAppMenu"'),moreButtonIndex=html.indexOf('id="roomMoreBtn"'),moreIndex=html.indexOf('id="roomMoreMenu"'),advancedIndex=html.indexOf('id="roomMoreAdvanced"',moreIndex);
   const primary=html.match(/<div class="room-more-primary">([\s\S]*?)<\/div>\s*<\/div>/)?.[1]||'';
-  assert.ok(favoriteIndex>=0&&refreshIndex>favoriteIndex&&testModeIndex>refreshIndex&&moreButtonIndex>testModeIndex&&moreIndex>moreButtonIndex&&advancedIndex>moreIndex);
+  assert.ok(favoriteIndex>=0&&refreshIndex>favoriteIndex&&moreButtonIndex>refreshIndex&&moreIndex>moreButtonIndex&&advancedIndex>moreIndex);
   assert.match(html,/id="favoriteRoomBtn" class="btn hidden"[^>]*aria-hidden="true"/);
   assert.match(html,/id="refreshAppMenu"[^>]*>↻ 重新整理<\/button>/);
   assert.doesNotMatch(primary,/id="refreshAppMenu"/);
@@ -470,10 +448,9 @@ test('shows refresh without a visible favorite control and keeps low-frequency a
   const otherSettings=html.match(/<details id="roomMoreAdvanced"[\s\S]*?<\/details>/)?.[0]||'';
   assert.doesNotMatch(html,/id="roomSettings"/);
   assert.match(primary,/id="shuttleTubeManagerBtn"/);
-  assert.doesNotMatch(primary,/id="testModeToggle"/);
   assert.match(otherSettings,/<summary>⚙️ 其他設定<\/summary>/);
   assert.match(otherSettings,/id="leaveBtn"/);
-  assert.doesNotMatch(otherSettings,/id="shuttleTubeManagerBtn"|id="testModeToggle"/);
+  assert.doesNotMatch(otherSettings,/id="shuttleTubeManagerBtn"/);
   assert.doesNotMatch(primary,/id="leaveBtn"/);
 });
 

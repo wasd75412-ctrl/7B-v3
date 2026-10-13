@@ -62,7 +62,7 @@ function harness(liveMatch=current,overrides={}){
     enforceLegacyActiveShuttleTube:value=>value??[],
     renderAll:()=>calls.render++,renderScore:()=>calls.render++,renderDashboard:()=>calls.render++,
     renderAndroidRemote:()=>calls.render++,announceSyncedScore:()=>{},syncLocalLinkOwner:()=>{},
-    checkAchievementUnlocks:()=>{},scheduleIdleTestModeCheck:()=>{},normalizeServeRuns:value=>value??{},
+    checkAchievementUnlocks:()=>{},normalizeServeRuns:value=>value??{},
     finishMatch:()=>calls.finish++,saveLiveScoreSoon:()=>calls.publish++,saveSoon:()=>calls.publish++,persistMatchJournal:()=>{},
     setDoc:()=>{calls.publish++;return Promise.resolve()},
     serverTimestamp:()=>({serverTimestamp:true}),updateSyncBadge:()=>{},
@@ -302,6 +302,7 @@ test('a newer finished match renders its own result and lineup without replaying
   const {context,calls}=harness(current,{$:element,lastRoomSnapshotData:roomState(previous),
     options:id=>id,updatePriority:()=>{},updateUseShuttleButtons:()=>{},projectedQueueForLineup:()=>[],queueLabel:()=>'',pname:id=>id});
   vm.runInContext(productionFunction('renderFinishedMatchResult'),context);
+  vm.runInContext(productionFunction('winnerTitleText'),context);
   context.applyLiveScoreState(createLiveScoreData({...future,winner:1,scores:[8,11],players:[['w','x'],['y','z']]}));
   context.renderFinishedMatchResult();
   assert.equal(element('winnerTitle').textContent,'B隊獲勝');

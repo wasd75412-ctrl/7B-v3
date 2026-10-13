@@ -122,9 +122,10 @@ test('舊版月結資料沒有成就欄位時視為零',()=>{
   assert.deepEqual(ledgerFeats(decodeStatsLedger(encoded),'p1'),emptyFeats());
 });
 
-test('測試比賽不會被結算',()=>{
+test('練習賽與舊測試比賽不會被結算',()=>{
   const ledger=settleMatches(emptyStatsLedger(),[
-    {matchId:'t',dateKey:'2026-01-02',format:'doubles',teams:[['p1','p2'],['p3','p4']],winner:0,testMode:true}
+    {matchId:'t',dateKey:'2026-01-02',format:'doubles',teams:[['p1','p2'],['p3','p4']],winner:0,testMode:true},
+    {matchId:'p',dateKey:'2026-01-02',format:'doubles',teams:[['p1','p2'],['p3','p4']],winner:0,practice:true}
   ],'2026-02',monthOf);
   assert.equal(ledgerTotalGames(ledger),0);
   assert.equal(ledgerHasPlayer(ledger,'p1'),false);

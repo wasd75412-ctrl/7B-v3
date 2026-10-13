@@ -67,5 +67,5 @@ test('scoring device journals every score change and restores it before listenin
   assert.match(source,/async function saveNewMatchCheckpointNow\(\)\{\n[^\n]*\n\s*persistMatchJournal\(\);/);
   const connect=source.slice(source.indexOf('async function connectRoom'));
   assert.ok(connect.indexOf('restoreJournaledMatch();')>0&&connect.indexOf('restoreJournaledMatch();')<connect.indexOf('unsubscribe=resilientSnapshot(roomRef'));
-  assert.match(source,/function startMatch\(\)\{if\(matchInProgress\(state\.match\)&&!confirm\(/);
+  assert.match(source,/function startMatch\(\{practice=false\}=\{\}\)\{if\(matchInProgress\(state\.match\)&&!confirm\(/);
 });
