@@ -164,10 +164,20 @@ final class RecordingUploadStore {
         if (changed) write(context, entries);
     }
 
+    // A merged video reuses the id of its first piece, so the file must match too.
+    static boolean sameRecording(Entry a, Entry b) {
+        return a.id.equals(b.id) && a.uri.equals(b.uri);
+    }
+
+    static synchronized boolean contains(Context context, Entry target) {
+        for (Entry entry : read(context)) if (sameRecording(entry, target)) return true;
+        return false;
+    }
+
     static synchronized void save(Context context, Entry updated) {
         List<Entry> entries = read(context);
         for (int i = 0; i < entries.size(); i++) {
-            if (entries.get(i).id.equals(updated.id)) {
+            if (sameRecording(entries.get(i), updated)) {
                 entries.set(i, updated);
                 write(context, entries);
                 return;

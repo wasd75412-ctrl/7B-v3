@@ -24,3 +24,8 @@ test('merged videos staged by adb join the upload queue without extra screens',(
   assert.match(store,/if \(supersededBy\(entries\.get\(i\), startMs, endMs\)\) entries\.remove\(i\);/);
   assert.match(store,/entry\.status != Status\.UPLOADED/);
 });
+
+test('a piece still uploading cannot overwrite the merged video that replaced it',()=>{
+  assert.match(store,/return a\.id\.equals\(b\.id\) && a\.uri\.equals\(b\.uri\);/);
+  assert.match(store,/if \(sameRecording\(entries\.get\(i\), updated\)\) \{/);
+});
