@@ -800,7 +800,11 @@ public final class LoopCameraActivity extends ComponentActivity {
             finish();
             return;
         }
-        boolean success = !finalized.hasError() && savedUri != null && !android.net.Uri.EMPTY.equals(savedUri);
+        if (finalized.hasError()) {
+            ErrorLog.record(this, "recording", "錄影結束代碼 " + finalized.getError(), finalized.getCause());
+        }
+        boolean success = savedUri != null && !android.net.Uri.EMPTY.equals(savedUri)
+                && FinishedRecording.keepsFootage(finalized.hasError(), finalized.getError());
         long fileStartedAt = broadcastFileStartedAt;
         long fileEndedAt = System.currentTimeMillis();
         if (success) queueSavedRecording(savedUri, fileStartedAt, fileEndedAt, filePauses);

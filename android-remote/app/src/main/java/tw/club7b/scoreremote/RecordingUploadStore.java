@@ -13,6 +13,7 @@ import org.json.JSONObject;
 final class RecordingUploadStore {
     static final long MIN_DURATION_MS = 30_000L;
     static final long TIMELINE_REFRESH_MS = 36L * 60L * 60L * 1000L;
+    static final long MERGE_SLACK_MS = 60_000L;
     private static final String PREFS = "youtube_uploads";
     private static final String KEY_ENTRIES = "entries";
     private static final String KEY_PLAYLIST_ID = "playlistId";
@@ -84,9 +85,41 @@ final class RecordingUploadStore {
     private RecordingUploadStore() { }
 
     static synchronized boolean add(Context context, Uri uri, String roomId, long startMs, long endMs, List<long[]> pauses) {
-        if (uri == null || startMs <= 0L
-                || RecordingTimeline.videoMillis(endMs, startMs, pauses) < MIN_DURATION_MS) return false;
+        Entry entry = newEntry(uri, roomId, startMs, endMs, pauses);
+        if (entry == null) return false;
         List<Entry> entries = read(context);
+        entries.add(0, entry);
+        while (entries.size() > MAX_ENTRIES) entries.remove(entries.size() - 1);
+        write(context, entries);
+        return true;
+    }
+
+    /** A merged video takes the place of the queued pieces it was joined from. */
+    static synchronized boolean addMerged(Context context, Uri uri, String roomId, long startMs, long endMs, List<long[]> pauses) {
+        Entry entry = newEntry(uri, roomId, startMs, endMs, pauses);
+        if (entry == null) return false;
+        List<Entry> entries = read(context);
+        for (int i = entries.size() - 1; i >= 0; i--) {
+            if (supersededBy(entries.get(i), startMs, endMs)) entries.remove(i);
+        }
+        int index = 0;
+        while (index < entries.size() && entries.get(index).startMs > startMs) index++;
+        entries.add(index, entry);
+        while (entries.size() > MAX_ENTRIES) entries.remove(entries.size() - 1);
+        write(context, entries);
+        return true;
+    }
+
+    // Uploaded pieces stay: their YouTube copies already exist and deleting the entry would orphan them.
+    static boolean supersededBy(Entry entry, long startMs, long endMs) {
+        return entry.status != Status.UPLOADED
+                && entry.startMs >= startMs - MERGE_SLACK_MS
+                && entry.endMs <= endMs + MERGE_SLACK_MS;
+    }
+
+    private static Entry newEntry(Uri uri, String roomId, long startMs, long endMs, List<long[]> pauses) {
+        if (uri == null || startMs <= 0L
+                || RecordingTimeline.videoMillis(endMs, startMs, pauses) < MIN_DURATION_MS) return null;
         Entry entry = new Entry();
         entry.id = String.valueOf(startMs);
         entry.uri = uri.toString();
@@ -94,10 +127,7 @@ final class RecordingUploadStore {
         entry.startMs = startMs;
         entry.endMs = endMs;
         if (pauses != null) entry.pauses = new ArrayList<>(pauses);
-        entries.add(0, entry);
-        while (entries.size() > MAX_ENTRIES) entries.remove(entries.size() - 1);
-        write(context, entries);
-        return true;
+        return entry;
     }
 
     static synchronized List<Entry> all(Context context) {

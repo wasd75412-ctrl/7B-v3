@@ -39,10 +39,12 @@ import { POLL_UNAVAILABLE, prunePollHistoryRows } from './poll-history.js';
 import { decodeStatsLedger, emptyStatsLedger, encodeStatsLedger, isSettledMonth, ledgerFeats, ledgerMonthGames, ledgerMonthRecord, ledgerPlayerRecord, ledgerRelations, ledgerStreak, ledgerTotalGames, newerStatsLedger, settleMatches, unsettledRows } from './stats-ledger.js';
 import { APP_UPDATE_ATTEMPT_KEY, APP_UPDATE_CHECK_MS, APP_UPDATE_RETRY_MS, canReloadForUpdate, shouldAdoptVersion } from './app-update.js';
 import { ERROR_LOG_KEY, ERROR_LOG_UPLOAD_GAP_MS, canUploadErrorLog, describeLoggedArgs, emptyErrorLog, errorLogPayload, markErrorLogUploaded, matchInPlay, normalizeErrorLog, reachedDailyUploads, recordErrorEntry } from './error-log.js';
+import { FIRESTORE_RECOVERY_DELAY_MS, FIRESTORE_RECOVERY_KEY, isFatalFirestoreError, nextFirestoreRecovery, readFirestoreRecovery } from './firestore-recovery.js';
 
 const firebaseConfig={apiKey:'AIzaSyBrakbTPK7UqEChPBI6pM8-i03IcLq0IvM',authDomain:'badminton-7a1c3.firebaseapp.com',projectId:'badminton-7a1c3',storageBucket:'badminton-7a1c3.firebasestorage.app',messagingSenderId:'883534015507',appId:'1:883534015507:web:a7f6fb318151b6d07563e6',measurementId:'G-C97B98H7YW'};
 const fbApp=initializeApp(firebaseConfig);
-const db=initializeFirestore(fbApp,{localCache:new URLSearchParams(location.search).get('androidRemote')==='1'?memoryLocalCache():persistentLocalCache({tabManager:persistentMultipleTabManager()})});
+const firestoreRecovery=readFirestoreRecovery(globalThis.sessionStorage);
+const db=initializeFirestore(fbApp,{localCache:new URLSearchParams(location.search).get('androidRemote')==='1'||firestoreRecovery.memory?memoryLocalCache():persistentLocalCache({tabManager:persistentMultipleTabManager()})});
 const wait=ms=>new Promise(resolve=>setTimeout(resolve,ms));
 const BCM_VERSION=appPackage.version;
 let errorLog=readErrorLog(),errorLogSaveTimer=null,errorLogUploadTimer=null;
@@ -53,6 +55,18 @@ function persistErrorLogSoon(){
 }
 function noteClientError(kind,message,source=''){
   try{errorLog=recordErrorEntry(errorLog,{kind,message,source});persistErrorLogSoon();scheduleErrorLogUpload()}catch{}
+  if(isFatalFirestoreError(message))recoverFromFatalFirestore();
+}
+let firestoreRecoveryStarted=false;
+function recoverFromFatalFirestore(){
+  if(firestoreRecoveryStarted)return;firestoreRecoveryStarted=true;
+  try{persistMatchJournal();if(isHost&&roomId)rememberFailedArchives(state.history.filter(row=>row?.matchId&&!archivedHistory.some(item=>item.matchId===row.matchId)))}catch{}
+  try{localStorage.setItem(ERROR_LOG_KEY,JSON.stringify(errorLog))}catch{}
+  const next=nextFirestoreRecovery(firestoreRecovery,Date.now());
+  if(!next){try{setSync('同步中斷，請重新整理','error')}catch{}return}
+  try{sessionStorage.setItem(FIRESTORE_RECOVERY_KEY,JSON.stringify(next))}catch{}
+  try{setSync('重新連線中','error')}catch{}
+  setTimeout(()=>location.reload(),FIRESTORE_RECOVERY_DELAY_MS);
 }
 function scheduleErrorLogUpload(delay=ERROR_LOG_UPLOAD_GAP_MS){
   if(errorLogUploadTimer||!errorLog.dirty||reachedDailyUploads(errorLog,localDateKey()))return;
