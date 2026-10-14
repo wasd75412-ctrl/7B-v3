@@ -71,6 +71,7 @@ public final class RecordingsActivity extends ComponentActivity {
         renderWifi();
         renderList(true);
         handler.postDelayed(refresh, REFRESH_MS);
+        RecordingImports.run(this, () -> handler.post(() -> renderList(true)));
     }
 
     @Override protected void onPause() {
