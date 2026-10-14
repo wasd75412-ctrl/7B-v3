@@ -36,7 +36,7 @@ test('uploads on unmetered Wi-Fi and skips a personal hotspot',()=>{
   assert.match(worker,/if \(LoopCameraActivity\.isRecordingSessionOpen\(\)\) \{[\s\S]*?錄影結束後上傳/);
   assert.match(worker,/return !isStopped\(\) && !LoopCameraActivity\.isRecordingSessionOpen\(\) && HomeWifi\.isConnected\(context\);/);
   assert.match(worker,/if \(!mayUpload\(context\)\) break;\s*upload\(entry, auth\);/);
-  assert.match(worker,/public boolean keepGoing\(\) \{\s*return mayUpload\(context\);/);
+  assert.match(worker,/public boolean keepGoing\(\) \{\s*return mayUpload\(context\) && RecordingUploadStore\.contains\(context, entry\);/);
   assert.match(scheduler,/NetworkType\.UNMETERED/);
   assert.match(scheduler,/addTransportType\(NetworkCapabilities\.TRANSPORT_WIFI\)/);
   assert.match(scheduler,/NET_CAPABILITY_NOT_METERED/);

@@ -38,4 +38,18 @@ public final class MergedRecordingTest {
         assertFalse(RecordingUploadStore.supersededBy(entry(start - 600_000L, start + 200_000L, RecordingUploadStore.Status.WAITING), start, end));
         assertFalse(RecordingUploadStore.supersededBy(entry(end - 60_000L, end + 600_000L, RecordingUploadStore.Status.WAITING), start, end));
     }
+
+    @Test public void anUploadingPieceCannotOverwriteTheMergedVideo() {
+        RecordingUploadStore.Entry piece = entry(1_000_000L, 2_000_000L, RecordingUploadStore.Status.UPLOADING);
+        piece.id = "1000000";
+        piece.uri = "content://media/external/video/media/1";
+        RecordingUploadStore.Entry merged = entry(1_000_000L, 9_000_000L, RecordingUploadStore.Status.WAITING);
+        merged.id = "1000000";
+        merged.uri = "content://media/external/video/media/2";
+        RecordingUploadStore.Entry stored = entry(1_000_000L, 2_000_000L, RecordingUploadStore.Status.WAITING);
+        stored.id = piece.id;
+        stored.uri = piece.uri;
+        assertFalse(RecordingUploadStore.sameRecording(merged, piece));
+        assertTrue(RecordingUploadStore.sameRecording(stored, piece));
+    }
 }

@@ -93,7 +93,7 @@ public final class YouTubeUploadWorker extends Worker {
                     String videoId = withToken(auth, token -> YouTubeUploader.upload(entry.sessionUrl, token, channel, length,
                             new YouTubeUploader.Progress() {
                                 @Override public boolean keepGoing() {
-                                    return mayUpload(context);
+                                    return mayUpload(context) && RecordingUploadStore.contains(context, entry);
                                 }
 
                                 @Override public void onProgress(long sent, long total) {
