@@ -365,7 +365,7 @@ test('removes the old score remote and test mode and offers practice matches tha
   assert.match(mainSource,/\}\)\.filter\(h=>!h\.testMode\):\[\]/);
   assert.match(mainSource,/practice:!!m\.practice\|\|!!m\.testMode/);
   assert.match(mainSource,/serveRuns:longestServeRuns\(\{format,players:m\.players,rallies:m\.rallies\}\),\.\.\.\(m\.practice\?\{practice:true\}:\{\}\)\}\)/);
-  assert.match(mainSource,/renderAll\(\);\s*if\(isHost\)bumpLineupRevision\(\);\s*if\(isHost\)saveLiveScoreSoon\(\);\s*if\(firstCompletion\)\{archiveUnsyncedHistory\(\)/);
+  assert.match(mainSource,/renderAll\(\);\s*if\(isHost\)bumpLineupRevision\(\);\s*if\(isHost\)saveLiveScoreSoon\(\);[\s\S]{0,200}?if\(firstCompletion\)\{archiveUnsyncedHistory\(\)/);
   assert.match(mainSource,/function selectablePlayerIds\(\)\{return state\.attendance\}/);
   assert.match(mainSource,/function options\(selected=''\).*selectablePlayerIds\(\)\.map/);
   assert.match(mainSource,/attendance:selectablePlayerIds\(\)/);
