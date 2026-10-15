@@ -54,5 +54,5 @@ test('admin tabs claim scoring when they join, get promoted, log in or come to t
   assert.match(main,/applyRole\(\);\s*broadcastScorerTab\(\);\s*renderAndroidRemote\(\);\s*updatePushNotificationButton\(\);/);
   assert.match(main,/applyRole\(\);\s*broadcastScorerTab\(\);\s*renderAndroidRemote\(\);\s*if\(navigator\.onLine\)/);
   assert.match(main,/applyRole\(\);broadcastScorerTab\(\);renderAll\(\);alert\('已切換為管理員模式。'\)/);
-  assert.match(main,/visibilitychange',\(\)=>\{if\(document\.visibilityState==='visible'\)broadcastScorerTab\(\)\}/);
+  assert.match(main,/visibilitychange',\(\)=>\{if\(document\.visibilityState!=='visible'\)return;broadcastScorerTab\(\);if\(takeOverOwnBrowserScoring\(\)\)syncLocalLinkOwner\(\)\}/);
 });
