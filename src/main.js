@@ -2986,9 +2986,14 @@ function renderFinishedMatchResult(){
   $('finalScore').textContent=`${m.scores[0]}：${m.scores[1]}`;
   updateUseShuttleButtons();
 }
+const COURT_FLIP_KEY='bcmScoreCourtFlipV1';
+function courtFlipped(){try{return localStorage.getItem(COURT_FLIP_KEY)==='1'}catch{return false}}
+function toggleCourtFlip(){try{localStorage.setItem(COURT_FLIP_KEY,courtFlipped()?'0':'1')}catch{}renderScore()}
 function renderScore(){
-  const m=state.match;
+  const m=state.match,flipped=courtFlipped();
   renderPracticeMatch();
+  $('scoreView').classList.toggle('court-flipped',flipped);
+  $('courtFlipToggle')?.setAttribute('aria-pressed',flipped?'true':'false');
   $('scoreView').classList.toggle('singles-match',normalizeMatchFormat(m.format)===MATCH_FORMAT_SINGLES);
   $('scoreView').dataset.scoreFont=normalizeScoreFont(m.scoreFont);
   const scoreAEl=$('scoreA'),scoreBEl=$('scoreB');
@@ -3018,7 +3023,8 @@ function renderScore(){
     const serverSide=m.scores[t]%2===0?1:0;
     const singles=normalizeMatchFormat(m.format)===MATCH_FORMAT_SINGLES;
     const serverIndex=singles?0:(positions[serverSide]??0);
-    const displaySides=singles?[0]:(t===0?[0,1]:[1,0]);
+    // Seen from the opposite sideline each team's left and right players also trade top and bottom.
+    const displaySides=singles?[0]:(t===0)!==flipped?[0,1]:[1,0];
     box.innerHTML=displaySides.map(sideIndex=>{
       const i=singles?0:(positions[sideIndex]??sideIndex);
       const id=ids[i];
@@ -4052,6 +4058,7 @@ refreshAppButtons.forEach(button=>button.onclick=()=>{refreshAppButtons.forEach(
 const fullscreenScoreBtn=$('fullscreenScore'),fullscreenScoreView=$('scoreView');
 const officialStartScoreBtn=$('officialStartScore');
 officialStartScoreBtn.onclick=()=>markMatchOfficialStarted();
+$('courtFlipToggle').onclick=toggleCourtFlip;
 const SCORE_THEME_KEY='bcmScoreThemeV1';
 const SCORE_RANDOM_THEME_KEY='bcmRandomScoreThemeV1';
 const SCORE_THEMES=new Set(['suisei-2023-09','suisei-2024-07','suisei-2026-01','gbc-grass','pudding-pattern','pudding-hug','pudding-collection','sanrio-party','three-eyed-pattern','vspo-hbl','blue-stage','the-star','vspo','vspo-snut','happy-panda','pudding-puppy','bow-kitty','girls-band','girls-band-fashion','jujutsu']);
