@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {shouldAcceptRemoteCommand,timestampMillis} from '../src/remote-command.js';
+import {readFileSync} from 'node:fs';
+import {isQueuedRepeatPress,shouldAcceptRemoteCommand,timestampMillis} from '../src/remote-command.js';
 
 const now=Date.parse('2026-09-05T12:00:00.000Z');
 const currentMatch={matchId:'current-match',startedAt:new Date(now-10_000).toISOString()};
@@ -82,4 +83,46 @@ test('rejects missing or malformed timestamps instead of treating them as fresh'
   assert.equal(accept({command:{...command,clientCreatedAt:null}}),false);
   assert.equal(accept({now:NaN}),false);
   assert.equal(accept({currentMatch:{startedAt:'unknown'}}),true);
+});
+
+// Replays the stall seen in one match: one team pressed five times about a second apart while the
+// network was stuck, then every press landed in the same instant.
+function replay(presses){
+  const trail={},applied=[];
+  for(const press of presses){
+    if(press.action==='undo'){for(const key of Object.keys(trail))delete trail[key];applied.push('undo');continue}
+    const repeat=isQueuedRepeatPress({...press,previous:trail[press.action]});
+    trail[press.action]=press;
+    if(!repeat)applied.push(press.action);
+  }
+  return applied;
+}
+
+test('presses stuck behind a network stall count once per team',()=>{
+  const landed=52_500;
+  const stalled=[41_700,43_700,44_700,45_800,47_800].map((pressedAt,index)=>({action:'teamAPlus',pressedAt,arrivedAt:landed+index}));
+  assert.deepEqual(replay([...stalled.slice(0,3),{action:'teamBPlus',pressedAt:44_900,arrivedAt:landed+3},...stalled.slice(3)]),['teamAPlus','teamBPlus']);
+});
+
+test('presses that arrive as they are made always count',()=>{
+  const live=[0,2_000,4_000].map(pressedAt=>({action:'teamAPlus',pressedAt,arrivedAt:pressedAt+80}));
+  assert.deepEqual(replay(live),['teamAPlus','teamAPlus','teamAPlus']);
+  assert.deepEqual(replay([{action:'teamAPlus',pressedAt:0,arrivedAt:9_000},{action:'teamAPlus',pressedAt:12_000,arrivedAt:9_010}]),['teamAPlus','teamAPlus']);
+});
+
+test('an undo between queued presses keeps the correction',()=>{
+  assert.deepEqual(replay([
+    {action:'teamAPlus',pressedAt:0,arrivedAt:9_000},
+    {action:'undo'},
+    {action:'teamAPlus',pressedAt:1_500,arrivedAt:9_010},
+  ]),['teamAPlus','undo','teamAPlus']);
+  assert.equal(isQueuedRepeatPress({action:'undo',pressedAt:1,arrivedAt:1,previous:{action:'undo',pressedAt:0,arrivedAt:0}}),false);
+  assert.equal(isQueuedRepeatPress({action:'teamAPlus',pressedAt:NaN,arrivedAt:1,previous:{action:'teamAPlus',pressedAt:0,arrivedAt:0}}),false);
+});
+
+test('the host skips queued repeat presses before scoring them',()=>{
+  const main=readFileSync(new URL('../src/main.js',import.meta.url),'utf8');
+  assert.match(main,/if\(isOfficialStartScoreEcho\(action,command\)\)return true;\s*if\(skipQueuedRepeatPress\(action,command\)\)return true;\s*if\(performScoreRemoteAction\(action\)\)/);
+  assert.match(main,/if\(action==='undo'\)\{remotePressTrail\.presses=\{\};return false\}/);
+  assert.match(main,/arrivedAt:Date\.now\(\)/);
 });

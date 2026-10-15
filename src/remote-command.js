@@ -33,6 +33,18 @@ export function shouldAcceptRemoteCommand({command,currentMatch,now=Date.now(),i
   return !Object.hasOwn(command,'clientCreatedAt')||fresh(timestampMillis(command.clientCreatedAt));
 }
 
+export const QUEUED_REPEAT_PRESS_MS=3_000;
+export const QUEUED_REPEAT_ARRIVAL_MS=1_000;
+
+// Presses held back by a network stall land together. A same-team press made within a few seconds of
+// the previous one that also lands with it is a repeat of a press that only looked lost.
+export function isQueuedRepeatPress({action,pressedAt,arrivedAt,previous}={}){
+  if(!['teamAPlus','teamBPlus'].includes(action)||previous?.action!==action)return false;
+  if(![pressedAt,arrivedAt,previous.pressedAt,previous.arrivedAt].every(Number.isFinite))return false;
+  const pressGap=pressedAt-previous.pressedAt,arrivalGap=arrivedAt-previous.arrivedAt;
+  return pressGap>=0&&pressGap<QUEUED_REPEAT_PRESS_MS&&arrivalGap>=0&&arrivalGap<QUEUED_REPEAT_ARRIVAL_MS;
+}
+
 export const STALE_MATCH_PRESS_GRACE_MS=8_000;
 
 // A phone that missed the match change still stamps the previous matchId; a press made well after
