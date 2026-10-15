@@ -200,6 +200,9 @@ public final class LoopCameraActivity extends ComponentActivity {
             action = cameraKeys.onKeyUp(keyCode, event.getEventTime());
         }
         if (action == VolumeKeyInterpreter.Action.USE_SHUTTLE) {
+            if (remoteScoreController == null) remoteScoreController = new BackgroundScoreController(this);
+            if (remoteScoreController.consumeCameraAsOfficialStart((success, message) -> handler.post(() ->
+                    Toast.makeText(LoopCameraActivity.this, message, Toast.LENGTH_SHORT).show()))) return;
             CameraButtonGesture.shared().onShortPress(event.getEventTime(), recordingCameraCallbacks);
         } else if (action == VolumeKeyInterpreter.Action.RETURN_SHUTTLE) {
             CameraButtonGesture.shared().onLongPress(event.getEventTime(), recordingCameraCallbacks);

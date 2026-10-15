@@ -116,12 +116,13 @@ test('YUNTENG remote support is removed and camera-key shuttle controls remain',
   assert.match(cameraButton,/DOUBLE_PRESS_MS = 500L/);
   assert.match(cameraButton,/callbacks\.useShuttle\(\)[\s\S]*?callbacks\.undo\(\)/);
   assert.match(cameraButton,/callbacks\.returnShuttle\(\)/);
-  assert.match(activity,/KEYCODE_CAMERA && action == VolumeKeyInterpreter\.Action\.USE_SHUTTLE[\s\S]*?onShortPress\(eventTime, cameraButtonCallbacks\)/);
+  assert.match(controller,/synchronized boolean consumeCameraAsOfficialStart\(FullscreenCallback callback\)/);
+  assert.match(activity,/KEYCODE_CAMERA && action == VolumeKeyInterpreter\.Action\.USE_SHUTTLE[\s\S]*?consumeCameraAsOfficialStart[\s\S]*?onShortPress\(eventTime, cameraButtonCallbacks\)/);
   assert.match(activity,/KEYCODE_CAMERA && action == VolumeKeyInterpreter\.Action\.RETURN_SHUTTLE[\s\S]*?onLongPress\(eventTime, cameraButtonCallbacks\)/);
   assert.match(activity,/void undo\(\) \{ sendRemoteAction\(VolumeKeyInterpreter\.Action\.UNDO, SystemClock\.uptimeMillis\(\)\); \}[\s\S]*?void useShuttle\(\) \{ sendRemoteUseShuttleCommand\(\); \}[\s\S]*?void returnShuttle\(\) \{ sendRemoteReturnShuttleCommand\(\); \}/);
-  assert.match(service,/KEYCODE_CAMERA && action == VolumeKeyInterpreter\.Action\.USE_SHUTTLE[\s\S]*?onShortPress\(eventTime, cameraButtonCallbacks\)/);
+  assert.match(service,/KEYCODE_CAMERA && action == VolumeKeyInterpreter\.Action\.USE_SHUTTLE[\s\S]*?consumeCameraAsOfficialStart[\s\S]*?onShortPress\(eventTime, cameraButtonCallbacks\)/);
   assert.match(service,/void undo\(\) \{ sendBackgroundAction\(VolumeKeyInterpreter\.Action\.UNDO, SystemClock\.uptimeMillis\(\)\); \}[\s\S]*?void useShuttle\(\) \{ sendBackgroundUseShuttle\(\); \}[\s\S]*?void returnShuttle\(\) \{ sendBackgroundReturnShuttle\(\); \}/);
-  assert.match(cameraActivity,/CameraButtonGesture\.shared\(\)\.onShortPress\(event\.getEventTime\(\), recordingCameraCallbacks\)/);
+  assert.match(cameraActivity,/consumeCameraAsOfficialStart[\s\S]*?CameraButtonGesture\.shared\(\)\.onShortPress\(event\.getEventTime\(\), recordingCameraCallbacks\)/);
   assert.match(cameraActivity,/CameraButtonGesture\.shared\(\)\.onLongPress\(pressedAt \+ VolumeKeyInterpreter\.LONG_PRESS_MS, recordingCameraCallbacks\)/);
   assert.match(cameraActivity,/if \(keyCode == android\.view\.KeyEvent\.KEYCODE_CAMERA\) \{\s*handleRecordingCameraKey\(event\);/);
   assert.match(cameraActivity,/remoteScoreController\.submit\(action/);
