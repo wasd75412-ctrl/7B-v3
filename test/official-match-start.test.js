@@ -56,11 +56,12 @@ test('remote score commands before the official start only show the double-press
   assert.match(main,/function handleRemoteOfficialStartCommand[\s\S]*?const started=markMatchOfficialStarted[\s\S]*?if\(started&&ownsScoring\(state\.match,scoreDeviceId\)&&\$\('scoreView'\)\.classList\.contains\('hidden'\)&&\$\('resultModal'\)\.classList\.contains\('hidden'\)\)claimScoring\(\);/);
 });
 
-test('Android gates the official start with a double press before sending anything',()=>{
+test('Android starts officially on one camera press and still gates score-key double presses',()=>{
   const gate=readFileSync(new URL('../android-remote/app/src/main/java/tw/club7b/scoreremote/OfficialStartGate.java',import.meta.url),'utf8');
   assert.doesNotMatch(gate,/MIN_CONFIRM_GAP_MS/);
   assert.match(gate,/DOUBLE_PRESS_MS = 1000L/);
   assert.match(gate,/if \(gap <= DOUBLE_PRESS_MS\)/);
+  assert.match(controller,/synchronized boolean consumeCameraAsOfficialStart\(FullscreenCallback callback\)[\s\S]*?awaitingOfficialStart\(\)[\s\S]*?startOfficialMatch\(/);
   assert.match(controller,/officialStartGate\.onScorePress\(\s*awaitingOfficialStart\(\), now\)/);
   assert.match(controller,/submitDirect[\s\S]*?submitResolved\(action, callback, inputAt\)/);
   assert.match(controller,/START_ECHO_SUPPRESS_MS = 500L/);

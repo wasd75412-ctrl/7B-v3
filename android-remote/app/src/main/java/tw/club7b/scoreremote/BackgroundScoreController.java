@@ -161,6 +161,22 @@ final class BackgroundScoreController {
                 && !matchId.isEmpty() && !matchId.equals(startRequestedMatchId);
     }
 
+    // One camera press starts the match; shuttle/undo gestures only apply after it has started.
+    synchronized boolean consumeCameraAsOfficialStart(FullscreenCallback callback) {
+        RemoteSessionStore.Session session = RemoteSessionStore.getSession(context);
+        if (!session.isAuthorized()) return false;
+        ensureMatchListener(session);
+        if (!awaitingOfficialStart()) return false;
+        String requestedMatchId = matchId;
+        startRequestedMatchId = requestedMatchId;
+        suppressScoreUntil = SystemClock.uptimeMillis() + START_ECHO_SUPPRESS_MS;
+        startOfficialMatch((success, message) -> {
+            if (!success) clearStartRequest(requestedMatchId);
+            if (callback != null) callback.onComplete(success, success ? "比賽正式開始" : message);
+        });
+        return true;
+    }
+
     private synchronized void clearStartRequest(String requestedMatchId) {
         if (requestedMatchId.equals(startRequestedMatchId)) startRequestedMatchId = "";
     }

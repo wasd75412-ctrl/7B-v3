@@ -128,6 +128,16 @@ public final class RemoteKeyAccessibilityService extends AccessibilityService {
 
     private void handleResolvedBackgroundAction(VolumeKeyInterpreter.Action action, int keyCode, long eventTime) {
         if (keyCode == KeyEvent.KEYCODE_CAMERA && action == VolumeKeyInterpreter.Action.USE_SHUTTLE) {
+            try {
+                if (scoreController().consumeCameraAsOfficialStart((success, message) -> keyHandler.post(() -> {
+                    Toast.makeText(RemoteKeyAccessibilityService.this, message, Toast.LENGTH_SHORT).show();
+                    vibrate(success ? 70L : 28L);
+                }))) return;
+            } catch (RuntimeException error) {
+                Toast.makeText(this, "無法連接計分模式", Toast.LENGTH_SHORT).show();
+                vibrate(28L);
+                return;
+            }
             CameraButtonGesture.shared().onShortPress(eventTime, cameraButtonCallbacks);
             return;
         }

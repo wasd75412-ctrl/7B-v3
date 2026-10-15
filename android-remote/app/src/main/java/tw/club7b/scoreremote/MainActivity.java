@@ -321,6 +321,10 @@ public final class MainActivity extends Activity {
 
     private void handleResolvedRemoteAction(VolumeKeyInterpreter.Action action, int keyCode, long eventTime) {
         if (keyCode == KeyEvent.KEYCODE_CAMERA && action == VolumeKeyInterpreter.Action.USE_SHUTTLE) {
+            if (scoreController().consumeCameraAsOfficialStart((success, message) -> keyHandler.post(() -> {
+                Toast.makeText(MainActivity.this, message, Toast.LENGTH_SHORT).show();
+                vibrate(success ? 70L : 28L);
+            }))) return;
             CameraButtonGesture.shared().onShortPress(eventTime, cameraButtonCallbacks);
             return;
         }
