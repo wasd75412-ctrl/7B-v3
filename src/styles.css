@@ -4921,3 +4921,10 @@ body>#achievementModal .achievement-unlock-card{width:min(360px,100%);display:gr
 button.career-badge{font:inherit;font-weight:950;line-height:1.2;cursor:pointer;-webkit-tap-highlight-color:transparent;transition:transform .15s ease}
 button.career-badge:active{transform:scale(.95)}
 button.career-badge:focus-visible{outline:2px solid #ffd479;outline-offset:2px}
+
+/* Seen from the opposite sideline: the court is mirrored and only the readable parts turn back. */
+.score-view.court-flipped .scoreboard{scale:-1 1}
+.score-view.court-flipped .scoreboard :is(.score-number,.score-title,.avatar,.court-position,.court-player-name){scale:-1 1}
+.score-view.court-flipped .scoreboard .court-player-name{width:max-content;max-width:none}
+.score-view.court-flipped .score-side.a .score-title{width:fit-content;justify-self:start}
+.score-view.court-flipped .score-side.b .score-title{width:fit-content;justify-self:end}
