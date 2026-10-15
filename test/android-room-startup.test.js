@@ -11,7 +11,7 @@ test('Android remote remembers its room and loads authoritative server match sta
   assert.match(source,/else if\(!skipAutoOnce&&localStorage\.getItem\(ROOM_AUTO_KEY\)==='1'\)/);
   assert.match(source,/if\(lastId\)setTimeout\(\(\)=>openSavedRoom\(lastId\),180\)/);
   assert.match(source,/getDocFromServer\(ref\)/);
-  assert.match(source,/get\('androidRemote'\)==='1'\|\|firestoreRecovery\.memory\?memoryLocalCache\(\)/);
+  assert.match(source,/get\('androidRemote'\)==='1'\|\|firestoreRecovery\.memory\|\|usesWebKitStorage\(navigator\)\?memoryLocalCache\(\)/);
   assert.match(source,/if\(liveScoreSnapshotFromCache&&\(liveServerReady\|\|requestedAndroidRemote\)\)/);
 });
 

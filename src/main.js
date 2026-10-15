@@ -39,12 +39,13 @@ import { POLL_UNAVAILABLE, prunePollHistoryRows } from './poll-history.js';
 import { decodeStatsLedger, emptyStatsLedger, encodeStatsLedger, isSettledMonth, ledgerFeats, ledgerMonthGames, ledgerMonthRecord, ledgerPlayerRecord, ledgerRelations, ledgerStreak, ledgerTotalGames, newerStatsLedger, settleMatches, unsettledRows } from './stats-ledger.js';
 import { APP_UPDATE_ATTEMPT_KEY, APP_UPDATE_CHECK_MS, APP_UPDATE_RETRY_MS, canReloadForUpdate, shouldAdoptVersion } from './app-update.js';
 import { ERROR_LOG_KEY, ERROR_LOG_UPLOAD_GAP_MS, canUploadErrorLog, describeLoggedArgs, emptyErrorLog, errorLogPayload, markErrorLogUploaded, matchInPlay, normalizeErrorLog, reachedDailyUploads, recordErrorEntry } from './error-log.js';
-import { FIRESTORE_RECOVERY_DELAY_MS, FIRESTORE_RECOVERY_KEY, isFatalFirestoreError, nextFirestoreRecovery, readFirestoreRecovery } from './firestore-recovery.js';
+import { FIRESTORE_RECOVERY_DELAY_MS, FIRESTORE_RECOVERY_KEY, isFatalFirestoreError, nextFirestoreRecovery, readFirestoreRecovery, usesWebKitStorage } from './firestore-recovery.js';
+import { cloudMatchIsAhead, hostSnapshotEntry, hostSnapshotKey, hostSnapshotToRestore, readHostSnapshot } from './host-snapshot.js';
 
 const firebaseConfig={apiKey:'AIzaSyBrakbTPK7UqEChPBI6pM8-i03IcLq0IvM',authDomain:'badminton-7a1c3.firebaseapp.com',projectId:'badminton-7a1c3',storageBucket:'badminton-7a1c3.firebasestorage.app',messagingSenderId:'883534015507',appId:'1:883534015507:web:a7f6fb318151b6d07563e6',measurementId:'G-C97B98H7YW'};
 const fbApp=initializeApp(firebaseConfig);
 const firestoreRecovery=readFirestoreRecovery(globalThis.sessionStorage);
-const db=initializeFirestore(fbApp,{localCache:new URLSearchParams(location.search).get('androidRemote')==='1'||firestoreRecovery.memory?memoryLocalCache():persistentLocalCache({tabManager:persistentMultipleTabManager()})});
+const db=initializeFirestore(fbApp,{localCache:new URLSearchParams(location.search).get('androidRemote')==='1'||firestoreRecovery.memory||usesWebKitStorage(navigator)?memoryLocalCache():persistentLocalCache({tabManager:persistentMultipleTabManager()})});
 const wait=ms=>new Promise(resolve=>setTimeout(resolve,ms));
 const BCM_VERSION=appPackage.version;
 let errorLog=readErrorLog(),errorLogSaveTimer=null,errorLogUploadTimer=null;
@@ -60,7 +61,7 @@ function noteClientError(kind,message,source=''){
 let firestoreRecoveryStarted=false;
 function recoverFromFatalFirestore(){
   if(firestoreRecoveryStarted)return;firestoreRecoveryStarted=true;
-  try{persistMatchJournal();if(isHost&&roomId)rememberFailedArchives(state.history.filter(row=>row?.matchId&&!archivedHistory.some(item=>item.matchId===row.matchId)))}catch{}
+  try{persistMatchJournal();persistHostSnapshot();if(isHost&&roomId)rememberFailedArchives(state.history.filter(row=>row?.matchId&&!archivedHistory.some(item=>item.matchId===row.matchId)))}catch{}
   try{localStorage.setItem(ERROR_LOG_KEY,JSON.stringify(errorLog))}catch{}
   const next=nextFirestoreRecovery(firestoreRecovery,Date.now());
   if(!next){try{setSync('同步中斷，請重新整理','error')}catch{}return}
@@ -1953,14 +1954,17 @@ async function connectRoom(id){
       return getDoc(ref);
     };
     const [roomInitial,liveInitial]=await Promise.allSettled([readInitial(roomRef),readInitial(liveScoreRef)]);
-    if(roomInitial.status==='rejected')throw roomInitial.reason;
-    const snap=roomInitial.value;
-    let roomServerReady=!snap.metadata.fromCache;
+    const savedHost=readHostSnapshot(localStorage,id);
+    const offlineRoom=roomInitial.status==='rejected'||(!roomInitial.value.exists()&&roomInitial.value.metadata.fromCache)?hostSnapshotToRestore(savedHost,{cloudAt:null}):null;
+    if(!offlineRoom&&roomInitial.status==='rejected')throw roomInitial.reason;
+    const snap=offlineRoom?null:roomInitial.value;
+    let roomServerReady=!!snap&&!snap.metadata.fromCache;
     let liveServerReady=liveInitial.status==='fulfilled'&&!liveInitial.value.metadata.fromCache;
-    if(!snap.exists())throw Object.assign(new Error('找不到此房間'),{code:'not-found'});
-    roomSnapshotFromCache=!!snap.metadata?.fromCache;
-    snapshotHasPendingWrites=!!snap.metadata?.hasPendingWrites;
-    const data=snap.data();
+    if(snap&&!snap.exists())throw Object.assign(new Error('找不到此房間'),{code:'not-found'});
+    roomSnapshotFromCache=!snap||!!snap.metadata?.fromCache;
+    snapshotHasPendingWrites=!!snap?.metadata?.hasPendingWrites;
+    const data=offlineRoom||snap.data();
+    hostSnapshot=null;hostCloudAt=offlineRoom?Number(savedHost.cloudAt)||0:timestampMillis(data.updatedAt)||0;
     lastRoomSnapshotData=data;
     adminPinHash=data.adminPinHash||'';
     hostToken=resolveAdminSessionToken({
@@ -1973,11 +1977,15 @@ async function connectRoom(id){
     isHost=!!hostToken;
     if(isHost)localStorage.setItem(hostKey(id),hostToken);
     rememberRoom(id,isHost);
-    applyState(data);
+    const unsyncedHost=isHost&&!requestedAndroidRemote&&!offlineRoom?hostSnapshotToRestore(savedHost,{cloudAt:hostCloudAt}):null;
+    const restoredHost=!!(offlineRoom&&isHost&&!requestedAndroidRemote)||!!unsyncedHost;
+    applyState(unsyncedHost?{...data,...unsyncedHost}:data);
     if(liveInitial.status==='fulfilled'&&liveInitial.value.exists()){
-      applyLiveScoreState(liveInitial.value.data(),{announce:false});
+      const liveData=liveInitial.value.data();
+      if(!restoredHost||cloudMatchIsAhead(state.match,decodeLiveMatch(liveData,state.match)))applyLiveScoreState(liveData,{announce:false});
     }
     restoreJournaledMatch();
+    if(restoredHost){void saveNow().catch(()=>{});checkpointNewMatch()}
     $('landing').classList.add('hidden');
     $('app').classList.toggle('hidden',requestedAndroidRemote);
     $('roomCode').textContent=id;
@@ -2002,6 +2010,7 @@ async function connectRoom(id){
       if(!s.metadata.fromCache){roomServerReady=true;noteFirestoreServerActivity(false)}
       if(!s.metadata.fromCache&&!s.metadata.hasPendingWrites&&roomMatchFallbackTimer)flushRoomMatchFallback();
       lastRoomSnapshotData=s.data();
+      noteHostCloudSnapshot(s);
       roomSnapshotFromCache=!!s.metadata.fromCache;
       snapshotHasPendingWrites=!!s.metadata.hasPendingWrites;
       if((roomWriteScheduled||pendingRoomWrites>0)&&!snapshotHasPendingWrites){updateSyncBadge();return}
@@ -2503,6 +2512,7 @@ async function persistFullState(){
 }
 function saveSoon(delay=120){
   if(!isHost||applying||!roomRef)return;
+  persistHostSnapshot();
   if(shouldSkipFullRoomSync({mode:currentSyncMode(),matchActive:!!state.match?.active,matchOpen:state.match?.winner==null}))return;
   clearTimeout(saveTimer);
   roomWriteScheduled=true;
@@ -2511,7 +2521,9 @@ function saveSoon(delay=120){
     roomWriteScheduled=false;
     pendingRoomWrites++;
     updateSyncBadge();
+    const revision=hostSnapshotRevision;
     persistFullState().then(()=>{
+      markHostSnapshotSynced(revision);
       pendingRoomWrites=Math.max(0,pendingRoomWrites-1);
       updateSyncBadge();
     }).catch(e=>{
@@ -2524,6 +2536,23 @@ function saveSoon(delay=120){
 function persistMatchJournal(){
   if(requestedAndroidRemote||!isHost||!roomId)return;
   try{const entry=matchJournalEntry(state.match);if(entry)localStorage.setItem(matchJournalKey(roomId),JSON.stringify(entry));else localStorage.removeItem(matchJournalKey(roomId))}catch{}
+}
+let hostCloudAt=0,hostSnapshot=null,hostSnapshotRevision=0;
+function persistHostSnapshot(){
+  if(requestedAndroidRemote||!isHost||!roomId)return hostSnapshotRevision;
+  hostSnapshot=hostSnapshotEntry({state:roomEncodedState(),base:{adminPinHash,hostToken},cloudAt:hostCloudAt});
+  try{localStorage.setItem(hostSnapshotKey(roomId),JSON.stringify(hostSnapshot))}catch{}
+  return ++hostSnapshotRevision;
+}
+function markHostSnapshotSynced(revision){
+  if(!hostSnapshot||revision!==hostSnapshotRevision||!roomId)return;
+  hostSnapshot.dirty=false;
+  try{localStorage.setItem(hostSnapshotKey(roomId),JSON.stringify(hostSnapshot))}catch{}
+}
+function noteHostCloudSnapshot(snapshot){
+  if(snapshot?.metadata?.fromCache||snapshot?.metadata?.hasPendingWrites)return;
+  const at=timestampMillis(snapshot?.data?.()?.updatedAt);
+  if(at>hostCloudAt)hostCloudAt=at;
 }
 function restoreJournaledMatch(){
   if(requestedAndroidRemote||!isHost||!roomId)return false;
@@ -2569,7 +2598,7 @@ async function persistLiveScoreState(){
 }
 async function saveNewMatchCheckpointNow(){
   if(requestedAndroidRemote||!isHost||!roomRef||!liveScoreRef)return;
-  persistMatchJournal();
+  persistMatchJournal();const revision=persistHostSnapshot();
   clearTimeout(saveTimer);saveTimer=null;roomWriteScheduled=false;
   clearTimeout(liveScoreSaveTimer);liveScoreSaveTimer=null;liveScoreWriteScheduled=false;
   rememberLatestLiveMatch();liveScoreReady=true;
@@ -2580,6 +2609,7 @@ async function saveNewMatchCheckpointNow(){
   pendingLiveScoreWrites++;updateSyncBadge();
   try{
     await batch.commit();
+    markHostSnapshotSynced(revision);
     if(checkpointMissedOfficialStart(checkpoint.liveScore.match,state.match))await persistLiveScoreState();
   }
   catch(error){setSync('比分同步失敗','error');setError(formatError(error));throw error}
@@ -2633,10 +2663,12 @@ async function saveLiveScoreNow(){
 }
 async function saveNow(){
   if(!isHost||applying||!roomRef)throw new Error('只有管理員可以發布球局。');
+  const revision=persistHostSnapshot();
   clearTimeout(saveTimer);saveTimer=null;roomWriteScheduled=false;
   pendingRoomWrites++;updateSyncBadge();
   try{
     await persistFullState();
+    markHostSnapshotSynced(revision);
   }catch(error){
     setSync('同步失敗','error');setError(formatError(error));throw error;
   }finally{
@@ -2726,6 +2758,7 @@ function lineupPayload(){
 }
 async function persistLineupNow(){
   if(requestedAndroidRemote||!isHost||!roomRef)return;
+  const snapshotRevision=persistHostSnapshot();
   const revision=Number(state.lineupRevision)||0,payload=lineupPayload();
   pendingRoomWrites++;updateSyncBadge();
   try{
@@ -2735,6 +2768,7 @@ async function persistLineupNow(){
       if(remoteRevision>revision)return;
       tx.set(roomRef,payload,{merge:true});
     });
+    markHostSnapshotSynced(snapshotRevision);
   }catch(error){
     setSync('同步失敗','error');
     setError(formatError(error));
@@ -3172,6 +3206,8 @@ function finishMatch(){
   renderAll();
   if(isHost)bumpLineupRevision();
   if(isHost)saveLiveScoreSoon();
+  if(isHost&&firstCompletion&&roomId)rememberFailedArchives(state.history.filter(row=>row.matchId===m.matchId));
+  if(isHost)persistHostSnapshot();
   if(firstCompletion){archiveUnsyncedHistory();void syncFinishedMatchNow(m.matchId,{lineup:isHost})}
   else if(isHost)void persistLineupNow();
 }

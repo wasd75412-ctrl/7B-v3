@@ -8,6 +8,13 @@ export function isFatalFirestoreError(message){
   return /firestore/i.test(text)&&/INTERNAL (?:ASSERTION FAILED|UNHANDLED ERROR)/.test(text);
 }
 
+// Every iPadOS/iOS browser and desktop Safari run on WebKit, whose IndexedDB can break Firestore's disk cache mid-session.
+export function usesWebKitStorage({userAgent='',platform='',maxTouchPoints=0}={}){
+  if(/iPad|iPhone|iPod/.test(userAgent))return true;
+  if(platform==='MacIntel'&&Number(maxTouchPoints)>1)return true;
+  return /Version\/[\d.]+.*Safari\//.test(userAgent)&&!/Chrome|Chromium|CriOS|FxiOS|Edg|OPR|Android/.test(userAgent);
+}
+
 export function readFirestoreRecovery(storage){
   try{
     const value=JSON.parse(storage?.getItem(FIRESTORE_RECOVERY_KEY)||'null');
