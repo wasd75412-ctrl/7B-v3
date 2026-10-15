@@ -8,6 +8,12 @@ function versionParts(value){
   return parts.length===3&&parts.every(part=>/^\d+$/.test(part))?parts.map(Number):null;
 }
 
+// Integer key so Firestore rules can compare builds without parsing dotted versions.
+export function versionSortKey(version=''){
+  const parts=versionParts(version);
+  return parts?parts[0]*1_000_000+parts[1]*1_000+parts[2]:0;
+}
+
 export function isNewerVersion(deployed,current){
   const next=versionParts(deployed),now=versionParts(current);
   if(!next||!now)return false;

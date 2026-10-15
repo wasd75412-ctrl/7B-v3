@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { APP_UPDATE_IDLE_MS, canReloadForUpdate, isNewerVersion, shouldAdoptVersion } from '../src/app-update.js';
+import { APP_UPDATE_IDLE_MS, canReloadForUpdate, isNewerVersion, shouldAdoptVersion, versionSortKey } from '../src/app-update.js';
 
 const main=readFileSync(new URL('../src/main.js',import.meta.url),'utf8');
 const viteConfig=readFileSync(new URL('../vite.config.js',import.meta.url),'utf8');
@@ -15,6 +15,9 @@ test('only a strictly newer deployed version counts as an update',()=>{
   assert.equal(isNewerVersion('3.2.20','3.2.21'),false);
   assert.equal(isNewerVersion('','3.2.21'),false);
   assert.equal(isNewerVersion('3.2.x','3.2.21'),false);
+  assert.equal(versionSortKey('3.3.20'),3_003_020);
+  assert.ok(versionSortKey('3.3.10')>versionSortKey('3.3.9'));
+  assert.equal(versionSortKey('bad'),0);
 });
 
 test('a tab tries each deployed version once so a stale cache cannot loop reloads',()=>{

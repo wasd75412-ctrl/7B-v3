@@ -2,6 +2,53 @@ rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
+    function hasScorerGuard() {
+      return resource.data.keys().hasAll(['scorerGuard'])
+        && resource.data.scorerGuard.keys().hasAll(['browser', 'versionKey', 'device']);
+    }
+
+    function incomingGuardKey() {
+      return request.resource.data.keys().hasAll(['scorerGuard'])
+        && request.resource.data.scorerGuard.keys().hasAll(['versionKey'])
+        ? request.resource.data.scorerGuard.versionKey
+        : 0;
+    }
+
+    // A page left on an older build merges liveScore without scorerGuard, which would keep the
+    // guard fields but replace match.scorerDevice with the bare browser id. Reject that demotion.
+    function preservesScorerGuard() {
+      return !hasScorerGuard()
+        || incomingGuardKey() > resource.data.scorerGuard.versionKey
+        || (
+          incomingGuardKey() == resource.data.scorerGuard.versionKey
+          && request.resource.data.scorerGuard.browser == resource.data.scorerGuard.browser
+          && request.resource.data.scorerGuard.device == resource.data.scorerGuard.device
+          && request.resource.data.match.scorerDevice == resource.data.scorerGuard.device
+        )
+        || (
+          request.resource.data.keys().hasAll(['scorerGuard'])
+          && request.resource.data.scorerGuard.keys().hasAll(['browser'])
+          && request.resource.data.scorerGuard.browser != resource.data.scorerGuard.browser
+        );
+    }
+
+    // Older builds replace this doc without versionKey; once a guarded build has written, reject them.
+    function diagnosticsWriteOk() {
+      return !resource.exists
+        || !resource.data.keys().hasAll(['versionKey'])
+        || (
+          request.resource.data.keys().hasAll(['versionKey'])
+          && (
+            request.resource.data.versionKey > resource.data.versionKey
+            || (
+              request.resource.data.versionKey == resource.data.versionKey
+              && request.resource.data.device == resource.data.device
+            )
+            || request.resource.data.device != resource.data.device
+          )
+        );
+    }
+
     match /badmintonRooms/{roomId} {
       allow read, write: if true;
 
@@ -14,13 +61,16 @@ service cloud.firestore {
       }
 
       match /liveScore/{scoreId} {
-        allow read, write: if true;
+        allow read: if true;
+        allow create: if true;
+        allow update: if preservesScorerGuard();
+        allow delete: if true;
       }
 
       match /remoteControl/{controlId} {
-        allow read, write: if true;
+        allow read: if true;
+        allow write: if controlId != 'diagnostics' || diagnosticsWriteOk();
       }
-
     }
   }
 }

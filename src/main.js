@@ -38,7 +38,7 @@ import { groupHistoryDatesByMonth, groupMatchHistoryByDate, withLiveTimelineDate
 import { ROOM_HISTORY_KEEP, archiveCacheNeedsFullRefresh, archiveDocId, archiveSyncCursor, decodeArchivedMatch, mergeArchiveRows, readArchiveCache, writeArchiveCache, encodeArchivedMatch, mergeDeletedMatchIds, mergeMatchHistory, normalizeSyncMode, overflowHistory, readPendingArchives, recentHistory, shouldSkipFullRoomSync, writePendingArchives } from './match-archive.js';
 import { POLL_UNAVAILABLE, prunePollHistoryRows } from './poll-history.js';
 import { decodeStatsLedger, emptyStatsLedger, encodeStatsLedger, isSettledMonth, ledgerFeats, ledgerMonthGames, ledgerMonthRecord, ledgerPlayerRecord, ledgerRelations, ledgerStreak, ledgerTotalGames, newerStatsLedger, settleMatches, unsettledRows } from './stats-ledger.js';
-import { APP_UPDATE_ATTEMPT_KEY, APP_UPDATE_CHECK_MS, APP_UPDATE_RETRY_MS, canReloadForUpdate, shouldAdoptVersion } from './app-update.js';
+import { APP_UPDATE_ATTEMPT_KEY, APP_UPDATE_CHECK_MS, APP_UPDATE_RETRY_MS, canReloadForUpdate, shouldAdoptVersion, versionSortKey } from './app-update.js';
 import { ERROR_LOG_KEY, ERROR_LOG_UPLOAD_GAP_MS, canUploadErrorLog, describeLoggedArgs, emptyErrorLog, errorLogPayload, markErrorLogUploaded, matchInPlay, normalizeErrorLog, reachedDailyUploads, recordErrorEntry } from './error-log.js';
 import { FIRESTORE_RECOVERY_DELAY_MS, FIRESTORE_RECOVERY_KEY, isFatalFirestoreError, nextFirestoreRecovery, readFirestoreRecovery, usesWebKitStorage } from './firestore-recovery.js';
 import { cloudMatchIsAhead, hostSnapshotEntry, hostSnapshotKey, hostSnapshotToRestore, readHostSnapshot } from './host-snapshot.js';
@@ -2176,7 +2176,11 @@ function takeOverOwnBrowserScoring(){
 }
 function claimScoring(){
   scoreViewRequested=true;
-  if(isHost&&!requestedAndroidRemote&&state.match.active&&state.match.scorerDevice!==scoreDeviceId){state.match.scorerDevice=scoreDeviceId;saveLiveScoreSoon()}
+  // Never demote a newer page of this browser; old builds used !== and stole the owner id back.
+  if(isHost&&!requestedAndroidRemote&&state.match.active&&state.match.scorerDevice!==scoreDeviceId
+    &&(!state.match.scorerDevice||ownsScoring(state.match,scoreDeviceId)||shouldTakeOverOwnBrowserScoring(state.match,scoreDeviceId))){
+    state.match.scorerDevice=scoreDeviceId;saveLiveScoreSoon();
+  }
   syncLocalLinkOwner();
   renderScore();
 }
@@ -2306,10 +2310,10 @@ function scheduleRemoteDiagnosticsUpload(delay){
   if(remoteDiagnosticsTimer)return;
   remoteDiagnosticsTimer=setTimeout(()=>{
     remoteDiagnosticsTimer=null;
-    if(!remoteDiagnosticsDirty||!roomId||!isHost)return;
+    if(!remoteDiagnosticsDirty||!roomId||!isHost||!ownsScoring(state.match,scoreDeviceId))return;
     if(matchInPlay(state.match)||!navigator.onLine){scheduleRemoteDiagnosticsUpload(15000);return}
     remoteDiagnosticsDirty=false;
-    setDoc(doc(db,'badmintonRooms',roomId,'remoteControl','diagnostics'),{entries:remoteDiagnostics,device:browserDeviceId,version:BCM_VERSION,updatedAt:serverTimestamp()}).catch(()=>{});
+    setDoc(doc(db,'badmintonRooms',roomId,'remoteControl','diagnostics'),{entries:remoteDiagnostics,device:browserDeviceId,version:BCM_VERSION,versionKey:versionSortKey(BCM_VERSION),updatedAt:serverTimestamp()}).catch(()=>{});
   },delay);
 }
 function deleteRemoteScore(ref){
@@ -2513,7 +2517,13 @@ async function deleteArchivedMatches(matchIds){
     await batch.commit();
   }
 }
-function liveScorePayload(){return {...createLiveScoreData(state.match),updatedAt:serverTimestamp()}}
+function liveScorePayload(){
+  return{
+    ...createLiveScoreData(state.match),
+    scorerGuard:{browser:browserDeviceId,version:BCM_VERSION,versionKey:versionSortKey(BCM_VERSION),device:scoreDeviceId},
+    updatedAt:serverTimestamp()
+  };
+}
 function liveScoreFallbackPayload(){const encoded=encodeState(state);return{match:encoded.match,liveScoreEnabled:true,liveScoreMatchKey:liveMatchKey(state.match),updatedAt:serverTimestamp()}}
 function rememberLatestLiveMatch(){latestLiveMatch=structuredClone(state.match)}
 async function initializeLiveScoreDocument(){
@@ -2635,6 +2645,8 @@ async function persistLiveScoreState(){
     }
   }catch(error){
     if(state.match.matchId!==livePayload.match.matchId)return;
+    // A newer page of this browser locked scoring; do not fall back to the room doc and undo it.
+    if(error?.code==='permission-denied')return;
     liveScoreAvailable=false;
     console.warn('即時比分寫入失敗，改用相容比分同步',error);
     await setDoc(roomRef,fallbackPayload,{merge:true});
