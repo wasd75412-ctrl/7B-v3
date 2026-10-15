@@ -374,7 +374,7 @@ test('removes the old score remote and test mode and offers practice matches tha
   assert.match(mainSource,/const recent = recordedGames\.slice\(-3\)\.reverse\(\)/);
   assert.match(mainSource,/function officialHistoryGroups\(\)\{[\s\S]*?filter\(\(\{match\}\)=>!match\.practice\)/);
   assert.match(mainSource,/if\(!match\?\.active\|\|!match\.startedAt\|\|match\.practice\)return null/);
-  assert.match(mainSource,/SCORE_REMOTE_DOUBLE_PRESS_MS=500/);
+  assert.match(mainSource,/SCORE_REMOTE_DOUBLE_PRESS_MS=1000/);
   assert.match(mainSource,/scoreRemoteStartPressAt=0;markMatchOfficialStarted\(new Date\(\)\.toISOString\(\)\);return/);
   assert.match(mainSource,/function handleRemoteFullscreenCommand[\s\S]*?return markMatchOfficialStarted\(data\.fullscreenCommand\.clientCreatedAt\|\|data\.fullscreenCommand\.createdAt\)/);
 });
