@@ -1,7 +1,8 @@
 package tw.club7b.scoreremote;
 
 final class OfficialStartGate {
-    static final long DOUBLE_PRESS_MS = 500L;
+    // P4 score presses are swipes (~160 ms each), so the window is wider than a button double-tap.
+    static final long DOUBLE_PRESS_MS = 1000L;
 
     enum Decision {
         SCORE,

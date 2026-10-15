@@ -30,7 +30,7 @@ test('new score screens wait for the explicit official start timestamp',()=>{
 
 test('web score keys need a double press to start and never score while starting',()=>{
   const handler=main.match(/function handleScoreRemoteCode\(event,code\)\{[\s\S]*?\n\}/)?.[0]||'';
-  assert.match(main,/SCORE_REMOTE_DOUBLE_PRESS_MS=500/);
+  assert.match(main,/SCORE_REMOTE_DOUBLE_PRESS_MS=1000/);
   assert.doesNotMatch(main,/SCORE_REMOTE_DOUBLE_PRESS_MIN_MS/);
   assert.match(handler,/awaitingOfficialStart[\s\S]*?if\(scoreRemoteStartPressAt&&now-scoreRemoteStartPressAt<=SCORE_REMOTE_DOUBLE_PRESS_MS\)\{scoreRemoteStartPressAt=0;markMatchOfficialStarted\(new Date\(\)\.toISOString\(\)\);return\}\s*scoreRemoteStartPressAt=now;showScoreRemoteIndicator\('再按一下正式開始'/);
   assert.match(handler,/scoreRemoteStartPressAt=0;\s*if\(performScoreRemoteAction\(action\)\)/);
@@ -59,9 +59,10 @@ test('remote score commands before the official start only show the double-press
 test('Android gates the official start with a double press before sending anything',()=>{
   const gate=readFileSync(new URL('../android-remote/app/src/main/java/tw/club7b/scoreremote/OfficialStartGate.java',import.meta.url),'utf8');
   assert.doesNotMatch(gate,/MIN_CONFIRM_GAP_MS/);
-  assert.match(gate,/DOUBLE_PRESS_MS = 500L/);
+  assert.match(gate,/DOUBLE_PRESS_MS = 1000L/);
   assert.match(gate,/if \(gap <= DOUBLE_PRESS_MS\)/);
   assert.match(controller,/officialStartGate\.onScorePress\(\s*awaitingOfficialStart\(\), now\)/);
+  assert.match(controller,/submitDirect[\s\S]*?submitResolved\(action, callback, inputAt\)/);
   assert.match(controller,/START_ECHO_SUPPRESS_MS = 500L/);
   assert.match(controller,/if \(scoreAction && now < suppressScoreUntil\)/);
   assert.match(controller,/suppressScoreUntil = now \+ START_ECHO_SUPPRESS_MS/);

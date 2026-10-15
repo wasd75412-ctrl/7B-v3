@@ -39,6 +39,13 @@ public final class OfficialStartGateTest {
     }
 
     @Test
+    public void keepsASecondSwipeWithinOneSecond() {
+        OfficialStartGate gate = new OfficialStartGate();
+        assertEquals(OfficialStartGate.Decision.WAIT_FOR_SECOND_PRESS, gate.onScorePress(true, 1000L));
+        assertEquals(OfficialStartGate.Decision.OFFICIAL_START, gate.onScorePress(true, 1800L));
+    }
+
+    @Test
     public void scoresImmediatelyAfterTheOfficialStart() {
         OfficialStartGate gate = new OfficialStartGate();
         gate.onScorePress(true, 1000L);

@@ -98,12 +98,13 @@ final class BackgroundScoreController {
     }
 
     // inputAt is the key or touch event time on the uptime clock, so a busy main thread shows up as input lag.
+    // P4 swipes use this path; it still goes through the official-start gate so a double swipe can start the match.
     synchronized void submitDirect(VolumeKeyInterpreter.Action action, Callback callback, long inputAt) {
         if (action != VolumeKeyInterpreter.Action.TEAM_A_PLUS
                 && action != VolumeKeyInterpreter.Action.TEAM_B_PLUS
                 && action != VolumeKeyInterpreter.Action.UNDO) return;
         ensureMatchListener(RemoteSessionStore.getSession(context));
-        sendAction(new Request(action, callback, System.currentTimeMillis(), inputAt));
+        submitResolved(action, callback, inputAt);
     }
 
     synchronized void submit(VolumeKeyInterpreter.Action action, Callback callback) {
