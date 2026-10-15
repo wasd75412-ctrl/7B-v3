@@ -9,7 +9,7 @@ import { checkpointMissedOfficialStart, createLiveScoreData, createMatchCheckpoi
 import { journaledMatchToRestore, matchInProgress, matchJournalEntry, matchJournalKey } from './match-journal.js';
 import { startLocalLinkHost } from './local-link.js';
 import { MAIN_THREAD_TICK_MS, createMainThreadLagMonitor } from './main-thread-lag.js';
-import { REMOTE_COMMAND_MAX_AGE_MS, isStaleMatchPressForCurrentMatch, shouldAcceptRemoteCommand, timestampMillis } from './remote-command.js';
+import { REMOTE_COMMAND_MAX_AGE_MS, isQueuedRepeatPress, isStaleMatchPressForCurrentMatch, shouldAcceptRemoteCommand, timestampMillis } from './remote-command.js';
 import { canAutoSyncPlayerIdentity } from './device-sync.js';
 import { shouldRequestNativeWakeLock, wakeLockButtonIntent, wakeLockControlIsActive } from './wake-lock.js';
 import { FIRESTORE_LINK_COOLDOWN_MS, FIRESTORE_LINK_TIMEOUT_MS, firestoreLinkProbeVerdict, shouldProbeFirestoreLink } from './firestore-link.js';
@@ -146,7 +146,7 @@ const SYNC_MODE_KEY='bcmRoomSyncModeV1',SNAPSHOT_RETRY_BASE_MS=5000,SNAPSHOT_RET
 let roomMatchFallbackTimer=null,roomMatchFallbackKey='';
 let liveScoreSnapshotFromCache=false,liveScoreHasPendingWrites=false,pendingLiveScoreWrites=0,liveScoreWriteScheduled=false,liveScoreConnecting=false,liveScoreAvailable=true,liveScoreReady=false,liveScoreInitialSnapshot=true,remoteControlInitialSnapshot=true,remoteActionInitialSnapshot=true,liveScoreMigrationStarted=false,latestLiveMatch=null,lastRoomSnapshotData=null,lastRemoteRecordingStartCommandId='',lastRemoteFullscreenCommandId='',lastRemoteOfficialStartCommandId='',lastRemoteNextMatchCommandId='',lastRemoteUndoFinishedCommandId='',lastRemoteStartMatchCommandId='',lastRemoteActionCommandId='',seenRemoteActionIds=new Set(),androidOfficialStartPending=null,replacedRemoteMatchId='',replacedRemoteMatchAt=0;
 const RESULT_NEXT_MATCH_GUARD_MS=500;
-let resultShownAt=0,remoteFinishPressAt=0;
+let resultShownAt=0,remoteFinishPressAt=0,remotePressTrail={matchId:'',presses:{}};
 let localLinkHost=null,localLinkOpen=false,remoteDiagnostics=[],remoteDiagnosticsDirty=false,remoteDiagnosticsTimer=null,lastFirebaseOfficialStartId='';
 const REMOTE_SEEN_ACTION_PREFIX='bcmSeenRemoteActionsV1:',REMOTE_SEEN_ACTION_LIMIT=240;
 let firestoreLinkRecovering=false,firestoreLinkRecoverInFlight=false,firestoreLinkProbeInFlight=false,firestoreLinkLastProbeAt=0,firestoreLinkCooldownUntil=0,firestoreLinkProbeGeneration=0,firestoreLinkServerActivityAt=0,firestoreLinkPendingWritesSince=0;
@@ -2308,6 +2308,17 @@ function applyRemoteActionLog(data,{initial=false}={}){
   const fresh=log.filter(command=>command?.id&&!seenRemoteActionIds.has(String(command.id))).sort((a,b)=>(Number(a.clientCreatedAt)||0)-(Number(b.clientCreatedAt)||0));
   for(const command of fresh)handleRemoteActionCommand({remoteActionCommand:command},{initial:false,skipAge:true});
 }
+function skipQueuedRepeatPress(action,command){
+  const matchId=String(state.match?.matchId||'');
+  if(remotePressTrail.matchId!==matchId)remotePressTrail={matchId,presses:{}};
+  if(action==='undo'){remotePressTrail.presses={};return false}
+  if(!['teamAPlus','teamBPlus'].includes(action))return false;
+  const press={action,pressedAt:timestampMillis(command?.clientCreatedAt),arrivedAt:Date.now()};
+  const repeat=isQueuedRepeatPress({...press,previous:remotePressTrail.presses[action]});
+  remotePressTrail.presses[action]=press;
+  if(repeat)showScoreRemoteIndicator('已略過重複按鍵',{duration:1200,icon:'⏭️'});
+  return repeat;
+}
 function handleRemoteActionCommand(data,{initial=false,skipAge=false}={}){
   const command=data?.remoteActionCommand||{},id=String(command.id||''),action=String(command.action||'');
   if(!id||seenRemoteActionIds.has(id))return false;
@@ -2339,6 +2350,7 @@ function handleRemoteActionCommand(data,{initial=false,skipAge=false}={}){
   if(!state.match.active||state.match.winner!==null)return false;
   if(handleAndroidPreStartPress(action,command))return true;
   if(isOfficialStartScoreEcho(action,command))return true;
+  if(skipQueuedRepeatPress(action,command))return true;
   if(performScoreRemoteAction(action)){
     showScoreRemoteIndicator(SCORE_REMOTE_ACTION_LABELS[action]);
     if(state.match.winner!==null)remoteFinishPressAt=timestampMillis(command.clientCreatedAt)||0;

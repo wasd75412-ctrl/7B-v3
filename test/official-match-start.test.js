@@ -66,7 +66,7 @@ test('Android gates the official start with a double press before sending anythi
   assert.match(controller,/if \(scoreAction && now < suppressScoreUntil\)/);
   assert.match(controller,/suppressScoreUntil = now \+ START_ECHO_SUPPRESS_MS/);
   assert.match(main,/function isOfficialStartScoreEcho\(action,command\)\{[\s\S]*?OFFICIAL_START_ECHO_MS/);
-  assert.match(main,/if\(isOfficialStartScoreEcho\(action,command\)\)return true;\s*if\(performScoreRemoteAction\(action\)\)/);
+  assert.match(main,/if\(isOfficialStartScoreEcho\(action,command\)\)return true;\s*if\(skipQueuedRepeatPress\(action,command\)\)return true;\s*if\(performScoreRemoteAction\(action\)\)/);
   assert.match(controller,/WAIT_FOR_SECOND_PRESS\) \{\s*if \(callback != null\) callback\.onComplete\(true, "再按一下正式開始", action\);\s*return;/);
   assert.match(controller,/OFFICIAL_START\) \{[\s\S]*?startOfficialMatch\(/);
   assert.doesNotMatch(controller,/doublePress|OFFICIAL_START_DOUBLE_PRESS_MS/);
