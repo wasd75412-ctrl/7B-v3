@@ -134,6 +134,9 @@ test('the page in view takes over its browser scoring from every live score upda
   assert.match(main,/const scoreDeviceId=scorerIdFor\(browserDeviceId,BCM_VERSION\);/);
   assert.match(main,/state\.match=match;takeOverOwnBrowserScoring\(\);syncLocalLinkOwner\(\);/);
   assert.match(main,/function takeOverOwnBrowserScoring\(\)\{\s*if\(!isHost\|\|requestedAndroidRemote\|\|scorerTabSuperseded\|\|document\.visibilityState!=='visible'\|\|!shouldTakeOverOwnBrowserScoring\(state\.match,scoreDeviceId\)\)return false;\s*state\.match\.scorerDevice=scoreDeviceId;saveLiveScoreSoon\(\);/);
+  assert.match(main,/function claimScoring\(\)\{[\s\S]*?if\(isHost&&!requestedAndroidRemote&&state\.match\.active&&state\.match\.scorerDevice!==scoreDeviceId\s*&&\(!state\.match\.scorerDevice\|\|ownsScoring\(state\.match,scoreDeviceId\)\|\|shouldTakeOverOwnBrowserScoring\(state\.match,scoreDeviceId\)\)\)/);
+  assert.match(main,/scorerGuard:\{browser:browserDeviceId,version:BCM_VERSION,versionKey:versionSortKey\(BCM_VERSION\),device:scoreDeviceId\}/);
+  assert.match(main,/if\(error\?\.code==='permission-denied'\)return;/);
 });
 
 test('other admin devices ignore remote commands while another device is scoring',()=>{

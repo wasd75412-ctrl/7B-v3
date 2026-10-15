@@ -65,8 +65,9 @@ test('only the scoring device records when each command arrives on each path',()
   assert.match(log,/if\(requestedAndroidRemote\|\|!isHost\|\|!roomId\|\|!ownsScoring\(state\.match,scoreDeviceId\)\)return;/);
   assert.match(log,/remoteDiagnostics\.length>80/);
   const upload=main.match(/function scheduleRemoteDiagnosticsUpload\(delay\)\{[\s\S]*?\n\}/)?.[0]||'';
+  assert.match(upload,/if\(!remoteDiagnosticsDirty\|\|!roomId\|\|!isHost\|\|!ownsScoring\(state\.match,scoreDeviceId\)\)return;/);
   assert.match(upload,/if\(matchInPlay\(state\.match\)\|\|!navigator\.onLine\)\{scheduleRemoteDiagnosticsUpload\(15000\);return\}/);
-  assert.match(upload,/doc\(db,'badmintonRooms',roomId,'remoteControl','diagnostics'\),\{entries:remoteDiagnostics,device:browserDeviceId,/);
+  assert.match(upload,/doc\(db,'badmintonRooms',roomId,'remoteControl','diagnostics'\),\{entries:remoteDiagnostics,device:browserDeviceId,version:BCM_VERSION,versionKey:versionSortKey\(BCM_VERSION\)/);
 });
 
 test('Android sends each command over the link with the same id it writes to Firestore',()=>{
