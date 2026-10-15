@@ -66,7 +66,7 @@ test('only the scoring device records when each command arrives on each path',()
   assert.match(log,/remoteDiagnostics\.length>80/);
   const upload=main.match(/function scheduleRemoteDiagnosticsUpload\(delay\)\{[\s\S]*?\n\}/)?.[0]||'';
   assert.match(upload,/if\(matchInPlay\(state\.match\)\|\|!navigator\.onLine\)\{scheduleRemoteDiagnosticsUpload\(15000\);return\}/);
-  assert.match(upload,/doc\(db,'badmintonRooms',roomId,'remoteControl','diagnostics'\),\{entries:remoteDiagnostics,device:scoreDeviceId,/);
+  assert.match(upload,/doc\(db,'badmintonRooms',roomId,'remoteControl','diagnostics'\),\{entries:remoteDiagnostics,device:browserDeviceId,/);
 });
 
 test('Android sends each command over the link with the same id it writes to Firestore',()=>{

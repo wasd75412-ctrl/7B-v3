@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
-import {checkpointMissedOfficialStart,createLiveScoreData,decodeLiveMatch,encodeLiveMatch,generalRoomStateWithoutMatch,keepOfficialStart,liveMatchKey,ownsScoring,shouldAnnounceSyncedLiveScore,shouldApplyIncomingLiveMatch,shouldKeepLatestLiveMatch,shouldShowScoreView,LIVE_SCORE_SCHEMA_VERSION} from '../src/live-score.js';
+import {checkpointMissedOfficialStart,createLiveScoreData,decodeLiveMatch,encodeLiveMatch,generalRoomStateWithoutMatch,keepOfficialStart,liveMatchKey,ownsScoring,sameScorerBrowser,scorerIdFor,shouldAnnounceSyncedLiveScore,shouldTakeOverOwnBrowserScoring,shouldApplyIncomingLiveMatch,shouldKeepLatestLiveMatch,shouldShowScoreView,LIVE_SCORE_SCHEMA_VERSION} from '../src/live-score.js';
 
 test('encodes Firestore-safe live score without nested arrays',()=>{
   const data=createLiveScoreData({
@@ -110,6 +110,30 @@ test('remote input only drives the device that opened scoring',()=>{
   assert.equal(encoded.match.scorerDevice,'phone-a');
   assert.equal(decodeLiveMatch(encoded).scorerDevice,'phone-a');
   assert.equal(decodeLiveMatch({match:{active:true,matchId:'m1'}},{matchId:'m1',scorerDevice:'phone-a'}).scorerDevice,'phone-a');
+});
+
+test('the newest page of a browser takes scoring over from an older page of the same browser',()=>{
+  const own=scorerIdFor('ipad','3.3.18');
+  assert.equal(own,'ipad@3.3.18');
+  assert.equal(shouldTakeOverOwnBrowserScoring({scorerDevice:'ipad'},own),true);
+  assert.equal(shouldTakeOverOwnBrowserScoring({scorerDevice:'ipad@3.3.10'},own),true);
+  assert.equal(shouldTakeOverOwnBrowserScoring({scorerDevice:'ipad@3.4.0'},own),false);
+  assert.equal(shouldTakeOverOwnBrowserScoring({scorerDevice:own},own),false);
+  assert.equal(shouldTakeOverOwnBrowserScoring({scorerDevice:'phone@3.3.10'},own),false);
+  assert.equal(shouldTakeOverOwnBrowserScoring({scorerDevice:''},own),false);
+  assert.equal(ownsScoring({scorerDevice:own},'ipad'),false);
+  assert.equal(ownsScoring({scorerDevice:own},'ipad@3.3.17'),false);
+  assert.equal(sameScorerBrowser('ipad@3.3.17',own),true);
+  assert.equal(sameScorerBrowser('ipad',own),true);
+  assert.equal(sameScorerBrowser('phone@3.3.18',own),false);
+  assert.equal(sameScorerBrowser('',own),false);
+});
+
+test('the page in view takes over its browser scoring from every live score update',()=>{
+  const main=readFileSync(new URL('../src/main.js',import.meta.url),'utf8');
+  assert.match(main,/const scoreDeviceId=scorerIdFor\(browserDeviceId,BCM_VERSION\);/);
+  assert.match(main,/state\.match=match;takeOverOwnBrowserScoring\(\);syncLocalLinkOwner\(\);/);
+  assert.match(main,/function takeOverOwnBrowserScoring\(\)\{\s*if\(!isHost\|\|requestedAndroidRemote\|\|scorerTabSuperseded\|\|document\.visibilityState!=='visible'\|\|!shouldTakeOverOwnBrowserScoring\(state\.match,scoreDeviceId\)\)return false;\s*state\.match\.scorerDevice=scoreDeviceId;saveLiveScoreSoon\(\);/);
 });
 
 test('other admin devices ignore remote commands while another device is scoring',()=>{

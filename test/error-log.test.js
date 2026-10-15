@@ -77,6 +77,6 @@ test('the site records errors locally and uploads only from admin devices betwee
   assert.match(main,/function setError\(msg=''\)\{[^\n]*if\(msg\)noteClientError\('ui',msg\)\}/);
   const upload=main.match(/function uploadErrorLog\(\)\{[\s\S]*?\n\}/)?.[0]||'';
   assert.match(upload,/if\(!roomId\|\|!isHost\|\|!canUploadErrorLog\(errorLog,\{matchInProgress:matchInPlay\(state\.match\),online:navigator\.onLine,now,day\}\)\)\{scheduleErrorLogUpload\(\);return\}/);
-  assert.match(upload,/doc\(db,'badmintonRooms',roomId,'remoteControl',`errors-\$\{scoreDeviceId\}`\),\{platform:'web',device:scoreDeviceId,/);
+  assert.match(upload,/doc\(db,'badmintonRooms',roomId,'remoteControl',`errors-\$\{browserDeviceId\}`\),\{platform:'web',device:browserDeviceId,/);
   assert.doesNotMatch(upload,/onSnapshot/);
 });

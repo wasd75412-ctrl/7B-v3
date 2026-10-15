@@ -1,3 +1,5 @@
+import { isNewerVersion } from './app-update.js';
+
 export const LIVE_SCORE_SCHEMA_VERSION=1;
 
 const pair=(value,fallback)=>Array.isArray(value)?value.slice(0,2):[...fallback];
@@ -90,6 +92,28 @@ export function shouldShowScoreView({matchActive=false,isHost=false,androidRemot
 export function ownsScoring(match={},deviceId=''){
   const owner=String(match?.scorerDevice||'');
   return !owner||owner===String(deviceId||'');
+}
+
+// Pages of one browser share its device id, and a page left on the score view never reloads for an
+// update. Stamping the version lets the newest page take scoring over, so an old page stops owning it.
+export function scorerIdFor(browserId='',version=''){
+  return `${browserId}@${version}`;
+}
+
+function splitScorerId(scorerId=''){
+  const id=String(scorerId||''),at=id.lastIndexOf('@');
+  return at<0?{browser:id,version:''}:{browser:id.slice(0,at),version:id.slice(at+1)};
+}
+
+export function sameScorerBrowser(a='',b=''){
+  return Boolean(a&&b)&&splitScorerId(a).browser===splitScorerId(b).browser;
+}
+
+export function shouldTakeOverOwnBrowserScoring(match={},scorerId=''){
+  const owner=String(match?.scorerDevice||''),own=String(scorerId||'');
+  if(!owner||owner===own||!sameScorerBrowser(owner,own))return false;
+  const ownerVersion=splitScorerId(owner).version;
+  return !ownerVersion||isNewerVersion(splitScorerId(own).version,ownerVersion);
 }
 
 export function liveMatchKey(source={}){

@@ -6,7 +6,7 @@ import { shouldShowNotificationPrompt } from './notifications.js';
 import { normalizeMatchReplayTitle, normalizeYouTubePlaylistUrl } from './youtube.js';
 import { DEFAULT_SCORE_REMOTE_BINDINGS, VIRTUAL_REMOTE_CLICK_CODE, advanceRemotePressState, assignRemoteBinding, isEditableRemoteTarget, normalizeRemoteBindings, remoteActionForCode, remoteEventCode, shouldHandleRemoteInput } from './score-remote.js';
 import { SCORER_TAB_CHANNEL, SCORER_TAB_SUPERSEDED_KEY, claimSupersedes, scorerTabClaim } from './scorer-tab.js';
-import { checkpointMissedOfficialStart, createLiveScoreData, createMatchCheckpointData, decodeLiveMatch, generalRoomStateWithoutMatch, keepOfficialStart, liveMatchKey, nextMatchEpoch, ownsScoring, shouldApplyIncomingLiveMatch, shouldShowScoreView } from './live-score.js';
+import { checkpointMissedOfficialStart, createLiveScoreData, createMatchCheckpointData, decodeLiveMatch, generalRoomStateWithoutMatch, keepOfficialStart, liveMatchKey, nextMatchEpoch, ownsScoring, scorerIdFor, shouldApplyIncomingLiveMatch, shouldShowScoreView, shouldTakeOverOwnBrowserScoring } from './live-score.js';
 import { journaledMatchToRestore, matchInProgress, matchJournalEntry, matchJournalKey } from './match-journal.js';
 import { startLocalLinkHost } from './local-link.js';
 import { MAIN_THREAD_TICK_MS, createMainThreadLagMonitor } from './main-thread-lag.js';
@@ -80,7 +80,7 @@ function uploadErrorLog(){
   if(!roomId||!isHost||!canUploadErrorLog(errorLog,{matchInProgress:matchInPlay(state.match),online:navigator.onLine,now,day})){scheduleErrorLogUpload();return}
   const entries=errorLogPayload(errorLog);
   errorLog=markErrorLogUploaded(errorLog,now,day);persistErrorLogSoon();
-  setDoc(doc(db,'badmintonRooms',roomId,'remoteControl',`errors-${scoreDeviceId}`),{platform:'web',device:scoreDeviceId,version:BCM_VERSION,agent:navigator.userAgent.slice(0,120),entries,updatedAt:serverTimestamp()}).catch(()=>{});
+  setDoc(doc(db,'badmintonRooms',roomId,'remoteControl',`errors-${browserDeviceId}`),{platform:'web',device:browserDeviceId,version:BCM_VERSION,agent:navigator.userAgent.slice(0,120),entries,updatedAt:serverTimestamp()}).catch(()=>{});
 }
 for(const level of ['warn','error']){
   const original=console[level].bind(console);
@@ -140,7 +140,7 @@ function wholeAmount(value){const n=Number(value);return Number.isFinite(n)&&n>0
 function setAdminNotices(rows){state.adminNotices=normalizeAdminNotices({adminNotices:rows});state.adminNotice=state.adminNotices[0]||null}
 const initialState=()=>({version:9.8,matchFormat:'doubles',roster:[],retiredPlayers:[],adminPlayerIds:[],attendance:[],lineupRevision:0,court:[],waitingQueue:[],queueDraftChosen:[],priority:null,lastLoserReplayPlayerId:null,match:{active:false,format:'doubles',players:[[],[]],scores:[0,0],rallies:[],serving:0,positions:[[0,1],[0,1]],winner:null,startedAt:''},matchRollback:null,rules:{target:11,cap:15,deuce:true,genderGroupingEnabled:true},history:[],statsLedger:emptyStatsLedger(),deletedMatchIds:[],matchTimelineStarts:{},hiddenTimelineDates:[],matchReplayPlaylistTitle:'',matchReplayPlaylistUrl:'',nextCall:null,schedulePoll:{status:'open',createdAt:'',deadlineAt:'',autoCycle:'',options:[],votes:{},voterPlayers:{},manualParticipants:{}},pollHistory:[],nextEvent:null,nextEvents:[],adminNotice:null,adminNotices:[],shuttleTubes:[],shuttlePresets:[],shuttleLegacyActiveTubeId:'',shuttleNoTrackingTubeIds:[],updatedAt:null});
 const DEVICE_SYNC_CODE_KEY='bcmDeviceSyncCodeV1',DEVICE_SYNC_TOKEN_KEY='bcmDeviceSyncTokenV1',DEVICE_SYNC_NAME_KEY='bcmDeviceSyncNameV1',DEVICE_SYNC_PLAYER_KEY='bcmDeviceSyncPlayerV1';
-let state=initialState(), roomId='', roomRef=null, liveScoreRef=null, remoteControlRef=null, chatCollectionRef=null, isHost=false, hostToken='', adminPinHash='', unsubscribe=null, liveScoreUnsubscribe=null, remoteControlUnsubscribe=null, remoteActionUnsubscribe=null, chatUnsubscribe=null, applying=false, saveTimer=null, liveScoreSaveTimer=null, matchAutoBackupTimer=null, editId=null;const expandedPlayerNotes=new Set();let profileOriginal=null,profileDirty={name:false,gender:false,memberType:false,racket:false,racketTension:false,racketString:false,backupRacket:false,backupTension:false,backupString:false,note:false};let dismissedResultKey='';const selfToken=localStorage.getItem(DEVICE_SYNC_TOKEN_KEY)||localStorage.getItem('bdV73SelfToken')||randomToken();localStorage.setItem('bdV73SelfToken',selfToken);const SCORE_DEVICE_KEY='bcmScoreDeviceIdV1',scoreDeviceId=localStorage.getItem(SCORE_DEVICE_KEY)||randomToken();localStorage.setItem(SCORE_DEVICE_KEY,scoreDeviceId);let selfHash='',scoreViewRequested=false,expandedShuttleTubeId='';
+let state=initialState(), roomId='', roomRef=null, liveScoreRef=null, remoteControlRef=null, chatCollectionRef=null, isHost=false, hostToken='', adminPinHash='', unsubscribe=null, liveScoreUnsubscribe=null, remoteControlUnsubscribe=null, remoteActionUnsubscribe=null, chatUnsubscribe=null, applying=false, saveTimer=null, liveScoreSaveTimer=null, matchAutoBackupTimer=null, editId=null;const expandedPlayerNotes=new Set();let profileOriginal=null,profileDirty={name:false,gender:false,memberType:false,racket:false,racketTension:false,racketString:false,backupRacket:false,backupTension:false,backupString:false,note:false};let dismissedResultKey='';const selfToken=localStorage.getItem(DEVICE_SYNC_TOKEN_KEY)||localStorage.getItem('bdV73SelfToken')||randomToken();localStorage.setItem('bdV73SelfToken',selfToken);const SCORE_DEVICE_KEY='bcmScoreDeviceIdV1',browserDeviceId=localStorage.getItem(SCORE_DEVICE_KEY)||randomToken();localStorage.setItem(SCORE_DEVICE_KEY,browserDeviceId);const scoreDeviceId=scorerIdFor(browserDeviceId,BCM_VERSION);let selfHash='',scoreViewRequested=false,expandedShuttleTubeId='';
 let deviceProfileUnsubscribe=null,deviceProfileApplying=false,deviceProfileSaveTimer=null,identitySyncing=false,roomConnectInProgress=false;
 let roomSnapshotFromCache=false,snapshotHasPendingWrites=false,pendingRoomWrites=0,roomWriteScheduled=false,archivedHistory=[],removedMatchIds=new Set();
 const SYNC_MODE_KEY='bcmRoomSyncModeV1',SNAPSHOT_RETRY_BASE_MS=5000,SNAPSHOT_RETRY_MAX_MS=60000,ROOM_MATCH_FALLBACK_MS=60000;
@@ -1943,7 +1943,7 @@ scorerTabChannel?.addEventListener('message',event=>{
   if(claimSupersedes(event.data,ownScorerTabClaim))leaveSupersededScorerTab();
   else if(event.data?.roomId===roomId&&event.data?.tabId!==scorerTabId)scorerTabChannel.postMessage(ownScorerTabClaim);
 });
-document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible')broadcastScorerTab()});
+document.addEventListener('visibilitychange',()=>{if(document.visibilityState!=='visible')return;broadcastScorerTab();if(takeOverOwnBrowserScoring())syncLocalLinkOwner()});
 window.addEventListener('pageshow',broadcastScorerTab);
 async function connectRoom(id){
   if(roomConnectInProgress)return;
@@ -2164,9 +2164,15 @@ function applyLiveScoreState(data,{announce=true}={}){
   if(!canApplyMatch(match))return false;
   const shouldFinish=beforeMatch.matchId===match.matchId&&beforeMatch.winner===null&&match.winner!==null&&isHost&&!requestedAndroidRemote&&scoreViewRequested;
   liveScoreReady=true;latestLiveMatch=structuredClone(match);
-  state.match=match;syncLocalLinkOwner();
+  state.match=match;takeOverOwnBrowserScoring();syncLocalLinkOwner();
   if(requestedAndroidRemote)scheduleAndroidRemoteRender();else{applying=true;renderScore();renderDashboard();renderAndroidRemote();applying=false}
   announceSyncedScore(before,announce);if(shouldFinish)finishMatch();return true;
+}
+// A hidden page may be about to leave as a superseded tab, so only the page in view takes over.
+function takeOverOwnBrowserScoring(){
+  if(!isHost||requestedAndroidRemote||scorerTabSuperseded||document.visibilityState!=='visible'||!shouldTakeOverOwnBrowserScoring(state.match,scoreDeviceId))return false;
+  state.match.scorerDevice=scoreDeviceId;saveLiveScoreSoon();
+  return true;
 }
 function claimScoring(){
   scoreViewRequested=true;
@@ -2303,7 +2309,7 @@ function scheduleRemoteDiagnosticsUpload(delay){
     if(!remoteDiagnosticsDirty||!roomId||!isHost)return;
     if(matchInPlay(state.match)||!navigator.onLine){scheduleRemoteDiagnosticsUpload(15000);return}
     remoteDiagnosticsDirty=false;
-    setDoc(doc(db,'badmintonRooms',roomId,'remoteControl','diagnostics'),{entries:remoteDiagnostics,device:scoreDeviceId,version:BCM_VERSION,updatedAt:serverTimestamp()}).catch(()=>{});
+    setDoc(doc(db,'badmintonRooms',roomId,'remoteControl','diagnostics'),{entries:remoteDiagnostics,device:browserDeviceId,version:BCM_VERSION,updatedAt:serverTimestamp()}).catch(()=>{});
   },delay);
 }
 function deleteRemoteScore(ref){

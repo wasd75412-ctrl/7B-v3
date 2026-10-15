@@ -1,4 +1,4 @@
-import { decodeLiveMatch, encodeLiveMatch, matchSessionEpoch } from './live-score.js';
+import { decodeLiveMatch, encodeLiveMatch, matchSessionEpoch, sameScorerBrowser } from './live-score.js';
 
 export const MATCH_JOURNAL_MAX_AGE_MS=6*60*60*1000;
 
@@ -18,7 +18,7 @@ export function matchJournalEntry(match={},now=Date.now()){
 export function journaledMatchToRestore(entry,currentMatch={},{deviceId='',now=Date.now()}={}){
   if(!entry?.match||!(now-Number(entry.savedAt)<=MATCH_JOURNAL_MAX_AGE_MS))return null;
   const saved=decodeLiveMatch({match:entry.match},{});
-  if(!matchInProgress(saved)||(saved.scorerDevice&&saved.scorerDevice!==deviceId))return null;
+  if(!matchInProgress(saved)||(saved.scorerDevice&&!sameScorerBrowser(saved.scorerDevice,deviceId)))return null;
   const current=currentMatch||{};
   if(saved.matchId&&saved.matchId===current.matchId){
     const currentOpen=current.winner===null||current.winner===undefined;

@@ -29,6 +29,13 @@ test('restores lost points of the same match but never reopens a finished one',(
   assert.equal(journaledMatchToRestore(entry(),match({winner:0,scores:[11,3]}),{deviceId:'ipad',now}),null);
 });
 
+test('an updated page still restores the match its browser was scoring',()=>{
+  const previous=match({matchId:'m1',winner:0,scores:[11,5],syncEpoch:now-600000});
+  assert.equal(journaledMatchToRestore(entry({scorerDevice:'ipad@3.3.17'}),previous,{deviceId:'ipad@3.3.18',now}).matchId,'m2');
+  assert.equal(journaledMatchToRestore(entry({scorerDevice:'ipad'}),previous,{deviceId:'ipad@3.3.18',now}).matchId,'m2');
+  assert.equal(journaledMatchToRestore(entry({scorerDevice:'phone@3.3.18'}),previous,{deviceId:'ipad@3.3.18',now}),null);
+});
+
 test('keeps a newer cloud match, another device\'s match and stale journals',()=>{
   assert.equal(journaledMatchToRestore(entry(),match({matchId:'m3',syncEpoch:now}),{deviceId:'ipad',now}),null);
   assert.equal(journaledMatchToRestore(entry(),match({matchId:'m1',winner:0,syncEpoch:now-600000}),{deviceId:'phone',now}),null);
