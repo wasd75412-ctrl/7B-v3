@@ -19,6 +19,12 @@ test('flipping swaps the court but keeps names, avatars and scores readable',()=
   assert.match(css,/\.score-view\.court-flipped \.scoreboard :is\(\.score-number,\.score-title,\.avatar,\.court-position,\.court-player-name\)\{scale:-1 1\}/);
 });
 
+test('the mirror toggle stays reachable in fullscreen',()=>{
+  assert.match(css,/immersive-mode \.score-head \.score-actions>button:not\(#fullscreenScore\):not\(#officialStartScore\):not\(#undo\):not\(#syncSessionScore\):not\(#courtFlipToggle\),/);
+  assert.match(css,/\.score-view\.immersive-mode #courtFlipToggle\{[^}]*position:fixed;[^}]*right:calc\(62px/);
+  assert.match(css,/\.score-view\.immersive-mode:has\(#officialStartScore:not\(\.hidden\)\) #courtFlipToggle\{right:calc\(116px/);
+});
+
 test('remote keys keep scoring the same team when the court is flipped',()=>{
   const remote=main.slice(main.indexOf('function toggleCourtFlip'),main.indexOf('function renderScore'));
   assert.doesNotMatch(remote,/teamAPlus|teamBPlus/);
