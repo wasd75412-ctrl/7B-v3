@@ -82,7 +82,7 @@ function harness(liveMatch=current,overrides={}){
   };
   context.liveScorePayload=()=>({
     ...createLiveScoreData(context.state.match),
-    scorerGuard:{browser:'test-browser',version:'3.3.22',versionKey:3_003_022,device:'test-browser@3.3.22'},
+    scorerGuard:{browser:'test-browser',version:'3.3.23',versionKey:3_003_023,device:'test-browser@3.3.23'},
     updatedAt:{serverTimestamp:true}
   });
   for(const name of ['decodeState','cleanState','matchScoreSignature','canApplyMatch','keepNewerLineup','applyState',

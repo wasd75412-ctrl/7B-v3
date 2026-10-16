@@ -42,9 +42,16 @@ test('uploads on unmetered Wi-Fi and skips a personal hotspot',()=>{
   assert.match(scheduler,/NET_CAPABILITY_NOT_METERED/);
   assert.match(scheduler,/ExistingPeriodicWorkPolicy\.UPDATE/);
   assert.match(scheduler,/PeriodicWorkRequest\.Builder\(YouTubeUploadWorker\.class, 15, TimeUnit\.MINUTES\)/);
-  assert.match(recordings,/連上 Wi-Fi 自動上傳/);
+  assert.match(recordings,/連上 Wi-Fi 自動上傳今日影片/);
   assert.match(recordings,/個人熱點不上傳/);
   assert.doesNotMatch(recordings,/AAA-5G/);
+  assert.match(worker,/RecordingUploadStore\.markOlderWaiting\(context, nowMs\)/);
+  assert.match(worker,/RecordingUploadStore\.pendingAuto\(context\)/);
+  assert.match(scheduler,/RecordingUploadStore\.pendingAuto\(app\)/);
+  assert.match(read(`${javaDir}RecordingUploadStore.java`),/boolean mayAutoUpload\(long nowMs\)/);
+  assert.match(read(`${javaDir}RecordingUploadStore.java`),/僅今日自動上傳/);
+  assert.match(recordings,/RecordingUploadStore\.forceUpload\(this, entry\.id\)/);
+  assert.match(recordings,/button\("上傳"/);
   for(const permission of ['ACCESS_WIFI_STATE','ACCESS_NETWORK_STATE','FOREGROUND_SERVICE_DATA_SYNC'])assert.match(manifest,new RegExp(`android.permission.${permission}`));
   assert.match(manifest,/SystemForegroundService"\s*android:foregroundServiceType="dataSync"/);
 });
@@ -100,9 +107,22 @@ test('an uploaded recording can be uploaded again with its saved title and timel
   const store=read(`${javaDir}RecordingUploadStore.java`);
   const reupload=store.match(/static synchronized void reupload\([\s\S]*?\n    \}/)?.[0]||'';
   assert.match(reupload,/entry\.videoId = "";\s*entry\.sessionUrl = "";\s*entry\.playlistAdded = false;/);
-  assert.match(reupload,/entry\.status = Status\.WAITING;/);
+  assert.match(reupload,/entry\.status = Status\.WAITING;\s*entry\.forceUpload = true;/);
   assert.doesNotMatch(reupload,/entry\.title =|entry\.description =/);
   assert.match(recordings,/if \(entry\.status == RecordingUploadStore\.Status\.UPLOADED\) actions\.addView\(button\("重新上傳", v -> confirmReupload\(entry\)\)\)/);
   assert.match(recordings,/RecordingUploadStore\.reupload\(this, entry\.id\);\s*YouTubeUploadScheduler\.schedule\(this\);/);
   assert.match(uploader,/\.put\("privacyStatus", "unlisted"\)/);
+});
+
+test('auto-upload only queues today recordings unless forced or already in progress',()=>{
+  const store=read(`${javaDir}RecordingUploadStore.java`);
+  const timeline=read(`${javaDir}RecordingTimeline.java`);
+  assert.match(timeline,/static boolean sameDay\(long startMs, long nowMs\)/);
+  assert.match(store,/if \(forceUpload\) return true;/);
+  assert.match(store,/if \(status == Status\.UPLOADING\) return true;/);
+  assert.match(store,/if \(!sessionUrl\.isEmpty\(\) \|\| !videoId\.isEmpty\(\)\) return true;/);
+  assert.match(store,/return RecordingTimeline\.sameDay\(startMs, nowMs\);/);
+  assert.match(store,/static synchronized List<Entry> pendingAuto\(Context context\)/);
+  assert.match(store,/entry\.message = "僅今日自動上傳"/);
+  assert.match(worker,/entry\.forceUpload = false;\s*mark\(entry, RecordingUploadStore\.Status\.UPLOADED, ""\);/);
 });

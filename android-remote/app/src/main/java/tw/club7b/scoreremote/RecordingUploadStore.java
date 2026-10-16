@@ -34,11 +34,20 @@ final class RecordingUploadStore {
         String sessionUrl = "";
         String videoId = "";
         boolean playlistAdded;
+        boolean forceUpload;
         int progress;
         String message = "";
 
         boolean isPending() {
             return status == Status.WAITING || status == Status.UPLOADING || status == Status.AUTH_REQUIRED;
+        }
+
+        /** Auto-upload only today's clips; resume or a manual tap can still push older ones. */
+        boolean mayAutoUpload(long nowMs) {
+            if (forceUpload) return true;
+            if (status == Status.UPLOADING) return true;
+            if (!sessionUrl.isEmpty() || !videoId.isEmpty()) return true;
+            return RecordingTimeline.sameDay(startMs, nowMs);
         }
 
         JSONObject toJson() throws JSONException {
@@ -48,7 +57,7 @@ final class RecordingUploadStore {
                     .put("id", id).put("uri", uri).put("roomId", roomId)
                     .put("startMs", startMs).put("endMs", endMs).put("pauses", pauseArray).put("status", status.name())
                     .put("title", title).put("description", description).put("sessionUrl", sessionUrl)
-                    .put("videoId", videoId).put("playlistAdded", playlistAdded)
+                    .put("videoId", videoId).put("playlistAdded", playlistAdded).put("forceUpload", forceUpload)
                     .put("progress", progress).put("message", message);
         }
 
@@ -76,6 +85,7 @@ final class RecordingUploadStore {
             entry.sessionUrl = json.optString("sessionUrl");
             entry.videoId = json.optString("videoId");
             entry.playlistAdded = json.optBoolean("playlistAdded");
+            entry.forceUpload = json.optBoolean("forceUpload");
             entry.progress = json.optInt("progress");
             entry.message = json.optString("message");
             return entry;
@@ -135,10 +145,31 @@ final class RecordingUploadStore {
     }
 
     static synchronized List<Entry> pending(Context context) {
+        return pending(context, System.currentTimeMillis(), false);
+    }
+
+    static synchronized List<Entry> pendingAuto(Context context) {
+        return pending(context, System.currentTimeMillis(), true);
+    }
+
+    static synchronized List<Entry> pending(Context context, long nowMs, boolean autoOnly) {
         List<Entry> pending = new ArrayList<>();
-        for (Entry entry : read(context)) if (entry.isPending()) pending.add(entry);
+        for (Entry entry : read(context)) {
+            if (!entry.isPending()) continue;
+            if (autoOnly && !entry.mayAutoUpload(nowMs)) continue;
+            pending.add(entry);
+        }
         Collections.reverse(pending);
         return pending;
+    }
+
+    static synchronized void markOlderWaiting(Context context, long nowMs) {
+        for (Entry entry : read(context)) {
+            if (!entry.isPending() || entry.mayAutoUpload(nowMs)) continue;
+            if ("僅今日自動上傳".equals(entry.message)) continue;
+            entry.message = "僅今日自動上傳";
+            save(context, entry);
+        }
     }
 
     static synchronized List<Entry> timelineRefresh(Context context, long nowMs) {
@@ -189,6 +220,7 @@ final class RecordingUploadStore {
         for (Entry entry : read(context)) {
             if (!entry.id.equals(id)) continue;
             entry.status = Status.WAITING;
+            entry.forceUpload = true;
             entry.message = "";
             save(context, entry);
             return;
@@ -204,6 +236,18 @@ final class RecordingUploadStore {
             entry.playlistAdded = false;
             entry.progress = 0;
             entry.status = Status.WAITING;
+            entry.forceUpload = true;
+            entry.message = "";
+            save(context, entry);
+            return;
+        }
+    }
+
+    static synchronized void forceUpload(Context context, String id) {
+        for (Entry entry : read(context)) {
+            if (!entry.id.equals(id)) continue;
+            entry.status = Status.WAITING;
+            entry.forceUpload = true;
             entry.message = "";
             save(context, entry);
             return;

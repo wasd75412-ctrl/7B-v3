@@ -36,8 +36,10 @@ public final class YouTubeUploadWorker extends Worker {
         if (!RUNNING.tryLock()) return Result.success();
         try {
             Context context = getApplicationContext();
-            List<RecordingUploadStore.Entry> pending = RecordingUploadStore.pending(context);
-            List<RecordingUploadStore.Entry> refresh = RecordingUploadStore.timelineRefresh(context, System.currentTimeMillis());
+            long nowMs = System.currentTimeMillis();
+            RecordingUploadStore.markOlderWaiting(context, nowMs);
+            List<RecordingUploadStore.Entry> pending = RecordingUploadStore.pendingAuto(context);
+            List<RecordingUploadStore.Entry> refresh = RecordingUploadStore.timelineRefresh(context, nowMs);
             if (pending.isEmpty() && refresh.isEmpty()) {
                 YouTubeUploadScheduler.cancelPeriodic(context);
                 return Result.success();
@@ -117,6 +119,7 @@ public final class YouTubeUploadWorker extends Worker {
                 addToPlaylist(entry, auth);
                 entry.playlistAdded = true;
             }
+            entry.forceUpload = false;
             mark(entry, RecordingUploadStore.Status.UPLOADED, "");
         } catch (FileNotFoundException | SecurityException missing) {
             mark(entry, RecordingUploadStore.Status.MISSING, "");
