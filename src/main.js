@@ -2660,7 +2660,8 @@ async function saveNewMatchCheckpointNow(){
   rememberLatestLiveMatch();liveScoreReady=true;
   const checkpoint=createMatchCheckpointData(state.match),batch=writeBatch(db);
   clearTimeout(roomMatchFallbackTimer);roomMatchFallbackTimer=null;roomMatchFallbackKey=roomMatchFallbackSignature();
-  batch.set(liveScoreRef,{...checkpoint.liveScore,updatedAt:serverTimestamp()},{merge:true});
+  // Must include scorerGuard; a merge without it keeps the old guard but can demote match.scorerDevice and hit rules.
+  batch.set(liveScoreRef,liveScorePayload(),{merge:true});
   batch.set(roomRef,{court:state.court,nextCall:state.nextCall,waitingQueue:state.waitingQueue,queueDraftChosen:state.queueDraftChosen,priority:state.priority,lastLoserReplayPlayerId:state.lastLoserReplayPlayerId,attendance:state.attendance,lineupRevision:Number(state.lineupRevision)||0,...checkpoint.room},{merge:true});
   pendingLiveScoreWrites++;updateSyncBadge();
   try{

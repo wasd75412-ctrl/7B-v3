@@ -137,6 +137,7 @@ test('the page in view takes over its browser scoring from every live score upda
   assert.match(main,/function claimScoring\(\)\{[\s\S]*?if\(isHost&&!requestedAndroidRemote&&state\.match\.active&&state\.match\.scorerDevice!==scoreDeviceId\s*&&\(!state\.match\.scorerDevice\|\|ownsScoring\(state\.match,scoreDeviceId\)\|\|shouldTakeOverOwnBrowserScoring\(state\.match,scoreDeviceId\)\)\)/);
   assert.match(main,/scorerGuard:\{browser:browserDeviceId,version:BCM_VERSION,versionKey:versionSortKey\(BCM_VERSION\),device:scoreDeviceId\}/);
   assert.match(main,/if\(error\?\.code==='permission-denied'\)return;/);
+  assert.match(main,/async function saveNewMatchCheckpointNow\(\)\{[\s\S]*?batch\.set\(liveScoreRef,liveScorePayload\(\),\{merge:true\}\)/);
 });
 
 test('other admin devices ignore remote commands while another device is scoring',()=>{
