@@ -80,6 +80,11 @@ function harness(liveMatch=current,overrides={}){
     const {match:_match,...general}=structuredClone(context.state);
     return{...general,liveScoreEnabled:true};
   };
+  context.liveScorePayload=()=>({
+    ...createLiveScoreData(context.state.match),
+    scorerGuard:{browser:'test-browser',version:'3.3.22',versionKey:3_003_022,device:'test-browser@3.3.22'},
+    updatedAt:{serverTimestamp:true}
+  });
   for(const name of ['decodeState','cleanState','matchScoreSignature','canApplyMatch','keepNewerLineup','applyState',
     'applyLiveScoreState','rememberLatestLiveMatch','roomMatchFallbackSignature','saveNewMatchCheckpointNow','adoptRestoredState']){
     vm.runInContext(productionFunction(name),context,{filename:`main.js:${name}`});
