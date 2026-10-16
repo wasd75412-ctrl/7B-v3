@@ -244,6 +244,10 @@ final class RecordingTimeline {
         return ZonedDateTime.ofInstant(Instant.ofEpochMilli(startMs), TAIPEI).toLocalDate().toString();
     }
 
+    static boolean sameDay(long startMs, long nowMs) {
+        return dateKey(startMs).equals(dateKey(nowMs));
+    }
+
     private static void collectNames(Object players, Map<String, String> names) {
         if (!(players instanceof List)) return;
         for (Object item : (List<?>) players) {

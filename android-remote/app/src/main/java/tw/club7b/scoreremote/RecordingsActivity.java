@@ -99,7 +99,7 @@ public final class RecordingsActivity extends ComponentActivity {
         root.addView(youtubeCard);
 
         LinearLayout wifiCard = card();
-        wifiStatus = text("連上 Wi-Fi 自動上傳", 15, true);
+        wifiStatus = text("連上 Wi-Fi 自動上傳今日影片", 15, true);
         wifiCard.addView(wifiStatus);
         root.addView(wifiCard);
 
@@ -150,7 +150,7 @@ public final class RecordingsActivity extends ComponentActivity {
     }
 
     private void renderWifi() {
-        wifiStatus.setText(HomeWifi.isHotspotOnly(this) ? "個人熱點不上傳" : "連上 Wi-Fi 自動上傳");
+        wifiStatus.setText(HomeWifi.isHotspotOnly(this) ? "個人熱點不上傳" : "連上 Wi-Fi 自動上傳今日影片");
     }
 
     private void renderList(boolean force) {
@@ -189,6 +189,15 @@ public final class RecordingsActivity extends ComponentActivity {
         if (entry.status == RecordingUploadStore.Status.FAILED || entry.status == RecordingUploadStore.Status.AUTH_REQUIRED) {
             actions.addView(button("重試", v -> {
                 RecordingUploadStore.retry(this, entry.id);
+                YouTubeUploadScheduler.schedule(this);
+                renderList(true);
+            }));
+        }
+        if (entry.status == RecordingUploadStore.Status.WAITING
+                && !entry.forceUpload
+                && !RecordingTimeline.sameDay(entry.startMs, System.currentTimeMillis())) {
+            actions.addView(button("上傳", v -> {
+                RecordingUploadStore.forceUpload(this, entry.id);
                 YouTubeUploadScheduler.schedule(this);
                 renderList(true);
             }));

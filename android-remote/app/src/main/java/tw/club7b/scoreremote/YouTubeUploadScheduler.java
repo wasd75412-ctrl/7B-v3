@@ -31,7 +31,7 @@ final class YouTubeUploadScheduler {
     static void scheduleIfPending(Context context) {
         Context app = context.getApplicationContext();
         watchWifi(app);
-        if (!RecordingUploadStore.pending(app).isEmpty()
+        if (!RecordingUploadStore.pendingAuto(app).isEmpty()
                 || !RecordingUploadStore.timelineRefresh(app, System.currentTimeMillis()).isEmpty()) {
             enqueue(app, ExistingWorkPolicy.REPLACE);
         }
