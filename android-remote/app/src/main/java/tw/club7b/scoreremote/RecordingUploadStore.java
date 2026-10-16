@@ -42,11 +42,12 @@ final class RecordingUploadStore {
             return status == Status.WAITING || status == Status.UPLOADING || status == Status.AUTH_REQUIRED;
         }
 
-        /** Auto-upload only today's clips; resume or a manual tap can still push older ones. */
+        /** Auto-upload only today's clips; a manual tap or an in-flight upload can still push older ones. */
         boolean mayAutoUpload(long nowMs) {
             if (forceUpload) return true;
             if (status == Status.UPLOADING) return true;
-            if (!sessionUrl.isEmpty() || !videoId.isEmpty()) return true;
+            // Finish playlist/description for a video already on YouTube; do not resume old session URLs.
+            if (!videoId.isEmpty()) return true;
             return RecordingTimeline.sameDay(startMs, nowMs);
         }
 
