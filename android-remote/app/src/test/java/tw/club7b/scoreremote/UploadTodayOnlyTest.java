@@ -38,6 +38,10 @@ public final class UploadTodayOnlyTest {
 
         RecordingUploadStore.Entry resumed = waiting(YESTERDAY);
         resumed.sessionUrl = "https://example/session";
-        assertTrue(resumed.mayAutoUpload(TODAY));
+        assertFalse(resumed.mayAutoUpload(TODAY));
+
+        RecordingUploadStore.Entry playlistOnly = waiting(YESTERDAY);
+        playlistOnly.videoId = "abc123";
+        assertTrue(playlistOnly.mayAutoUpload(TODAY));
     }
 }

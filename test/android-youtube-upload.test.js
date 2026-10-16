@@ -120,7 +120,8 @@ test('auto-upload only queues today recordings unless forced or already in progr
   assert.match(timeline,/static boolean sameDay\(long startMs, long nowMs\)/);
   assert.match(store,/if \(forceUpload\) return true;/);
   assert.match(store,/if \(status == Status\.UPLOADING\) return true;/);
-  assert.match(store,/if \(!sessionUrl\.isEmpty\(\) \|\| !videoId\.isEmpty\(\)\) return true;/);
+  assert.match(store,/if \(!videoId\.isEmpty\(\)\) return true;/);
+  assert.doesNotMatch(store,/if \(!sessionUrl\.isEmpty\(\) \|\| !videoId\.isEmpty\(\)\) return true;/);
   assert.match(store,/return RecordingTimeline\.sameDay\(startMs, nowMs\);/);
   assert.match(store,/static synchronized List<Entry> pendingAuto\(Context context\)/);
   assert.match(store,/entry\.message = "僅今日自動上傳"/);
