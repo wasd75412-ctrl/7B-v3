@@ -843,8 +843,14 @@ public final class LoopCameraActivity extends ComponentActivity {
         android.content.Context app = getApplicationContext();
         String roomId = RemoteSessionStore.getSession(app).roomId;
         savedRecordingExecutor.execute(() -> {
-            alignAudioClock(app, savedUri);
-            RecordingUploadStore.add(app, savedUri, roomId, startedAt, endedAt, filePauses);
+            RecordingAudioBalance.Outcome audio = RecordingAudioBalance.balance(app, savedUri);
+            alignAudioClock(app, audio.uri);
+            RecordingUploadStore.add(app, audio.uri, roomId, startedAt, endedAt, filePauses);
+            if (audio.ready) RecordingUploadStore.markAudioReady(app, audio.uri);
+            if (!audio.uri.equals(savedUri)) {
+                RecordingAudioBalance.discard(app, savedUri);
+                RecordingAudioBalance.restoreName(app, audio.uri, audio.displayName);
+            }
         });
     }
 

@@ -35,6 +35,7 @@ final class RecordingUploadStore {
         String videoId = "";
         boolean playlistAdded;
         boolean forceUpload;
+        boolean audioBalanced;
         int progress;
         String message = "";
 
@@ -59,6 +60,7 @@ final class RecordingUploadStore {
                     .put("startMs", startMs).put("endMs", endMs).put("pauses", pauseArray).put("status", status.name())
                     .put("title", title).put("description", description).put("sessionUrl", sessionUrl)
                     .put("videoId", videoId).put("playlistAdded", playlistAdded).put("forceUpload", forceUpload)
+                    .put("audioBalanced", audioBalanced)
                     .put("progress", progress).put("message", message);
         }
 
@@ -87,6 +89,7 @@ final class RecordingUploadStore {
             entry.videoId = json.optString("videoId");
             entry.playlistAdded = json.optBoolean("playlistAdded");
             entry.forceUpload = json.optBoolean("forceUpload");
+            entry.audioBalanced = json.optBoolean("audioBalanced");
             entry.progress = json.optInt("progress");
             entry.message = json.optString("message");
             return entry;
@@ -203,6 +206,33 @@ final class RecordingUploadStore {
 
     static synchronized boolean contains(Context context, Entry target) {
         for (Entry entry : read(context)) if (sameRecording(entry, target)) return true;
+        return false;
+    }
+
+    static synchronized void markAudioReady(Context context, Uri uri) {
+        if (uri == null) return;
+        String text = uri.toString();
+        List<Entry> entries = read(context);
+        boolean changed = false;
+        for (Entry entry : entries) {
+            if (!text.equals(entry.uri) || entry.audioBalanced) continue;
+            entry.audioBalanced = true;
+            changed = true;
+        }
+        if (changed) write(context, entries);
+    }
+
+    /** Points a queued upload at the rewritten file. An existing resumable session belongs to the old bytes. */
+    static synchronized boolean replaceUri(Context context, String id, String previousUri, String nextUri, boolean ready) {
+        List<Entry> entries = read(context);
+        for (Entry entry : entries) {
+            if (!entry.id.equals(id) || !entry.uri.equals(previousUri)) continue;
+            entry.uri = nextUri;
+            entry.sessionUrl = "";
+            entry.audioBalanced = ready;
+            write(context, entries);
+            return true;
+        }
         return false;
     }
 

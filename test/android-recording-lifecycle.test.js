@@ -89,12 +89,12 @@ test('publishes the exact CameraX broadcast start time for the YouTube timeline'
 
 test('queues every saved broadcast file for YouTube upload with its own start time',()=>{
   assert.match(camera,/long fileStartedAt = broadcastFileStartedAt;\s*long fileEndedAt = System\.currentTimeMillis\(\);\s*if \(success\) queueSavedRecording\(savedUri, fileStartedAt, fileEndedAt, filePauses\);/);
-  assert.match(camera,/RecordingUploadStore\.add\(app, savedUri, roomId, startedAt, endedAt, filePauses\)/);
+  assert.match(camera,/RecordingUploadStore\.add\(app, audio\.uri, roomId, startedAt, endedAt, filePauses\)/);
   assert.doesNotMatch(camera,/YouTubeUploadScheduler\.schedule\(app\);/);
 });
 
 test('aligns the video to the microphone clock before a saved file is queued for upload',()=>{
-  assert.match(camera,/savedRecordingExecutor\.execute\(\(\) -> \{\s*alignAudioClock\(app, savedUri\);\s*RecordingUploadStore\.add\(/);
+  assert.match(camera,/savedRecordingExecutor\.execute\(\(\) -> \{\s*RecordingAudioBalance\.Outcome audio = RecordingAudioBalance\.balance\(app, savedUri\);\s*alignAudioClock\(app, audio\.uri\);\s*RecordingUploadStore\.add\(app, audio\.uri,/);
   assert.match(camera,/AudioClockAligner\.align\(app\.getContentResolver\(\), savedUri\)/);
 });
 
