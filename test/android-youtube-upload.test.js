@@ -67,6 +67,7 @@ test('uploads unlisted videos titled by date with the timeline as description',(
   assert.match(worker,/MatchHistoryRooms\.load\(\s*BackgroundScoreController\.firestore\(getApplicationContext\(\)\), entry\.roomId, entry\.startMs\)/);
   assert.match(read(`${javaDir}MatchHistoryRooms.java`),/whereGreaterThanOrEqualTo\("endedAt"/);
   assert.match(scheduler,/timelineRefresh\(app, System\.currentTimeMillis\(\)\)/);
+  assert.match(worker,/if \(!entry\.audioBalanced\) \{[\s\S]*?RecordingAudioBalance\.balance\(context, Uri\.parse\(entry\.uri\)\)/);
   assert.match(worker,/YouTubeUploader\.createSession\(token, entry\.title, entry\.description, length\)/);
   assert.match(worker,/MatchHistoryRooms\.load/);
   assert.match(worker,/YouTubeUploader\.updateDescription\(token, entry\.videoId, title, fresh\)/);

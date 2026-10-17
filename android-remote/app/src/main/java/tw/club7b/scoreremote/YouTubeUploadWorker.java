@@ -82,6 +82,24 @@ public final class YouTubeUploadWorker extends Worker {
                     entry.title = RecordingTimeline.title(entry.startMs, RecordingUploadStore.ordinal(context, entry));
                 }
                 if (!RecordingTimeline.hasGameChapter(entry.description)) entry.description = timeline(entry);
+                if (!entry.audioBalanced) {
+                    RecordingAudioBalance.Outcome audio = RecordingAudioBalance.balance(context, Uri.parse(entry.uri));
+                    String next = audio.uri.toString();
+                    boolean moved = !next.equals(entry.uri);
+                    if (moved) {
+                        String previous = entry.uri;
+                        if (RecordingUploadStore.replaceUri(context, entry.id, previous, next, audio.ready)) {
+                            entry.uri = next;
+                            entry.sessionUrl = "";
+                            RecordingAudioBalance.discard(context, Uri.parse(previous));
+                            RecordingAudioBalance.restoreName(context, audio.uri, audio.displayName);
+                        } else {
+                            RecordingAudioBalance.discard(context, audio.uri);
+                        }
+                    }
+                    entry.audioBalanced = audio.ready;
+                    if (!moved && audio.ready) RecordingUploadStore.save(context, entry);
+                }
                 try (ParcelFileDescriptor descriptor = context.getContentResolver().openFileDescriptor(Uri.parse(entry.uri), "r");
                      FileInputStream input = new FileInputStream(descriptor.getFileDescriptor());
                      FileChannel channel = input.getChannel()) {
