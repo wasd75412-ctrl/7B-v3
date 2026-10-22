@@ -2878,7 +2878,7 @@ function setMatchFormat(format){
   if(disposition==='blocked')return alert('請先離開比分畫面，再切換模式。');
   if(disposition==='confirm'&&!confirm('切換模式會放棄目前未完成的比分，且不計入比賽紀錄。確定切換？'))return;
   const abandoned=!!state.match.active&&state.match.winner===null;
-  if(abandoned){state.match={...initialState().match,format:next,syncEpoch:nextMatchEpoch(state.match),scorerDevice:state.match.scorerDevice||''};state.matchRollback=null;dismissedResultKey=''}
+  if(abandoned){state.match={...initialState().match,format:next,syncEpoch:nextMatchEpoch(state.match),scorerDevice:scoreDeviceId};state.matchRollback=null;dismissedResultKey=''}
   state.matchFormat=next;
   state.court=next===MATCH_FORMAT_SINGLES?(previous===MATCH_FORMAT_SINGLES?state.court.slice(0,2):[state.court[0],state.court[2]].filter(Boolean)):state.court.slice(0,2);
   state.nextCall=null;state.queueDraftChosen=[];reconcileWaitingQueue(state.court);bumpLineupRevision();renderAll();void persistLineupNow();saveSoon();
@@ -3319,7 +3319,7 @@ function abandonMatch(){
   if(!isHost||requestedAndroidRemote||!m.active||m.winner!==null)return;
   if(!confirm('確定放棄本場？目前比分不會記錄。'))return;
   rememberReplacedRemoteMatch();
-  state.match={...initialState().match,format:normalizeMatchFormat(m.format),syncEpoch:nextMatchEpoch(m)};
+  state.match={...initialState().match,format:normalizeMatchFormat(m.format),syncEpoch:nextMatchEpoch(m),scorerDevice:scoreDeviceId};
   state.matchRollback=null;
   scoreViewRequested=false;dismissedResultKey='';$('resultModal').classList.add('hidden');
   void exitScoreFullscreen().catch(()=>{});
@@ -3798,7 +3798,7 @@ async function endTodaySession(triggerButton=null){
     await saveNow();
     await createCloudBackup('session',{silent:true,system:true});
     backupCreated=true;
-    state.match={...initialState().match,syncEpoch:nextMatchEpoch(state.match)};
+    state.match={...initialState().match,syncEpoch:nextMatchEpoch(state.match),scorerDevice:scoreDeviceId};
     state.matchRollback=null;
     state.nextCall=null;
     state.attendance=[];

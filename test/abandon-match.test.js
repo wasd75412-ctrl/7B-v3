@@ -15,7 +15,7 @@ test('score screen offers a host-only abandon button next to exit',()=>{
 test('abandoning clears only the open match and syncs it as a new epoch',()=>{
   assert.match(abandon,/!m\.active\|\|m\.winner!==null\)return/);
   assert.match(abandon,/confirm\('確定放棄本場？目前比分不會記錄。'\)/);
-  assert.match(abandon,/state\.match=\{\.\.\.initialState\(\)\.match,format:normalizeMatchFormat\(m\.format\),syncEpoch:nextMatchEpoch\(m\)\}/);
+  assert.match(abandon,/state\.match=\{\.\.\.initialState\(\)\.match,format:normalizeMatchFormat\(m\.format\),syncEpoch:nextMatchEpoch\(m\),scorerDevice:scoreDeviceId\}/);
   assert.match(abandon,/checkpointNewMatch\(\)/);
   assert.doesNotMatch(abandon,/state\.history/);
   for(const key of['attendance','court','waitingQueue','nextCall'])assert.doesNotMatch(abandon,new RegExp(`state\\.${key}=`));
