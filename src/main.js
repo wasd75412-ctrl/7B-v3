@@ -22,7 +22,7 @@ import { updateAttendanceState } from './attendance.js';
 import { playedParticipantIds } from './session-participants.js';
 import { POLL_SLOT_CAPACITY, activePollDraftSelection, createPollDraft, pollSlotParticipantCount, pollWasFinalized } from './poll.js';
 import { nonVoterPlayerIds, recruitingMessage, recruitingSlots } from './poll-recruiting.js';
-import { activateShuttleTube, adjustSessionShuttleUsage, createShuttleTube, enforceLegacyActiveShuttleTube, finishShuttleTube, forgetShuttlePreset, normalizeShuttleTubes, rememberShuttlePreset, restoreShuttleTube, seedShuttlePresets, sessionShuttleTotals, sessionShuttleUsage, setShuttleRemaining, shuttleUnitPrice, softDeleteShuttleTube, updateShuttleTube } from './shuttle-tube.js';
+import { activateShuttleTube, adjustSessionShuttleUsage, createShuttleClickGuard, createShuttleTube, enforceLegacyActiveShuttleTube, finishShuttleTube, forgetShuttlePreset, normalizeShuttleTubes, rememberShuttlePreset, restoreShuttleTube, seedShuttlePresets, sessionShuttleTotals, sessionShuttleUsage, setShuttleRemaining, shuttleUnitPrice, softDeleteShuttleTube, updateShuttleTube } from './shuttle-tube.js';
 import { addFeats, careerAchievementBadges, longestServeRuns, maxDeficit, normalizeServeRuns, partnerRanking, playerFeats, rivalLists, unseenAchievements } from './player-achievements.js';
 import { PLAYER_TYPE_GUEST, isGuestPlayer, normalizePlayerType, splitPlayersByMembership } from './player-membership.js';
 import { PLAYER_GENDER_MALE, normalizePlayerGender, playerGenderLabel } from './player-gender.js';
@@ -3436,6 +3436,8 @@ async function addPlayerRecord(){
     input.value='';renderAll();alert(`已新增${memberType===PLAYER_TYPE_GUEST?'臨打球友':'固定團員'}「${name}」。${record.ownerHash?'三台裝置都可修改這份資料。':'本人可再點選球員卡認領資料。'}`);
   }catch(error){alert(error.message||'新增球員失敗。')}finally{button.disabled=false}
 }
+const shuttleClickGuard=createShuttleClickGuard();
+function freshShuttleClick(handler){return event=>{if(shuttleClickGuard.blocked())return;handler(event)}}
 function shuttleTubeTime(value){
   const date=new Date(value||'');
   return isNaN(date)?'未記錄日期':date.toLocaleDateString('zh-TW',{year:'numeric',month:'numeric',day:'numeric'});
@@ -3534,14 +3536,14 @@ function renderShuttleTubeManager(){
   }).join('');
   const deletedMarkup=deleted.map(tube=>`<article class="shuttle-tube-history shuttle-tube-deleted"><div><strong>${esc(tube.name)}</strong><span>${esc(shuttleTubeTime(tube.activatedAt||tube.createdAt))} · ${formatMoney(tube.price)} 元</span></div><span>刪除日期：${esc(shuttleTubeTime(tube.deletedAt))}</span><button class="btn" type="button" data-restore-shuttle-tube="${esc(tube.id)}">恢復球桶</button></article>`).join('');
   list.innerHTML=`${activeMarkup}${pendingMarkup}${previous?`<details class="shuttle-history-section"><summary>過往球桶（${finished.length}）</summary>${previous}</details>`:''}${deletedMarkup?`<details class="shuttle-deleted-section"><summary>已刪除球桶（${deleted.length}）</summary>${deletedMarkup}</details>`:''}`;
-  all('[data-shuttle-delta]').forEach(button=>button.onclick=()=>{
+  all('[data-shuttle-delta]').forEach(button=>button.onclick=freshShuttleClick(()=>{
     if(!isHost)return;
     const tubeId=button.dataset.shuttleTube,delta=Number(button.dataset.shuttleDelta)||0;
     state.shuttleTubes=normalizeShuttleTubes(tubes.map(tube=>tube.id===tubeId?adjustSessionShuttleUsage(tube,delta,shuttleUsageSessionKey()):tube));
     const updated=state.shuttleTubes.find(tube=>tube.id===tubeId);
     syncShuttleCostNotice(updated);updateUseShuttleButtons();renderShuttleTubeManager();saveShuttleChange();
-  });
-  all('[data-set-shuttle-remaining]').forEach(button=>button.onclick=()=>{
+  }));
+  all('[data-set-shuttle-remaining]').forEach(button=>button.onclick=freshShuttleClick(()=>{
     if(!isHost)return;
     const tubeId=button.dataset.setShuttleRemaining,tube=tubes.find(row=>row.id===tubeId);
     if(!tube)return;
@@ -3551,12 +3553,12 @@ function renderShuttleTubeManager(){
     if(!Number.isInteger(remaining)||remaining<0||remaining>tube.totalShuttles)return alert(`請輸入 0～${tube.totalShuttles} 的整數。`);
     state.shuttleTubes=normalizeShuttleTubes(tubes.map(row=>row.id===tubeId?setShuttleRemaining(row,remaining):row));
     syncShuttleCostNotice(state.shuttleTubes.find(row=>row.id===tubeId));updateUseShuttleButtons();renderShuttleTubeManager();saveShuttleChange();
-  });
-  all('[data-toggle-shuttle-details]').forEach(button=>button.onclick=()=>{
+  }));
+  all('[data-toggle-shuttle-details]').forEach(button=>button.onclick=freshShuttleClick(()=>{
     expandedShuttleTubeId=expandedShuttleTubeId===button.dataset.toggleShuttleDetails?'':button.dataset.toggleShuttleDetails;
     renderShuttleTubeManager();
-  });
-  all('[data-edit-shuttle-tube]').forEach(button=>button.onclick=()=>{
+  }));
+  all('[data-edit-shuttle-tube]').forEach(button=>button.onclick=freshShuttleClick(()=>{
     if(!isHost)return;
     const tubeId=button.dataset.editShuttleTube,tube=tubes.find(row=>row.id===tubeId);
     if(!tube)return;
@@ -3573,42 +3575,46 @@ function renderShuttleTubeManager(){
     if(!Number.isInteger(remaining)||remaining<0||remaining>total)return alert(`目前剩餘球數請輸入 0～${total} 的整數。`);
     state.shuttleTubes=normalizeShuttleTubes(tubes.map(row=>row.id===tubeId?updateShuttleTube(row,{name:name.trim(),price:Math.round(price),totalShuttles:total,remainingShuttles:remaining}):row));
     syncShuttleCostNotice(state.shuttleTubes.find(row=>row.id===tubeId));renderShuttleTubeManager();saveShuttleChange();
-  });
+  }));
   $('activatePendingShuttleTube')?.addEventListener('click',()=>{
     if(!isHost||!pending)return;
     const message=active
       ?`確定開始使用「${pending.name}」？目前的「${active.name}」會移到過往球桶，啟用前的比賽不會算入新桶。`
       :`確定開始使用「${pending.name}」？啟用前的比賽不會算入新桶。`;
     if(!confirm(message))return;
+    shuttleClickGuard.arm();
     state.shuttleLegacyActiveTubeId='';
     state.shuttleTubes=activateShuttleTube(tubes,pending.id,{activatedAt:new Date().toISOString(),historyCount:state.history.length});
     syncShuttleCostNotice(state.shuttleTubes.find(row=>row.id===pending.id));updateUseShuttleButtons();renderShuttleTubeManager();
     void saveNow().catch(()=>saveSoon());
   });
-  all('[data-delete-shuttle-tube]').forEach(button=>button.onclick=()=>{
+  all('[data-delete-shuttle-tube]').forEach(button=>button.onclick=freshShuttleClick(()=>{
     if(!isHost)return;
     const tube=tubes.find(row=>row.id===button.dataset.deleteShuttleTube);
     if(!tube||!confirm(`確定刪除球桶「${tube.name}」？\n刪除後仍可從「已刪除球桶」恢復。`))return;
+    shuttleClickGuard.arm();
     if(state.shuttleLegacyActiveTubeId===tube.id)state.shuttleLegacyActiveTubeId='';
     state.shuttleTubes=softDeleteShuttleTube(tubes,tube.id,new Date().toISOString());
     if(expandedShuttleTubeId===tube.id)expandedShuttleTubeId='';
     updateUseShuttleButtons();renderShuttleTubeManager();saveShuttleChange();
-  });
-  all('[data-finish-shuttle-tube]').forEach(button=>button.onclick=()=>{
+  }));
+  all('[data-finish-shuttle-tube]').forEach(button=>button.onclick=freshShuttleClick(()=>{
     if(!isHost)return;
     const tube=tubes.find(row=>row.id===button.dataset.finishShuttleTube);
     if(!tube||!confirm(`確定結束球桶「${tube.name}」？\n結束後會保留價格、剩餘顆數與該場次球費記錄。`))return;
+    shuttleClickGuard.arm();
     state.shuttleLegacyActiveTubeId='';
     state.shuttleTubes=finishShuttleTube(tubes,tube.id,new Date().toISOString());
     updateUseShuttleButtons();renderShuttleTubeManager();saveShuttleChange();
-  });
-  all('[data-restore-shuttle-tube]').forEach(button=>button.onclick=()=>{
+  }));
+  all('[data-restore-shuttle-tube]').forEach(button=>button.onclick=freshShuttleClick(()=>{
     if(!isHost)return;
     const tube=tubes.find(row=>row.id===button.dataset.restoreShuttleTube);
     if(!tube||!confirm(`恢復球桶「${tube.name}」？`))return;
+    shuttleClickGuard.arm();
     state.shuttleTubes=restoreShuttleTube(tubes,tube.id);
     updateUseShuttleButtons();renderShuttleTubeManager();saveShuttleChange();
-  });
+  }));
 }
 function openShuttleTubeManager(){
   if(!isHost)return;
@@ -3638,16 +3644,16 @@ function renderShuttlePresets(){
   const presets=seedShuttlePresets(state.shuttlePresets,state.shuttleTubes);
   box.classList.toggle('hidden',!presets.length);
   box.innerHTML=presets.length?`<details class="shuttle-preset-section"><summary>常用（${presets.length}）</summary><div class="shuttle-preset-list">${presets.map((preset,index)=>`<span class="shuttle-preset"><button class="btn" type="button" data-shuttle-preset="${index}">${esc(preset.name)} · ${formatMoney(preset.price)} 元</button><button class="shuttle-preset-remove" type="button" aria-label="移除常用 ${esc(preset.name)}" title="移除" data-remove-shuttle-preset="${index}">✕</button></span>`).join('')}</div></details>`:'';
-  all('[data-shuttle-preset]').forEach(button=>button.onclick=()=>{
+  all('[data-shuttle-preset]').forEach(button=>button.onclick=freshShuttleClick(()=>{
     const preset=presets[Number(button.dataset.shuttlePreset)];
     if(isHost&&preset)addPendingShuttleTube(preset.name,preset.price);
-  });
-  all('[data-remove-shuttle-preset]').forEach(button=>button.onclick=()=>{
+  }));
+  all('[data-remove-shuttle-preset]').forEach(button=>button.onclick=freshShuttleClick(()=>{
     const preset=presets[Number(button.dataset.removeShuttlePreset)];
     if(!isHost||!preset||!confirm(`從常用移除「${preset.name}」？`))return;
     state.shuttlePresets=forgetShuttlePreset(presets,preset.name);
     renderShuttlePresets();saveShuttleChange();
-  });
+  }));
 }
 let editingAdminNoticeId='';
 function setAdminNoticeFeedback(message='',kind=''){

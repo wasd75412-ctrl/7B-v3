@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import {
   activateShuttleTube,
   adjustSessionShuttleUsage,
+  createShuttleClickGuard,
   createShuttleTube,
   enforceLegacyActiveShuttleTube,
   finishShuttleTube,
@@ -200,6 +201,16 @@ test('soft deletes and restores an old tube without affecting the active tube',(
   const restored=restoreShuttleTube(deleted,'old');
   assert.equal(restored.find(tube=>tube.id==='active').status,'active');
   assert.equal(restored.find(tube=>tube.id==='old').status,'finished');
+});
+
+test('ignores the click that follows a confirm dialog for one second',()=>{
+  const guard=createShuttleClickGuard(1000);
+  guard.arm(1_000);
+  assert.equal(guard.blocked(1_300),true);
+  assert.equal(guard.blocked(1_999),true);
+  assert.equal(guard.blocked(2_000),false);
+  guard.arm(5_000);
+  assert.equal(guard.blocked(5_900),true);
 });
 
 test('keeps a legacy tube active until the admin intentionally starts the new tube',()=>{
