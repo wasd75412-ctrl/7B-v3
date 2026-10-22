@@ -227,6 +227,15 @@ export function playerPlayedSincePayment(history=[],playerId='',payment=null,tub
   });
 }
 
+// Blocks the click that lands on a button revealed when a confirm dialog closes.
+export function createShuttleClickGuard(windowMs=1000){
+  let until=0;
+  return {
+    arm(now=Date.now()){until=now+Math.max(0,Number(windowMs)||0)},
+    blocked(now=Date.now()){return now<until}
+  };
+}
+
 export function shuttlePaymentStatus(tube,history=[],playerId=''){
   const payment=tube?.paid?.[playerId];
   if(!payment)return'unpaid';
