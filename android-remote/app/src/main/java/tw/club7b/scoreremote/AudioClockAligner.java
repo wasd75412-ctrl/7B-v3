@@ -54,7 +54,7 @@ final class AudioClockAligner {
     }
 
     /** Channels from content descriptors are one-directional, so the descriptor is driven directly. */
-    private static Storage descriptorStorage(java.io.FileDescriptor fd) {
+    static Storage descriptorStorage(java.io.FileDescriptor fd) {
         return new Storage() {
             @Override public long size() throws IOException {
                 try { return android.system.Os.fstat(fd).st_size; }

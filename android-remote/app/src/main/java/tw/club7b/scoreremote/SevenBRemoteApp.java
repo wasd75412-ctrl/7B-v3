@@ -7,5 +7,6 @@ public final class SevenBRemoteApp extends Application {
     public void onCreate() {
         super.onCreate();
         ErrorLog.install(this);
+        new Thread(() -> RecordingUploadStore.repairLargeFiles(this), "mp4-repair").start();
     }
 }
