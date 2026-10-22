@@ -201,6 +201,7 @@ final class RecordingAudioBalance {
             muxer = null;
             stopped.release();
             Os.fsync(outputFd.getFileDescriptor());
+            Mp4LargeOffsetRepair.repair(AudioClockAligner.descriptorStorage(outputFd.getFileDescriptor()));
             long size = outputFd.getStatSize();
             if (size <= 0) size = Os.fstat(outputFd.getFileDescriptor()).st_size;
             if (size < 1024) throw new IOException("Balanced recording is empty");

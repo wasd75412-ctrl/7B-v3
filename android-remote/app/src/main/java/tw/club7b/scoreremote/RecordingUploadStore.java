@@ -3,6 +3,10 @@ package tw.club7b.scoreremote;
 import android.content.Context;
 import android.content.SharedPreferences;
 import android.net.Uri;
+import android.os.ParcelFileDescriptor;
+import android.util.Log;
+import java.io.FileNotFoundException;
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -17,6 +21,8 @@ final class RecordingUploadStore {
     private static final String PREFS = "youtube_uploads";
     private static final String KEY_ENTRIES = "entries";
     private static final String KEY_PLAYLIST_ID = "playlistId";
+    private static final String KEY_LARGE_SESSION_RESET = "largeSessionReset";
+    private static final Object LARGE_FILE_REPAIR = new Object();
     private static final int MAX_ENTRIES = 60;
 
     enum Status { WAITING, UPLOADING, UPLOADED, AUTH_REQUIRED, FAILED, MISSING }
@@ -324,6 +330,60 @@ final class RecordingUploadStore {
             return;
         }
         prefs(context).edit().putString(KEY_ENTRIES, array.toString()).commit();
+    }
+
+    /** Rewrites 32-bit indexes left by Android 9 and drops upload sessions opened against those files. */
+    static void repairLargeFiles(Context context) {
+        synchronized (LARGE_FILE_REPAIR) {
+            SharedPreferences preferences = prefs(context);
+            boolean resetSessions = !preferences.getBoolean(KEY_LARGE_SESSION_RESET, false);
+            List<Entry> entries = read(context);
+            boolean changed = false;
+            boolean failed = false;
+            for (Entry entry : entries) {
+                if (!entry.videoId.isEmpty() || entry.uri.isEmpty()) continue;
+                try {
+                    Uri uri = Uri.parse(entry.uri);
+                    long before = fileLength(context, uri);
+                    boolean repaired = before > 0xFFFFFFFFL
+                            && Mp4LargeOffsetRepair.repair(context.getContentResolver(), uri);
+                    if (repaired && fileLength(context, uri) != before) {
+                        entry.sessionUrl = "";
+                        reopenFailed(entry);
+                        changed = true;
+                    } else if (resetSessions && before > 0xFFFFFFFFL
+                            && (!entry.sessionUrl.isEmpty() || entry.status == Status.FAILED)) {
+                        entry.sessionUrl = "";
+                        reopenFailed(entry);
+                        changed = true;
+                    }
+                } catch (FileNotFoundException missing) {
+                    Log.w("7BRecording", "Recording is missing while repairing its index", missing);
+                } catch (RuntimeException | IOException error) {
+                    failed = true;
+                    Log.w("7BRecording", "Unable to repair recording index", error);
+                    ErrorLog.record(context, "recording", "影片索引修正失敗", error);
+                }
+            }
+            if (changed) write(context, entries);
+            if (resetSessions && !failed) preferences.edit().putBoolean(KEY_LARGE_SESSION_RESET, true).commit();
+        }
+    }
+
+    private static void reopenFailed(Entry entry) {
+        if (entry.status != Status.FAILED) return;
+        entry.status = Status.WAITING;
+        entry.message = "";
+        entry.progress = 0;
+    }
+
+    private static long fileLength(Context context, Uri uri) throws IOException {
+        try (ParcelFileDescriptor descriptor = context.getContentResolver().openFileDescriptor(uri, "r")) {
+            if (descriptor == null) throw new FileNotFoundException(uri.toString());
+            long size = descriptor.getStatSize();
+            if (size <= 0L) throw new FileNotFoundException(uri.toString());
+            return size;
+        }
     }
 
     private static SharedPreferences prefs(Context context) {

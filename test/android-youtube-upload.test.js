@@ -68,6 +68,9 @@ test('uploads unlisted videos titled by date with the timeline as description',(
   assert.match(read(`${javaDir}MatchHistoryRooms.java`),/whereGreaterThanOrEqualTo\("endedAt"/);
   assert.match(scheduler,/timelineRefresh\(app, System\.currentTimeMillis\(\)\)/);
   assert.match(worker,/if \(!entry\.audioBalanced\) \{[\s\S]*?RecordingAudioBalance\.balance\(context, Uri\.parse\(entry\.uri\)\)/);
+  assert.match(worker,/RecordingUploadStore\.repairLargeFiles\(context\)/);
+  assert.match(read(`${javaDir}RecordingUploadStore.java`),/Mp4LargeOffsetRepair\.repair\(context\.getContentResolver\(\), uri\)/);
+  assert.match(read(`${javaDir}RecordingAudioBalance.java`),/Mp4LargeOffsetRepair\.repair\(AudioClockAligner\.descriptorStorage/);
   assert.match(worker,/YouTubeUploader\.createSession\(token, entry\.title, entry\.description, length\)/);
   assert.match(worker,/MatchHistoryRooms\.load/);
   assert.match(worker,/YouTubeUploader\.updateDescription\(token, entry\.videoId, title, fresh\)/);
