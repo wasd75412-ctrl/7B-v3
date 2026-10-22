@@ -17,6 +17,7 @@ test('finished matches sync and back up their own record immediately',()=>{
   assert.match(source,/function unarchiveReopenedMatch\(matchId\)\{[\s\S]*?deleteArchivedMatches\(\[matchId\]\)/);
   assert.match(source,/await writeArchivedMatches\(pending\);\s*for\(const row of pending\)\{\s*if\(!state\.history\.some\(item=>item\.matchId===row\.matchId\)\)continue;/);
   assert.match(sessionFlow,/await slimRoomHistoryIfNeeded\(\);[\s\S]*?await saveNow\(\);[\s\S]*?await createCloudBackup\('session'/);
+  assert.match(sessionFlow,/state\.match=\{\.\.\.initialState\(\)\.match,syncEpoch:nextMatchEpoch\(state\.match\),scorerDevice:scoreDeviceId\}/);
 });
 
 test('in-session backups never list the photo-heavy backup docs',()=>{
