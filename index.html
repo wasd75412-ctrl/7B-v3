@@ -5,13 +5,15 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
 <title>7B 羽球社</title>
 <link rel="preload" href="/assets/fonts/jason-handwriting-9-brand.woff2?v=20260714-277" as="font" type="font/woff2" crossorigin>
-<link rel="stylesheet" href="/src/styles.css?v=20260721-335">
+<link rel="stylesheet" href="/src/styles.css?v=20261024-336">
 <link rel="manifest" href="manifest.webmanifest?v=20260910-opaque-install-icon">
 <link rel="icon" sizes="192x192" href="icons/icon-192.png?v=20260910-opaque-install-icon">
 <link rel="apple-touch-icon" sizes="180x180" href="icons/icon-180.png?v=20260910-opaque-install-icon">
 <meta name="theme-color" content="#031523">
+<meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<!-- default: iPadOS 26+ blurs any page pixels drawn under the status bar -->
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
 
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link href="https://fonts.googleapis.com/css2?family=LXGW+WenKai+TC&display=swap" rel="stylesheet"></head>
 <body>
@@ -504,6 +506,6 @@ async function bcmRefreshStaleAppShell(){
 bcmRefreshStaleAppShell();
 bcmBootTimer=setTimeout(()=>{if(!window.__bcmBooted)bcmShowBootError('App 啟動時間過久，可能是更新快取不完整。');},8000);
 </script>
-<script type="module" src="/src/main.js?v=20260721-335"></script>
+<script type="module" src="/src/main.js?v=20261024-336"></script>
 </body>
 </html>

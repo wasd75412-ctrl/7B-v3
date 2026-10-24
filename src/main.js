@@ -3217,6 +3217,7 @@ function renderScore(){
   // 比分畫面是否開啟只屬於這台裝置，另一位管理員登入或操作不會影響它。
   const scoreVisible=shouldShowScoreView({matchActive:m.active,isHost,androidRemote:requestedAndroidRemote,requested:scoreViewRequested});
   $('scoreView').classList.toggle('hidden',!scoreVisible);
+  syncStatusBarColor();
   $('resumeScore')?.classList.toggle('hidden',!m.active||!isHost||requestedAndroidRemote||scoreVisible);
   updateUseShuttleButtons();
   const resultKey=currentResultKey();
@@ -4192,11 +4193,22 @@ const APP_THEME_COLORS={default:'#031523',court:'#072a24',ocean:'#05263a',sunset
 const appThemeSelect=$('appThemeSelect');
 const randomAppThemeToggle=$('randomAppThemeToggle');
 let randomAppThemeEnabled=localStorage.getItem(APP_RANDOM_THEME_KEY)==='1',appThemeWasHidden=false;
+function syncStatusBarColor(){
+  const meta=document.querySelector('meta[name="theme-color"]');
+  if(!meta)return;
+  const score=$('scoreView');
+  if(score&&!score.classList.contains('hidden')){
+    const court=getComputedStyle(score).getPropertyValue('--score-court-bg').trim();
+    if(court){meta.setAttribute('content',court);return}
+  }
+  const theme=APP_THEMES.has(document.documentElement.dataset.appTheme)?document.documentElement.dataset.appTheme:'default';
+  meta.setAttribute('content',APP_THEME_COLORS[theme]);
+}
 function applyAppTheme(value){
   const theme=APP_THEMES.has(value)?value:'default';
   document.documentElement.dataset.appTheme=theme;
   if(appThemeSelect)appThemeSelect.value=theme;
-  document.querySelector('meta[name="theme-color"]')?.setAttribute('content',APP_THEME_COLORS[theme]);
+  syncStatusBarColor();
   localStorage.setItem(APP_THEME_KEY,theme);
 }
 function randomAppTheme(){const current=localStorage.getItem(APP_THEME_KEY)||'default',themes=[...APP_THEMES].filter(theme=>theme!==current),value=crypto.getRandomValues(new Uint32Array(1))[0];return themes[value%themes.length]}
@@ -4236,6 +4248,7 @@ function applyScoreTheme(value){
   fullscreenScoreView.dataset.scoreTheme=theme;
   if(scoreThemeSelect)scoreThemeSelect.value=theme;
   localStorage.setItem(SCORE_THEME_KEY,theme);
+  syncStatusBarColor();
 }
 function updateRandomThemeButton(){
   if(!randomThemeToggle)return;
