@@ -320,16 +320,11 @@ public final class MainActivity extends Activity {
     }
 
     private void handleResolvedRemoteAction(VolumeKeyInterpreter.Action action, int keyCode, long eventTime) {
-        if (keyCode == KeyEvent.KEYCODE_CAMERA && action == VolumeKeyInterpreter.Action.USE_SHUTTLE) {
-            if (scoreController().consumeCameraAsOfficialStart((success, message) -> keyHandler.post(() -> {
+        if (action == VolumeKeyInterpreter.Action.OFFICIAL_START) {
+            scoreController().consumeCameraAsOfficialStart((success, message) -> keyHandler.post(() -> {
                 Toast.makeText(MainActivity.this, message, Toast.LENGTH_SHORT).show();
                 vibrate(success ? 70L : 28L);
-            }))) return;
-            CameraButtonGesture.shared().onShortPress(eventTime, cameraButtonCallbacks);
-            return;
-        }
-        if (keyCode == KeyEvent.KEYCODE_CAMERA && action == VolumeKeyInterpreter.Action.RETURN_SHUTTLE) {
-            CameraButtonGesture.shared().onLongPress(eventTime, cameraButtonCallbacks);
+            }));
             return;
         }
         if (action == VolumeKeyInterpreter.Action.USE_SHUTTLE || action == VolumeKeyInterpreter.Action.RETURN_SHUTTLE) {
@@ -342,12 +337,6 @@ public final class MainActivity extends Activity {
         }
         sendRemoteAction(action, eventTime);
     }
-
-    private final CameraButtonGesture.Callbacks cameraButtonCallbacks = new CameraButtonGesture.Callbacks() {
-        @Override public void undo() { sendRemoteAction(VolumeKeyInterpreter.Action.UNDO, SystemClock.uptimeMillis()); }
-        @Override public void useShuttle() { sendRemoteUseShuttleCommand(); }
-        @Override public void returnShuttle() { sendRemoteReturnShuttleCommand(); }
-    };
 
     private void sendRemoteUseShuttleCommand() {
         scoreController().useOneShuttle((success, message) -> keyHandler.post(() -> {

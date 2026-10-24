@@ -168,16 +168,22 @@ final class BackgroundScoreController {
                 && SystemClock.uptimeMillis() < officialStartRetryAt;
     }
 
-    // One camera press starts the match; shuttle/undo gestures only apply after it has started.
+    // The camera key only sends the official start. It never scores, undoes, or changes the shuttle count.
     synchronized boolean consumeCameraAsOfficialStart(FullscreenCallback callback) {
         RemoteSessionStore.Session session = RemoteSessionStore.getSession(context);
-        if (!session.isAuthorized()) return false;
+        if (!session.isAuthorized()) {
+            if (callback != null) callback.onComplete(false, "請先連接球局並登入管理員");
+            return true;
+        }
         ensureMatchListener(session);
         if (officialStartInFlight()) {
             if (callback != null) callback.onComplete(true, "比賽正式開始");
             return true;
         }
-        if (matchStarted) return false;
+        if (matchStarted) {
+            if (callback != null) callback.onComplete(true, "本場已正式開始");
+            return true;
+        }
         if (!matchKnown || matchId.equals(startRequestedMatchId)) {
             refreshOfficialStart(session, callback);
             return true;
@@ -186,7 +192,8 @@ final class BackgroundScoreController {
             beginOfficialStart(callback);
             return true;
         }
-        return false;
+        if (callback != null) callback.onComplete(false, "目前無法正式開始");
+        return true;
     }
 
     private void beginOfficialStart(FullscreenCallback callback) {
