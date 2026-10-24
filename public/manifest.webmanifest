@@ -7,7 +7,7 @@
   "display": "standalone",
   "orientation": "any",
   "background_color": "#151A22",
-  "theme_color": "#123E7C",
+  "theme_color": "#031523",
   "lang": "zh-Hant",
   "icons": [
     {
@@ -30,3 +30,4 @@
     }
   ]
 }
+

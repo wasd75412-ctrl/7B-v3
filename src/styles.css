@@ -564,6 +564,19 @@ html.brand-font-fallback .brand-copy .brand-mark h1{
   background-position:center;
   background-size:100% 100%;
 }
+/* Installed web apps that still draw under the status bar: keep the court
+   picture below that band. A fresh install reports a 0 top inset, so this is a no-op. */
+@media (display-mode: standalone){
+  html{min-height:calc(100% + env(safe-area-inset-top))}
+  .score-view,
+  .score-view.immersive-mode{
+    padding-top:env(safe-area-inset-top);
+    background-color:var(--score-court-bg,#17120e);
+    background-image:linear-gradient(var(--score-court-bg,#17120e),var(--score-court-bg,#17120e));
+    background-repeat:no-repeat;
+    background-size:auto;
+  }
+}
 .score-view.immersive-mode .score-head{
   min-height:0;
   height:0;
