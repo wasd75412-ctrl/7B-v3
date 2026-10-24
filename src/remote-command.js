@@ -33,6 +33,9 @@ export function shouldAcceptRemoteCommand({command,currentMatch,now=Date.now(),i
     &&timestamp>=now-REMOTE_COMMAND_MAX_AGE_MS
     &&(hasMatchId||!Number.isFinite(startedAt)||timestamp>=startedAt);
   const server=timestampMillis(command.createdAt);
+  // The direct link omits the server timestamp. Its client time is the only clock, and a phone
+  // that runs ahead of the iPad must still be able to start the match.
+  if(!Number.isFinite(server))return fresh(timestampMillis(command.clientCreatedAt));
   if(!fresh(server)||server>now+REMOTE_COMMAND_MAX_FUTURE_SKEW_MS)return false;
   // Keep an offline command's original age even when its server timestamp is new.
   // Phone clocks can run several seconds ahead of the host, so only the server time bounds the future.
@@ -62,4 +65,5 @@ export function isStaleMatchPressForCurrentMatch({command,currentMatch,graceMs=S
   const startedAt=timestampMillis(currentMatch.startedAt),pressedAt=timestampMillis(command.clientCreatedAt);
   return Number.isFinite(startedAt)&&Number.isFinite(pressedAt)&&pressedAt>=startedAt+graceMs;
 }
+
 

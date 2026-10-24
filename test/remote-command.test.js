@@ -80,6 +80,14 @@ test('accepts commands from a phone whose clock runs ahead of the host',()=>{
   assert.equal(accept({command:{...command,createdAt:now+5001,clientCreatedAt:now}}),false);
 });
 
+test('a direct official start with no server timestamp still uses the phone clock',()=>{
+  const direct={id:'start-1',matchId:'current-match',clientCreatedAt:now-500};
+  assert.equal(accept({command:direct}),true);
+  assert.equal(accept({command:{...direct,clientCreatedAt:now+6400}}),true);
+  assert.equal(accept({command:{...direct,clientCreatedAt:now-20_000}}),false);
+  assert.equal(accept({command:{id:'start-1',matchId:'current-match'}}),false);
+});
+
 test('rejects missing or malformed timestamps instead of treating them as fresh',()=>{
   const malformed=[undefined,null,'','invalid',NaN,Infinity,-1,Math.floor(now/1000),{},
     {toMillis:()=>{throw new Error('invalid timestamp')}},
@@ -133,6 +141,7 @@ test('the host skips queued repeat presses before scoring them',()=>{
   assert.match(main,/if\(action==='undo'\)\{remotePressTrail\.presses=\{\};return false\}/);
   assert.match(main,/arrivedAt:Date\.now\(\)/);
 });
+
 
 
 

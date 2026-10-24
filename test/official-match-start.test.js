@@ -62,6 +62,8 @@ test('Android starts officially on one camera press and still gates score-key do
   assert.match(gate,/DOUBLE_PRESS_MS = 1000L/);
   assert.match(gate,/if \(gap <= DOUBLE_PRESS_MS\)/);
   assert.match(controller,/synchronized boolean consumeCameraAsOfficialStart\(FullscreenCallback callback\)[\s\S]*?awaitingOfficialStart\(\)[\s\S]*?startOfficialMatch\(/);
+  assert.match(controller,/return !matchId\.equals\(startRequestedMatchId\) \|\| SystemClock\.uptimeMillis\(\) >= officialStartRetryAt;/);
+  assert.match(controller,/if \(!matchKnown \|\| matchId\.equals\(startRequestedMatchId\)\) \{\s*refreshOfficialStart\(session, callback\);/);
   assert.match(controller,/officialStartGate\.onScorePress\(\s*awaitingOfficialStart\(\), now\)/);
   assert.match(controller,/submitDirect[\s\S]*?submitResolved\(action, callback, inputAt\)/);
   assert.match(controller,/START_ECHO_SUPPRESS_MS = 500L/);
@@ -228,4 +230,6 @@ test('official start indicator is emphasized and centered for everyone to see',(
   assert.match(main,/showScoreRemoteIndicator\('比賽正式開始',\{duration:2500,icon:'✅',emphasis:'official'\}\)/);
   assert.match(styles,/\.score-remote-indicator\.official-start\{[^}]*top:50%;[^}]*left:50%;[^}]*transform:translate\(-50%,-50%\);[^}]*font-size:clamp\(2rem,7vw,5rem\)/);
 });
+
+
 
