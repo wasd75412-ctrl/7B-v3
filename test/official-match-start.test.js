@@ -216,7 +216,16 @@ test('the play button disappears as soon as the match officially starts',()=>{
   assert.match(main,/function markMatchOfficialStarted\(requestedAt\)[\s\S]*?saveLiveScoreSoon\(\);renderDashboard\(\);renderHistory\(\);renderScore\(\);/);
 });
 
+test('a fresh official start is applied even on the baseline snapshot and survives a room snapshot',()=>{
+  assert.match(main,/officialStartArrivedAfterAttach\(officialStartAt,remoteChannelAttachedAt\)/);
+  assert.match(main,/handleRemoteOfficialStartCommand\(commandData,\{initial:initial&&!officialStartAfterAttach\}\)/);
+  assert.match(main,/if\(started\)lastRemoteOfficialStartCommandId=id;/);
+  assert.match(main,/function resumeUnappliedOfficialStart\(\)\{[\s\S]*?Object\.hasOwn\(command,'matchId'\)[\s\S]*?handleRemoteOfficialStartCommand\(\{officialStartCommand:command\}\)/);
+  assert.match(main,/next\.match=keepOfficialStart\(state\.match,next\.match\)/);
+});
+
 test('official start indicator is emphasized and centered for everyone to see',()=>{
   assert.match(main,/showScoreRemoteIndicator\('比賽正式開始',\{duration:2500,icon:'✅',emphasis:'official'\}\)/);
   assert.match(styles,/\.score-remote-indicator\.official-start\{[^}]*top:50%;[^}]*left:50%;[^}]*transform:translate\(-50%,-50%\);[^}]*font-size:clamp\(2rem,7vw,5rem\)/);
 });
+

@@ -16,6 +16,12 @@ export function timestampMillis(value){
   return Number.isFinite(millis)&&millis>0&&millis<=8_640_000_000_000_000?millis:NaN;
 }
 
+// A command created while the page was still attaching the listener is a start the
+// scorer is waiting for, not the baseline command already stored on the document.
+export function officialStartArrivedAfterAttach(commandAt,attachedAt,maxAge=REMOTE_COMMAND_MAX_AGE_MS){
+  return Number.isFinite(commandAt)&&Number.isFinite(attachedAt)&&commandAt>=attachedAt-maxAge;
+}
+
 export function shouldAcceptRemoteCommand({command,currentMatch,now=Date.now(),initial=false,fromCache=false,hasPendingWrites=false,skipAge=false}={}){
   if(!command?.id||initial||fromCache||hasPendingWrites||!Number.isFinite(now))return false;
   const hasMatchId=Object.hasOwn(command,'matchId');
@@ -56,3 +62,4 @@ export function isStaleMatchPressForCurrentMatch({command,currentMatch,graceMs=S
   const startedAt=timestampMillis(currentMatch.startedAt),pressedAt=timestampMillis(command.clientCreatedAt);
   return Number.isFinite(startedAt)&&Number.isFinite(pressedAt)&&pressedAt>=startedAt+graceMs;
 }
+

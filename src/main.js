@@ -10,7 +10,7 @@ import { checkpointMissedOfficialStart, createLiveScoreData, createMatchCheckpoi
 import { journaledMatchToRestore, matchInProgress, matchJournalEntry, matchJournalKey } from './match-journal.js';
 import { startLocalLinkHost } from './local-link.js';
 import { MAIN_THREAD_TICK_MS, createMainThreadLagMonitor } from './main-thread-lag.js';
-import { REMOTE_COMMAND_MAX_AGE_MS, isQueuedRepeatPress, isStaleMatchPressForCurrentMatch, shouldAcceptRemoteCommand, timestampMillis } from './remote-command.js';
+import { REMOTE_COMMAND_MAX_AGE_MS, isQueuedRepeatPress, isStaleMatchPressForCurrentMatch, officialStartArrivedAfterAttach, shouldAcceptRemoteCommand, timestampMillis } from './remote-command.js';
 import { canAutoSyncPlayerIdentity } from './device-sync.js';
 import { shouldRequestNativeWakeLock, wakeLockButtonIntent, wakeLockControlIsActive } from './wake-lock.js';
 import { FIRESTORE_LINK_COOLDOWN_MS, FIRESTORE_LINK_TIMEOUT_MS, firestoreLinkProbeVerdict, shouldProbeFirestoreLink } from './firestore-link.js';
@@ -146,6 +146,7 @@ let roomSnapshotFromCache=false,snapshotHasPendingWrites=false,pendingRoomWrites
 const SYNC_MODE_KEY='bcmRoomSyncModeV1',SNAPSHOT_RETRY_BASE_MS=5000,SNAPSHOT_RETRY_MAX_MS=60000,ROOM_MATCH_FALLBACK_MS=60000;
 let roomMatchFallbackTimer=null,roomMatchFallbackKey='';
 let liveScoreSnapshotFromCache=false,liveScoreHasPendingWrites=false,pendingLiveScoreWrites=0,liveScoreWriteScheduled=false,liveScoreConnecting=false,liveScoreAvailable=true,liveScoreReady=false,liveScoreInitialSnapshot=true,remoteControlInitialSnapshot=true,remoteActionInitialSnapshot=true,liveScoreMigrationStarted=false,latestLiveMatch=null,lastRoomSnapshotData=null,lastRemoteRecordingStartCommandId='',lastRemoteFullscreenCommandId='',lastRemoteOfficialStartCommandId='',lastRemoteNextMatchCommandId='',lastRemoteUndoFinishedCommandId='',lastRemoteStartMatchCommandId='',lastRemoteActionCommandId='',seenRemoteActionIds=new Set(),androidOfficialStartPending=null,replacedRemoteMatchId='',replacedRemoteMatchAt=0;
+let latestOfficialStartCommand=null;
 const RESULT_NEXT_MATCH_GUARD_MS=500;
 let resultShownAt=0,remoteFinishPressAt=0,remotePressTrail={matchId:'',presses:{}};
 let localLinkHost=null,localLinkOpen=false,remoteDiagnostics=[],remoteDiagnosticsDirty=false,remoteDiagnosticsTimer=null,lastFirebaseOfficialStartId='';
@@ -1871,6 +1872,7 @@ function resilientSnapshot(target,options,onNext,onError,isCurrent){
 }
 function startRemoteControlChannels(id){
   if(remoteActionUnsubscribe||requestedAndroidRemote||!isHost||roomId!==id)return;
+  const remoteChannelAttachedAt=Date.now();
   remoteControlInitialSnapshot=true;remoteActionInitialSnapshot=true;
   const isCurrent=()=>roomId===id;
   // Only score-* docs: current, diagnostics and the local link doc would otherwise bill a second read per write.
@@ -1905,8 +1907,12 @@ function startRemoteControlChannels(id){
     applyRemoteActionLog(commandData,{initial});
     handleRemoteRecordingStartCommand(commandData,{initial});
     handleRemoteFullscreenCommand(commandData,{initial});
-    const officialStartId=String(commandData?.officialStartCommand?.id||''),officialStartDuplicate=officialStartId===lastRemoteOfficialStartCommandId;
-    const officialStarted=handleRemoteOfficialStartCommand(commandData,{initial});
+    const officialStartCommand=commandData?.officialStartCommand;
+    if(officialStartCommand?.id)latestOfficialStartCommand=officialStartCommand;
+    const officialStartId=String(officialStartCommand?.id||''),officialStartDuplicate=officialStartId===lastRemoteOfficialStartCommandId;
+    const officialStartAt=timestampMillis(officialStartCommand?.clientCreatedAt)||timestampMillis(officialStartCommand?.createdAt);
+    const officialStartAfterAttach=officialStartArrivedAfterAttach(officialStartAt,remoteChannelAttachedAt);
+    const officialStarted=handleRemoteOfficialStartCommand(commandData,{initial:initial&&!officialStartAfterAttach});
     if(officialStartId&&officialStartId!==lastFirebaseOfficialStartId){lastFirebaseOfficialStartId=officialStartId;if(!initial)logRemoteDiagnostic('start','firebase',commandData.officialStartCommand,officialStartDuplicate?'dup':officialStarted)}
     handleRemoteNextMatchCommand(commandData,{initial});
     handleRemoteUndoFinishedCommand(commandData,{initial});
@@ -2027,7 +2033,7 @@ async function connectRoom(id){
   liveScoreRef=doc(db,'badmintonRooms',id,'liveScore','current');
   remoteControlRef=doc(db,'badmintonRooms',id,'remoteControl','current');
   liveScoreReady=false;liveScoreInitialSnapshot=true;liveScoreMigrationStarted=false;liveScoreAvailable=true;liveScoreConnecting=true;latestLiveMatch=null;lastRoomSnapshotData=null;
-  remoteControlInitialSnapshot=true;remoteActionInitialSnapshot=true;lastRemoteFullscreenCommandId='';lastRemoteOfficialStartCommandId='';lastRemoteNextMatchCommandId='';lastRemoteUndoFinishedCommandId='';lastRemoteStartMatchCommandId='';lastRemoteActionCommandId='';seenRemoteActionIds=loadSeenRemoteActionIds(id);androidOfficialStartPending=null;replacedRemoteMatchId='';replacedRemoteMatchAt=0;
+  remoteControlInitialSnapshot=true;remoteActionInitialSnapshot=true;lastRemoteFullscreenCommandId='';lastRemoteOfficialStartCommandId='';latestOfficialStartCommand=null;lastRemoteNextMatchCommandId='';lastRemoteUndoFinishedCommandId='';lastRemoteStartMatchCommandId='';lastRemoteActionCommandId='';seenRemoteActionIds=loadSeenRemoteActionIds(id);androidOfficialStartPending=null;replacedRemoteMatchId='';replacedRemoteMatchAt=0;
   liveScoreSnapshotFromCache=false;liveScoreHasPendingWrites=false;pendingLiveScoreWrites=0;liveScoreWriteScheduled=false;
   selfHash=await sha256(selfToken);
   setSync(navigator.onLine?'連線中':'讀取離線資料','pending');
@@ -2226,11 +2232,13 @@ function applyState(data){
     next.match=structuredClone(latestLiveMatch);
   }
   if(canApplyMatch(next.match)&&(Number(next.lineupRevision)||0)<(Number(state.lineupRevision)||0))keepNewerLineup(next);
+  next.match=keepOfficialStart(state.match,next.match);
   state=next;
   if(requestedAndroidRemote)scheduleAndroidRemoteRender(true);else{applying=true;renderAll();applying=false}
   announceSyncedScore(before);
   checkAchievementUnlocks();
   if(restoreLedger)saveSoon();
+  resumeUnappliedOfficialStart();
   // Receiving a room snapshot must never publish its fallback match back into liveScore.
 }
 // The Android app pauses WebView timers while recording, and Firestore delivers every snapshot through
@@ -2251,7 +2259,9 @@ function applyLiveScoreState(data,{announce=true}={}){
   liveScoreReady=true;latestLiveMatch=structuredClone(match);
   state.match=match;takeOverOwnBrowserScoring();syncLocalLinkOwner();
   if(requestedAndroidRemote)scheduleAndroidRemoteRender();else{applying=true;renderScore();renderDashboard();renderAndroidRemote();applying=false}
-  announceSyncedScore(before,announce);if(shouldFinish)finishMatch();return true;
+  announceSyncedScore(before,announce);if(shouldFinish)finishMatch();
+  resumeUnappliedOfficialStart();
+  return true;
 }
 // A hidden page may be about to leave as a superseded tab, so only the page in view takes over.
 function takeOverOwnBrowserScoring(){
@@ -2291,13 +2301,19 @@ function handleRemoteRecordingStartCommand(data,{initial=false}={}){
 }
 function handleRemoteOfficialStartCommand(data,{initial=false}={}){
   const id=String(data?.officialStartCommand?.id||'');if(!id||id===lastRemoteOfficialStartCommandId)return false;
-  lastRemoteOfficialStartCommandId=id;
   const command=data.officialStartCommand;
+  if(initial){lastRemoteOfficialStartCommandId=id;return false}
   if(!shouldAcceptRemoteCommand({command,currentMatch:state.match,initial}))return false;
   if(initial||requestedAndroidRemote||!isHost)return false;
   const started=markMatchOfficialStarted(data.officialStartCommand.clientCreatedAt||data.officialStartCommand.createdAt);
+  if(started)lastRemoteOfficialStartCommandId=id;
   if(started&&ownsScoring(state.match,scoreDeviceId)&&$('scoreView').classList.contains('hidden')&&$('resultModal').classList.contains('hidden'))claimScoring();
   return started;
+}
+function resumeUnappliedOfficialStart(){
+  const command=latestOfficialStartCommand;
+  if(!command||!Object.hasOwn(command,'matchId')||matchHasOfficiallyStarted(state.match))return false;
+  return handleRemoteOfficialStartCommand({officialStartCommand:command});
 }
 function handleRemoteNextMatchCommand(data,{initial=false}={}){
   const id=String(data?.nextMatchCommand?.id||'');if(!id||id===lastRemoteNextMatchCommandId)return false;
