@@ -85,7 +85,8 @@ test('routes remote keys directly without multi-press delay',()=>{
   }
   assert.match(interpreter,/KEYCODE_VOLUME_UP:[\s\S]*?TEAM_A_PLUS/);
   assert.match(interpreter,/KEYCODE_VOLUME_DOWN:[\s\S]*?TEAM_B_PLUS/);
-  assert.match(interpreter,/KEYCODE_CAMERA:[\s\S]*?USE_SHUTTLE/);
+  assert.match(interpreter,/KEYCODE_CAMERA:\s*return Action\.OFFICIAL_START/);
+  assert.match(interpreter,/KEYCODE_CAMERA\) return Action\.OFFICIAL_START/);
   assert.match(interpreter,/longPressAction[\s\S]*?KEYCODE_VOLUME_UP[\s\S]*?Action\.UNDO[\s\S]*?Action\.RETURN_SHUTTLE/);
   assert.match(activity,/scoreController\(\)\.useOneShuttle/);
   assert.match(activity,/scoreController\(\)\.returnOneShuttle/);
@@ -110,22 +111,23 @@ test('routes remote keys directly without multi-press delay',()=>{
   assert.match(main,/if\(resultVisible\)\{\s*if\(action==='undo'\)performScoreRemoteAction\('undo',\{announce:false\}\);\s*else if\(isResultScreenBurstPress\(command\)\)showScoreRemoteIndicator\('本場已結束'[^\n]*\n\s*else if\(isResultScreenNextMatchPress\(command,action\)\)startNextFromRemote\(\);\s*return true;\s*\}/);
 });
 
-test('YUNTENG remote support is removed and camera-key shuttle controls remain',()=>{
+test('YUNTENG remote support is removed and the camera key only starts the match',()=>{
   assert.equal(existsSync(new URL('../android-remote/app/src/main/java/tw/club7b/scoreremote/YuntengGestureInterpreter.java',import.meta.url)),false);
-  for(const source of [activity,service,cameraActivity])assert.doesNotMatch(source,/yunteng/i);
+  assert.equal(existsSync(new URL('../android-remote/app/src/main/java/tw/club7b/scoreremote/CameraButtonGesture.java',import.meta.url)),false);
+  for(const source of [activity,service,cameraActivity,controller]){
+    assert.doesNotMatch(source,/yunteng/i);
+    assert.doesNotMatch(source,/CameraButtonGesture/);
+  }
   assert.match(activity,/sendScoreAction[\s\S]*?scoreController\(\)\.submit\(action/);
-  const cameraButton=readFileSync(new URL('../android-remote/app/src/main/java/tw/club7b/scoreremote/CameraButtonGesture.java',import.meta.url),'utf8');
-  assert.match(cameraButton,/DOUBLE_PRESS_MS = 500L/);
-  assert.match(cameraButton,/callbacks\.useShuttle\(\)[\s\S]*?callbacks\.undo\(\)/);
-  assert.match(cameraButton,/callbacks\.returnShuttle\(\)/);
   assert.match(controller,/synchronized boolean consumeCameraAsOfficialStart\(FullscreenCallback callback\)/);
-  assert.match(activity,/KEYCODE_CAMERA && action == VolumeKeyInterpreter\.Action\.USE_SHUTTLE[\s\S]*?consumeCameraAsOfficialStart[\s\S]*?onShortPress\(eventTime, cameraButtonCallbacks\)/);
-  assert.match(activity,/KEYCODE_CAMERA && action == VolumeKeyInterpreter\.Action\.RETURN_SHUTTLE[\s\S]*?onLongPress\(eventTime, cameraButtonCallbacks\)/);
-  assert.match(activity,/void undo\(\) \{ sendRemoteAction\(VolumeKeyInterpreter\.Action\.UNDO, SystemClock\.uptimeMillis\(\)\); \}[\s\S]*?void useShuttle\(\) \{ sendRemoteUseShuttleCommand\(\); \}[\s\S]*?void returnShuttle\(\) \{ sendRemoteReturnShuttleCommand\(\); \}/);
-  assert.match(service,/KEYCODE_CAMERA && action == VolumeKeyInterpreter\.Action\.USE_SHUTTLE[\s\S]*?consumeCameraAsOfficialStart[\s\S]*?onShortPress\(eventTime, cameraButtonCallbacks\)/);
-  assert.match(service,/void undo\(\) \{ sendBackgroundAction\(VolumeKeyInterpreter\.Action\.UNDO, SystemClock\.uptimeMillis\(\)\); \}[\s\S]*?void useShuttle\(\) \{ sendBackgroundUseShuttle\(\); \}[\s\S]*?void returnShuttle\(\) \{ sendBackgroundReturnShuttle\(\); \}/);
-  assert.match(cameraActivity,/consumeCameraAsOfficialStart[\s\S]*?CameraButtonGesture\.shared\(\)\.onShortPress\(event\.getEventTime\(\), recordingCameraCallbacks\)/);
-  assert.match(cameraActivity,/CameraButtonGesture\.shared\(\)\.onLongPress\(pressedAt \+ VolumeKeyInterpreter\.LONG_PRESS_MS, recordingCameraCallbacks\)/);
+  assert.match(controller,/if \(matchStarted\) \{\s*if \(callback != null\) callback\.onComplete\(true, "本場已正式開始"\);\s*return true;/);
+  assert.match(activity,/action == VolumeKeyInterpreter\.Action\.OFFICIAL_START[\s\S]*?consumeCameraAsOfficialStart/);
+  assert.doesNotMatch(activity,/cameraButtonCallbacks/);
+  assert.match(service,/action == VolumeKeyInterpreter\.Action\.OFFICIAL_START[\s\S]*?consumeCameraAsOfficialStart/);
+  assert.doesNotMatch(service,/cameraButtonCallbacks/);
+  assert.match(cameraActivity,/if \(action == VolumeKeyInterpreter\.Action\.OFFICIAL_START\) sendRecordingOfficialStart\(\)/);
   assert.match(cameraActivity,/if \(keyCode == android\.view\.KeyEvent\.KEYCODE_CAMERA\) \{\s*handleRecordingCameraKey\(event\);/);
-  assert.match(cameraActivity,/remoteScoreController\.submit\(action/);
+  assert.doesNotMatch(cameraActivity,/sendRecordingCameraAction|recordingCameraCallbacks/);
 });
+
+

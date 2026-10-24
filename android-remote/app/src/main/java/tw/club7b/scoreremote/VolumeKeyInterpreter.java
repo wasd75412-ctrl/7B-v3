@@ -9,7 +9,8 @@ final class VolumeKeyInterpreter {
         TEAM_B_PLUS,
         UNDO,
         USE_SHUTTLE,
-        RETURN_SHUTTLE
+        RETURN_SHUTTLE,
+        OFFICIAL_START
     }
 
     private int activeKey = -1;
@@ -77,6 +78,7 @@ final class VolumeKeyInterpreter {
             case android.view.KeyEvent.KEYCODE_VOLUME_DOWN:
                 return Action.TEAM_B_PLUS;
             case android.view.KeyEvent.KEYCODE_CAMERA:
+                return Action.OFFICIAL_START;
             case android.view.KeyEvent.KEYCODE_ZOOM_IN:
             case android.view.KeyEvent.KEYCODE_FOCUS:
             case android.view.KeyEvent.KEYCODE_ENTER:
@@ -94,6 +96,7 @@ final class VolumeKeyInterpreter {
     }
 
     private static Action longPressAction(int keyCode) {
+        if (keyCode == android.view.KeyEvent.KEYCODE_CAMERA) return Action.OFFICIAL_START;
         if (keyCode == android.view.KeyEvent.KEYCODE_VOLUME_UP
                 || keyCode == android.view.KeyEvent.KEYCODE_VOLUME_DOWN) return Action.UNDO;
         return shortPressAction(keyCode) == Action.USE_SHUTTLE ? Action.RETURN_SHUTTLE : Action.NONE;
@@ -131,3 +134,6 @@ final class VolumeKeyInterpreter {
         }
     }
 }
+
+
+

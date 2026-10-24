@@ -71,11 +71,15 @@ public final class VolumeKeyInterpreterTest {
     }
 
     @Test
-    public void cameraButtonUsesAndReturnsShuttle() {
+    public void cameraButtonOnlyStartsOfficially() {
         VolumeKeyInterpreter interpreter = new VolumeKeyInterpreter();
         interpreter.onKeyDown(KeyEvent.KEYCODE_CAMERA, 100L, 0);
-        assertEquals(VolumeKeyInterpreter.Action.USE_SHUTTLE, interpreter.onKeyUp(KeyEvent.KEYCODE_CAMERA, 180L));
-        interpreter.onKeyDown(KeyEvent.KEYCODE_ENTER, 300L, 0);
-        assertEquals(VolumeKeyInterpreter.Action.RETURN_SHUTTLE, interpreter.onKeyUp(KeyEvent.KEYCODE_ENTER, 900L));
+        assertEquals(VolumeKeyInterpreter.Action.OFFICIAL_START, interpreter.onKeyUp(KeyEvent.KEYCODE_CAMERA, 180L));
+        interpreter.onKeyDown(KeyEvent.KEYCODE_CAMERA, 1000L, 0);
+        assertEquals(VolumeKeyInterpreter.Action.OFFICIAL_START, interpreter.onLongPressTimeout(KeyEvent.KEYCODE_CAMERA, 1600L));
+        assertEquals(VolumeKeyInterpreter.Action.NONE, interpreter.onKeyUp(KeyEvent.KEYCODE_CAMERA, 1700L));
+        interpreter.onKeyDown(KeyEvent.KEYCODE_ENTER, 2000L, 0);
+        assertEquals(VolumeKeyInterpreter.Action.RETURN_SHUTTLE, interpreter.onKeyUp(KeyEvent.KEYCODE_ENTER, 2600L));
     }
 }
+

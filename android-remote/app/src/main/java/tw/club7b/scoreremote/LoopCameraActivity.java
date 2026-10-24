@@ -194,38 +194,17 @@ public final class LoopCameraActivity extends ComponentActivity {
         if (event.getAction() == android.view.KeyEvent.ACTION_DOWN) {
             action = cameraKeys.onKeyDown(keyCode, event.getEventTime(), event.getRepeatCount());
             if (event.getRepeatCount() == 0) scheduleRecordingCameraLongPress(event.getEventTime());
-            if (action == VolumeKeyInterpreter.Action.RETURN_SHUTTLE) cancelRecordingCameraLongPress();
         } else if (event.getAction() == android.view.KeyEvent.ACTION_UP) {
             cancelRecordingCameraLongPress();
             action = cameraKeys.onKeyUp(keyCode, event.getEventTime());
         }
-        if (action == VolumeKeyInterpreter.Action.USE_SHUTTLE) {
-            if (remoteScoreController == null) remoteScoreController = new BackgroundScoreController(this);
-            if (remoteScoreController.consumeCameraAsOfficialStart((success, message) -> handler.post(() ->
-                    Toast.makeText(LoopCameraActivity.this, message, Toast.LENGTH_SHORT).show()))) return;
-            CameraButtonGesture.shared().onShortPress(event.getEventTime(), recordingCameraCallbacks);
-        } else if (action == VolumeKeyInterpreter.Action.RETURN_SHUTTLE) {
-            CameraButtonGesture.shared().onLongPress(event.getEventTime(), recordingCameraCallbacks);
-        }
+        if (action == VolumeKeyInterpreter.Action.OFFICIAL_START) sendRecordingOfficialStart();
     }
 
-    private final CameraButtonGesture.Callbacks recordingCameraCallbacks = new CameraButtonGesture.Callbacks() {
-        @Override public void undo() { sendRecordingCameraAction(VolumeKeyInterpreter.Action.UNDO); }
-        @Override public void useShuttle() { sendRecordingCameraAction(VolumeKeyInterpreter.Action.USE_SHUTTLE); }
-        @Override public void returnShuttle() { sendRecordingCameraAction(VolumeKeyInterpreter.Action.RETURN_SHUTTLE); }
-    };
-
-    private void sendRecordingCameraAction(VolumeKeyInterpreter.Action action) {
+    private void sendRecordingOfficialStart() {
         if (remoteScoreController == null) remoteScoreController = new BackgroundScoreController(this);
-        if (action == VolumeKeyInterpreter.Action.UNDO) {
-            remoteScoreController.submit(action, (success, message, completedAction) -> handler.post(() ->
-                    Toast.makeText(LoopCameraActivity.this, message, Toast.LENGTH_SHORT).show()));
-            return;
-        }
-        BackgroundScoreController.FullscreenCallback callback = (success, message) -> handler.post(() ->
-                Toast.makeText(LoopCameraActivity.this, message, Toast.LENGTH_SHORT).show());
-        if (action == VolumeKeyInterpreter.Action.USE_SHUTTLE) remoteScoreController.useOneShuttle(callback);
-        else remoteScoreController.returnOneShuttle(callback);
+        remoteScoreController.consumeCameraAsOfficialStart((success, message) -> handler.post(() ->
+                Toast.makeText(LoopCameraActivity.this, message, Toast.LENGTH_SHORT).show()));
     }
 
     private void scheduleRecordingCameraLongPress(long pressedAt) {
@@ -236,9 +215,7 @@ public final class LoopCameraActivity extends ComponentActivity {
                     android.view.KeyEvent.KEYCODE_CAMERA,
                     pressedAt + VolumeKeyInterpreter.LONG_PRESS_MS
             );
-            if (action == VolumeKeyInterpreter.Action.RETURN_SHUTTLE) {
-                CameraButtonGesture.shared().onLongPress(pressedAt + VolumeKeyInterpreter.LONG_PRESS_MS, recordingCameraCallbacks);
-            }
+            if (action == VolumeKeyInterpreter.Action.OFFICIAL_START) sendRecordingOfficialStart();
         };
         handler.postDelayed(pendingCameraLongPress, VolumeKeyInterpreter.LONG_PRESS_MS);
     }

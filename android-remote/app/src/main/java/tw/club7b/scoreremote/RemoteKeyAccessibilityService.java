@@ -127,22 +127,16 @@ public final class RemoteKeyAccessibilityService extends AccessibilityService {
     }
 
     private void handleResolvedBackgroundAction(VolumeKeyInterpreter.Action action, int keyCode, long eventTime) {
-        if (keyCode == KeyEvent.KEYCODE_CAMERA && action == VolumeKeyInterpreter.Action.USE_SHUTTLE) {
+        if (action == VolumeKeyInterpreter.Action.OFFICIAL_START) {
             try {
-                if (scoreController().consumeCameraAsOfficialStart((success, message) -> keyHandler.post(() -> {
+                scoreController().consumeCameraAsOfficialStart((success, message) -> keyHandler.post(() -> {
                     Toast.makeText(RemoteKeyAccessibilityService.this, message, Toast.LENGTH_SHORT).show();
                     vibrate(success ? 70L : 28L);
-                }))) return;
+                }));
             } catch (RuntimeException error) {
                 Toast.makeText(this, "無法連接計分模式", Toast.LENGTH_SHORT).show();
                 vibrate(28L);
-                return;
             }
-            CameraButtonGesture.shared().onShortPress(eventTime, cameraButtonCallbacks);
-            return;
-        }
-        if (keyCode == KeyEvent.KEYCODE_CAMERA && action == VolumeKeyInterpreter.Action.RETURN_SHUTTLE) {
-            CameraButtonGesture.shared().onLongPress(eventTime, cameraButtonCallbacks);
             return;
         }
         if (action == VolumeKeyInterpreter.Action.USE_SHUTTLE || action == VolumeKeyInterpreter.Action.RETURN_SHUTTLE) {
@@ -155,12 +149,6 @@ public final class RemoteKeyAccessibilityService extends AccessibilityService {
         }
         sendBackgroundAction(action, eventTime);
     }
-
-    private final CameraButtonGesture.Callbacks cameraButtonCallbacks = new CameraButtonGesture.Callbacks() {
-        @Override public void undo() { sendBackgroundAction(VolumeKeyInterpreter.Action.UNDO, SystemClock.uptimeMillis()); }
-        @Override public void useShuttle() { sendBackgroundUseShuttle(); }
-        @Override public void returnShuttle() { sendBackgroundReturnShuttle(); }
-    };
 
     private BackgroundScoreController scoreController() {
         if (scoreController == null) scoreController = new BackgroundScoreController(this);
