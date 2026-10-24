@@ -11,7 +11,7 @@ test('the score view can be viewed from the opposite sideline on this device onl
   assert.match(main,/const COURT_FLIP_KEY='bcmScoreCourtFlipV1';/);
   assert.match(main,/\$\('courtFlipToggle'\)\.onclick=toggleCourtFlip;/);
   assert.match(main,/\$\('scoreView'\)\.classList\.toggle\('court-flipped',flipped\);/);
-  assert.match(main,/const displaySides=singles\?\[0\]:\(t===0\)!==flipped\?\[0,1\]:\[1,0\];/);
+  assert.match(main,/const displaySides=singles\?\[0\]:flipped\?\[1,0\]:\[0,1\];/);
 });
 
 test('flipping swaps the court but keeps names, avatars and scores readable',()=>{
