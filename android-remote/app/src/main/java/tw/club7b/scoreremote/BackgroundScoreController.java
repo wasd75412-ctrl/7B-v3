@@ -70,6 +70,7 @@ final class BackgroundScoreController {
     private boolean matchStarted;
     private String startedLatchMatchId = "";
     private String startRequestedMatchId = "";
+    private long officialStartRetryAt = Long.MIN_VALUE;
     private long suppressScoreUntil = Long.MIN_VALUE;
 
     BackgroundScoreController(Context context) {
@@ -157,8 +158,14 @@ final class BackgroundScoreController {
     }
 
     private synchronized boolean awaitingOfficialStart() {
-        return matchKnown && matchActive && !matchFinished && !matchStarted
-                && !matchId.isEmpty() && !matchId.equals(startRequestedMatchId);
+        if (!(matchKnown && matchActive && !matchFinished && !matchStarted && !matchId.isEmpty())) return false;
+        // A start the scorer never applied must not stick. After a short gap the camera key sends it again.
+        return !matchId.equals(startRequestedMatchId) || SystemClock.uptimeMillis() >= officialStartRetryAt;
+    }
+
+    private synchronized boolean officialStartInFlight() {
+        return matchKnown && !matchStarted && matchId.equals(startRequestedMatchId)
+                && SystemClock.uptimeMillis() < officialStartRetryAt;
     }
 
     // One camera press starts the match; shuttle/undo gestures only apply after it has started.
@@ -166,19 +173,63 @@ final class BackgroundScoreController {
         RemoteSessionStore.Session session = RemoteSessionStore.getSession(context);
         if (!session.isAuthorized()) return false;
         ensureMatchListener(session);
-        if (!awaitingOfficialStart()) return false;
+        if (officialStartInFlight()) {
+            if (callback != null) callback.onComplete(true, "比賽正式開始");
+            return true;
+        }
+        if (matchStarted) return false;
+        if (!matchKnown || matchId.equals(startRequestedMatchId)) {
+            refreshOfficialStart(session, callback);
+            return true;
+        }
+        if (awaitingOfficialStart()) {
+            beginOfficialStart(callback);
+            return true;
+        }
+        return false;
+    }
+
+    private void beginOfficialStart(FullscreenCallback callback) {
         String requestedMatchId = matchId;
         startRequestedMatchId = requestedMatchId;
+        officialStartRetryAt = SystemClock.uptimeMillis() + 1500L;
         suppressScoreUntil = SystemClock.uptimeMillis() + START_ECHO_SUPPRESS_MS;
         startOfficialMatch((success, message) -> {
             if (!success) clearStartRequest(requestedMatchId);
             if (callback != null) callback.onComplete(success, success ? "比賽正式開始" : message);
         });
-        return true;
+    }
+
+    // The listener may still be attaching, or it may be stuck on the previous match.
+    private void refreshOfficialStart(RemoteSessionStore.Session session, FullscreenCallback callback) {
+        liveScoreReference(session).get().addOnCompleteListener(task -> {
+            synchronized (BackgroundScoreController.this) {
+                if (task.isSuccessful() && task.getResult() != null) updateMatch(task.getResult());
+                if (officialStartInFlight()) {
+                    if (callback != null) callback.onComplete(true, "比賽正式開始");
+                    return;
+                }
+                if (awaitingOfficialStart()) {
+                    beginOfficialStart(callback);
+                    return;
+                }
+                if (matchKnown && matchActive && !matchFinished && !matchStarted && !matchId.isEmpty()
+                        && matchId.equals(startRequestedMatchId)) {
+                    startRequestedMatchId = "";
+                    officialStartRetryAt = Long.MIN_VALUE;
+                    if (awaitingOfficialStart()) beginOfficialStart(callback);
+                    else if (callback != null) callback.onComplete(false, "目前無法正式開始");
+                    return;
+                }
+                if (callback != null && !(matchKnown && matchStarted)) callback.onComplete(false, "目前無法正式開始");
+            }
+        });
     }
 
     private synchronized void clearStartRequest(String requestedMatchId) {
-        if (requestedMatchId.equals(startRequestedMatchId)) startRequestedMatchId = "";
+        if (!requestedMatchId.equals(startRequestedMatchId)) return;
+        startRequestedMatchId = "";
+        officialStartRetryAt = Long.MIN_VALUE;
     }
 
     private synchronized void ensureMatchListener(RemoteSessionStore.Session session) {
@@ -193,6 +244,8 @@ final class BackgroundScoreController {
         matchKnown = false;
         matchStarted = false;
         startedLatchMatchId = "";
+        startRequestedMatchId = "";
+        officialStartRetryAt = Long.MIN_VALUE;
         suppressScoreUntil = Long.MIN_VALUE;
         officialStartGate.reset();
         attachMatchListener(session);
@@ -242,6 +295,10 @@ final class BackgroundScoreController {
             startedLatchMatchId = nextMatchId;
             suppressScoreUntil = startedNow ? now + START_ECHO_SUPPRESS_MS : Long.MIN_VALUE;
             matchStarted = startedNow;
+            if (!nextMatchId.equals(startRequestedMatchId)) {
+                startRequestedMatchId = "";
+                officialStartRetryAt = Long.MIN_VALUE;
+            }
         } else if (!nextActive || nextFinished) {
             matchStarted = false;
         } else if (startedNow) {
