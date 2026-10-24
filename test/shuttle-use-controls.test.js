@@ -120,7 +120,8 @@ test('YUNTENG remote support is removed and the camera key only starts the match
   }
   assert.match(activity,/sendScoreAction[\s\S]*?scoreController\(\)\.submit\(action/);
   assert.match(controller,/synchronized boolean consumeCameraAsOfficialStart\(FullscreenCallback callback\)/);
-  assert.match(controller,/if \(matchStarted\) \{\s*if \(callback != null\) callback\.onComplete\(true, "本場已正式開始"\);\s*return true;/);
+  assert.match(controller,/if \(matchStarted\) \{\s*refreshOfficialStart\(session, callback\);\s*return true;/);
+  assert.match(controller,/if \(matchKnown && matchStarted\) \{\s*if \(callback != null\) callback\.onComplete\(true, "本場已正式開始"\);/);
   assert.match(activity,/action == VolumeKeyInterpreter\.Action\.OFFICIAL_START[\s\S]*?consumeCameraAsOfficialStart/);
   assert.doesNotMatch(activity,/cameraButtonCallbacks/);
   assert.match(service,/action == VolumeKeyInterpreter\.Action\.OFFICIAL_START[\s\S]*?consumeCameraAsOfficialStart/);

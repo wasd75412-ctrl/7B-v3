@@ -181,7 +181,7 @@ final class BackgroundScoreController {
             return true;
         }
         if (matchStarted) {
-            if (callback != null) callback.onComplete(true, "本場已正式開始");
+            refreshOfficialStart(session, callback);
             return true;
         }
         if (!matchKnown || matchId.equals(startRequestedMatchId)) {
@@ -208,10 +208,15 @@ final class BackgroundScoreController {
     }
 
     // The listener may still be attaching, or it may be stuck on the previous match.
+    // The listener may still be attaching, or it may be stuck on the previous match.
     private void refreshOfficialStart(RemoteSessionStore.Session session, FullscreenCallback callback) {
         liveScoreReference(session).get().addOnCompleteListener(task -> {
             synchronized (BackgroundScoreController.this) {
-                if (task.isSuccessful() && task.getResult() != null) updateMatch(task.getResult());
+                if (!task.isSuccessful() || task.getResult() == null) {
+                    if (callback != null) callback.onComplete(false, "目前無法正式開始");
+                    return;
+                }
+                updateMatch(task.getResult());
                 if (officialStartInFlight()) {
                     if (callback != null) callback.onComplete(true, "比賽正式開始");
                     return;
@@ -228,12 +233,16 @@ final class BackgroundScoreController {
                     else if (callback != null) callback.onComplete(false, "目前無法正式開始");
                     return;
                 }
-                if (callback != null && !(matchKnown && matchStarted)) callback.onComplete(false, "目前無法正式開始");
+                if (matchKnown && matchStarted) {
+                    if (callback != null) callback.onComplete(true, "本場已正式開始");
+                    return;
+                }
+                if (callback != null) callback.onComplete(false, "目前無法正式開始");
             }
         });
     }
 
-    private synchronized void clearStartRequest(String requestedMatchId) {
+private synchronized void clearStartRequest(String requestedMatchId) {
         if (!requestedMatchId.equals(startRequestedMatchId)) return;
         startRequestedMatchId = "";
         officialStartRetryAt = Long.MIN_VALUE;

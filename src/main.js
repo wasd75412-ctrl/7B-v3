@@ -221,7 +221,7 @@ function matchHasOfficiallyStarted(match=state.match){return Boolean(match?.star
 function markMatchOfficialStarted(requestedAt){
   const match=state.match;
   if(!isHost||!match.active||match.winner!==null)return false;
-  if(matchHasOfficiallyStarted(match)){if(!officialStartIndicatorVisible())showScoreRemoteIndicator('本場已正式開始',{duration:1400,icon:'✅'});return true}
+  if(matchHasOfficiallyStarted(match)){if(!officialStartIndicatorVisible())showScoreRemoteIndicator('比賽正式開始',{duration:2500,icon:'✅',emphasis:'official'});return true}
   androidOfficialStartPending=null;
   const now=Date.now(),requestedMillis=timestampMillis(requestedAt);
   match.startedAt=new Date(Number.isFinite(requestedMillis)?Math.min(requestedMillis,now):now).toISOString();
