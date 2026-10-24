@@ -2,7 +2,7 @@ import { initializeApp } from 'firebase/app';
 import { initializeFirestore, memoryLocalCache, persistentLocalCache, persistentMultipleTabManager, disableNetwork, enableNetwork, waitForPendingWrites, doc, getDoc, getDocFromServer, onSnapshot, setDoc, writeBatch, serverTimestamp, runTransaction, collection, getDocs, deleteDoc, query, orderBy, limit, where, documentId } from 'firebase/firestore';
 import appPackage from '../package.json';
 import { calculateCombinedPerPersonFee, calculatePerPersonFee, shouldShowNextEventAnnouncement, suggestedEventEndTime } from './next-event.js';
-import { shouldShowNotificationPrompt } from './notifications.js';
+import { shouldAskToClaimPlayer, shouldShowNotificationPrompt, storedDeviceToken } from './notifications.js';
 import { normalizeMatchReplayTitle, normalizeYouTubePlaylistUrl } from './youtube.js';
 import { DEFAULT_SCORE_REMOTE_BINDINGS, VIRTUAL_REMOTE_CLICK_CODE, advanceRemotePressState, assignRemoteBinding, isEditableRemoteTarget, normalizeRemoteBindings, remoteActionForCode, remoteEventCode, shouldHandleRemoteInput } from './score-remote.js';
 import { SCORER_TAB_CHANNEL, SCORER_TAB_SUPERSEDED_KEY, claimSupersedes, scorerTabClaim } from './scorer-tab.js';
@@ -140,7 +140,7 @@ function wholeAmount(value){const n=Number(value);return Number.isFinite(n)&&n>0
 function setAdminNotices(rows){state.adminNotices=normalizeAdminNotices({adminNotices:rows});state.adminNotice=state.adminNotices[0]||null}
 const initialState=()=>({version:9.8,matchFormat:'doubles',roster:[],retiredPlayers:[],adminPlayerIds:[],attendance:[],lineupRevision:0,court:[],waitingQueue:[],queueDraftChosen:[],priority:null,lastLoserReplayPlayerId:null,match:{active:false,format:'doubles',players:[[],[]],scores:[0,0],rallies:[],serving:0,positions:[[0,1],[0,1]],winner:null,startedAt:''},matchRollback:null,rules:{target:11,cap:15,deuce:true,genderGroupingEnabled:true},history:[],statsLedger:emptyStatsLedger(),deletedMatchIds:[],matchTimelineStarts:{},hiddenTimelineDates:[],matchReplayPlaylistTitle:'',matchReplayPlaylistUrl:'',nextCall:null,schedulePoll:{status:'open',createdAt:'',deadlineAt:'',autoCycle:'',options:[],votes:{},voterPlayers:{},manualParticipants:{}},pollHistory:[],nextEvent:null,nextEvents:[],adminNotice:null,adminNotices:[],shuttleTubes:[],shuttlePresets:[],shuttleLegacyActiveTubeId:'',shuttleNoTrackingTubeIds:[],updatedAt:null});
 const DEVICE_SYNC_CODE_KEY='bcmDeviceSyncCodeV1',DEVICE_SYNC_TOKEN_KEY='bcmDeviceSyncTokenV1',DEVICE_SYNC_NAME_KEY='bcmDeviceSyncNameV1',DEVICE_SYNC_PLAYER_KEY='bcmDeviceSyncPlayerV1';
-let state=initialState(), roomId='', roomRef=null, liveScoreRef=null, remoteControlRef=null, chatCollectionRef=null, isHost=false, hostToken='', adminPinHash='', unsubscribe=null, liveScoreUnsubscribe=null, remoteControlUnsubscribe=null, remoteActionUnsubscribe=null, chatUnsubscribe=null, applying=false, saveTimer=null, liveScoreSaveTimer=null, matchAutoBackupTimer=null, editId=null;const expandedPlayerNotes=new Set();let profileOriginal=null,profileDirty={name:false,gender:false,memberType:false,racket:false,racketTension:false,racketString:false,backupRacket:false,backupTension:false,backupString:false,note:false};let dismissedResultKey='';const selfToken=localStorage.getItem(DEVICE_SYNC_TOKEN_KEY)||localStorage.getItem('bdV73SelfToken')||randomToken();localStorage.setItem('bdV73SelfToken',selfToken);const SCORE_DEVICE_KEY='bcmScoreDeviceIdV1',browserDeviceId=localStorage.getItem(SCORE_DEVICE_KEY)||randomToken();localStorage.setItem(SCORE_DEVICE_KEY,browserDeviceId);const scoreDeviceId=scorerIdFor(browserDeviceId,BCM_VERSION);let selfHash='',scoreViewRequested=false,expandedShuttleTubeId='';
+let state=initialState(), roomId='', roomRef=null, liveScoreRef=null, remoteControlRef=null, chatCollectionRef=null, isHost=false, hostToken='', adminPinHash='', unsubscribe=null, liveScoreUnsubscribe=null, remoteControlUnsubscribe=null, remoteActionUnsubscribe=null, chatUnsubscribe=null, applying=false, saveTimer=null, liveScoreSaveTimer=null, matchAutoBackupTimer=null, editId=null;const expandedPlayerNotes=new Set();let profileOriginal=null,profileDirty={name:false,gender:false,memberType:false,racket:false,racketTension:false,racketString:false,backupRacket:false,backupTension:false,backupString:false,note:false};let dismissedResultKey='';let selfToken=storedDeviceToken(localStorage.getItem(DEVICE_SYNC_TOKEN_KEY),localStorage.getItem('bdV73SelfToken'));const SCORE_DEVICE_KEY='bcmScoreDeviceIdV1',browserDeviceId=localStorage.getItem(SCORE_DEVICE_KEY)||randomToken();localStorage.setItem(SCORE_DEVICE_KEY,browserDeviceId);const scoreDeviceId=scorerIdFor(browserDeviceId,BCM_VERSION);let selfHash='',scoreViewRequested=false,expandedShuttleTubeId='';
 let deviceProfileUnsubscribe=null,deviceProfileApplying=false,deviceProfileSaveTimer=null,identitySyncing=false,roomConnectInProgress=false;
 let roomSnapshotFromCache=false,snapshotHasPendingWrites=false,pendingRoomWrites=0,roomWriteScheduled=false,archivedHistory=[],removedMatchIds=new Set();
 const SYNC_MODE_KEY='bcmRoomSyncModeV1',SNAPSHOT_RETRY_BASE_MS=5000,SNAPSHOT_RETRY_MAX_MS=60000,ROOM_MATCH_FALLBACK_MS=60000;
@@ -153,7 +153,7 @@ const REMOTE_SEEN_ACTION_PREFIX='bcmSeenRemoteActionsV1:',REMOTE_SEEN_ACTION_LIM
 let firestoreLinkRecovering=false,firestoreLinkRecoverInFlight=false,firestoreLinkProbeInFlight=false,firestoreLinkLastProbeAt=0,firestoreLinkCooldownUntil=0,firestoreLinkProbeGeneration=0,firestoreLinkServerActivityAt=0,firestoreLinkPendingWritesSince=0;
 const CHAT_POLL_VISIBLE_MS=4000,CHAT_POLL_BACKGROUND_MS=60000;
 let chatRefreshNow=null;
-let chatMessages=[],chatMentionIds=new Set(),chatFirstRender=true,chatMessagesRenderKey='',chatLastSentAt=0,chatRequestRunning=false,chatSendRunning=false,chatPendingMedia=null;
+let chatMessages=[],chatMentionIds=new Set(),chatFirstRender=true,chatMessagesRenderKey='',chatLastSentAt=0,chatRequestRunning=false,chatSendRunning=false,chatPendingMedia=null,chatClaimCheckedOnServer=false,queuedNotificationUrl='';
 const requestParams=new URLSearchParams(location.search),requestedPage=requestParams.get('page'),requestedAndroidRemote=requestParams.get('androidRemote')==='1';
 if(requestedAndroidRemote){
   document.documentElement.classList.add('android-remote-mode');
@@ -1337,15 +1337,17 @@ function currentChatMessagesRenderKey(){
 }
 function renderChat(){
   const list=$('chatMessages'),identity=$('chatIdentity'),claimButton=$('chatClaimHelp'),composer=$('chatComposer'),mentionButton=$('chatMentionToggle');if(!list||!identity)return;
-  const chosen=ownedPlayerId(),claimedPlayer=player(chosen);
+  const chosen=ownedPlayerId(),claimedPlayer=player(chosen),askClaim=shouldAskToClaimPlayer({hasHash:!!selfHash,claimed:!!claimedPlayer,fromCache:roomSnapshotFromCache,serverChecked:chatClaimCheckedOnServer});
   identity.innerHTML=claimedPlayer
     ?`${avatar(claimedPlayer.id,'tiny')}<span><small>本裝置認領身分</small><strong>${esc(claimedPlayer.name)}</strong></span><b>已確認</b>`
-    :'<span class="avatar tiny">?</span><span><small>尚未認領球員</small><strong>認領後才能發言</strong></span>';
-  identity.classList.toggle('unclaimed',!claimedPlayer);
-  claimButton?.classList.toggle('hidden',!!claimedPlayer);
+    :askClaim
+      ?'<span class="avatar tiny">?</span><span><small>尚未認領球員</small><strong>認領後才能發言</strong></span>'
+      :'<span class="avatar tiny">?</span><span><small>讀取認領身分</small><strong>請稍候</strong></span>';
+  identity.classList.toggle('unclaimed',askClaim);
+  claimButton?.classList.toggle('hidden',!askClaim);
   if(composer){
     composer.disabled=!claimedPlayer;
-    composer.placeholder=claimedPlayer?'輸入訊息':'請先認領球員';
+    composer.placeholder=claimedPlayer?'輸入訊息':askClaim?'請先認領球員':'請稍候';
   }
   setChatAttachDisabled(!claimedPlayer||chatSendRunning);
   if(mentionButton)mentionButton.disabled=!claimedPlayer;
@@ -1373,7 +1375,7 @@ function renderChat(){
   chatMessagesRenderKey=nextMessagesRenderKey;
   $('chatConnection').textContent=!navigator.onLine?'離線中':chatCollectionRef?'即時同步':'尚未連線';
   $('chatConnection').classList.toggle('offline',!navigator.onLine);
-  if(!chatSendRunning)setChatStatus(chosen?`將以「${pname(chosen)}」身分發言`:'此裝置尚未認領球員，請先到球員頁認領',chosen?'':'warning');
+  if(!chatSendRunning)setChatStatus(chosen?`將以「${pname(chosen)}」身分發言`:askClaim?'此裝置尚未認領球員，請先到球員頁認領':'確認認領身分後即可聊天',chosen||!askClaim?'':'warning');
   updateChatSendButton();renderChatBadge();
   if(chatPageVisible()){
     markChatSeen();
@@ -1945,9 +1947,66 @@ scorerTabChannel?.addEventListener('message',event=>{
 });
 document.addEventListener('visibilitychange',()=>{if(document.visibilityState!=='visible')return;broadcastScorerTab();if(takeOverOwnBrowserScoring())syncLocalLinkOwner()});
 window.addEventListener('pageshow',broadcastScorerTab);
+function readDeviceToken(){
+  try{return storedDeviceToken(localStorage.getItem(DEVICE_SYNC_TOKEN_KEY),localStorage.getItem('bdV73SelfToken'))}catch{return ''}
+}
+async function ensureDeviceToken(){
+  let token=readDeviceToken();
+  if(!token){
+    await new Promise(resolve=>{
+      let settled=false;
+      const finish=()=>{if(settled)return;settled=true;resolve()};
+      const timer=setTimeout(finish,400);
+      window.addEventListener('pageshow',()=>{clearTimeout(timer);finish()},{once:true});
+    });
+    token=readDeviceToken();
+  }
+  if(!token)token=randomToken();
+  try{localStorage.setItem('bdV73SelfToken',token)}catch{}
+  selfToken=token;
+  return token;
+}
+function revealNotificationUrl(raw){
+  let url;
+  try{url=new URL(raw,location.origin)}catch{return}
+  const nextPage=url.searchParams.get('page')||'';
+  const eventId=url.searchParams.get('event')||'';
+  if(nextPage==='poll')page(6);
+  else if(nextPage==='chat')page(8);
+  else if(nextPage==='payment'&&eventId)openSessionFeeModal(eventId);
+}
+function openNotificationTarget(raw){
+  let url;
+  try{url=new URL(raw,location.origin)}catch{return}
+  if(url.origin!==location.origin)return;
+  const room=(url.searchParams.get('room')||'').toUpperCase().replace(/[^A-Z0-9]/g,'').slice(0,6);
+  if(room&&room!==roomId){
+    const nextPage=url.searchParams.get('page')||'',eventId=url.searchParams.get('event')||'';
+    location.replace(`${location.pathname}?room=${encodeURIComponent(room)}${nextPage?`&page=${encodeURIComponent(nextPage)}`:''}${eventId?`&event=${encodeURIComponent(eventId)}`:''}`);
+    return;
+  }
+  queuedNotificationUrl=url.href;
+  if(roomId&&selfHash)revealNotificationUrl(url.href);
+}
+function adoptRemoteClaim(data){
+  const remote=decodeState(data);
+  const match=remote.roster.find(item=>playerOwnerHashes(item).includes(selfHash));
+  if(!match)return false;
+  if(!state.roster.length){applyState(data);return true}
+  const local=state.roster.find(item=>item.id===match.id);
+  if(!local)state.roster.push(match);
+  else{
+    local.ownerHash=local.ownerHash||match.ownerHash||'';
+    local.ownerHashes=[...new Set([...playerOwnerHashes(local),...playerOwnerHashes(match)])];
+  }
+  renderRoster();renderAttendance();renderChat();
+  return true;
+}
 async function connectRoom(id){
   if(roomConnectInProgress)return;
   roomConnectInProgress=true;
+  chatClaimCheckedOnServer=false;
+  await ensureDeviceToken();
   unsubscribe?.();unsubscribe=null;
   liveScoreUnsubscribe?.();liveScoreUnsubscribe=null;
   stopRemoteControlChannels();
@@ -2023,16 +2082,39 @@ async function connectRoom(id){
     renderAndroidRemote();
     updatePushNotificationButton();
     reconcilePushSubscription().finally(()=>setTimeout(maybeShowPushNotificationPrompt,650));
+    chatClaimCheckedOnServer=!roomSnapshotFromCache;
+    const confirmClaim=async()=>{
+      if(chatClaimCheckedOnServer||!selfHash||ownedPlayerId())return;
+      for(let attempt=0;attempt<4&&roomId===id&&!chatClaimCheckedOnServer&&!ownedPlayerId();attempt++){
+        try{
+          const snap=await getDocFromServer(roomRef);
+          if(roomId!==id||ownedPlayerId()||chatClaimCheckedOnServer)return;
+          chatClaimCheckedOnServer=true;
+          roomSnapshotFromCache=false;
+          roomServerReady=true;
+          if(!snap.exists()||!adoptRemoteClaim(snap.data()))renderChat();
+          return;
+        }catch{
+          await new Promise(resolve=>setTimeout(resolve,400*(attempt+1)));
+        }
+      }
+      if(roomId===id&&!chatClaimCheckedOnServer){chatClaimCheckedOnServer=true;renderChat()}
+    };
+    if(!chatClaimCheckedOnServer&&selfHash&&!ownedPlayerId())void confirmClaim();
     ensureSyncedPlayerIdentity().catch(error=>console.warn('Player identity sync failed',error));
     if(!requestedAndroidRemote)startChatSync();
-    if(requestedPage==='poll')page(6);
-    if(requestedPage==='chat')page(8);
-    if(requestedPage==='payment'&&requestParams.get('event'))openSessionFeeModal(requestParams.get('event'));
+    const notificationUrl=queuedNotificationUrl?new URL(queuedNotificationUrl,location.origin):null;
+    const notificationPage=notificationUrl?.searchParams.get('page')||requestedPage;
+    const notificationEvent=notificationUrl?.searchParams.get('event')||requestParams.get('event')||'';
+    queuedNotificationUrl='';
+    if(notificationPage==='poll')page(6);
+    if(notificationPage==='chat')page(8);
+    if(notificationPage==='payment'&&notificationEvent)openSessionFeeModal(notificationEvent);
     const isCurrentRoom=()=>roomId===id;
     unsubscribe=resilientSnapshot(roomRef,{includeMetadataChanges:true},s=>{
       if(!s.exists())return;
       if(s.metadata.fromCache&&(roomServerReady||requestedAndroidRemote))return;
-      if(!s.metadata.fromCache){roomServerReady=true;noteFirestoreServerActivity(false)}
+      if(!s.metadata.fromCache){roomServerReady=true;chatClaimCheckedOnServer=true;noteFirestoreServerActivity(false)}
       if(!s.metadata.fromCache&&!s.metadata.hasPendingWrites&&roomMatchFallbackTimer)flushRoomMatchFallback();
       lastRoomSnapshotData=s.data();
       noteHostCloudSnapshot(s);
@@ -2088,6 +2170,9 @@ async function connectRoom(id){
     history.replaceState(null,'',location.pathname);
   }finally{
     roomConnectInProgress=false;
+    const pendingNotification=queuedNotificationUrl;
+    queuedNotificationUrl='';
+    if(pendingNotification&&selfHash&&roomId===id&&$('landing')?.classList.contains('hidden'))revealNotificationUrl(pendingNotification);
   }
 }
 function applyRole(){
@@ -4189,6 +4274,9 @@ document.addEventListener('webkitfullscreenchange',()=>{updateFullscreenButton()
 const exitScoreBtn=$('exitScore');if(exitScoreBtn)exitScoreBtn.addEventListener('click',exitScoreFullscreen);
 
 window.bcmMarkBooted?.();
+if(navigator.serviceWorker)navigator.serviceWorker.addEventListener('message',event=>{
+  if(event.data?.type==='bcm-open-notification'&&event.data.url)openNotificationTarget(event.data.url);
+});
 if('serviceWorker'in navigator&&location.protocol.startsWith('http')){
   const swRevision=BCM_VERSION;
   navigator.serviceWorker.register(`./sw.js?v=${swRevision}`,{updateViaCache:'none'}).then(registration=>registration.update()).catch(()=>{});
