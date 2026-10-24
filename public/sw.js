@@ -49,11 +49,32 @@ self.addEventListener('push',event=>{
   }));
 });
 
+function notificationClientToFocus(clients,targetHref){
+  let target;
+  try{target=new URL(targetHref)}catch{return null}
+  const room=target.searchParams.get('room')||'';
+  const usable=clients.filter(client=>{
+    try{return !!client?.url&&new URL(client.url).origin===target.origin}catch{return false}
+  });
+  const sameRoom=room?usable.filter(client=>{
+    try{return new URL(client.url).searchParams.get('room')===room}catch{return false}
+  }):[];
+  const pool=sameRoom.length?sameRoom:usable;
+  return pool.find(client=>client.focused)||pool[0]||null;
+}
+
 self.addEventListener('notificationclick',event=>{
   event.notification.close();
   const target=new URL(event.notification.data?.url||'./',self.location.origin).href;
-  event.waitUntil(self.clients.matchAll({type:'window',includeUncontrolled:true}).then(async clients=>{
-    for(const client of clients){if('navigate'in client)await client.navigate(target);return client.focus()}
+  event.waitUntil((async()=>{
+    const clients=await self.clients.matchAll({type:'window',includeUncontrolled:true});
+    const existing=notificationClientToFocus(clients,target);
+    // Reloading the open page drops its in-memory claim until the next cold start.
+    if(existing){
+      existing.postMessage({type:'bcm-open-notification',url:target});
+      return existing.focus();
+    }
     return self.clients.openWindow?self.clients.openWindow(target):undefined;
-  }));
+  })());
 });
+

@@ -323,7 +323,8 @@ test('ending the session notifies played players with a copyable account and pay
   assert.match(mainSource,/const event=currentSessionEvent\(\),playerIds=sessionPlayedParticipantIds\(\),costs=sessionCombinedCosts\(event\)/);
   assert.match(mainSource,/pushApi\('session-fee-notice',[\s\S]*?noticeId:notice\.noticeAt/);
   assert.match(mainSource,/const feeMessage=await sessionFeePushMessage\(feeNotice\)/);
-  assert.match(mainSource,/if\(requestedPage==='payment'&&requestParams\.get\('event'\)\)openSessionFeeModal\(requestParams\.get\('event'\)\)/);
+  assert.match(mainSource,/const notificationEvent=notificationUrl\?\.searchParams\.get\('event'\)\|\|requestParams\.get\('event'\)\|\|'';/);
+  assert.match(mainSource,/if\(notificationPage==='payment'&&notificationEvent\)openSessionFeeModal\(notificationEvent\)/);
   assert.match(mainSource,/function renderSessionFeeModal\(\)[\s\S]*?data-copy-next-event[\s\S]*?data-event-payment-report/);
   assert.match(html,/id="sessionFeeModal"[\s\S]*?id="sessionFeeBody"[\s\S]*?id="closeSessionFee"/);
   assert.match(readFileSync(new URL('../public/sw.js',import.meta.url),'utf8'),/actions:Array\.isArray\(data\.actions\)\?data\.actions\.slice\(0,2\):\[\]/);
@@ -633,3 +634,4 @@ test('waits for host player edits to sync before reporting success',()=>{
   const saveEditSource=mainSource.match(/async function saveEdit\(\)\{[\s\S]*?\n\}/)?.[0]||'';
   assert.match(saveEditSource,/if\(isHost\)\{Object\.assign\(p,updated\);renderAll\(\);await saveNow\(\)\}/);
 });
+
