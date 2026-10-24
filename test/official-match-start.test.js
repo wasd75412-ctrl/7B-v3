@@ -138,7 +138,7 @@ test('result-screen remote next match is scoped to the finished match score keys
 });
 
 test('official start is idempotent and scoring waits for it',()=>{
-  assert.match(main,/if\(matchHasOfficiallyStarted\(match\)\)\{if\(!officialStartIndicatorVisible\(\)\)showScoreRemoteIndicator\('本場已正式開始'/);
+  assert.match(main,/if\(matchHasOfficiallyStarted\(match\)\)\{if\(!officialStartIndicatorVisible\(\)\)showScoreRemoteIndicator\('比賽正式開始',\{duration:2500,icon:'✅',emphasis:'official'\}/);
   assert.match(main,/if\(!matchHasOfficiallyStarted\(match\)\)\{showScoreRemoteIndicator\('請先按播放鍵正式開始'/);
   assert.match(controller,/void startOfficialMatch[\s\S]*?long clientCreatedAt = System\.currentTimeMillis\(\)[\s\S]*?command\.put\("clientCreatedAt", clientCreatedAt\)/);
   assert.match(main,/function handleRemoteOfficialStartCommand[\s\S]*?markMatchOfficialStarted\(data\.officialStartCommand\.clientCreatedAt\|\|data\.officialStartCommand\.createdAt\)/);
