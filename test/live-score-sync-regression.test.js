@@ -63,6 +63,7 @@ function harness(liveMatch=current,overrides={}){
     renderAll:()=>calls.render++,renderScore:()=>calls.render++,renderDashboard:()=>calls.render++,
     renderAndroidRemote:()=>calls.render++,announceSyncedScore:()=>{},syncLocalLinkOwner:()=>{},takeOverOwnBrowserScoring:()=>false,
     checkAchievementUnlocks:()=>{},normalizeServeRuns:value=>value??{},
+    latestOfficialStartCommand:null,resumeUnappliedOfficialStart:()=>false,
     finishMatch:()=>calls.finish++,saveLiveScoreSoon:()=>calls.publish++,saveSoon:()=>calls.publish++,persistMatchJournal:()=>{},persistHostSnapshot:()=>0,markHostSnapshotSynced:()=>{},
     setDoc:()=>{calls.publish++;return Promise.resolve()},
     serverTimestamp:()=>({serverTimestamp:true}),updateSyncBadge:()=>{},
@@ -118,6 +119,15 @@ test('actual room handler preserves current game and rotation when an old fallba
   assert.equal(calls.finish,0);
   assert.equal(calls.publish,0);
   assert.equal(calls.batches.length,0);
+});
+
+test('a room snapshot of the same match cannot clear the official start',()=>{
+  const startedAt='2026-10-24T10:01:59.000Z';
+  const live=match('B',0,{startedAt,rallies:[]});
+  const {context}=harness(live);
+  context.applyState(roomState({...live,startedAt:''}));
+  assert.equal(context.state.match.startedAt,startedAt);
+  assert.equal(context.state.match.matchId,'B');
 });
 
 test('a room snapshot with an older stats settlement keeps the newer one and drops settled matches',()=>{
