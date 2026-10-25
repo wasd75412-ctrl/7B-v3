@@ -11,7 +11,10 @@ test('recording quality can be lowered from 4K and is remembered',()=>{
   assert.match(camera,/FallbackStrategy\.lowerQualityOrHigherThan\(Quality\.UHD\)/);
   assert.match(camera,/FallbackStrategy\.lowerQualityThan\(quality\)/);
   assert.match(camera,/videoBitrate\(quality\)/);
-  assert.match(camera,/if \(quality == Quality\.UHD\) return 40_000_000/);
+  assert.match(camera,/if \(quality == Quality\.UHD\) return 50_000_000/);
+  assert.match(camera,/LENS_INFO_HYPERFOCAL_DISTANCE/);
+  assert.match(camera,/CONTROL_VIDEO_STABILIZATION_MODE_OFF/);
+  assert.match(camera,/CONTROL_AE_TARGET_FPS_RANGE/);
   assert.match(camera,/if \(quality == Quality\.HD\) return 10_000_000/);
   assert.match(camera,/return 20_000_000/);
   assert.match(camera,/Quality\.HD/);
