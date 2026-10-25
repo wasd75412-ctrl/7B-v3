@@ -8,6 +8,10 @@ export function wakeLockControlIsActive({nativeActive=false}={}){
   return nativeActive;
 }
 
-export function shouldRequestNativeWakeLock({wanted=false,hidden=false,nativeSupported=false,nativeActive=false,requestPending=false}={}){
-  return wanted&&!hidden&&nativeSupported&&!nativeActive&&!requestPending;
+export function shouldRequestNativeWakeLock({wanted=false,hidden=false,nativeSupported=false,nativeActive=false,requestPending=false,userActivated=false,previouslyGranted=false}={}){
+  if(!wanted||hidden||!nativeSupported||nativeActive)return false;
+  // A tap must be able to replace a request that started without permission.
+  if(requestPending&&!userActivated)return false;
+  return userActivated||previouslyGranted;
 }
+

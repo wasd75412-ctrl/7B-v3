@@ -3021,13 +3021,13 @@ const hasNativeWakeLock=()=>!!navigator.wakeLock?.request;
 const APP_WAKE_LOCK_KEY='bcmWakeLockEnabledV1';
 let appWakeLockWanted=localStorage.getItem(APP_WAKE_LOCK_KEY)!=='0';
 let appWakeLock=null,appWakeLockRequest=null,appWakeLockRetryTimer=null,appWakeLockLastError='';
-let appWakeLockNeedsGesture=false;
+let appWakeLockNeedsGesture=true,appWakeLockGranted=false,appWakeLockGeneration=0,lastWakeLockGestureAt=0;
 function nativeWakeLockActive(){return !!appWakeLock&&!appWakeLock.released}
 function appWakeLockProtected(){return wakeLockControlIsActive({nativeActive:nativeWakeLockActive()})}
 function describeWakeLockError(error){
-  if(error?.name==='NotAllowedError')return'iPad 拒絕螢幕恆亮。請關閉低耗電模式，再點一次重試。';
-  if(error?.name==='NotSupportedError')return'目前的 iPadOS 或開啟方式不支援真正恆亮，請更新 iPadOS 後重試。';
-  return'沒有取得 iPad 的原生螢幕恆亮，請再點一次重試。';
+  if(error?.name==='NotAllowedError')return'請點一下畫面。';
+  if(error?.name==='NotSupportedError')return'此裝置不支援螢幕恆亮。';
+  return'請再點一次。';
 }
 function renderAppWakeLockStatus(){
   const button=$('wakeLockBtn'),feedback=$('wakeLockFeedback');
@@ -3040,7 +3040,7 @@ function renderAppWakeLockStatus(){
   button.title=!appWakeLockWanted?'點擊開啟螢幕恆亮':active?'點擊關閉螢幕恆亮':'點擊重新啟用螢幕恆亮';
   if(feedback){
     feedback.className=`wake-lock-feedback ${appWakeLockProtected()?'success':appWakeLockWanted&&(!nativeSupported||appWakeLockLastError)?'error':pending?'pending':''}`;
-    feedback.textContent=!appWakeLockWanted?'已關閉；iPad 將依系統設定熄屏。':!nativeSupported?'此裝置或目前的開啟方式不支援原生螢幕恆亮，請改用系統的「自動鎖定」設定。':nativeActive?'✅ iPad 已確認螢幕恆亮，畫面不會自動變暗。':appWakeLockLastError?`⚠️ 尚未啟用：${appWakeLockLastError}`:appWakeLockNeedsGesture?'請在畫面任一處點一下，系統會再次要求原生恆亮。':pending?'正在向 iPad 取得螢幕恆亮權限…':'尚未啟用；請點上方按鈕。';
+    feedback.textContent=!appWakeLockWanted?'已關閉，將依系統設定熄屏。':!nativeSupported?'此開啟方式不支援螢幕恆亮。':nativeActive?'已確認螢幕恆亮。':appWakeLockLastError?`尚未啟用：${appWakeLockLastError}`:appWakeLockNeedsGesture?'請點一下畫面。':pending?'正在啟用恆亮…':'尚未啟用。';
   }
 }
 function scheduleAppWakeLockRetry(delay=1200){
@@ -3063,26 +3063,23 @@ async function syncAppWakeLock(userActivated=false){
     renderAppWakeLockStatus();
     return
   }
-  if(appWakeLockRequest){
-    renderAppWakeLockStatus();
-    try{await appWakeLockRequest}catch{}
-    return;
-  }
-  if(!hasNativeWakeLock()){
-    appWakeLockNeedsGesture=false;
-    appWakeLockLastError='';
+  if(!shouldRequestNativeWakeLock({wanted:appWakeLockWanted,hidden:document.hidden,nativeSupported:hasNativeWakeLock(),nativeActive:false,requestPending:!!appWakeLockRequest,userActivated,previouslyGranted:appWakeLockGranted})){
+    if(!hasNativeWakeLock()){appWakeLockNeedsGesture=false;appWakeLockLastError=''}
     renderAppWakeLockStatus();
     return;
   }
-  // A visible page must keep retrying even when Safari previously returned
-  // NotAllowedError. iPadOS can make the API available again without another
-  // fullscreen transition (for example after focus or power-state changes).
-  appWakeLockRequest=navigator.wakeLock.request('screen');
+  // iPhone Safari grants screen wake lock from a trusted click, not pointerdown.
+  // The fast-tap helper also emits an untrusted click; that one must not replace this request.
+  const request=navigator.wakeLock.request('screen');
+  const generation=++appWakeLockGeneration;
+  appWakeLockRequest=request;
   renderAppWakeLockStatus();
   try{
-    const lock=await appWakeLockRequest;
+    const lock=await request;
+    if(generation!==appWakeLockGeneration){await lock.release();return}
     if(document.hidden||!appWakeLockWanted){await lock.release();return}
     appWakeLock=lock;
+    appWakeLockGranted=true;
     appWakeLockLastError='';
     appWakeLockNeedsGesture=false;
     lock.addEventListener('release',()=>{
@@ -3091,17 +3088,22 @@ async function syncAppWakeLock(userActivated=false){
       scheduleAppWakeLockRetry();
     },{once:true});
   }catch(error){
+    if(generation!==appWakeLockGeneration||nativeWakeLockActive())return;
     appWakeLockLastError=describeWakeLockError(error);
     appWakeLockNeedsGesture=true;
-    scheduleAppWakeLockRetry(5000);
-    console.warn('無法保持 App 螢幕亮起',error)
+    if(appWakeLockGranted)scheduleAppWakeLockRetry(5000);
+    if(userActivated&&error?.name!=='NotAllowedError')console.warn('無法保持 App 螢幕亮起',error)
   }
-  finally{appWakeLockRequest=null;renderAppWakeLockStatus()}
+  finally{if(appWakeLockRequest===request)appWakeLockRequest=null;renderAppWakeLockStatus()}
 }
 document.addEventListener('visibilitychange',()=>{void syncAppWakeLock()});
-function resumeWakeLockFromGesture(){void syncAppWakeLock(true)}
-document.addEventListener('pointerdown',resumeWakeLockFromGesture,{capture:true,passive:true});
-document.addEventListener('touchstart',resumeWakeLockFromGesture,{capture:true,passive:true});
+function resumeWakeLockFromGesture(event){
+  if(event?.isTrusted===false)return;
+  const now=performance.now();
+  if(now-lastWakeLockGestureAt<800)return;
+  lastWakeLockGestureAt=now;
+  void syncAppWakeLock(true);
+}
 document.addEventListener('click',resumeWakeLockFromGesture,{capture:true,passive:true});
 document.addEventListener('keydown',resumeWakeLockFromGesture,{capture:true});
 window.addEventListener('focus',()=>scheduleAppWakeLockRetry(100));
@@ -3111,7 +3113,7 @@ $('wakeLockBtn').onclick=async()=>{
   const intent=wakeLockButtonIntent({wanted:appWakeLockWanted,active:appWakeLockProtected(),supported:hasNativeWakeLock()});
   if(intent==='retry'){
     appWakeLockLastError='';
-    await syncAppWakeLock(true);
+    if(!appWakeLockRequest)await syncAppWakeLock(true);
     renderAppWakeLockStatus();
     return;
   }
@@ -3123,10 +3125,10 @@ $('wakeLockBtn').onclick=async()=>{
   renderAppWakeLockStatus();
 };
 setInterval(()=>{
-  const shouldRetryNative=shouldRequestNativeWakeLock({wanted:appWakeLockWanted,hidden:document.hidden,nativeSupported:hasNativeWakeLock(),nativeActive:nativeWakeLockActive(),requestPending:!!appWakeLockRequest});
+  const shouldRetryNative=shouldRequestNativeWakeLock({wanted:appWakeLockWanted,hidden:document.hidden,nativeSupported:hasNativeWakeLock(),nativeActive:nativeWakeLockActive(),requestPending:!!appWakeLockRequest,previouslyGranted:appWakeLockGranted});
   if(shouldRetryNative)void syncAppWakeLock();
 },5000);
-void syncAppWakeLock();
+renderAppWakeLockStatus();
 function nextSelectIndices(format){return normalizeMatchFormat(format)===MATCH_FORMAT_SINGLES?[0,2]:[0,1,2,3]}
 function selectedNextLineup(format=state.match.format){return nextSelectIndices(format).map(index=>$('n'+index).value).filter(Boolean)}
 function renderNextLineup(players,format=state.match.format){

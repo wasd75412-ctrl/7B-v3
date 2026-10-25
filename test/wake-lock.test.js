@@ -37,14 +37,21 @@ test('restores native wake lock after an iPad page lifecycle transition',()=>{
   assert.match(mainSource,/pagehide[^\n]*releaseAppWakeLock\(\)/);
 });
 
-test('keeps requesting the native wake lock when it is missing',()=>{
-  assert.equal(shouldRequestNativeWakeLock({wanted:true,nativeSupported:true,nativeActive:false,requestPending:false}),true);
-  assert.equal(shouldRequestNativeWakeLock({wanted:true,nativeSupported:true,nativeActive:true,requestPending:false}),false);
-  assert.equal(shouldRequestNativeWakeLock({wanted:true,nativeSupported:true,nativeActive:false,requestPending:true}),false);
-  assert.equal(shouldRequestNativeWakeLock({wanted:true,hidden:true,nativeSupported:true,nativeActive:false,requestPending:false}),false);
+test('waits for a tap on iPhone, then lets that tap replace a refused request',()=>{
+  assert.equal(shouldRequestNativeWakeLock({wanted:true,nativeSupported:true,nativeActive:false,requestPending:false}),false);
+  assert.equal(shouldRequestNativeWakeLock({wanted:true,nativeSupported:true,nativeActive:false,requestPending:true,userActivated:true}),true);
+  assert.equal(shouldRequestNativeWakeLock({wanted:true,nativeSupported:true,nativeActive:false,requestPending:false,previouslyGranted:true}),true);
+  assert.equal(shouldRequestNativeWakeLock({wanted:true,nativeSupported:true,nativeActive:true,requestPending:false,previouslyGranted:true}),false);
+  assert.equal(shouldRequestNativeWakeLock({wanted:true,hidden:true,nativeSupported:true,nativeActive:false,userActivated:true}),false);
+  assert.match(mainSource,/click[^\n]*resumeWakeLockFromGesture/);
+  assert.doesNotMatch(mainSource,/pointerdown[^\n]*resumeWakeLockFromGesture/);
+  assert.doesNotMatch(mainSource,/pointerup[^\n]*resumeWakeLockFromGesture/);
+  assert.match(mainSource,/isTrusted===false/);
 });
 
 test('does not restrict automatic wake lock recovery to fullscreen',()=>{
   assert.doesNotMatch(mainSource,/appWakeLockNeedsGesture\s*&&[^\n]*isScoreFullscreen/);
   assert.match(mainSource,/scheduleAppWakeLockRetry\(5000\)/);
 });
+
+
