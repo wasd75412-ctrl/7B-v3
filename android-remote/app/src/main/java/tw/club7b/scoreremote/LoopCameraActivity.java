@@ -557,13 +557,22 @@ public final class LoopCameraActivity extends ComponentActivity {
         }
     }
 
+    /** High-quality denoise keeps static gym surfaces from looking grainy. Contrast curve is the fallback. */
     private static void addToneMap(Camera2CameraInfo info, CaptureRequestOptions.Builder options) {
-        int[] modes = info.getCameraCharacteristic(CameraCharacteristics.TONEMAP_AVAILABLE_TONE_MAP_MODES);
+        int[] toneModes = info.getCameraCharacteristic(CameraCharacteristics.TONEMAP_AVAILABLE_TONE_MAP_MODES);
+        int[] noiseModes = info.getCameraCharacteristic(CameraCharacteristics.NOISE_REDUCTION_AVAILABLE_NOISE_REDUCTION_MODES);
+        if (hasMode(toneModes, CameraMetadata.TONEMAP_MODE_HIGH_QUALITY)
+                && hasMode(noiseModes, CameraMetadata.NOISE_REDUCTION_MODE_HIGH_QUALITY)) {
+            options.setCaptureRequestOption(CaptureRequest.TONEMAP_MODE, CameraMetadata.TONEMAP_MODE_HIGH_QUALITY);
+            options.setCaptureRequestOption(CaptureRequest.NOISE_REDUCTION_MODE, CameraMetadata.NOISE_REDUCTION_MODE_HIGH_QUALITY);
+            if (hasMode(info.getCameraCharacteristic(CameraCharacteristics.EDGE_AVAILABLE_EDGE_MODES), CameraMetadata.EDGE_MODE_OFF)) {
+                options.setCaptureRequestOption(CaptureRequest.EDGE_MODE, CameraMetadata.EDGE_MODE_OFF);
+            }
+            return;
+        }
         Integer maxPoints = info.getCameraCharacteristic(CameraCharacteristics.TONEMAP_MAX_CURVE_POINTS);
-        if (modes == null || maxPoints == null || maxPoints < RecordingToneCurve.POINTS) return;
-        boolean supportsCurve = false;
-        for (int mode : modes) supportsCurve |= mode == CameraMetadata.TONEMAP_MODE_CONTRAST_CURVE;
-        if (!supportsCurve) return;
+        if (toneModes == null || maxPoints == null || maxPoints < RecordingToneCurve.POINTS) return;
+        if (!hasMode(toneModes, CameraMetadata.TONEMAP_MODE_CONTRAST_CURVE)) return;
         float[] curve = RecordingToneCurve.points();
         options.setCaptureRequestOption(CaptureRequest.TONEMAP_MODE, CameraMetadata.TONEMAP_MODE_CONTRAST_CURVE);
         options.setCaptureRequestOption(CaptureRequest.TONEMAP_CURVE, new TonemapCurve(curve, curve, curve));
