@@ -3181,8 +3181,8 @@ function renderScore(){
     const serverSide=m.scores[t]%2===0?1:0;
     const singles=normalizeMatchFormat(m.format)===MATCH_FORMAT_SINGLES;
     const serverIndex=singles?0:(positions[serverSide]??0);
-    // Court page order stays on both sides. The opposite sideline reverses both columns.
-    const displaySides=singles?[0]:flipped?[1,0]:[0,1];
+    // Team B faces Team A, so the same court side is the opposite row. The mirror reverses both columns.
+    const displaySides=singles?[0]:(t===0)!==flipped?[0,1]:[1,0];
     box.innerHTML=displaySides.map(sideIndex=>{
       const i=singles?0:(positions[sideIndex]??sideIndex);
       const id=ids[i];
