@@ -22,7 +22,6 @@ final class RecordingUploadStore {
     private static final String KEY_ENTRIES = "entries";
     private static final String KEY_PLAYLIST_ID = "playlistId";
     private static final String KEY_LARGE_SESSION_RESET = "largeSessionReset";
-    private static final String KEY_HTTP_FAILURE_RETRY = "httpFailureRetry";
     private static final Object LARGE_FILE_REPAIR = new Object();
     private static final int MAX_ENTRIES = 60;
 
@@ -331,24 +330,6 @@ final class RecordingUploadStore {
             return;
         }
         prefs(context).edit().putString(KEY_ENTRIES, array.toString()).commit();
-    }
-
-    /** Earlier builds stored the daily upload limit as a permanent HTTP 400 failure. */
-    static synchronized void reopenHttpFailures(Context context) {
-        SharedPreferences preferences = prefs(context);
-        if (preferences.getBoolean(KEY_HTTP_FAILURE_RETRY, false)) return;
-        List<Entry> entries = read(context);
-        boolean changed = false;
-        for (Entry entry : entries) {
-            if (entry.status != Status.FAILED || !entry.message.startsWith("HTTP ")) continue;
-            entry.sessionUrl = "";
-            entry.status = Status.WAITING;
-            entry.message = "";
-            entry.progress = 0;
-            changed = true;
-        }
-        if (changed) write(context, entries);
-        preferences.edit().putBoolean(KEY_HTTP_FAILURE_RETRY, true).commit();
     }
 
     /** Rewrites 32-bit indexes left by Android 9 and drops upload sessions opened against those files. */

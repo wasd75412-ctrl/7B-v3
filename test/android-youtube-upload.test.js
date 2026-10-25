@@ -135,6 +135,7 @@ test('auto-upload only queues today recordings unless forced or already in progr
 test('a daily YouTube upload limit waits instead of staying failed',()=>{
   assert.match(uploader,/code == 400 \|\| code == 403/);
   assert.match(uploader,/uploadLimitExceeded/);
-  assert.match(worker,/RecordingUploadStore\.reopenHttpFailures\(context\)/);
+  assert.doesNotMatch(worker,/reopenHttpFailures/);
+  assert.doesNotMatch(read(`${javaDir}RecordingUploadStore.java`),/reopenHttpFailures/);
   assert.match(worker,/reason\.isEmpty\(\) \? "HTTP " \+ error\.code : "HTTP " \+ error\.code \+ " " \+ reason/);
 });
