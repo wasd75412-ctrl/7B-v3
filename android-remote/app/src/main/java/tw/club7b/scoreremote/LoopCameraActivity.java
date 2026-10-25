@@ -13,6 +13,7 @@ import android.hardware.camera2.CameraCharacteristics;
 import android.hardware.camera2.CameraMetadata;
 import android.hardware.camera2.CaptureRequest;
 import android.hardware.camera2.params.TonemapCurve;
+import android.util.Range;
 import android.os.Build;
 import android.os.Bundle;
 import android.os.Environment;
@@ -491,7 +492,7 @@ public final class LoopCameraActivity extends ComponentActivity {
     }
 
     private static int videoBitrate(Quality quality) {
-        if (quality == Quality.UHD) return 40_000_000;
+        if (quality == Quality.UHD) return 50_000_000;
         if (quality == Quality.HD) return 10_000_000;
         return 20_000_000;
     }
@@ -546,22 +547,56 @@ public final class LoopCameraActivity extends ComponentActivity {
     private static void applyContrastCurve(Camera camera) {
         try {
             Camera2CameraInfo info = Camera2CameraInfo.from(camera.getCameraInfo());
-            int[] modes = info.getCameraCharacteristic(CameraCharacteristics.TONEMAP_AVAILABLE_TONE_MAP_MODES);
-            Integer maxPoints = info.getCameraCharacteristic(CameraCharacteristics.TONEMAP_MAX_CURVE_POINTS);
-            if (modes == null || maxPoints == null || maxPoints < RecordingToneCurve.POINTS) return;
-            boolean supportsCurve = false;
-            for (int mode : modes) supportsCurve |= mode == CameraMetadata.TONEMAP_MODE_CONTRAST_CURVE;
-            if (!supportsCurve) return;
-            float[] curve = RecordingToneCurve.points();
-            Camera2CameraControl.from(camera.getCameraControl()).setCaptureRequestOptions(
-                    new CaptureRequestOptions.Builder()
-                            .setCaptureRequestOption(CaptureRequest.TONEMAP_MODE, CameraMetadata.TONEMAP_MODE_CONTRAST_CURVE)
-                            .setCaptureRequestOption(CaptureRequest.TONEMAP_CURVE, new TonemapCurve(curve, curve, curve))
-                            .build());
+            CaptureRequestOptions.Builder options = new CaptureRequestOptions.Builder();
+            addToneMap(info, options);
+            addFixedCourtClarity(info, options);
+            Camera2CameraControl.from(camera.getCameraControl()).setCaptureRequestOptions(options.build());
         } catch (RuntimeException error) {
             Log.w("7BRecording", "Unable to apply recording contrast curve", error);
             ErrorLog.record(null, "recording", "無法套用錄影對比", error);
         }
+    }
+
+    private static void addToneMap(Camera2CameraInfo info, CaptureRequestOptions.Builder options) {
+        int[] modes = info.getCameraCharacteristic(CameraCharacteristics.TONEMAP_AVAILABLE_TONE_MAP_MODES);
+        Integer maxPoints = info.getCameraCharacteristic(CameraCharacteristics.TONEMAP_MAX_CURVE_POINTS);
+        if (modes == null || maxPoints == null || maxPoints < RecordingToneCurve.POINTS) return;
+        boolean supportsCurve = false;
+        for (int mode : modes) supportsCurve |= mode == CameraMetadata.TONEMAP_MODE_CONTRAST_CURVE;
+        if (!supportsCurve) return;
+        float[] curve = RecordingToneCurve.points();
+        options.setCaptureRequestOption(CaptureRequest.TONEMAP_MODE, CameraMetadata.TONEMAP_MODE_CONTRAST_CURVE);
+        options.setCaptureRequestOption(CaptureRequest.TONEMAP_CURVE, new TonemapCurve(curve, curve, curve));
+    }
+
+    /** A fixed court camera looks sharper when focus, shutter and stabilization stop hunting. */
+    private static void addFixedCourtClarity(Camera2CameraInfo info, CaptureRequestOptions.Builder options) {
+        if (hasMode(info.getCameraCharacteristic(CameraCharacteristics.CONTROL_AVAILABLE_VIDEO_STABILIZATION_MODES),
+                CameraMetadata.CONTROL_VIDEO_STABILIZATION_MODE_OFF)) {
+            options.setCaptureRequestOption(CaptureRequest.CONTROL_VIDEO_STABILIZATION_MODE,
+                    CameraMetadata.CONTROL_VIDEO_STABILIZATION_MODE_OFF);
+        }
+        Float hyperfocal = info.getCameraCharacteristic(CameraCharacteristics.LENS_INFO_HYPERFOCAL_DISTANCE);
+        Float minimumFocus = info.getCameraCharacteristic(CameraCharacteristics.LENS_INFO_MINIMUM_FOCUS_DISTANCE);
+        if (hyperfocal != null && hyperfocal > 0f && minimumFocus != null && minimumFocus > 0f
+                && hasMode(info.getCameraCharacteristic(CameraCharacteristics.CONTROL_AF_AVAILABLE_MODES),
+                CameraMetadata.CONTROL_AF_MODE_OFF)) {
+            options.setCaptureRequestOption(CaptureRequest.CONTROL_AF_MODE, CameraMetadata.CONTROL_AF_MODE_OFF);
+            options.setCaptureRequestOption(CaptureRequest.LENS_FOCUS_DISTANCE, hyperfocal);
+        }
+        Range<Integer>[] ranges = info.getCameraCharacteristic(CameraCharacteristics.CONTROL_AE_AVAILABLE_TARGET_FPS_RANGES);
+        if (ranges == null) return;
+        for (Range<Integer> range : ranges) {
+            if (range.getLower() != 30 || range.getUpper() != 30) continue;
+            options.setCaptureRequestOption(CaptureRequest.CONTROL_AE_TARGET_FPS_RANGE, range);
+            return;
+        }
+    }
+
+    private static boolean hasMode(int[] modes, int wanted) {
+        if (modes == null) return false;
+        for (int mode : modes) if (mode == wanted) return true;
+        return false;
     }
 
     private OverlayEffect createScoreOverlayEffect() {
