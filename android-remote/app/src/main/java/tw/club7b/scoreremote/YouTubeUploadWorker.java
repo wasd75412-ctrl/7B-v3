@@ -37,7 +37,6 @@ public final class YouTubeUploadWorker extends Worker {
         try {
             Context context = getApplicationContext();
             RecordingUploadStore.repairLargeFiles(context);
-            RecordingUploadStore.reopenHttpFailures(context);
             long nowMs = System.currentTimeMillis();
             RecordingUploadStore.markOlderWaiting(context, nowMs);
             List<RecordingUploadStore.Entry> pending = RecordingUploadStore.pendingAuto(context);
