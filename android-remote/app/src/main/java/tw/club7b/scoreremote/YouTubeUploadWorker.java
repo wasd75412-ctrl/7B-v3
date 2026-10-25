@@ -37,6 +37,7 @@ public final class YouTubeUploadWorker extends Worker {
         try {
             Context context = getApplicationContext();
             RecordingUploadStore.repairLargeFiles(context);
+            RecordingUploadStore.reopenHttpFailures(context);
             long nowMs = System.currentTimeMillis();
             RecordingUploadStore.markOlderWaiting(context, nowMs);
             List<RecordingUploadStore.Entry> pending = RecordingUploadStore.pendingAuto(context);
@@ -155,7 +156,8 @@ public final class YouTubeUploadWorker extends Worker {
             } else if (error.code >= 500) {
                 mark(entry, RecordingUploadStore.Status.WAITING, "");
             } else {
-                mark(entry, RecordingUploadStore.Status.FAILED, "HTTP " + error.code);
+                String reason = error.reason();
+                mark(entry, RecordingUploadStore.Status.FAILED, reason.isEmpty() ? "HTTP " + error.code : "HTTP " + error.code + " " + reason);
             }
         } catch (Exception error) {
             Log.w("7BYouTube", "Upload interrupted", error);

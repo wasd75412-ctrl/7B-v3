@@ -22,4 +22,19 @@ public final class YouTubeUploaderTest {
         assertEquals("2026年9月30日", YouTubeUploader.clean(" <2026年9月30日> ", 100));
         assertEquals("abc", YouTubeUploader.clean("abcdef", 3));
     }
+
+    @Test
+    public void dailyUploadLimitIsNotAPermanentFailure() {
+        YouTubeUploader.HttpError limit = new YouTubeUploader.HttpError(400,
+                "{\"error\":{\"errors\":[{\"reason\":\"uploadLimitExceeded\"}]}}");
+        org.junit.Assert.assertTrue(limit.isQuota());
+        org.junit.Assert.assertEquals("uploadLimitExceeded", limit.reason());
+        YouTubeUploader.HttpError quota = new YouTubeUploader.HttpError(403,
+                "{\"error\":{\"errors\":[{\"reason\":\"quotaExceeded\"}]}}");
+        org.junit.Assert.assertTrue(quota.isQuota());
+        YouTubeUploader.HttpError invalid = new YouTubeUploader.HttpError(400,
+                "{\"error\":{\"errors\":[{\"reason\":\"invalidTitle\"}]}}");
+        org.junit.Assert.assertFalse(invalid.isQuota());
+        org.junit.Assert.assertEquals("invalidTitle", invalid.reason());
+    }
 }

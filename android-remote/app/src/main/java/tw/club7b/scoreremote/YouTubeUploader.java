@@ -32,7 +32,22 @@ final class YouTubeUploader {
         }
 
         boolean isQuota() {
-            return code == 403 && (body.contains("quotaExceeded") || body.contains("uploadLimitExceeded"));
+            // The channel's daily upload limit comes back as HTTP 400, not the API quota 403.
+            return (code == 400 || code == 403)
+                    && (body.contains("quotaExceeded") || body.contains("uploadLimitExceeded"));
+        }
+
+        String reason() {
+            int key = body.indexOf("\"reason\"");
+            if (key < 0) return "";
+            int colon = body.indexOf(':', key);
+            if (colon < 0) return "";
+            int open = body.indexOf('"', colon + 1);
+            if (open < 0) return "";
+            int close = body.indexOf('"', open + 1);
+            if (close <= open) return "";
+            String reason = body.substring(open + 1, close).trim();
+            return reason.length() > 60 ? reason.substring(0, 60) : reason;
         }
     }
 

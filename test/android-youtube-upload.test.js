@@ -131,3 +131,10 @@ test('auto-upload only queues today recordings unless forced or already in progr
   assert.match(store,/entry\.message = "僅今日自動上傳"/);
   assert.match(worker,/entry\.forceUpload = false;\s*mark\(entry, RecordingUploadStore\.Status\.UPLOADED, ""\);/);
 });
+
+test('a daily YouTube upload limit waits instead of staying failed',()=>{
+  assert.match(uploader,/code == 400 \|\| code == 403/);
+  assert.match(uploader,/uploadLimitExceeded/);
+  assert.match(worker,/RecordingUploadStore\.reopenHttpFailures\(context\)/);
+  assert.match(worker,/reason\.isEmpty\(\) \? "HTTP " \+ error\.code : "HTTP " \+ error\.code \+ " " \+ reason/);
+});
