@@ -360,7 +360,7 @@ test('removes the old score remote and test mode and offers practice matches tha
   assert.match(html,/id="startNextPractice"[^>]*>練習賽<\/button><button id="startNext" class="btn primary">下一場<\/button>/);
   assert.match(html,/id="practiceBadge" class="practice-badge hidden">練習賽<\/span>/);
   assert.match(mainSource,/\$\('startMatch'\)\.onclick=\(\)=>startMatch\(\);\$\('startPracticeMatch'\)\.onclick=\(\)=>startMatch\(\{practice:true\}\)/);
-  assert.match(mainSource,/\$\('startNext'\)\.onclick=\(\)=>startNext\(\);\$\('startNextPractice'\)\.onclick=\(\)=>startNext\(\{practice:true\}\)/);
+  assert.match(mainSource,/\$\('startNext'\)\.onclick=\(\)=>startNext\(\{practice:!!state\.match\.practice\}\);\$\('startNextPractice'\)\.onclick=\(\)=>startNext\(\{practice:true\}\)/);
   assert.match(mainSource,/startNext\(\{practice:!!state\.match\.practice\}\);return true/);
   assert.match(mainSource,/function scoredHistory\(\)\{return state\.history\.filter\(h=>!h\.practice\)\}/);
   assert.match(mainSource,/\}\)\.filter\(h=>!h\.testMode\):\[\]/);
