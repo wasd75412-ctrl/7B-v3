@@ -67,6 +67,25 @@ export function orientLineupToReference(lineup=[],reference=[]){
   return swap?[...teams[1],...teams[0]]:[...teams[0],...teams[1]];
 }
 
+function sideExcess(history=[],playerId){
+  let excess=0;
+  for(const match of history){
+    const teams=Array.isArray(match?.teams)?match.teams:[];
+    if(Array.isArray(teams[0])&&teams[0].includes(playerId))excess++;
+    else if(Array.isArray(teams[1])&&teams[1].includes(playerId))excess--;
+  }
+  return excess;
+}
+
+export function balanceLineupSides(lineup=[],reference=[],history=[]){
+  const oriented=orientLineupToReference(lineup,reference);
+  if(oriented.length!==4)return oriented;
+  const pairs=[oriented.slice(0,2),oriented.slice(2,4)];
+  const excess=pair=>pair.reduce((total,id)=>total+sideExcess(history,id),0);
+  if(excess(pairs[0])>excess(pairs[1]))return [...pairs[1],...pairs[0]];
+  return oriented;
+}
+
 export function arrangeTeamsWithTeammateLimit(players=[],history=[],randomValue=0,maxConsecutiveGames=2,{genderGroupingEnabled=true,genderByPlayer={},keepLineup=false,avoidLineup=null}={}){
   const ids=[...new Set(players.filter(Boolean))].slice(0,4);
   if(ids.length!==4)return ids;
