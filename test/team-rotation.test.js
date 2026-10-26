@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { arrangeTeamsWithTeammateLimit, consecutiveTeammateGames, genderGroupingActive, lineupExceedsTeammateLimit, orientLineupToReference } from '../src/team-rotation.js';
+import { arrangeTeamsWithTeammateLimit, balanceLineupSides, consecutiveTeammateGames, genderGroupingActive, lineupExceedsTeammateLimit, orientLineupToReference } from '../src/team-rotation.js';
 
 const game=(teamA,teamB)=>({teams:[teamA,teamB]});
 const pairs=lineup=>[lineup.slice(0,2).sort().join('|'),lineup.slice(2,4).sort().join('|')];
@@ -142,10 +142,31 @@ test('starts exactly the lineup shown and applies teammate rules while it is bei
   assert.match(source,/state\.court=state\.court\.filter\(Boolean\);if\(!singles&&state\.court\.length===4\)\{const safe=teammateSafeLineup\(state\.court\);/);
 });
 
-test('only reshuffles fixable gender lineups and keeps winners on their side',()=>{
+test('keeps the winner side as the tie-break and balances unequal A and B counts',()=>{
   const source=readFileSync(new URL('../src/main.js',import.meta.url),'utf8');
   assert.match(source,/genderViolation=genderGroupingEnabled&&lineupMaleCount===2&&hasMalePair/);
-  assert.match(source,/orientLineupToReference\(arrangeTeamsWithTeammateLimit\(randomize\?shuffle\(values\):values,[^)]*keepLineup:!randomize,avoidLineup:regroup\?values:null\}\),values\)/);
+  assert.match(source,/balanceLineupSides\(arrangeTeamsWithTeammateLimit\(randomize\?shuffle\(values\):values,[^)]*keepLineup:!randomize,avoidLineup:regroup\?values:null\}\),values,todayHistory\)/);
   assert.match(source,/teammateSafeLineup\(m\.winner===0\?\[\.\.\.winners,\.\.\.chosen\]:\[\.\.\.chosen,\.\.\.winners\],\{randomize:true\}\)/);
   assert.match(source,/lineup=m\.winner===1\?\[\.\.\.rotation\.players\]\.reverse\(\):rotation\.players/);
 });
+
+test('puts the pair that has stood on A more often onto B',()=>{
+  const history=[game(['W0','W1'],['C0','C1']),game(['W0','W1'],['C0','C1'])];
+  const balanced=balanceLineupSides(['W0','W1','C0','C1'],['W0','W1','C0','C1'],history);
+  assert.deepEqual(pairs(balanced),['C0|C1','W0|W1']);
+});
+
+test('keeps winners on their side when A and B counts are tied',()=>{
+  const history=[game(['W0','W1'],['C0','C1']),game(['C0','C1'],['W0','W1'])];
+  const balanced=balanceLineupSides(['C0','C1','W0','W1'],['W0','W1','C0','C1'],history);
+  assert.deepEqual(balanced.slice(0,2).sort(),['W0','W1']);
+  assert.deepEqual(balanced.slice(2,4).sort(),['C0','C1']);
+});
+
+test('side balance keeps mixed pairs intact',()=>{
+  const history=[game(['M1','F1'],['M2','F2'])];
+  const balanced=balanceLineupSides(['M1','F1','M2','F2'],['M1','F1','M2','F2'],history);
+  assert.deepEqual(pairs(balanced),['F2|M2','F1|M1']);
+});
+
+
