@@ -93,7 +93,7 @@ test('routes remote keys directly without multi-press delay',()=>{
   assert.match(service,/useOneShuttle/);
   assert.match(service,/returnOneShuttle/);
   assert.match(activity,/sendRemoteOfficialStartCommand\(\).*backgroundScoreController\.startOfficialMatch/s);
-  assert.match(controller,/startOfficialMatch\(FullscreenCallback callback\).*transaction\.get\(liveScore\).*officialStartUpdates\(String\.valueOf\(matchId\), clientCreatedAt\);\s*transaction\.set\(remoteControl, updates, SetOptions\.merge\(\)\)/s);
+  assert.match(controller,/startOfficialMatch\(FullscreenCallback callback\)[\s\S]*?officialStartUpdates\(matchId, clientCreatedAt\)[\s\S]*?remoteControl\.set\(updates, SetOptions\.merge\(\)\)/);
   assert.match(controller,/officialStartUpdates\(String matchId, long clientCreatedAt\)[\s\S]*?updates\.put\("officialStartCommand", command\)/);
   assert.match(controller,/sendShuttleCommand\(VolumeKeyInterpreter\.Action\.USE_SHUTTLE, "已使用 1 顆球"/);
   assert.match(controller,/sendShuttleCommand\(VolumeKeyInterpreter\.Action\.RETURN_SHUTTLE, "已加回 1 顆球"/);
@@ -101,7 +101,8 @@ test('routes remote keys directly without multi-press delay',()=>{
   assert.match(controller,/case USE_SHUTTLE:[\s\S]*?return "useShuttle"/);
   assert.match(controller,/case RETURN_SHUTTLE:[\s\S]*?return "returnShuttle"/);
   assert.doesNotMatch(controller,/remoteActionCommand/);
-  assert.match(controller,/startOfficialMatch[\s\S]*?if \(!session\.isAuthorized\(\)\)[\s\S]*?transaction\.get\(liveScore\)/);
+  assert.match(controller,/startOfficialMatch[\s\S]*?if \(!session\.isAuthorized\(\)\)[\s\S]*?remoteControl\.set\(updates, SetOptions\.merge\(\)\)/);
+  assert.doesNotMatch(controller,/transaction\.get\(liveScore\)/);
   assert.match(controller,/private void sendAction\(Request request\).*knownMatchId\(\).*deliverAction\(remoteControl, request, cachedMatchId\)/s);
   assert.match(controller,/remoteControl\.getParent\(\)\.document\("score-" \+ id\)\.set\(command\)/);
   assert.match(main,/\['teamAPlus','teamBPlus','undo','useShuttle','returnShuttle'\]/);
@@ -120,8 +121,8 @@ test('YUNTENG remote support is removed and the camera key only starts the match
   }
   assert.match(activity,/sendScoreAction[\s\S]*?scoreController\(\)\.submit\(action/);
   assert.match(controller,/synchronized boolean consumeCameraAsOfficialStart\(FullscreenCallback callback\)/);
-  assert.match(controller,/if \(matchStarted\) \{\s*refreshOfficialStart\(session, callback\);\s*return true;/);
-  assert.match(controller,/if \(matchKnown && matchStarted\) \{\s*if \(callback != null\) callback\.onComplete\(true, "本場已正式開始"\);/);
+  assert.match(controller,/synchronized boolean consumeCameraAsOfficialStart\(FullscreenCallback callback\)[\s\S]*?beginOfficialStart\(callback\);/);
+  assert.doesNotMatch(controller,/本場已正式開始/);
   assert.match(activity,/action == VolumeKeyInterpreter\.Action\.OFFICIAL_START[\s\S]*?consumeCameraAsOfficialStart/);
   assert.doesNotMatch(activity,/cameraButtonCallbacks/);
   assert.match(service,/action == VolumeKeyInterpreter\.Action\.OFFICIAL_START[\s\S]*?consumeCameraAsOfficialStart/);
