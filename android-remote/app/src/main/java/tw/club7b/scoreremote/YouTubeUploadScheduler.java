@@ -51,7 +51,6 @@ final class YouTubeUploadScheduler {
         NetworkRequest request = new NetworkRequest.Builder()
                 .addTransportType(NetworkCapabilities.TRANSPORT_WIFI)
                 .addCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
-                .addCapability(NetworkCapabilities.NET_CAPABILITY_NOT_METERED)
                 .build();
         try {
             connectivity.registerNetworkCallback(request, new ConnectivityManager.NetworkCallback() {
@@ -66,7 +65,7 @@ final class YouTubeUploadScheduler {
 
     private static void enqueue(Context context, ExistingWorkPolicy when) {
         Constraints constraints = new Constraints.Builder()
-                .setRequiredNetworkType(NetworkType.UNMETERED)
+                .setRequiredNetworkType(NetworkType.CONNECTED)
                 .build();
         WorkManager work = WorkManager.getInstance(context);
         work.enqueueUniquePeriodicWork(PERIODIC, ExistingPeriodicWorkPolicy.UPDATE,

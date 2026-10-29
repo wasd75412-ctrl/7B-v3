@@ -23,7 +23,7 @@ test('Android 9 and older ask for storage before recording into the gallery',()=
   assert.match(camera,/needsLegacyStoragePermission\(\)\) \{\s*Toast\.makeText\(this, "需要儲存權限才能保存影片"/);
 });
 
-test('uploads on unmetered Wi-Fi and skips a personal hotspot',()=>{
+test('uploads on Wi-Fi that is not a personal hotspot',()=>{
   assert.match(wifi,/TRANSPORT_WIFI/);
   assert.match(wifi,/NET_CAPABILITY_VALIDATED/);
   assert.match(wifi,/NET_CAPABILITY_NOT_METERED/);
@@ -37,9 +37,10 @@ test('uploads on unmetered Wi-Fi and skips a personal hotspot',()=>{
   assert.match(worker,/return !isStopped\(\) && !LoopCameraActivity\.isRecordingSessionOpen\(\) && HomeWifi\.isConnected\(context\);/);
   assert.match(worker,/if \(!mayUpload\(context\)\) break;\s*upload\(entry, auth\);/);
   assert.match(worker,/public boolean keepGoing\(\) \{\s*return mayUpload\(context\) && RecordingUploadStore\.contains\(context, entry\);/);
-  assert.match(scheduler,/NetworkType\.UNMETERED/);
+  assert.match(scheduler,/NetworkType\.CONNECTED/);
   assert.match(scheduler,/addTransportType\(NetworkCapabilities\.TRANSPORT_WIFI\)/);
-  assert.match(scheduler,/NET_CAPABILITY_NOT_METERED/);
+  assert.doesNotMatch(scheduler,/NET_CAPABILITY_NOT_METERED/);
+  assert.match(read(`${javaDir}SevenBRemoteApp.java`),/YouTubeUploadScheduler\.scheduleIfPending\(this\)/);
   assert.match(scheduler,/ExistingPeriodicWorkPolicy\.UPDATE/);
   assert.match(scheduler,/PeriodicWorkRequest\.Builder\(YouTubeUploadWorker\.class, 15, TimeUnit\.MINUTES\)/);
   assert.match(recordings,/連上 Wi-Fi 自動上傳今日影片/);
