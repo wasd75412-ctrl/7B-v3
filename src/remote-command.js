@@ -54,14 +54,24 @@ export function shouldAcceptOfficialStart({command,currentMatch,now=Date.now(),i
   const sameMatch=commandMatchId!==''&&commandMatchId===String(currentMatch.matchId??'');
   if(!waiting)return sameMatch&&!initial;
   if(sameMatch)return true;
-  const pressed=timestampMillis(command.clientCreatedAt)||timestampMillis(command.createdAt);
+  const client=timestampMillis(command.clientCreatedAt);
+  const server=timestampMillis(command.createdAt);
+  const pressed=client||server;
   if(!Number.isFinite(pressed)||!Number.isFinite(matchShownAt)||matchShownAt<=0)return false;
   const previousMatch=String(replacedMatchId||'');
-  if(commandMatchId!==''&&commandMatchId===previousMatch&&pressed<matchShownAt)return false;
-  if(pressed+REMOTE_COMMAND_MAX_FUTURE_SKEW_MS<matchShownAt)return false;
+  const serverAfter=Number.isFinite(server)&&server+REMOTE_COMMAND_MAX_FUTURE_SKEW_MS>=matchShownAt;
+  // The phone often still stamps the previous match, and its clock can sit behind the scoreboard.
+  // A client timestamp from before this match appeared is then not proof of an old press: the server
+  // received this write after the match was shown.
+  if(commandMatchId!==''&&commandMatchId===previousMatch){
+    const clientAfter=Number.isFinite(client)&&client>=matchShownAt;
+    if(!serverAfter&&!clientAfter)return false;
+  }else if(!serverAfter){
+    const mark=Number.isFinite(client)?client:server;
+    if(mark+REMOTE_COMMAND_MAX_FUTURE_SKEW_MS<matchShownAt)return false;
+  }
   return pressed<=now+180_000;
 }
-
 export const QUEUED_REPEAT_PRESS_MS=3_000;
 export const QUEUED_REPEAT_ARRIVAL_MS=1_000;
 

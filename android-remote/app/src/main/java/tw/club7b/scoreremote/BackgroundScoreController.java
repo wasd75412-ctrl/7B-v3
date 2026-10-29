@@ -306,13 +306,11 @@ private synchronized void clearStartRequest(String requestedMatchId) {
         ensureMatchListener(session);
         DocumentReference remoteControl = remoteControlReference(session);
         long clientCreatedAt = System.currentTimeMillis();
-        // Send even when the cached match looks finished. The scorer decides whether this press
-        // belongs to the match on screen; refusing here is what made later matches ignore the key.
+        // A finished match still cached on the phone is the previous one. Stamping that id makes the
+        // scoreboard treat this press as too early and ignore it, so the key does nothing until a
+        // score press takes the other start path. An unknown id means the match on screen.
         String matchId = cachedPreStartMatchId();
-        if (matchId == null) {
-            String known = knownMatchId();
-            matchId = known == null ? "" : known;
-        }
+        if (matchId == null) matchId = "";
         Map<String, Object> updates = officialStartUpdates(matchId, clientCreatedAt);
         boolean direct = sendDirect("officialStart", updates.get("officialStartCommand"));
         Feedback feedback = new Feedback((success, message) -> callback.onComplete(success, message));
