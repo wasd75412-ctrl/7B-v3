@@ -103,6 +103,8 @@ test('official start does not carry onto the match that replaced it',()=>{
   assert.equal(shouldAcceptOfficialStart({command:{id:'start-delayed',matchId:'older-match',clientCreatedAt:now-30_000},currentMatch:waiting,now,matchShownAt:now-120_000,replacedMatchId:'previous-match'}),true);
   assert.equal(shouldAcceptOfficialStart({command:{id:'start-ahead',matchId:'previous-match',clientCreatedAt:now+6_000},currentMatch:waiting,now,matchShownAt:now-10_000,replacedMatchId:'previous-match'}),true);
   assert.equal(shouldAcceptOfficialStart({command:{id:'start-wild',matchId:'previous-match',clientCreatedAt:now+181_000},currentMatch:waiting,now,matchShownAt:now-10_000,replacedMatchId:'previous-match'}),false);
+  const slowPhone={id:'start-slow',matchId:'previous-match',clientCreatedAt:now-30_000,createdAt:now-1_000};
+  assert.equal(shouldAcceptOfficialStart({command:slowPhone,currentMatch:waiting,now,matchShownAt:now-10_000,replacedMatchId:'previous-match'}),true);
 });
 
 test('a direct official start with no server timestamp still uses the phone clock',()=>{
@@ -192,3 +194,4 @@ test('a later recording file does not move the day start forward',()=>{
   assert.equal(earlierRecordingStart('2026-10-28T20:10:29.984Z',Date.parse(early)),early);
   assert.equal(earlierRecordingStart('',Date.parse(early)),early);
 });
+
