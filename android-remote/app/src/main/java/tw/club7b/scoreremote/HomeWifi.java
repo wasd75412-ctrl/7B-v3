@@ -37,13 +37,19 @@ final class HomeWifi {
     }
 
     private static boolean isHotspot(ConnectivityManager connectivity, Network network, NetworkCapabilities capabilities) {
-        if (!capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_NOT_METERED)) return true;
         LinkProperties link = connectivity.getLinkProperties(network);
-        if (link == null) return false;
-        for (LinkAddress address : link.getLinkAddresses()) {
-            if (isPhoneHotspotAddress(address.getAddress())) return true;
+        boolean hotspotAddress = false;
+        boolean lanAddress = false;
+        if (link != null) {
+            for (LinkAddress address : link.getLinkAddresses()) {
+                InetAddress ip = address.getAddress();
+                if (isPhoneHotspotAddress(ip)) hotspotAddress = true;
+                else if (ip instanceof Inet4Address) lanAddress = true;
+            }
         }
-        return false;
+        if (hotspotAddress) return true;
+        // A metered Wi-Fi with a normal LAN address still uploads. Only a tether with no LAN address stays blocked.
+        return !capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_NOT_METERED) && !lanAddress;
     }
 
     // iPhone hotspots report as unmetered, so their fixed 172.20.10.0/28 range is the only tell.

@@ -10,7 +10,7 @@ import { checkpointMissedOfficialStart, createLiveScoreData, createMatchCheckpoi
 import { journaledMatchToRestore, matchInProgress, matchJournalEntry, matchJournalKey } from './match-journal.js';
 import { startLocalLinkHost } from './local-link.js';
 import { MAIN_THREAD_TICK_MS, createMainThreadLagMonitor } from './main-thread-lag.js';
-import { REMOTE_COMMAND_MAX_AGE_MS, isQueuedRepeatPress, isStaleMatchPressForCurrentMatch, officialStartArrivedAfterAttach, shouldAcceptRemoteCommand, timestampMillis } from './remote-command.js';
+import { REMOTE_COMMAND_MAX_AGE_MS, isQueuedRepeatPress, isStaleMatchPressForCurrentMatch, officialStartArrivedAfterAttach, shouldAcceptOfficialStart, shouldAcceptRemoteCommand, timestampMillis } from './remote-command.js';
 import { canAutoSyncPlayerIdentity } from './device-sync.js';
 import { shouldRequestNativeWakeLock, wakeLockButtonIntent, wakeLockControlIsActive } from './wake-lock.js';
 import { FIRESTORE_LINK_COOLDOWN_MS, FIRESTORE_LINK_TIMEOUT_MS, firestoreLinkProbeVerdict, shouldProbeFirestoreLink } from './firestore-link.js';
@@ -145,7 +145,7 @@ let deviceProfileUnsubscribe=null,deviceProfileApplying=false,deviceProfileSaveT
 let roomSnapshotFromCache=false,snapshotHasPendingWrites=false,pendingRoomWrites=0,roomWriteScheduled=false,archivedHistory=[],removedMatchIds=new Set();
 const SYNC_MODE_KEY='bcmRoomSyncModeV1',SNAPSHOT_RETRY_BASE_MS=5000,SNAPSHOT_RETRY_MAX_MS=60000,ROOM_MATCH_FALLBACK_MS=60000;
 let roomMatchFallbackTimer=null,roomMatchFallbackKey='';
-let liveScoreSnapshotFromCache=false,liveScoreHasPendingWrites=false,pendingLiveScoreWrites=0,liveScoreWriteScheduled=false,liveScoreConnecting=false,liveScoreAvailable=true,liveScoreReady=false,liveScoreInitialSnapshot=true,remoteControlInitialSnapshot=true,remoteActionInitialSnapshot=true,liveScoreMigrationStarted=false,latestLiveMatch=null,lastRoomSnapshotData=null,lastRemoteRecordingStartCommandId='',lastRemoteFullscreenCommandId='',lastRemoteOfficialStartCommandId='',lastRemoteNextMatchCommandId='',lastRemoteUndoFinishedCommandId='',lastRemoteStartMatchCommandId='',lastRemoteActionCommandId='',seenRemoteActionIds=new Set(),androidOfficialStartPending=null,replacedRemoteMatchId='',replacedRemoteMatchAt=0;
+let liveScoreSnapshotFromCache=false,liveScoreHasPendingWrites=false,pendingLiveScoreWrites=0,liveScoreWriteScheduled=false,liveScoreConnecting=false,liveScoreAvailable=true,liveScoreReady=false,liveScoreInitialSnapshot=true,remoteControlInitialSnapshot=true,remoteActionInitialSnapshot=true,liveScoreMigrationStarted=false,latestLiveMatch=null,lastRoomSnapshotData=null,lastRemoteRecordingStartCommandId='',lastRemoteFullscreenCommandId='',lastRemoteOfficialStartCommandId='',lastRemoteNextMatchCommandId='',lastRemoteUndoFinishedCommandId='',lastRemoteStartMatchCommandId='',lastRemoteActionCommandId='',seenRemoteActionIds=new Set(),androidOfficialStartPending=null,replacedRemoteMatchId='',replacedRemoteMatchAt=0,currentMatchShownId='',currentMatchShownAt=0;
 let latestOfficialStartCommand=null;
 const RESULT_NEXT_MATCH_GUARD_MS=500;
 let resultShownAt=0,remoteFinishPressAt=0,remotePressTrail={matchId:'',presses:{}};
@@ -218,6 +218,11 @@ function officialStartIndicatorVisible(){
 }
 function dismissOfficialStartIndicator(){if(officialStartIndicatorVisible())hideScoreRemoteIndicator()}
 function matchHasOfficiallyStarted(match=state.match){return Boolean(match?.startedAt)}
+function noteDisplayedMatch(){
+  const id=String(state.match?.matchId||'');
+  if(id===currentMatchShownId)return;
+  currentMatchShownId=id;currentMatchShownAt=Date.now();
+}
 function markMatchOfficialStarted(requestedAt){
   const match=state.match;
   if(!isHost||!match.active||match.winner!==null)return false;
@@ -2302,9 +2307,12 @@ function handleRemoteRecordingStartCommand(data,{initial=false}={}){
 function handleRemoteOfficialStartCommand(data,{initial=false}={}){
   const id=String(data?.officialStartCommand?.id||'');if(!id||id===lastRemoteOfficialStartCommandId)return false;
   const command=data.officialStartCommand;
-  if(initial){lastRemoteOfficialStartCommandId=id;return false}
-  if(!shouldAcceptRemoteCommand({command,currentMatch:state.match,initial}))return false;
-  if(initial||requestedAndroidRemote||!isHost)return false;
+  noteDisplayedMatch();
+  if(!shouldAcceptOfficialStart({command,currentMatch:state.match,initial,matchShownAt:currentMatchShownAt,replacedMatchId:replacedRemoteMatchId})){
+    if(initial)lastRemoteOfficialStartCommandId=id;
+    return false;
+  }
+  if(requestedAndroidRemote||!isHost)return false;
   const started=markMatchOfficialStarted(data.officialStartCommand.clientCreatedAt||data.officialStartCommand.createdAt);
   if(started)lastRemoteOfficialStartCommandId=id;
   if(started&&ownsScoring(state.match,scoreDeviceId)&&$('scoreView').classList.contains('hidden')&&$('resultModal').classList.contains('hidden'))claimScoring();
@@ -3150,6 +3158,7 @@ const COURT_FLIP_KEY='bcmScoreCourtFlipV1';
 function courtFlipped(){try{return localStorage.getItem(COURT_FLIP_KEY)==='1'}catch{return false}}
 function toggleCourtFlip(){try{localStorage.setItem(COURT_FLIP_KEY,courtFlipped()?'0':'1')}catch{}renderScore()}
 function renderScore(){
+  noteDisplayedMatch();
   const m=state.match,flipped=courtFlipped();
   renderPracticeMatch();
   $('scoreView').classList.toggle('court-flipped',flipped);
@@ -4235,7 +4244,7 @@ refreshAppButtons.forEach(button=>button.onclick=()=>{refreshAppButtons.forEach(
 
 const fullscreenScoreBtn=$('fullscreenScore'),fullscreenScoreView=$('scoreView');
 const officialStartScoreBtn=$('officialStartScore');
-officialStartScoreBtn.onclick=()=>markMatchOfficialStarted();
+officialStartScoreBtn.onclick=()=>{if(!markMatchOfficialStarted())showScoreRemoteIndicator('目前無法正式開始',{duration:1600,icon:'▶️'})};
 $('courtFlipToggle').onclick=toggleCourtFlip;
 const SCORE_THEME_KEY='bcmScoreThemeV1';
 const SCORE_RANDOM_THEME_KEY='bcmRandomScoreThemeV1';

@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
-import {REMOTE_COMMAND_MAX_AGE_MS,isQueuedRepeatPress,officialStartArrivedAfterAttach,shouldAcceptRemoteCommand,timestampMillis} from '../src/remote-command.js';
+import {REMOTE_COMMAND_MAX_AGE_MS,isQueuedRepeatPress,officialStartArrivedAfterAttach,shouldAcceptOfficialStart,shouldAcceptRemoteCommand,timestampMillis} from '../src/remote-command.js';
 
 const now=Date.parse('2026-09-05T12:00:00.000Z');
 const currentMatch={matchId:'current-match',startedAt:new Date(now-10_000).toISOString()};
@@ -78,6 +78,24 @@ test('does not freshen an offline command when the server finally acknowledges i
 test('accepts commands from a phone whose clock runs ahead of the host',()=>{
   assert.equal(accept({command:{...command,matchId:'current-match',clientCreatedAt:now+6400}}),true);
   assert.equal(accept({command:{...command,createdAt:now+5001,clientCreatedAt:now}}),false);
+});
+
+test('official start for the match on screen lands even when the press looks old',()=>{
+  const waiting={matchId:'current-match',active:true,winner:null,startedAt:''};
+  const start={id:'start-1',matchId:'current-match',clientCreatedAt:now-60_000,createdAt:now-60_000};
+  assert.equal(shouldAcceptOfficialStart({command:start,currentMatch:waiting,now,initial:false,matchShownAt:now-120_000}),true);
+  assert.equal(shouldAcceptOfficialStart({command:start,currentMatch:waiting,now,initial:true,matchShownAt:now-120_000}),true);
+  assert.equal(shouldAcceptOfficialStart({command:start,currentMatch:{...waiting,startedAt:new Date(now-10_000).toISOString()},now,initial:true}),false);
+  assert.equal(shouldAcceptOfficialStart({command:{...start,id:'start-2'},currentMatch:{...waiting,startedAt:new Date(now-10_000).toISOString()},now,initial:false}),true);
+});
+
+test('official start does not carry onto the match that replaced it',()=>{
+  const waiting={matchId:'next-match',active:true,winner:null,startedAt:''};
+  const carried={id:'start-old',matchId:'previous-match',clientCreatedAt:now-500};
+  assert.equal(shouldAcceptOfficialStart({command:carried,currentMatch:waiting,now,matchShownAt:now-100,replacedMatchId:'previous-match'}),false);
+  const stalePhone={id:'start-stale',matchId:'older-match',clientCreatedAt:now-500};
+  assert.equal(shouldAcceptOfficialStart({command:stalePhone,currentMatch:waiting,now,matchShownAt:now-10_000,replacedMatchId:'previous-match'}),true);
+  assert.equal(shouldAcceptOfficialStart({command:{...stalePhone,clientCreatedAt:now-20_000},currentMatch:waiting,now,matchShownAt:now-10_000,replacedMatchId:'previous-match'}),false);
 });
 
 test('a direct official start with no server timestamp still uses the phone clock',()=>{

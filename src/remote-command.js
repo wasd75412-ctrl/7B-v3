@@ -42,6 +42,22 @@ export function shouldAcceptRemoteCommand({command,currentMatch,now=Date.now(),i
   return !Object.hasOwn(command,'clientCreatedAt')||fresh(timestampMillis(command.clientCreatedAt));
 }
 
+// The official-start key has one job. A command for the match on screen must land even when the
+// phone clock or the network made the usual 15s window miss it. A press for the match this one
+// replaced must not start the next match.
+export function shouldAcceptOfficialStart({command,currentMatch,now=Date.now(),initial=false,matchShownAt=0,replacedMatchId=''}={}){
+  if(!command?.id||!currentMatch?.active||currentMatch.winner!=null||!Number.isFinite(now))return false;
+  const commandMatchId=Object.hasOwn(command,'matchId')?String(command.matchId??''):'';
+  const sameMatch=commandMatchId!==''&&commandMatchId===String(currentMatch.matchId??'');
+  const waiting=!Number.isFinite(timestampMillis(currentMatch.startedAt));
+  if(sameMatch)return !initial||waiting;
+  if(!commandMatchId)return shouldAcceptRemoteCommand({command,currentMatch,now,initial});
+  if(initial||!waiting||commandMatchId===String(replacedMatchId||''))return false;
+  const pressed=timestampMillis(command.clientCreatedAt)||timestampMillis(command.createdAt);
+  if(!Number.isFinite(pressed)||!Number.isFinite(matchShownAt)||matchShownAt<=0||pressed+REMOTE_COMMAND_MAX_FUTURE_SKEW_MS<matchShownAt)return false;
+  return pressed>=now-REMOTE_COMMAND_MAX_AGE_MS&&pressed<=now+REMOTE_COMMAND_MAX_FUTURE_SKEW_MS;
+}
+
 export const QUEUED_REPEAT_PRESS_MS=3_000;
 export const QUEUED_REPEAT_ARRIVAL_MS=1_000;
 

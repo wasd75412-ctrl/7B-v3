@@ -188,7 +188,7 @@ test('camera recording start automatically becomes the millisecond timeline base
 
 test('score mode provides a play fallback for official start in both layouts',()=>{
   assert.match(index,/id="officialStartScore"[^>]*>▶️/);
-  assert.match(main,/officialStartScoreBtn\.onclick=\(\)=>markMatchOfficialStarted\(\)/);
+  assert.match(main,/officialStartScoreBtn\.onclick=\(\)=>\{if\(!markMatchOfficialStarted\(\)\)showScoreRemoteIndicator\('目前無法正式開始'/);
   assert.match(main,/function markMatchOfficialStarted\(requestedAt\)[\s\S]*?saveLiveScoreSoon\(\);renderDashboard\(\);renderHistory\(\)/);
   assert.match(main,/officialStartButton\.classList\.toggle\('hidden',!canStart\)/);
   assert.match(styles,/\.score-view\.immersive-mode \.score-head \.score-actions>button:not\(#fullscreenScore\):not\(#officialStartScore\):not\(#undo\):not\(#syncSessionScore\)/);
@@ -208,7 +208,7 @@ test('an official start pressed before the next match is shown never carries ove
   assert.match(start,/if \(match\.get\("winner"\) != null\) throw new IllegalStateException\("本場比賽已結束"\);/);
   assert.match(start,/\.addOnSuccessListener\(ignored -> \{\s*sendDirect\("officialStart", sentCommand\.get\(\)\);/);
   const handler=main.match(/function handleRemoteOfficialStartCommand\(data,\{initial=false\}=\{\}\)\{[\s\S]*?\n\}/)?.[0]||'';
-  assert.match(handler,/if\(!shouldAcceptRemoteCommand\(\{command,currentMatch:state\.match,initial\}\)\)return false;/);
+  assert.match(handler,/if\(!shouldAcceptOfficialStart\(\{command,currentMatch:state\.match,initial,matchShownAt:currentMatchShownAt,replacedMatchId:replacedRemoteMatchId\}\)\)\{/);
   assert.doesNotMatch(main,/pendingOfficialStartAfterMatch|startPendingOfficialStart|isReplacedMatchOfficialStart/);
   const startNext=main.match(/function startNext\(\{practice=false\}=\{\}\)\{[\s\S]*?\n\}/)?.[0]||'';
   assert.match(startNext,/checkpointNewMatch\(\);renderAll\(\);/);
