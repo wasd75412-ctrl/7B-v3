@@ -370,6 +370,24 @@ private synchronized void clearStartRequest(String requestedMatchId) {
                 .addOnFailureListener(error -> callback.onComplete(false, errorMessage(error)));
     }
 
+    void publishRememberedRecordingStart() {
+        publishRememberedRecordingStart(0);
+    }
+
+    private void publishRememberedRecordingStart(int attempt) {
+        long startedAt = RecordingUploadStore.pendingRecordingStart(context, System.currentTimeMillis());
+        if (startedAt <= 0L) return;
+        markBroadcastRecordingStarted(startedAt, (success, message) -> {
+            if (success) {
+                RecordingUploadStore.markRecordingStartPublished(context, startedAt);
+                return;
+            }
+            if (attempt >= 4) return;
+            new android.os.Handler(android.os.Looper.getMainLooper()).postDelayed(
+                    () -> publishRememberedRecordingStart(attempt + 1), 15_000L);
+        });
+    }
+
     private void sendAction(Request request) {
         RemoteSessionStore.Session session = RemoteSessionStore.getSession(context);
         if (!session.isAuthorized()) {

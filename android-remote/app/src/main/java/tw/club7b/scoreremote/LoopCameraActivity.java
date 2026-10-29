@@ -119,8 +119,9 @@ public final class LoopCameraActivity extends ComponentActivity {
     private boolean broadcastSaveRequested;
     private boolean broadcastExitRequested;
     private boolean abandonRecording;
-    private boolean broadcastStartReported;
     private long broadcastFileStartedAt;
+    private boolean recordingStartFailureLogged;
+    private final Runnable retryRecordingStart = this::publishRecordingStart;
 
     @Override protected void onCreate(Bundle state) {
         super.onCreate(state);
@@ -786,15 +787,8 @@ public final class LoopCameraActivity extends ComponentActivity {
         if (event instanceof VideoRecordEvent.Start) {
             broadcastFileStartedAt = System.currentTimeMillis();
             pauses.clear();
-            if (broadcastStartReported) return;
-            broadcastStartReported = true;
-            if (remoteScoreController == null) remoteScoreController = new BackgroundScoreController(this);
-            remoteScoreController.markBroadcastRecordingStarted(System.currentTimeMillis(), (success, message) -> {
-                if (!success) {
-                    Log.w("7BRecording", "Could not publish recording start: " + message);
-                    ErrorLog.record(this, "recording", "錄影開始時間未送出 " + message, null);
-                }
-            });
+            RecordingUploadStore.rememberRecordingStart(this, broadcastFileStartedAt);
+            publishRecordingStart();
             return;
         }
         if (event instanceof VideoRecordEvent.Pause) {
@@ -957,8 +951,30 @@ public final class LoopCameraActivity extends ComponentActivity {
         super.onPause();
     }
 
+    private void publishRecordingStart() {
+        if (closing || remoteScoreController == null) return;
+        long startedAt = RecordingUploadStore.pendingRecordingStart(this, System.currentTimeMillis());
+        if (startedAt <= 0L) return;
+        remoteScoreController.markBroadcastRecordingStarted(startedAt, (success, message) -> {
+            if (success) {
+                recordingStartFailureLogged = false;
+                RecordingUploadStore.markRecordingStartPublished(this, startedAt);
+                return;
+            }
+            if (!recordingStartFailureLogged) {
+                recordingStartFailureLogged = true;
+                Log.w("7BRecording", "Could not publish recording start: " + message);
+                ErrorLog.record(this, "recording", "錄影開始時間未送出 " + message, null);
+            }
+            if (!closing) {
+                handler.removeCallbacks(retryRecordingStart);
+                handler.postDelayed(retryRecordingStart, 15_000L);
+            }
+        });
+    }
+
     @Override protected void onDestroy() {
-        closing = true; handler.removeCallbacks(recoverRecording); cancelRecordingCameraLongPress(); if (recording != null) recording.stop();
+        closing = true; handler.removeCallbacks(recoverRecording); handler.removeCallbacks(retryRecordingStart); cancelRecordingCameraLongPress(); if (recording != null) recording.stop();
         if (liveMatchOverlay != null) liveMatchOverlay.close();
         if (remoteScoreController != null) remoteScoreController.release();
         if (scoreOverlayEffect != null) scoreOverlayEffect.close();

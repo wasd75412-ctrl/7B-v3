@@ -22,6 +22,8 @@ final class RecordingUploadStore {
     private static final String KEY_ENTRIES = "entries";
     private static final String KEY_PLAYLIST_ID = "playlistId";
     private static final String KEY_LARGE_SESSION_RESET = "largeSessionReset";
+    private static final String KEY_EARLIEST_START = "earliestRecordingStartMs";
+    private static final String KEY_PUBLISHED_START = "publishedRecordingStartMs";
     private static final Object LARGE_FILE_REPAIR = new Object();
     private static final int MAX_ENTRIES = 60;
 
@@ -190,6 +192,55 @@ final class RecordingUploadStore {
             refresh.add(entry);
         }
         return refresh;
+    }
+
+    static synchronized long rememberRecordingStart(Context context, long startMs) {
+        if (startMs <= 0L) return 0L;
+        SharedPreferences prefs = prefs(context);
+        long stored = prefs.getLong(KEY_EARLIEST_START, 0L);
+        long keep = stored > 0L && RecordingTimeline.sameDay(stored, startMs) ? Math.min(stored, startMs) : startMs;
+        if (keep != stored) prefs.edit().putLong(KEY_EARLIEST_START, keep).apply();
+        return pendingRecordingStart(context, System.currentTimeMillis());
+    }
+
+    static synchronized long pendingRecordingStart(Context context, long nowMs) {
+        SharedPreferences prefs = prefs(context);
+        List<Entry> entries = read(context);
+        long[] starts = new long[entries.size()];
+        for (int i = 0; i < entries.size(); i++) starts[i] = entries.get(i).startMs;
+        return chooseRecordingStart(nowMs, prefs.getLong(KEY_EARLIEST_START, 0L),
+                prefs.getLong(KEY_PUBLISHED_START, 0L), starts);
+    }
+
+    static synchronized void markRecordingStartPublished(Context context, long startMs) {
+        if (startMs <= 0L) return;
+        prefs(context).edit().putLong(KEY_PUBLISHED_START, startMs).apply();
+    }
+
+    /** The earliest start of the latest recording day, or zero when that start was already published. */
+    static long chooseRecordingStart(long nowMs, long storedStart, long publishedStart, long[] entryStarts) {
+        long latest = recordingStartFresh(storedStart, nowMs) ? storedStart : 0L;
+        if (entryStarts != null) {
+            for (long start : entryStarts) {
+                if (recordingStartFresh(start, nowMs) && start > latest) latest = start;
+            }
+        }
+        if (latest <= 0L) return 0L;
+        long earliest = latest;
+        if (recordingStartFresh(storedStart, nowMs) && RecordingTimeline.sameDay(storedStart, latest) && storedStart < earliest) {
+            earliest = storedStart;
+        }
+        if (entryStarts != null) {
+            for (long start : entryStarts) {
+                if (start > 0L && RecordingTimeline.sameDay(start, latest) && start < earliest) earliest = start;
+            }
+        }
+        if (publishedStart > 0L && RecordingTimeline.sameDay(publishedStart, earliest) && publishedStart <= earliest) return 0L;
+        return earliest;
+    }
+
+    private static boolean recordingStartFresh(long startMs, long nowMs) {
+        return startMs > 0L && startMs >= nowMs - TIMELINE_REFRESH_MS && startMs <= nowMs + 180_000L;
     }
 
     static synchronized void remove(Context context, String id) {
