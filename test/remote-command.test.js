@@ -93,9 +93,16 @@ test('official start does not carry onto the match that replaced it',()=>{
   const waiting={matchId:'next-match',active:true,winner:null,startedAt:''};
   const carried={id:'start-old',matchId:'previous-match',clientCreatedAt:now-500};
   assert.equal(shouldAcceptOfficialStart({command:carried,currentMatch:waiting,now,matchShownAt:now-100,replacedMatchId:'previous-match'}),false);
+  const pressedForNext={id:'start-next',matchId:'previous-match',clientCreatedAt:now-500};
+  assert.equal(shouldAcceptOfficialStart({command:pressedForNext,currentMatch:waiting,now,matchShownAt:now-10_000,replacedMatchId:'previous-match'}),true);
+  const late={id:'start-late',matchId:'previous-match',clientCreatedAt:now-60_000};
+  assert.equal(shouldAcceptOfficialStart({command:late,currentMatch:waiting,now,matchShownAt:now-120_000,replacedMatchId:'previous-match'}),true);
   const stalePhone={id:'start-stale',matchId:'older-match',clientCreatedAt:now-500};
   assert.equal(shouldAcceptOfficialStart({command:stalePhone,currentMatch:waiting,now,matchShownAt:now-10_000,replacedMatchId:'previous-match'}),true);
   assert.equal(shouldAcceptOfficialStart({command:{...stalePhone,clientCreatedAt:now-20_000},currentMatch:waiting,now,matchShownAt:now-10_000,replacedMatchId:'previous-match'}),false);
+  assert.equal(shouldAcceptOfficialStart({command:{id:'start-delayed',matchId:'older-match',clientCreatedAt:now-30_000},currentMatch:waiting,now,matchShownAt:now-120_000,replacedMatchId:'previous-match'}),true);
+  assert.equal(shouldAcceptOfficialStart({command:{id:'start-ahead',matchId:'previous-match',clientCreatedAt:now+6_000},currentMatch:waiting,now,matchShownAt:now-10_000,replacedMatchId:'previous-match'}),true);
+  assert.equal(shouldAcceptOfficialStart({command:{id:'start-wild',matchId:'previous-match',clientCreatedAt:now+181_000},currentMatch:waiting,now,matchShownAt:now-10_000,replacedMatchId:'previous-match'}),false);
 });
 
 test('a direct official start with no server timestamp still uses the phone clock',()=>{

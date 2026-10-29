@@ -61,9 +61,9 @@ test('Android starts officially on one camera press and still gates score-key do
   assert.doesNotMatch(gate,/MIN_CONFIRM_GAP_MS/);
   assert.match(gate,/DOUBLE_PRESS_MS = 1000L/);
   assert.match(gate,/if \(gap <= DOUBLE_PRESS_MS\)/);
-  assert.match(controller,/synchronized boolean consumeCameraAsOfficialStart\(FullscreenCallback callback\)[\s\S]*?awaitingOfficialStart\(\)[\s\S]*?startOfficialMatch\(/);
+  assert.match(controller,/synchronized boolean consumeCameraAsOfficialStart\(FullscreenCallback callback\)[\s\S]*?ensureMatchListener\(session\);[\s\S]*?beginOfficialStart\(callback\);/);
   assert.match(controller,/return !matchId\.equals\(startRequestedMatchId\) \|\| SystemClock\.uptimeMillis\(\) >= officialStartRetryAt;/);
-  assert.match(controller,/if \(!matchKnown \|\| matchId\.equals\(startRequestedMatchId\)\) \{\s*refreshOfficialStart\(session, callback\);/);
+  assert.doesNotMatch(controller,/refreshOfficialStart/);
   assert.match(controller,/officialStartGate\.onScorePress\(\s*awaitingOfficialStart\(\), now\)/);
   assert.match(controller,/submitDirect[\s\S]*?submitResolved\(action, callback, inputAt\)/);
   assert.match(controller,/START_ECHO_SUPPRESS_MS = 500L/);
@@ -113,7 +113,8 @@ test('Android sends remote commands without a transaction once the match is know
   const sendAction=controller.match(/private void sendAction\(Request request\) \{[\s\S]*?\n    \}/)?.[0]||'';
   assert.match(sendAction,/String cachedMatchId = knownMatchId\(\);\s*if \(cachedMatchId != null\) \{\s*deliverAction\(remoteControl, request, cachedMatchId\);/);
   assert.doesNotMatch(sendAction,/目前沒有進行中的比賽/);
-  assert.match(controller,/void startOfficialMatch[\s\S]*?String cachedMatchId = cachedPreStartMatchId\(\);\s*if \(cachedMatchId != null\) \{\s*Map<String, Object> updates = officialStartUpdates\(cachedMatchId, clientCreatedAt\);[\s\S]*?remoteControl\.set\(updates, SetOptions\.merge\(\)\)/);
+  assert.match(controller,/void startOfficialMatch[\s\S]*?String matchId = cachedPreStartMatchId\(\);[\s\S]*?officialStartUpdates\(matchId, clientCreatedAt\);[\s\S]*?remoteControl\.set\(updates, SetOptions\.merge\(\)\)/);
+  assert.doesNotMatch(controller,/本場比賽已正式開始/);
   assert.match(controller,/cachedPreStartMatchId\(\) \{\s*return matchKnown && matchActive && !matchFinished && !matchStarted && !matchId\.isEmpty\(\) \? matchId : null;/);
 });
 
@@ -205,8 +206,8 @@ test('an official start pressed before the next match is shown never carries ove
   assert.match(start,/ensureMatchListener\(session\);/);
   assert.match(start,/remoteControl\.set\(updates, SetOptions\.merge\(\)\)\s*\.addOnSuccessListener\(ignored -> feedback\.report\(true, "已送出正式開始比賽"\)\)\s*\.addOnFailureListener\(error -> feedback\.report\(false, errorMessage\(error\)\)\);\s*feedback\.awaitAck\(direct, "已送出正式開始比賽"\);/);
   assert.doesNotMatch(controller,/cachedFinishedMatchId/);
-  assert.match(start,/if \(match\.get\("winner"\) != null\) throw new IllegalStateException\("本場比賽已結束"\);/);
-  assert.match(start,/\.addOnSuccessListener\(ignored -> \{\s*sendDirect\("officialStart", sentCommand\.get\(\)\);/);
+  assert.doesNotMatch(start,/throw new IllegalStateException\("本場比賽已正式開始"\)/);
+  assert.match(start,/sendDirect\("officialStart", updates\.get\("officialStartCommand"\)\);/);
   const handler=main.match(/function handleRemoteOfficialStartCommand\(data,\{initial=false\}=\{\}\)\{[\s\S]*?\n\}/)?.[0]||'';
   assert.match(handler,/if\(!shouldAcceptOfficialStart\(\{command,currentMatch:state\.match,initial,matchShownAt:currentMatchShownAt,replacedMatchId:replacedRemoteMatchId\}\)\)\{/);
   assert.doesNotMatch(main,/pendingOfficialStartAfterMatch|startPendingOfficialStart|isReplacedMatchOfficialStart/);
@@ -221,6 +222,7 @@ test('the play button disappears as soon as the match officially starts',()=>{
 test('a fresh official start is applied even on the baseline snapshot and survives a room snapshot',()=>{
   assert.match(main,/officialStartArrivedAfterAttach\(officialStartAt,remoteChannelAttachedAt\)/);
   assert.match(main,/handleRemoteOfficialStartCommand\(commandData,\{initial:initial&&!officialStartAfterAttach\}\)/);
+  assert.match(main,/hasPendingWrites\)\{[\s\S]*?handleRemoteOfficialStartCommand\(\{officialStartCommand:pendingData\?\.officialStartCommand\},\{initial:false\}\)/);
   assert.match(main,/if\(started\)lastRemoteOfficialStartCommandId=id;/);
   assert.match(main,/function resumeUnappliedOfficialStart\(\)\{[\s\S]*?Object\.hasOwn\(command,'matchId'\)[\s\S]*?handleRemoteOfficialStartCommand\(\{officialStartCommand:command\}\)/);
   assert.match(main,/next\.match=keepOfficialStart\(state\.match,next\.match\)/);

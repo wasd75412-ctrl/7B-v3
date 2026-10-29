@@ -1904,8 +1904,16 @@ function startRemoteControlChannels(id){
     }
   },error=>{remoteActionInitialSnapshot=true;console.warn('遙控計分通道無法連線',error)},isCurrent);
   remoteControlUnsubscribe=resilientSnapshot(remoteControlRef,{includeMetadataChanges:true},snapshot=>{
-    // Cache events cannot establish the command baseline. The first server event is skipped too.
-    if(snapshot.metadata.fromCache||snapshot.metadata.hasPendingWrites)return;
+    // A cached or not-yet-acknowledged snapshot must not move the score baseline, but the
+    // official-start key still has to land. Venue Wi-Fi often delivers it that way.
+    if(snapshot.metadata.fromCache||snapshot.metadata.hasPendingWrites){
+      if(snapshot.exists()){
+        const pendingData=snapshot.data();
+        if(pendingData?.officialStartCommand?.id)latestOfficialStartCommand=pendingData.officialStartCommand;
+        handleRemoteOfficialStartCommand({officialStartCommand:pendingData?.officialStartCommand},{initial:false});
+      }
+      return;
+    }
     noteFirestoreServerActivity(false);
     if(!snapshot.exists()){remoteControlInitialSnapshot=false;return}
     const commandData=snapshot.data(),initial=remoteControlInitialSnapshot;

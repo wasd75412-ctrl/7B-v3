@@ -13,7 +13,6 @@ import com.google.firebase.firestore.Source;
 import com.google.firebase.firestore.SetOptions;
 import java.util.ArrayList;
 import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.concurrent.atomic.AtomicReference;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -163,11 +162,6 @@ final class BackgroundScoreController {
         return !matchId.equals(startRequestedMatchId) || SystemClock.uptimeMillis() >= officialStartRetryAt;
     }
 
-    private synchronized boolean officialStartInFlight() {
-        return matchKnown && !matchStarted && matchId.equals(startRequestedMatchId)
-                && SystemClock.uptimeMillis() < officialStartRetryAt;
-    }
-
     // The camera key only sends the official start. It never scores, undoes, or changes the shuttle count.
     synchronized boolean consumeCameraAsOfficialStart(FullscreenCallback callback) {
         RemoteSessionStore.Session session = RemoteSessionStore.getSession(context);
@@ -176,23 +170,8 @@ final class BackgroundScoreController {
             return true;
         }
         ensureMatchListener(session);
-        if (officialStartInFlight()) {
-            if (callback != null) callback.onComplete(true, "比賽正式開始");
-            return true;
-        }
-        if (matchStarted) {
-            refreshOfficialStart(session, callback);
-            return true;
-        }
-        if (!matchKnown || matchId.equals(startRequestedMatchId)) {
-            refreshOfficialStart(session, callback);
-            return true;
-        }
-        if (awaitingOfficialStart()) {
-            beginOfficialStart(callback);
-            return true;
-        }
-        if (callback != null) callback.onComplete(false, "目前無法正式開始");
+        // Every press sends a command. A phone that still shows the previous match must not swallow the key.
+        beginOfficialStart(callback);
         return true;
     }
 
@@ -204,41 +183,6 @@ final class BackgroundScoreController {
         startOfficialMatch((success, message) -> {
             if (!success) clearStartRequest(requestedMatchId);
             if (callback != null) callback.onComplete(success, success ? "比賽正式開始" : message);
-        });
-    }
-
-    // The listener may still be attaching, or it may be stuck on the previous match.
-    // The listener may still be attaching, or it may be stuck on the previous match.
-    private void refreshOfficialStart(RemoteSessionStore.Session session, FullscreenCallback callback) {
-        liveScoreReference(session).get().addOnCompleteListener(task -> {
-            synchronized (BackgroundScoreController.this) {
-                if (!task.isSuccessful() || task.getResult() == null) {
-                    if (callback != null) callback.onComplete(false, "目前無法正式開始");
-                    return;
-                }
-                updateMatch(task.getResult());
-                if (officialStartInFlight()) {
-                    if (callback != null) callback.onComplete(true, "比賽正式開始");
-                    return;
-                }
-                if (awaitingOfficialStart()) {
-                    beginOfficialStart(callback);
-                    return;
-                }
-                if (matchKnown && matchActive && !matchFinished && !matchStarted && !matchId.isEmpty()
-                        && matchId.equals(startRequestedMatchId)) {
-                    startRequestedMatchId = "";
-                    officialStartRetryAt = Long.MIN_VALUE;
-                    if (awaitingOfficialStart()) beginOfficialStart(callback);
-                    else if (callback != null) callback.onComplete(false, "目前無法正式開始");
-                    return;
-                }
-                if (matchKnown && matchStarted) {
-                    if (callback != null) callback.onComplete(true, "本場已正式開始");
-                    return;
-                }
-                if (callback != null) callback.onComplete(false, "目前無法正式開始");
-            }
         });
     }
 
@@ -360,46 +304,22 @@ private synchronized void clearStartRequest(String requestedMatchId) {
             return;
         }
         ensureMatchListener(session);
-        DocumentReference liveScore = liveScoreReference(session);
         DocumentReference remoteControl = remoteControlReference(session);
         long clientCreatedAt = System.currentTimeMillis();
-        String cachedMatchId = cachedPreStartMatchId();
-        if (cachedMatchId != null) {
-            Map<String, Object> updates = officialStartUpdates(cachedMatchId, clientCreatedAt);
-            boolean direct = sendDirect("officialStart", updates.get("officialStartCommand"));
-            Feedback feedback = new Feedback((success, message) -> callback.onComplete(success, message));
-            remoteControl.set(updates, SetOptions.merge())
-                    .addOnSuccessListener(ignored -> feedback.report(true, "已送出正式開始比賽"))
-                    .addOnFailureListener(error -> feedback.report(false, errorMessage(error)));
-            feedback.awaitAck(direct, "已送出正式開始比賽");
-            return;
+        // Send even when the cached match looks finished. The scorer decides whether this press
+        // belongs to the match on screen; refusing here is what made later matches ignore the key.
+        String matchId = cachedPreStartMatchId();
+        if (matchId == null) {
+            String known = knownMatchId();
+            matchId = known == null ? "" : known;
         }
-        AtomicReference<Object> sentCommand = new AtomicReference<>();
-        firestore.runTransaction(transaction -> {
-            DocumentSnapshot snapshot = transaction.get(liveScore);
-            if (!snapshot.exists()) throw new IllegalStateException("找不到即時比分");
-            Map<String, Object> match = mapValue(snapshot.get("match"));
-            Object matchId = match.get("matchId");
-            if (!Boolean.TRUE.equals(match.get("active")) || matchId == null || String.valueOf(matchId).isEmpty()) {
-                throw new IllegalStateException("找不到目前比賽");
-            }
-            if (match.get("winner") != null) throw new IllegalStateException("本場比賽已結束");
-            if (match.get("startedAt") != null && !String.valueOf(match.get("startedAt")).isEmpty()) {
-                throw new IllegalStateException("本場比賽已正式開始");
-            }
-            Map<String, Object> updates = officialStartUpdates(String.valueOf(matchId), clientCreatedAt);
-            transaction.set(remoteControl, updates, SetOptions.merge());
-            sentCommand.set(updates.get("officialStartCommand"));
-            return true;
-        })
-                .addOnSuccessListener(ignored -> {
-                    sendDirect("officialStart", sentCommand.get());
-                    callback.onComplete(true, "已送出正式開始比賽");
-                })
-                .addOnFailureListener(error -> {
-                    ErrorLog.record(context, "score", "正式開始失敗", error);
-                    callback.onComplete(false, errorMessage(error));
-                });
+        Map<String, Object> updates = officialStartUpdates(matchId, clientCreatedAt);
+        boolean direct = sendDirect("officialStart", updates.get("officialStartCommand"));
+        Feedback feedback = new Feedback((success, message) -> callback.onComplete(success, message));
+        remoteControl.set(updates, SetOptions.merge())
+                .addOnSuccessListener(ignored -> feedback.report(true, "已送出正式開始比賽"))
+                .addOnFailureListener(error -> feedback.report(false, errorMessage(error)));
+        feedback.awaitAck(direct, "已送出正式開始比賽");
     }
 
     private boolean sendDirect(String type, Object command) {
