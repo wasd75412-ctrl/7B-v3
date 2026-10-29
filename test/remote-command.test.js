@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
-import {REMOTE_COMMAND_MAX_AGE_MS,isQueuedRepeatPress,officialStartArrivedAfterAttach,shouldAcceptOfficialStart,shouldAcceptRemoteCommand,timestampMillis} from '../src/remote-command.js';
+import {RECORDING_START_MAX_AGE_MS,RECORDING_START_MAX_FUTURE_SKEW_MS,REMOTE_COMMAND_MAX_AGE_MS,earlierRecordingStart,isQueuedRepeatPress,officialStartArrivedAfterAttach,recordingStartMillis,shouldAcceptOfficialStart,shouldAcceptRecordingStart,shouldAcceptRemoteCommand,timestampMillis} from '../src/remote-command.js';
 
 const now=Date.parse('2026-09-05T12:00:00.000Z');
 const currentMatch={matchId:'current-match',startedAt:new Date(now-10_000).toISOString()};
@@ -170,3 +170,25 @@ test('the host skips queued repeat presses before scoring them',()=>{
 
 
 
+
+test('a recording start still counts when it arrives after the score window',()=>{
+  const now=Date.parse('2026-10-29T09:00:00.000Z');
+  const started=Date.parse('2026-10-28T17:20:54.801Z');
+  const command={id:'recording-1',clientCreatedAt:started,createdAt:new Date(now).toISOString()};
+  assert.equal(recordingStartMillis(command),started);
+  assert.equal(shouldAcceptRecordingStart({command,now}),true);
+  assert.equal(shouldAcceptRecordingStart({command:{...command,clientCreatedAt:now-RECORDING_START_MAX_AGE_MS},now}),true);
+  assert.equal(shouldAcceptRecordingStart({command:{...command,clientCreatedAt:now-RECORDING_START_MAX_AGE_MS-1},now}),false);
+  assert.equal(shouldAcceptRecordingStart({command:{...command,clientCreatedAt:now+RECORDING_START_MAX_FUTURE_SKEW_MS},now}),true);
+  assert.equal(shouldAcceptRecordingStart({command:{...command,clientCreatedAt:now+RECORDING_START_MAX_FUTURE_SKEW_MS+1},now}),false);
+  assert.equal(shouldAcceptRecordingStart({command,now,fromCache:true}),false);
+  assert.equal(shouldAcceptRecordingStart({command:{createdAt:started},now}),false);
+});
+
+test('a later recording file does not move the day start forward',()=>{
+  const early='2026-10-28T17:20:54.801Z';
+  const late=Date.parse('2026-10-28T20:10:29.984Z');
+  assert.equal(earlierRecordingStart(early,late),early);
+  assert.equal(earlierRecordingStart('2026-10-28T20:10:29.984Z',Date.parse(early)),early);
+  assert.equal(earlierRecordingStart('',Date.parse(early)),early);
+});

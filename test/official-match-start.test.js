@@ -181,10 +181,14 @@ test('indicator countdown starts only after the notice has been painted',()=>{
   assert.match(main,/function hideScoreRemoteIndicator\(\)\{[\s\S]*?cancelAnimationFrame\(scoreRemoteIndicatorFrame\)/);
 });
 
-test('camera recording start automatically becomes the millisecond timeline baseline',()=>{
+test('camera recording start keeps the earliest file time as the timeline baseline',()=>{
   assert.match(controller,/void markBroadcastRecordingStarted\(long clientStartedAt[\s\S]*?command\.put\("clientCreatedAt", clientStartedAt\)[\s\S]*?updates\.put\("recordingStartCommand", command\)/);
-  assert.match(main,/function handleRemoteRecordingStartCommand[\s\S]*?timestampMillis\(command\.clientCreatedAt\)\|\|timestampMillis\(command\.createdAt\)[\s\S]*?matchTimelineStarts=.*startedAt\.toISOString\(\)/);
-  assert.match(main,/handleRemoteRecordingStartCommand[\s\S]*?shouldAcceptRemoteCommand\(\{command,currentMatch:\{\},initial:false\}\)/);
+  assert.match(controller,/void publishRememberedRecordingStart\(\)[\s\S]*?pendingRecordingStart\(context, System\.currentTimeMillis\(\)\)[\s\S]*?markRecordingStartPublished\(context, startedAt\)/);
+  const recording=main.match(/function handleRemoteRecordingStartCommand[\s\S]*?\n\}/)?.[0]||'';
+  assert.match(recording,/shouldAcceptRecordingStart\(\{command\}\)/);
+  assert.match(recording,/earlierRecordingStart\(starts\[dateKey\],startedMillis\)/);
+  assert.match(recording,/matchTimelineStarts=\{\.\.\.starts,\[dateKey\]:next\}/);
+  assert.doesNotMatch(recording,/shouldAcceptRemoteCommand/);
 });
 
 test('score mode provides a play fallback for official start in both layouts',()=>{

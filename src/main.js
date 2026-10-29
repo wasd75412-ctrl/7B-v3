@@ -10,7 +10,7 @@ import { checkpointMissedOfficialStart, createLiveScoreData, createMatchCheckpoi
 import { journaledMatchToRestore, matchInProgress, matchJournalEntry, matchJournalKey } from './match-journal.js';
 import { startLocalLinkHost } from './local-link.js';
 import { MAIN_THREAD_TICK_MS, createMainThreadLagMonitor } from './main-thread-lag.js';
-import { REMOTE_COMMAND_MAX_AGE_MS, isQueuedRepeatPress, isStaleMatchPressForCurrentMatch, officialStartArrivedAfterAttach, shouldAcceptOfficialStart, shouldAcceptRemoteCommand, timestampMillis } from './remote-command.js';
+import { REMOTE_COMMAND_MAX_AGE_MS, earlierRecordingStart, isQueuedRepeatPress, isStaleMatchPressForCurrentMatch, officialStartArrivedAfterAttach, recordingStartMillis, shouldAcceptOfficialStart, shouldAcceptRecordingStart, shouldAcceptRemoteCommand, timestampMillis } from './remote-command.js';
 import { canAutoSyncPlayerIdentity } from './device-sync.js';
 import { shouldRequestNativeWakeLock, wakeLockButtonIntent, wakeLockControlIsActive } from './wake-lock.js';
 import { FIRESTORE_LINK_COOLDOWN_MS, FIRESTORE_LINK_TIMEOUT_MS, firestoreLinkProbeVerdict, shouldProbeFirestoreLink } from './firestore-link.js';
@@ -1918,7 +1918,7 @@ function startRemoteControlChannels(id){
     if(!snapshot.exists()){remoteControlInitialSnapshot=false;return}
     const commandData=snapshot.data(),initial=remoteControlInitialSnapshot;
     applyRemoteActionLog(commandData,{initial});
-    handleRemoteRecordingStartCommand(commandData,{initial});
+    handleRemoteRecordingStartCommand(commandData);
     handleRemoteFullscreenCommand(commandData,{initial});
     const officialStartCommand=commandData?.officialStartCommand;
     if(officialStartCommand?.id)latestOfficialStartCommand=officialStartCommand;
@@ -2299,16 +2299,18 @@ function handleRemoteFullscreenCommand(data,{initial=false}={}){
   if(initial||requestedAndroidRemote||!isHost)return false;
   return markMatchOfficialStarted(data.fullscreenCommand.clientCreatedAt||data.fullscreenCommand.createdAt);
 }
-function handleRemoteRecordingStartCommand(data,{initial=false}={}){
+function handleRemoteRecordingStartCommand(data){
   const command=data?.recordingStartCommand||{},id=String(command.id||'');
   if(!id||id===lastRemoteRecordingStartCommandId)return false;
+  if(requestedAndroidRemote||!isHost||!shouldAcceptRecordingStart({command}))return false;
+  const startedMillis=recordingStartMillis(command);
+  const dateKey=localDateKey(new Date(startedMillis));
+  const starts=state.matchTimelineStarts||{};
+  const next=earlierRecordingStart(starts[dateKey],startedMillis);
   lastRemoteRecordingStartCommandId=id;
-  if(!shouldAcceptRemoteCommand({command,currentMatch:{},initial:false})||requestedAndroidRemote||!isHost)return false;
-  const startedMillis=timestampMillis(command.clientCreatedAt)||timestampMillis(command.createdAt);
-  if(!Number.isFinite(startedMillis))return false;
-  const startedAt=new Date(startedMillis),dateKey=localDateKey(startedAt);
+  if(next===starts[dateKey])return false;
   state.hiddenTimelineDates=(state.hiddenTimelineDates||[]).filter(key=>key!==dateKey);
-  state.matchTimelineStarts={...(state.matchTimelineStarts||{}),[dateKey]:startedAt.toISOString()};
+  state.matchTimelineStarts={...starts,[dateKey]:next};
   saveSoon();renderHistory();
   return true;
 }

@@ -68,6 +68,7 @@ public final class MainActivity extends Activity {
         getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
         recordingModeEnabled = RemoteSessionStore.isRecordingEnabled(this);
         YouTubeUploadScheduler.scheduleIfPending(this);
+        new BackgroundScoreController(this).publishRememberedRecordingStart();
 
         createWebView();
     }

@@ -88,9 +88,14 @@ test('keeps recording controls above Android system bars with reliable touch tar
   assert.match(camera,/close\.setEnabled\(false\);\s*close\.setText\("結束中…"\);\s*exitRecording\(\)/);
 });
 
-test('publishes the exact CameraX broadcast start time for the YouTube timeline',()=>{
-  assert.match(camera,/event instanceof VideoRecordEvent\.Start\) \{\s*broadcastFileStartedAt = System\.currentTimeMillis\(\);\s*pauses\.clear\(\);\s*if \(broadcastStartReported\) return;\s*broadcastStartReported = true;/);
-  assert.match(camera,/markBroadcastRecordingStarted\(System\.currentTimeMillis\(\)/);
+test('publishes the earliest recording start and retries when that write fails',()=>{
+  assert.match(camera,/event instanceof VideoRecordEvent\.Start\) \{\s*broadcastFileStartedAt = System\.currentTimeMillis\(\);\s*pauses\.clear\(\);\s*RecordingUploadStore\.rememberRecordingStart\(this, broadcastFileStartedAt\);\s*publishRecordingStart\(\);/);
+  assert.match(camera,/markBroadcastRecordingStarted\(startedAt/);
+  assert.match(camera,/RecordingUploadStore\.markRecordingStartPublished\(this, startedAt\)/);
+  assert.match(camera,/handler\.postDelayed\(retryRecordingStart, 15_000L\)/);
+  assert.match(camera,/handler\.removeCallbacks\(retryRecordingStart\)/);
+  assert.doesNotMatch(camera,/broadcastStartReported/);
+  assert.match(source,/scheduleIfPending\(this\);\s*new BackgroundScoreController\(this\)\.publishRememberedRecordingStart\(\)/);
 });
 
 test('queues every saved broadcast file for YouTube upload with its own start time',()=>{

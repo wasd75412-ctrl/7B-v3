@@ -140,6 +140,7 @@ public final class RecordingsActivity extends ComponentActivity {
             if (entry.status == RecordingUploadStore.Status.AUTH_REQUIRED) RecordingUploadStore.retry(this, entry.id);
         }
         YouTubeUploadScheduler.scheduleIfPending(this);
+        new BackgroundScoreController(this).publishRememberedRecordingStart();
         renderYouTube();
         renderList(true);
     }

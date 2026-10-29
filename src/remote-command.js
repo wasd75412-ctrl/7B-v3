@@ -78,6 +78,31 @@ export const STALE_MATCH_PRESS_GRACE_MS=8_000;
 
 // A phone that missed the match change still stamps the previous matchId; a press made well after
 // the current match officially started can only be meant for the current match.
+export const RECORDING_START_MAX_AGE_MS=36*60*60*1000;
+export const RECORDING_START_MAX_FUTURE_SKEW_MS=180_000;
+
+export function recordingStartMillis(command){
+  return timestampMillis(command?.clientCreatedAt)||timestampMillis(command?.createdAt);
+}
+
+// Recording start is the file clock, not a score press. A message that arrives after the
+// score window, or that is already stored when the page opens, still names that clock.
+export function shouldAcceptRecordingStart({command,now=Date.now(),fromCache=false,hasPendingWrites=false}={}){
+  if(!command?.id||fromCache||hasPendingWrites||!Number.isFinite(now))return false;
+  const started=recordingStartMillis(command);
+  return Number.isFinite(started)
+    &&started>=now-RECORDING_START_MAX_AGE_MS
+    &&started<=now+RECORDING_START_MAX_FUTURE_SKEW_MS;
+}
+
+// The first file of the day is the chapter origin. A later file must not move it forward.
+export function earlierRecordingStart(storedValue,startedMillis){
+  const stored=timestampMillis(storedValue);
+  if(Number.isFinite(stored)&&stored<=startedMillis)return storedValue;
+  if(!Number.isFinite(startedMillis))return storedValue||'';
+  return new Date(startedMillis).toISOString();
+}
+
 export function isStaleMatchPressForCurrentMatch({command,currentMatch,graceMs=STALE_MATCH_PRESS_GRACE_MS}={}){
   if(!command?.id||!['teamAPlus','teamBPlus','undo'].includes(String(command.action||'')))return false;
   if(!Object.hasOwn(command,'matchId')||(command.matchId??'')===(currentMatch?.matchId??''))return false;
