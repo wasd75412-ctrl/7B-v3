@@ -7,6 +7,7 @@ import {
   keepOfficialStart,matchSessionEpoch,nextMatchEpoch,shouldApplyIncomingLiveMatch
 } from '../src/live-score.js';
 import {mergeDeletedMatchIds} from '../src/match-archive.js';
+import {keepGenderGroupingDuringMatch} from '../src/team-rotation.js';
 import {decodeStatsLedger,newerStatsLedger,unsettledRows} from '../src/stats-ledger.js';
 
 const main=readFileSync(new URL('../src/main.js',import.meta.url),'utf8');
@@ -50,7 +51,9 @@ function harness(liveMatch=current,overrides={}){
     applying:false,liveScoreAvailable:true,liveScoreReady:false,latestLiveMatch:null,
     roomRef:'room/current',liveScoreRef:'room/current/liveScore/current',db:{},
     shouldApplyIncomingLiveMatch,decodeLiveMatch,createMatchCheckpointData,nextMatchEpoch,
-    keepOfficialStart,checkpointMissedOfficialStart,persistLiveScoreState:async()=>calls.publish++,
+    keepOfficialStart,checkpointMissedOfficialStart,keepGenderGroupingDuringMatch,
+    localDateKey:()=>new Date().toLocaleDateString('en-CA',{timeZone:'Asia/Taipei'}),
+    persistLiveScoreState:async()=>calls.publish++,
     mergeDeletedMatchIds,removedMatchIds:new Set(),
     decodeStatsLedger,newerStatsLedger,unsettledRows,historyMonth:row=>String(row?.dateKey||'').slice(0,7),
     cleanTimelineDates:value=>Array.isArray(value)?value.filter(item=>/^\d{4}-\d{2}-\d{2}$/.test(String(item||''))):[],

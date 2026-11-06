@@ -2,6 +2,14 @@ export function genderGroupingActive(rules={},dateKey=''){
   return rules?.genderGroupingEnabled!==false||!dateKey||String(rules?.genderGroupingOffDate||'')!==dateKey;
 }
 
+// Lite sync skips room writes during an open match, so a later score snapshot can still say grouping is on.
+// Keep the host's in-match choice to turn it off until the room copy says the same thing.
+export function keepGenderGroupingDuringMatch(localRules,incomingRules,{host=false,matchOpen=false,dateKey=''}={}){
+  const incoming={...(incomingRules||{})};
+  if(!host||!matchOpen||genderGroupingActive(localRules,dateKey)||!genderGroupingActive(incoming,dateKey))return incoming;
+  return {...incoming,genderGroupingEnabled:false,genderGroupingOffDate:String(localRules?.genderGroupingOffDate||dateKey)};
+}
+
 function teammatePair(team=[]){
   return [team[0],team[1]].filter(Boolean);
 }

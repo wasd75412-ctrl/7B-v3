@@ -15,7 +15,7 @@ import { canAutoSyncPlayerIdentity } from './device-sync.js';
 import { shouldRequestNativeWakeLock, wakeLockButtonIntent, wakeLockControlIsActive } from './wake-lock.js';
 import { FIRESTORE_LINK_COOLDOWN_MS, FIRESTORE_LINK_TIMEOUT_MS, firestoreLinkProbeVerdict, shouldProbeFirestoreLink } from './firestore-link.js';
 import { chooseScoreTheme } from './score-theme-preference.js';
-import { arrangeTeamsWithTeammateLimit, balanceLineupSides, genderGroupingActive, lineupExceedsTeammateLimit } from './team-rotation.js';
+import { arrangeTeamsWithTeammateLimit, balanceLineupSides, genderGroupingActive, keepGenderGroupingDuringMatch, lineupExceedsTeammateLimit } from './team-rotation.js';
 import { CHAT_MEDIA_MAX_BYTES, CHAT_MEDIA_TYPES, CHAT_MENTION_ALL_ID, CHAT_MESSAGE_MAX_LENGTH, addPlayerOwnerHash, chatMediaLabel, chatMentionSearch, claimedChatPlayerId, cleanChatText, hasChatAllMention, mentionIdsFromText, normalizeChatMedia, normalizeChatMentionIds, playerOwnerHashes, removeChatAllMention, removeChatMention } from './chat.js';
 import { adminRoleButtonState, claimedAdminPlayerId, resolveAdminSessionToken } from './admin-role.js';
 import { updateAttendanceState } from './attendance.js';
@@ -2246,6 +2246,7 @@ function applyState(data){
   }
   if(canApplyMatch(next.match)&&(Number(next.lineupRevision)||0)<(Number(state.lineupRevision)||0))keepNewerLineup(next);
   next.match=keepOfficialStart(state.match,next.match);
+  next.rules=keepGenderGroupingDuringMatch(state.rules,next.rules,{host:isHost,matchOpen:!!state.match?.active&&state.match?.winner==null,dateKey:localDateKey()});
   state=next;
   if(requestedAndroidRemote)scheduleAndroidRemoteRender(true);else{applying=true;renderAll();applying=false}
   announceSyncedScore(before);
@@ -3347,6 +3348,7 @@ function forgetArchivedMatches(matchIds){
 }
 // Lite sync skips room writes during an open match, so deletions must bypass saveSoon or a reload restores them.
 function saveHistoryDeletion(){if(isHost&&roomRef)void saveNow().catch(()=>saveSoon())}
+function saveGenderGrouping(){if(isHost&&roomRef)void saveNow().catch(()=>saveSoon())}
 function deleteHistoryRecord(index){if(!isHost)return;const h=state.history[index];if(!h)return;const title=`${(h.teams?.[0]||[]).map(pname).join('／')} ${h.scores?.[0]??0}：${h.scores?.[1]??0} ${(h.teams?.[1]||[]).map(pname).join('／')}`;if(!confirm(`確定刪除這筆比賽紀錄？\n\n${title}\n${h.time||''}`))return;forgetArchivedMatches([h.matchId]);state.history.splice(index,1);renderAll();saveHistoryDeletion();if(roomId&&h.matchId)void deleteArchivedMatches([h.matchId]).catch(error=>console.warn('封存戰績刪除失敗',error))}
 function deleteHistoryDate(dateKey){
   if(!isHost)return;
@@ -3966,7 +3968,7 @@ $('genderGrouping').onchange=()=>{
     const safe=teammateSafeLineup(court);
     if(safe.join('|')!==state.court.join('|')){state.court=safe;reconcileWaitingQueue(state.court);bumpLineupRevision();renderCourt();void persistLineupNow()}
   }
-  saveSoon();
+  saveGenderGrouping();
 };
 let fastTap=null,fastTapDispatching=false,suppressNativeClick=null;
 function fastTapButton(target){return target?.closest?.('button:not(:disabled)')||null}
