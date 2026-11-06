@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { arrangeTeamsWithTeammateLimit, balanceLineupSides, consecutiveTeammateGames, genderGroupingActive, lineupExceedsTeammateLimit, orientLineupToReference } from '../src/team-rotation.js';
+import { arrangeTeamsWithTeammateLimit, balanceLineupSides, consecutiveTeammateGames, genderGroupingActive, keepGenderGroupingDuringMatch, lineupExceedsTeammateLimit, orientLineupToReference } from '../src/team-rotation.js';
 
 const game=(teamA,teamB)=>({teams:[teamA,teamB]});
 const pairs=lineup=>[lineup.slice(0,2).sort().join('|'),lineup.slice(2,4).sort().join('|')];
@@ -79,6 +79,26 @@ test('gender grouping turns back on after the day it was disabled',()=>{
   assert.equal(genderGroupingActive({genderGroupingEnabled:false},'2026-10-11'),true);
   assert.equal(genderGroupingActive({genderGroupingEnabled:false,genderGroupingOffDate:'2026-10-10'},'2026-10-11'),true);
   assert.equal(genderGroupingActive({genderGroupingEnabled:false,genderGroupingOffDate:'2026-10-11'},'2026-10-11'),false);
+});
+
+test('keeps gender grouping off when a match snapshot still says it is on',()=>{
+  const off={genderGroupingEnabled:false,genderGroupingOffDate:'2026-11-06',target:11};
+  const on={genderGroupingEnabled:true,target:11};
+  const kept=keepGenderGroupingDuringMatch(off,on,{host:true,matchOpen:true,dateKey:'2026-11-06'});
+  assert.equal(genderGroupingActive(kept,'2026-11-06'),false);
+  assert.equal(kept.target,11);
+  assert.equal(keepGenderGroupingDuringMatch(off,on,{host:true,matchOpen:false,dateKey:'2026-11-06'}).genderGroupingEnabled,true);
+  assert.equal(keepGenderGroupingDuringMatch(on,off,{host:true,matchOpen:true,dateKey:'2026-11-06'}).genderGroupingEnabled,false);
+  assert.equal(keepGenderGroupingDuringMatch(off,on,{host:false,matchOpen:true,dateKey:'2026-11-06'}).genderGroupingEnabled,true);
+});
+
+test('turning gender grouping off during a match is written immediately',()=>{
+  const source=readFileSync(new URL('../src/main.js',import.meta.url),'utf8');
+  const handler=source.match(/\$\('genderGrouping'\)\.onchange=\(\)=>\{[\s\S]*?\n\};/)?.[0]||'';
+  assert.match(handler,/saveGenderGrouping\(\)/);
+  assert.doesNotMatch(handler,/saveSoon\(\)/);
+  assert.match(source,/function saveGenderGrouping\(\)\{if\(isHost&&roomRef\)void saveNow\(\)\.catch\(\(\)=>saveSoon\(\)\)\}/);
+  assert.match(source,/next\.rules=keepGenderGroupingDuringMatch\(state\.rules,next\.rules,\{host:isHost,matchOpen:!!state\.match\?\.active&&state\.match\?\.winner==null,dateKey:localDateKey\(\)\}\)/);
 });
 
 test('regrouping the court changes pairings without breaking gender grouping',()=>{
@@ -168,5 +188,8 @@ test('side balance keeps mixed pairs intact',()=>{
   const balanced=balanceLineupSides(['M1','F1','M2','F2'],['M1','F1','M2','F2'],history);
   assert.deepEqual(pairs(balanced),['F2|M2','F1|M1']);
 });
+
+
+
 
 
