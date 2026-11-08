@@ -23,9 +23,9 @@ test('keeps video overlay rendering off the UI and recording event threads',()=>
   assert.match(camera,/new HandlerThread\("7BScoreOverlay"\)/);
   assert.match(camera,/overlayThread\.start\(\);\s*overlayHandler = new android\.os\.Handler\(overlayThread\.getLooper\(\)\);/);
   assert.match(camera,/new OverlayEffect\(\s*CameraEffect\.VIDEO_CAPTURE,\s*0,\s*overlayHandler/);
-  assert.match(camera,/\.setExecutor\(recordingExecutor\)/);
+  assert.match(camera,/\.setExecutor\(CameraCallbackExecutor\.ignoringRejection\(recordingExecutor\)\)/);
   assert.match(camera,/scoreOverlayEffect\.close\(\);\s*overlayThread\.quitSafely\(\);/);
-  assert.match(camera,/recordingExecutor\.shutdown\(\)/);
+  assert.match(camera,/releaseRecordingExecutor = \(\) -> recordingExecutor\.shutdown\(\)/);
 });
 
 test('lays out a compact two-row broadcast scoreboard against the top-left edge',()=>{
@@ -79,3 +79,4 @@ test('keeps Bluetooth scoring in the accessibility background controller path',(
   assert.match(camera,/onKeyDown\(int keyCode[\s\S]*?KEYCODE_CAMERA[\s\S]*?return true/);
   assert.doesNotMatch(camera,/onKeyDown[\s\S]{0,500}submit\(/);
 });
+

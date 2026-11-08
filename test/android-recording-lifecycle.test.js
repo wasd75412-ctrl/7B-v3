@@ -46,6 +46,9 @@ test('recovers recording after transient CameraX finalization and only clears it
   assert.match(camera,/protected void onResume\(\)[\s\S]*?scheduleRecordingRecovery\(\)/);
   const destroy=camera.match(/onDestroy\(\)\s*\{([\s\S]*?)\n\s*\}/)?.[1]||'';
   assert.match(destroy,/if \(explicitExit\) RemoteSessionStore\.setRecordingEnabled\(this, false\)/);
+  assert.match(destroy,/releaseRecordingExecutorLater\(RECORDING_EXECUTOR_FALLBACK_MS\)/);
+  assert.doesNotMatch(destroy,/recordingExecutor\.shutdown\(\)/);
+  assert.match(manifest,/android:name="\.LoopCameraActivity"[\s\S]*?smallestScreenSize\|screenLayout/);
   assert.match(camera,/void exitRecording\([\s\S]*?setRecordingEnabled\(this, false\)/);
 });
 
@@ -131,3 +134,4 @@ test('keeps the recording status away from the top-left score board',()=>{
   assert.match(camera,/new FrameLayout\.LayoutParams\(-2, -2, Gravity\.BOTTOM \| Gravity\.CENTER_HORIZONTAL\);\s*recordingStage\.addView\(status, statusParams\)/);
   assert.doesNotMatch(camera,/recordingStage\.addView\(status, new FrameLayout\.LayoutParams\(-2, -2, Gravity\.TOP \| Gravity\.START\)\)/);
 });
+
