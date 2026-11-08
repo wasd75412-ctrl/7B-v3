@@ -41,7 +41,7 @@
         </activity>
         <activity
             android:name=".LoopCameraActivity"
-            android:configChanges="keyboard|keyboardHidden|orientation|screenSize"
+            android:configChanges="keyboard|keyboardHidden|orientation|screenSize|smallestScreenSize|screenLayout"
             android:launchMode="singleTop"
             android:exported="false"
             android:screenOrientation="portrait" />
@@ -68,3 +68,4 @@
         </service>
     </application>
 </manifest>
+

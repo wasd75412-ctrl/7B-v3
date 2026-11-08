@@ -78,6 +78,8 @@ import java.util.concurrent.atomic.AtomicReference;
 public final class LoopCameraActivity extends ComponentActivity {
     private static final int CAMERA_PERMISSION_REQUEST = 7;
     private static final long RECORDING_RECOVERY_MS = 750L;
+    private static final long RECORDING_EXECUTOR_RELEASE_MS = 5_000L;
+    private static final long RECORDING_EXECUTOR_FALLBACK_MS = 120_000L;
     private static final String QUALITY_PREFS = "recording_video_quality";
     private static final String QUALITY_KEY = "quality";
     private static final List<String> QUALITY_ORDER = Arrays.asList("uhd", "fhd", "hd");
@@ -88,6 +90,7 @@ public final class LoopCameraActivity extends ComponentActivity {
     private final HandlerThread overlayThread = new HandlerThread("7BScoreOverlay");
     private android.os.Handler overlayHandler;
     private final ExecutorService recordingExecutor = Executors.newSingleThreadExecutor();
+    private final Runnable releaseRecordingExecutor = () -> recordingExecutor.shutdown();
     private final ExecutorService savedRecordingExecutor = Executors.newSingleThreadExecutor();
     private final Runnable recoverRecording = this::startRecordingIfVisible;
     private final P4GestureInterpreter p4Gestures = new P4GestureInterpreter();
@@ -523,7 +526,7 @@ public final class LoopCameraActivity extends ComponentActivity {
             Recorder recorder = new Recorder.Builder()
                     .setQualitySelector(qualitySelector)
                     .setTargetVideoEncodingBitRate(videoBitrate(quality))
-                    .setExecutor(recordingExecutor)
+                    .setExecutor(CameraCallbackExecutor.ignoringRejection(recordingExecutor))
                     .build();
             videoCapture = new VideoCapture.Builder<>(recorder).setTargetRotation(targetRotation).build();
             provider.unbindAll();
@@ -854,6 +857,7 @@ public final class LoopCameraActivity extends ComponentActivity {
             status.setText(success ? "錄影中斷，正在建立新檔…" : "正在恢復錄影…");
             scheduleRecordingRecovery();
         }
+        if (closing) releaseRecordingExecutorLater(RECORDING_EXECUTOR_RELEASE_MS);
     }
 
     private void queueSavedRecording(android.net.Uri savedUri, long startedAt, long endedAt,
@@ -976,8 +980,14 @@ public final class LoopCameraActivity extends ComponentActivity {
         });
     }
 
+    private void releaseRecordingExecutorLater(long delayMs) {
+        handler.removeCallbacks(releaseRecordingExecutor);
+        handler.postDelayed(releaseRecordingExecutor, delayMs);
+    }
+
     @Override protected void onDestroy() {
         closing = true; handler.removeCallbacks(recoverRecording); handler.removeCallbacks(retryRecordingStart); cancelRecordingCameraLongPress(); if (recording != null) recording.stop();
+        releaseRecordingExecutorLater(RECORDING_EXECUTOR_FALLBACK_MS);
         if (liveMatchOverlay != null) liveMatchOverlay.close();
         if (remoteScoreController != null) remoteScoreController.release();
         if (scoreOverlayEffect != null) scoreOverlayEffect.close();
@@ -987,7 +997,9 @@ public final class LoopCameraActivity extends ComponentActivity {
             sessionCounted = false;
             OPEN_SESSIONS.decrementAndGet();
         }
-        recordingExecutor.shutdown();
+        if (cameraProvider != null) {
+            try { cameraProvider.unbindAll(); } catch (Exception ignored) { }
+        }
         android.content.Context app = getApplicationContext();
         savedRecordingExecutor.execute(() -> YouTubeUploadScheduler.scheduleIfPending(app));
         savedRecordingExecutor.shutdown();
