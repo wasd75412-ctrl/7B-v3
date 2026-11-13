@@ -4870,6 +4870,54 @@ html.chat-keyboard-open .chat-autocomplete{
   0%,100%{filter:brightness(1)}
   50%{filter:brightness(1.08)}
 }
+#birthdayWishModal{z-index:270;align-items:center;padding:14px}
+body>#birthdayWishModal .birthday-wish-card{
+  position:relative;
+  overflow:hidden;
+  width:min(380px,100%);
+  display:grid;
+  justify-items:center;
+  gap:10px;
+  padding:34px 24px 28px;
+  border:2px solid #ffc15a;
+  border-radius:28px;
+  text-align:center;
+  background:
+    radial-gradient(circle at 18% 18%,rgba(255,210,96,.42),transparent 42%),
+    radial-gradient(circle at 86% 12%,rgba(255,118,156,.34),transparent 40%),
+    linear-gradient(160deg,#5b1d35,#9a3d1d 48%,#0c416f);
+  box-shadow:0 0 0 1px rgba(255,193,90,.45),0 24px 48px rgba(255,110,80,.28);
+  color:#fff
+}
+.birthday-wish-burst{
+  position:absolute;
+  inset:-20% -10% auto;
+  height:58%;
+  background:
+    radial-gradient(circle at 20% 70%,rgba(255,255,255,.28) 0 2px,transparent 3px),
+    radial-gradient(circle at 45% 35%,rgba(255,210,96,.9) 0 3px,transparent 4px),
+    radial-gradient(circle at 70% 60%,rgba(255,120,160,.85) 0 2px,transparent 3px),
+    radial-gradient(circle at 85% 25%,rgba(255,255,255,.35) 0 2px,transparent 3px);
+  animation:birthdayWishSparkle 1.8s ease-in-out infinite;
+  pointer-events:none
+}
+.birthday-wish-icon{
+  position:relative;
+  font-size:4.6rem;
+  line-height:1;
+  animation:birthdayCakePop .9s ease-in-out infinite alternate
+}
+.birthday-wish-card h2{margin:0;font-size:1.7rem;font-weight:1000;color:#ffe7b0}
+.birthday-wish-name{margin:0;font-size:1.15rem;font-weight:900}
+.birthday-wish-note{margin:0;font-weight:850;opacity:.92}
+.birthday-wish-card .btn{min-width:150px;margin-top:8px}
+@keyframes birthdayWishSparkle{
+  0%,100%{opacity:.7;transform:translateY(0)}
+  50%{opacity:1;transform:translateY(6px)}
+}
+@media(prefers-reduced-motion:reduce){
+  .birthday-wish-icon,.birthday-wish-burst,#app .birthday-player-card,#app .birthday-player-card .birthday-banner-icon,.profile-birthday-banner,.hero-card.birthday-hero::after{animation:none}
+}
 #app .roster-empty{grid-column:1/-1;margin:0;padding:14px;text-align:center}
 .shuttle-member-note{margin:6px 0 0;color:var(--sport-muted);font-size:.76rem;font-weight:850}
 @media(max-width:680px){

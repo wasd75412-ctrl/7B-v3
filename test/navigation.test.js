@@ -625,6 +625,9 @@ test('stores a birthday month and day and marks the current month on the player 
   assert.match(mainSource,/\$\('profileBirthday'\)\.textContent=playerBirthdayLabel\(p\)/);
   assert.match(styles,/#app \.birthday-player-card\{/);
   assert.match(styles,/\.profile-birthday-banner\{/);
+  assert.match(html,/id="birthdayWishModal"/);
+  assert.match(mainSource,/function checkBirthdayWish\(\)/);
+  assert.match(mainSource,/isBirthdayDay\(record\)/);
 });
 
 test('lets players set gender for mixed-team rotation',()=>{
@@ -647,5 +650,6 @@ test('waits for host player edits to sync before reporting success',()=>{
   const saveEditSource=mainSource.match(/async function saveEdit\(\)\{[\s\S]*?\n\}/)?.[0]||'';
   assert.match(saveEditSource,/if\(isHost\)\{Object\.assign\(p,updated\);renderAll\(\);await saveNow\(\)\}/);
 });
+
 
 
