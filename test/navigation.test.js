@@ -129,8 +129,9 @@ test('non-chat pages return to the top instead of preserving a stale scroll posi
   assert.match(pageFlow,/requestAnimationFrame\(\(\)=>window\.scrollTo\(0,0\)\)/);
 });
 
-test('missing-vote reminders exclude guest players',()=>{
-  assert.match(mainSource,/state\.roster\.filter\(player=>!isGuestPlayer\(player\)\)\.map\(player=>player\.id\)/);
+test('missing-vote reminders use the full roster',()=>{
+  assert.match(mainSource,/state\.roster\.map\(player=>player\.id\)/);
+  assert.doesNotMatch(mainSource,/!isGuestPlayer\(player\)/);
 });
 
 test('keeps recruiting messages manual instead of opening them automatically',()=>{
@@ -189,7 +190,7 @@ test('lets the admin add players after voting closes and edit them later',()=>{
   assert.match(mainSource,/renderEditorPlayerChoices\(event\.participantIds,updateNextEventEditFeePreview\)/);
   assert.match(mainSource,/renderEditorPlayerChoices\(\[\],updateNextEventCreateDefaults\)/);
   assert.match(mainSource,/participantIds=eventPlayerChoiceIds\('editNextEventPlayerChoices'\)/);
-  assert.match(mainSource,/group\('固定團員',members\)\+group\('臨打球友',guests\)/);
+  assert.match(mainSource,/group\('球員',\[\.\.\.state\.roster,\.\.\.retired\]\)/);
   assert.match(styles,/\.event-player-choice:has\(input:checked\)\{/);
 });
 
@@ -447,11 +448,13 @@ test('opens admin shuttle tube management from the more menu',()=>{
   assert.match(html,/id="shuttleTubeModal"/);
 });
 
-test('separates fixed members and guest players while shuttle costs use completed-match participants',()=>{
-  assert.match(html,/id="newPlayerType"[\s\S]*?<option value="member">固定團員<\/option>[\s\S]*?<option value="guest">臨打球友<\/option>/);
-  assert.match(html,/id="membershipAdminSection" class="profile-panel host-only"/);
-  assert.match(html,/id="editMemberType"/);
-  assert.match(mainSource,/splitPlayersByMembership\(rows\)/);
+test('keeps one unified roster while shuttle costs use completed-match participants',()=>{
+  assert.match(html,/id="newPlayerBirthMonth"/);
+  assert.match(html,/id="newPlayerBirthDay"/);
+  assert.doesNotMatch(html,/id="newPlayerType"/);
+  assert.doesNotMatch(html,/id="membershipAdminSection"/);
+  assert.doesNotMatch(html,/id="editMemberType"/);
+  assert.doesNotMatch(mainSource,/splitPlayersByMembership\(rows\)/);
   assert.match(mainSource,/function shuttleParticipantCount\(\)/);
   assert.match(mainSource,/function sessionPlayedParticipantIds\(dateKey=localDateKey\(\)\)/);
   assert.match(mainSource,/playedParticipantIds\(\(state\.history\|\|\[\]\)\.filter\(match=>historyDate\(match\)===dateKey\)\)/);
@@ -461,7 +464,7 @@ test('separates fixed members and guest players while shuttle costs use complete
   assert.match(mainSource,/購球者若參與也計入/);
   assert.match(adminNoticesSource,/球費＝本場使用顆數 ×（球桶價格 ÷ 12）÷ 本場參與人數/);
   assert.doesNotMatch(mainSource,/「\$\{tube\.name\}」剩餘 \$\{tube\.remainingShuttles\} 顆/);
-  assert.match(styles,/BCM 2\.4\.42 — fixed members and guest-player sections/);
+  assert.match(styles,/#app \.player-add-row\{grid-template-columns:minmax\(0,1\.2fr\)/);
 });
 
 test('shows refresh without a visible favorite control and keeps low-frequency actions collapsed',()=>{
@@ -615,6 +618,7 @@ test('removes the next-match announcement button and explanatory feature notes',
 });
 
 test('stores a birthday month and day and marks the current month on the player card',()=>{
+  assert.match(html,/id="newPlayerBirthMonth"[\s\S]*?<option value="12">12月<\/option>/);
   assert.match(html,/id="editBirthMonth"[\s\S]*?<option value="12">12月<\/option>/);
   assert.match(html,/id="editBirthDay"/);
   assert.match(html,/id="profileBirthdayMark"[^>]*class="profile-birthday-banner hidden"/);
