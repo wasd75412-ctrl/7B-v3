@@ -4777,8 +4777,99 @@ html.chat-keyboard-open .chat-autocomplete{
 #app .roster-group.guests .roster-group-head>span{background:rgba(250,185,62,.14);color:#ffd67d}
 #app .mini-tag.player-type-guest{background:rgba(250,185,62,.18);color:#ffd67d}
 #app .guest-player-card{border-color:rgba(250,185,62,.30)}
-#app .mini-tag.birthday-month{background:rgba(255,122,154,.22);color:#ffd0dc}
-#app .birthday-player-card{border-color:rgba(255,154,184,.55)}
+#app .birthday-player-card{
+  overflow:hidden;
+  border-color:#ffc15a;
+  background:
+    radial-gradient(circle at 14% 16%,rgba(255,210,96,.42),transparent 40%),
+    radial-gradient(circle at 92% 10%,rgba(255,118,156,.34),transparent 38%),
+    linear-gradient(150deg,rgba(92,28,48,.72),rgba(18,28,42,.96) 58%,rgba(54,28,18,.88));
+  box-shadow:0 0 0 1px rgba(255,193,90,.55),0 16px 34px rgba(255,120,80,.28);
+  animation:birthdayCardGlow 2.4s ease-in-out infinite
+}
+#app .birthday-player-card .name{color:#ffe7b0;text-shadow:0 1px 0 rgba(80,30,0,.35)}
+#app .birthday-player-card .birthday-banner{
+  position:absolute;
+  top:14px;
+  left:-38px;
+  z-index:2;
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  gap:5px;
+  min-width:148px;
+  padding:7px 0;
+  transform:rotate(-34deg);
+  background:linear-gradient(90deg,#ff5f87,#ffc15a 58%,#ffe08a);
+  color:#3a1200;
+  font-size:.74rem;
+  font-weight:1000;
+  letter-spacing:.05em;
+  box-shadow:0 8px 18px rgba(0,0,0,.28);
+  pointer-events:none
+}
+#app .birthday-player-card .birthday-banner-icon{font-size:.95rem;line-height:1;animation:birthdayCakePop 1.6s ease-in-out infinite}
+#app .birthday-player-card .avatar{
+  box-shadow:0 0 0 3px rgba(255,193,90,.75),0 0 18px rgba(255,140,90,.45)
+}
+.player-profile-modal-card.birthday-profile-card{
+  border:2px solid #ffc15a;
+  box-shadow:0 0 0 1px rgba(255,193,90,.45),0 24px 48px rgba(255,110,80,.22)
+}
+.hero-card.birthday-hero{
+  position:relative;
+  overflow:hidden;
+  background:
+    radial-gradient(circle at 12% 18%,rgba(255,210,96,.35),transparent 42%),
+    radial-gradient(circle at 88% 14%,rgba(255,110,150,.28),transparent 40%),
+    linear-gradient(145deg,#5b1d35,#9a3d1d 46%,#0c416f);
+  box-shadow:0 18px 44px rgba(120,40,20,.28)
+}
+.hero-card.birthday-hero::after{
+  content:"";
+  position:absolute;
+  inset:0 auto auto 0;
+  width:160%;
+  height:54px;
+  background:linear-gradient(90deg,transparent,rgba(255,255,255,.18),transparent);
+  transform:translateX(-40%) rotate(12deg);
+  animation:birthdayShine 3.2s linear infinite;
+  pointer-events:none
+}
+.profile-birthday-banner{
+  display:inline-flex;
+  align-items:center;
+  gap:8px;
+  flex:1 1 100%;
+  width:100%;
+  margin-top:2px;
+  padding:10px 14px;
+  border-radius:14px;
+  background:linear-gradient(90deg,#ff5f87,#ffc15a 55%,#ffe08a);
+  color:#3a1200;
+  font-size:.95rem;
+  font-weight:1000;
+  letter-spacing:.04em;
+  box-shadow:0 10px 22px rgba(0,0,0,.22);
+  animation:birthdayBannerPulse 1.8s ease-in-out infinite
+}
+.profile-birthday-banner span{font-size:1.15rem;line-height:1}
+@keyframes birthdayCardGlow{
+  0%,100%{box-shadow:0 0 0 1px rgba(255,193,90,.55),0 16px 34px rgba(255,120,80,.28)}
+  50%{box-shadow:0 0 0 2px rgba(255,220,140,.9),0 18px 38px rgba(255,140,90,.42)}
+}
+@keyframes birthdayCakePop{
+  0%,100%{transform:scale(1)}
+  50%{transform:scale(1.18)}
+}
+@keyframes birthdayShine{
+  0%{transform:translateX(-55%) rotate(12deg)}
+  100%{transform:translateX(35%) rotate(12deg)}
+}
+@keyframes birthdayBannerPulse{
+  0%,100%{filter:brightness(1)}
+  50%{filter:brightness(1.08)}
+}
 #app .roster-empty{grid-column:1/-1;margin:0;padding:14px;text-align:center}
 .shuttle-member-note{margin:6px 0 0;color:var(--sport-muted);font-size:.76rem;font-weight:850}
 @media(max-width:680px){
@@ -4946,7 +5037,6 @@ body>.modal .event-packing-item-actions .danger-outline{border-color:#ff8798!imp
 .fold-panel .badge-count{font-weight:1000;opacity:.85}
 .fold-panel[open]>summary{margin-bottom:12px}
 .status-chip.hot{border-color:transparent;background:linear-gradient(135deg,#ff7a3d,#ffb547);color:#3a1300}
-.status-chip.birthday{border-color:transparent;background:linear-gradient(135deg,#ff7a9a,#ffc15a);color:#4a1020}
 @media(max-width:620px){.hero-status-row{gap:6px}.hero-status-row .status-chip{padding:6px 9px;font-size:.86rem}}
 .person.card2 .status-mini.hot{background:#ffe1cc;color:#a63a00}
 #achievementModal{z-index:260;align-items:center;padding:14px}

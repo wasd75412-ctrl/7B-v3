@@ -617,11 +617,14 @@ test('removes the next-match announcement button and explanatory feature notes',
 test('stores a birthday month and day and marks the current month on the player card',()=>{
   assert.match(html,/id="editBirthMonth"[\s\S]*?<option value="12">12月<\/option>/);
   assert.match(html,/id="editBirthDay"/);
-  assert.match(html,/id="profileBirthdayMark"[^>]*>🎂 本月壽星/);
+  assert.match(html,/id="profileBirthdayMark"[^>]*class="profile-birthday-banner hidden"/);
   assert.match(mainSource,/birthMonth:birthday\.birthMonth,birthDay:birthday\.birthDay/);
-  assert.match(mainSource,/birthday-month/);
+  assert.match(mainSource,/birthday-banner/);
+  assert.match(mainSource,/birthday-profile-card/);
   assert.match(mainSource,/isBirthdayMonth\(p\)/);
   assert.match(mainSource,/\$\('profileBirthday'\)\.textContent=playerBirthdayLabel\(p\)/);
+  assert.match(styles,/#app \.birthday-player-card\{/);
+  assert.match(styles,/\.profile-birthday-banner\{/);
 });
 
 test('lets players set gender for mixed-team rotation',()=>{
@@ -644,4 +647,5 @@ test('waits for host player edits to sync before reporting success',()=>{
   const saveEditSource=mainSource.match(/async function saveEdit\(\)\{[\s\S]*?\n\}/)?.[0]||'';
   assert.match(saveEditSource,/if\(isHost\)\{Object\.assign\(p,updated\);renderAll\(\);await saveNow\(\)\}/);
 });
+
 
