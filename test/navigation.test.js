@@ -619,11 +619,12 @@ test('stores a birthday month and day and marks the current month on the player 
   assert.match(html,/id="editBirthDay"/);
   assert.match(html,/id="profileBirthdayMark"[^>]*class="profile-birthday-banner hidden"/);
   assert.match(mainSource,/birthMonth:birthday\.birthMonth,birthDay:birthday\.birthDay/);
-  assert.match(mainSource,/birthday-banner/);
+  assert.match(mainSource,/birthday-party-decor/);
   assert.match(mainSource,/birthday-profile-card/);
   assert.match(mainSource,/isBirthdayMonth\(p\)/);
   assert.match(mainSource,/\$\('profileBirthday'\)\.textContent=playerBirthdayLabel\(p\)/);
   assert.match(styles,/#app \.birthday-player-card\{/);
+  assert.match(styles,/birthday-party-decor/);
   assert.match(styles,/\.profile-birthday-banner\{/);
   assert.match(html,/id="birthdayWishModal"/);
   assert.match(mainSource,/function checkBirthdayWish\(\)/);
@@ -650,6 +651,7 @@ test('waits for host player edits to sync before reporting success',()=>{
   const saveEditSource=mainSource.match(/async function saveEdit\(\)\{[\s\S]*?\n\}/)?.[0]||'';
   assert.match(saveEditSource,/if\(isHost\)\{Object\.assign\(p,updated\);renderAll\(\);await saveNow\(\)\}/);
 });
+
 
 
 
