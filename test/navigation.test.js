@@ -627,7 +627,8 @@ test('stores a birthday month and day and marks the current month on the player 
   assert.match(mainSource,/birthday-profile-card/);
   assert.match(mainSource,/isBirthdayMonth\(p\)/);
   assert.match(mainSource,/\$\('profileBirthday'\)\.textContent=playerBirthdayLabel\(p\)/);
-  assert.match(styles,/#app \.birthday-player-card\{/);
+  assert.match(styles,/#app \.page \.person\.card2\.birthday-player-card/);
+  assert.match(styles,/linear-gradient\(145deg,#ffd0e4/);
   assert.match(styles,/birthday-party-decor/);
   assert.match(styles,/\.profile-birthday-banner\{/);
   assert.match(html,/id="birthdayWishModal"/);
