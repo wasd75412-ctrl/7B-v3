@@ -4777,17 +4777,26 @@ html.chat-keyboard-open .chat-autocomplete{
 #app .roster-group.guests .roster-group-head>span{background:rgba(250,185,62,.14);color:#ffd67d}
 #app .mini-tag.player-type-guest{background:rgba(250,185,62,.18);color:#ffd67d}
 #app .guest-player-card{border-color:rgba(250,185,62,.30)}
-#app .birthday-player-card{
+#app .page .person.card2.birthday-player-card,
+#app .person.card2.birthday-player-card{
   position:relative;
   overflow:hidden;
-  border-color:rgba(255,140,180,.55);
+  border-color:rgba(255,132,178,.72)!important;
   background:
-    radial-gradient(circle at 12% 18%,rgba(255,170,210,.55),transparent 36%),
-    radial-gradient(circle at 88% 12%,rgba(255,210,160,.48),transparent 34%),
-    radial-gradient(circle at 78% 86%,rgba(255,160,200,.35),transparent 40%),
-    linear-gradient(145deg,rgba(255,190,210,.42),rgba(255,220,190,.34) 48%,rgba(255,185,215,.28)),
-    linear-gradient(145deg,var(--app-surface-strong),var(--app-surface));
-  box-shadow:0 0 0 1px rgba(255,150,190,.35),0 14px 28px rgba(255,120,170,.18)
+    radial-gradient(circle at 12% 18%,rgba(255,214,232,.95),transparent 38%),
+    radial-gradient(circle at 88% 12%,rgba(255,228,186,.92),transparent 36%),
+    radial-gradient(circle at 78% 86%,rgba(255,186,214,.88),transparent 42%),
+    linear-gradient(145deg,#ffd0e4 0%,#ffe3c8 46%,#ffc7dc 100%)!important;
+  color:#5a2040!important;
+  box-shadow:0 0 0 1px rgba(255,140,180,.45),0 16px 32px rgba(255,110,160,.28)!important
+}
+#app .page .person.card2.birthday-player-card:before,
+#app .person.card2.birthday-player-card:before{
+  background:linear-gradient(180deg,#ff6fa8,#ffb070)!important
+}
+#app .page .person.card2.birthday-player-card:after,
+#app .person.card2.birthday-player-card:after{
+  background:radial-gradient(circle,rgba(255,150,190,.34),transparent 68%)!important
 }
 #app .birthday-player-card>*{position:relative;z-index:1}
 #app .birthday-player-card .birthday-party-decor{
@@ -4800,9 +4809,9 @@ html.chat-keyboard-open .chat-autocomplete{
   padding:10px 14px;
   font-size:1.35rem;
   line-height:1;
-  opacity:.34;
+  opacity:.42;
   pointer-events:none;
-  filter:saturate(1.15)
+  filter:saturate(1.2)
 }
 #app .birthday-player-card .birthday-party-decor span:nth-child(1){align-self:flex-start;transform:translate(4px,2px) rotate(-12deg)}
 #app .birthday-player-card .birthday-party-decor span:nth-child(2){align-self:center;transform:translateY(8px) scale(1.15)}
@@ -4810,13 +4819,35 @@ html.chat-keyboard-open .chat-autocomplete{
 #app .birthday-player-card .birthday-party-decor span:nth-child(4){align-self:flex-start;margin-left:auto;transform:translate(-10px,8px) rotate(14deg)}
 #app .birthday-player-card .birthday-party-decor span:nth-child(5){align-self:flex-end;transform:translate(-2px,-2px) rotate(-8deg)}
 #app .mini-tag.birthday-month{
-  background:linear-gradient(90deg,rgba(255,120,170,.95),rgba(255,180,120,.95));
+  background:linear-gradient(90deg,#ff6fa8,#ffb070);
   color:#4a1230;
   font-weight:1000
 }
-#app .birthday-player-card .name{color:#ffe7f0}
+#app .page .person.card2.birthday-player-card .name,
+#app .birthday-player-card .name{
+  color:#9b2258!important;
+  text-shadow:none!important
+}
 #app .birthday-player-card .avatar{
-  box-shadow:0 0 0 3px rgba(255,160,200,.8),0 0 16px rgba(255,140,180,.35)
+  box-shadow:0 0 0 3px rgba(255,120,170,.9),0 0 18px rgba(255,120,170,.45)
+}
+#app .page .person.card2.birthday-player-card .mini-tag.stats,
+#app .birthday-player-card .mini-tag.stats{
+  background:rgba(255,255,255,.72);
+  color:#1d6c4d
+}
+#app .page .person.card2.birthday-player-card .status-mini,
+#app .birthday-player-card .status-mini{
+  background:rgba(255,248,236,.88);
+  color:#9a4a12
+}
+#app .page .person.card2.birthday-player-card .racket-line,
+#app .birthday-player-card .racket-line{
+  color:#7a3a55!important
+}
+#app .page .person.card2.birthday-player-card .racket-lines,
+#app .birthday-player-card .racket-lines{
+  border-top-color:rgba(255,120,170,.28)!important
 }
 .player-profile-modal-card.birthday-profile-card{
   border:2px solid rgba(255,150,190,.7);
