@@ -614,6 +614,16 @@ test('removes the next-match announcement button and explanatory feature notes',
   assert.match(styles,/#resultModal>\.modal-card>\.sub\{display:none\}/);
 });
 
+test('stores a birthday month and day and marks the current month on the player card',()=>{
+  assert.match(html,/id="editBirthMonth"[\s\S]*?<option value="12">12月<\/option>/);
+  assert.match(html,/id="editBirthDay"/);
+  assert.match(html,/id="profileBirthdayMark"[^>]*>🎂 本月壽星/);
+  assert.match(mainSource,/birthMonth:birthday\.birthMonth,birthDay:birthday\.birthDay/);
+  assert.match(mainSource,/birthday-month/);
+  assert.match(mainSource,/isBirthdayMonth\(p\)/);
+  assert.match(mainSource,/\$\('profileBirthday'\)\.textContent=playerBirthdayLabel\(p\)/);
+});
+
 test('lets players set gender for mixed-team rotation',()=>{
   assert.match(html,/id="newPlayerGender"[\s\S]*?<option value="male">男性<\/option>[\s\S]*?<option value="female">女性<\/option>/);
   assert.match(html,/id="editGender"[\s\S]*?<option value="male">男性<\/option>[\s\S]*?<option value="female">女性<\/option>/);

@@ -406,11 +406,11 @@
   <div class="player-modal-toolbar"><button id="closeEditTop" class="btn modal-close-button" type="button" aria-label="關閉球員卡">✕ 關閉</button></div>
   <div class="hero-card">
     <span id="editAvatarPreview" class="avatar large"></span>
-    <div><div id="profileTitle" class="hero-name">球員資料</div><div id="profileSummary" class="hero-racket"></div><div class="hero-status-row"><div id="profileStatus" class="status-chip">今日尚未出賽</div><div id="profileHot" class="status-chip hot hidden"></div><button id="claimPlayer" class="btn blue hero-claim-button hidden" type="button">這是我／認領資料</button></div></div>
+    <div><div id="profileTitle" class="hero-name">球員資料</div><div id="profileSummary" class="hero-racket"></div><div class="hero-status-row"><div id="profileStatus" class="status-chip">今日尚未出賽</div><div id="profileBirthdayMark" class="status-chip birthday hidden">🎂 本月壽星</div><div id="profileHot" class="status-chip hot hidden"></div><button id="claimPlayer" class="btn blue hero-claim-button hidden" type="button">這是我／認領資料</button></div></div>
     <div id="profileWinRing" class="win-ring"><div><strong id="ringRate">0%</strong><span>生涯勝率</span></div></div>
   </div>
   <div class="profile-stats"><div class="stat-box"><strong id="statGames">0</strong><span class="sub">生涯場次</span></div><div class="stat-box"><strong id="statWins">0</strong><span class="sub">生涯勝場</span></div><div class="stat-box"><strong id="statRate">0%</strong><span class="sub">生涯勝率</span></div></div>
-  <div class="profile-sections"><div class="profile-section"><span class="sub">今日</span><strong id="profileToday">0勝 0敗</strong></div><div class="profile-section"><span class="sub">本月</span><strong id="profileMonth">0勝 0敗</strong></div><div class="profile-section"><span class="sub">性別</span><strong id="profileGender">未設定</strong></div></div>
+  <div class="profile-sections"><div class="profile-section"><span class="sub">今日</span><strong id="profileToday">0勝 0敗</strong></div><div class="profile-section"><span class="sub">本月</span><strong id="profileMonth">0勝 0敗</strong></div><div class="profile-section"><span class="sub">性別</span><strong id="profileGender">未設定</strong></div><div class="profile-section"><span class="sub">生日</span><strong id="profileBirthday">未設定</strong></div></div>
   <details class="profile-panel fold-panel"><summary><h3>🏅 生涯成就</h3><span id="profileBadgeCount" class="badge-count"></span></summary><div id="profileBadges" class="badge-grid"></div></details>
   <details class="profile-panel fold-panel"><summary><h3>🤝 最佳搭檔排行</h3></summary><div id="profilePartnerRanking" class="duo-list"></div></details>
   <details class="profile-panel fold-panel"><summary><h3>😈 剋星</h3></summary><div id="profileNemesis" class="duo-list"></div></details>
@@ -420,6 +420,7 @@
   <h3>編輯球員資料</h3>
   <div class="field"><label>姓名</label><input id="editName" class="input"></div>
   <label class="field" style="margin-top:10px"><span>性別</span><select id="editGender" class="input"><option value="">未設定</option><option value="male">男性</option><option value="female">女性</option></select></label>
+ <label class="field" style="margin-top:10px"><span>生日</span><div class="birthday-fields"><select id="editBirthMonth" class="input" aria-label="出生月份"><option value="">未設定</option><option value="1">1月</option><option value="2">2月</option><option value="3">3月</option><option value="4">4月</option><option value="5">5月</option><option value="6">6月</option><option value="7">7月</option><option value="8">8月</option><option value="9">9月</option><option value="10">10月</option><option value="11">11月</option><option value="12">12月</option></select><select id="editBirthDay" class="input" aria-label="出生日期"><option value="">未設定</option></select></div></label>
   <div id="membershipAdminSection" class="profile-panel host-only" style="margin-top:14px">
     <h3>👥 團員類型（僅管理員）</h3>
     <label class="field"><span>分類</span><select id="editMemberType" class="input"><option value="member">固定團員</option><option value="guest">臨打球友</option></select></label>
