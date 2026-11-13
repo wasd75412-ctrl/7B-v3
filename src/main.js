@@ -26,7 +26,7 @@ import { activateShuttleTube, adjustSessionShuttleUsage, createShuttleClickGuard
 import { addFeats, careerAchievementBadges, longestServeRuns, maxDeficit, normalizeServeRuns, partnerRanking, playerFeats, rivalLists, unseenAchievements } from './player-achievements.js';
 import { PLAYER_TYPE_GUEST, isGuestPlayer, normalizePlayerType, splitPlayersByMembership } from './player-membership.js';
 import { PLAYER_GENDER_MALE, normalizePlayerGender, playerGenderLabel } from './player-gender.js';
-import { birthdayDayCount, isBirthdayMonth, normalizePlayerBirthday, playerBirthdayLabel } from './player-birthday.js';
+import { birthdayDayCount, isBirthdayDay, isBirthdayMonth, normalizePlayerBirthday, playerBirthdayLabel } from './player-birthday.js';
 import { createFinishedMatchRollback, createPreviousMatchSnapshot, normalizeFinishedMatchRollback, previousMatchToRestore, reopenFinishedMatchState } from './match-correction.js';
 import { rotateAfterMatch } from './match-rotation.js';
 import { MATCH_FORMAT_SINGLES, formatSwitchDisposition, matchPlayerCount, normalizeMatchFormat, rotateSinglesAfterMatch, teamsForLineup } from './match-format.js';
@@ -543,6 +543,7 @@ function relationshipStats(id){const settled=ledgerRelations(state.statsLedger,i
 function playerStatus(id){const td=scopedStats(id,'today');if(!td.games)return{label:'🌱 今日尚未出賽',kind:'idle',hot:''};const label=`🏸 今日 ${td.wins} 勝 ${td.losses} 敗`;if(td.kind==='W'&&td.streak>=2)return{label,kind:'hot',hot:`🔥 手感火熱 · ${td.streak} 連勝`};return{label,kind:'normal',hot:''}}
 function careerBadges(id){const c=scopedStats(id,'career'),rel=relationshipStats(id);return careerAchievementBadges({games:c.games,wins:c.wins,results:c.list,settledStreak:ledgerStreak(state.statsLedger,id),bestPartnerWins:Math.max(0,...rel.partners.map(x=>x.wins)),partnerCount:rel.partners.filter(x=>x.games>0).length,bestOpponentGames:Math.max(0,...rel.opponents.map(x=>x.games)),feats:addFeats(ledgerFeats(state.statsLedger,id),playerFeats(scoredHistory(),id,historyDate))})}
 const ACHIEVEMENT_SEEN_KEY='bcmSeenAchievementsV1';
+const BIRTHDAY_WISH_KEY='bcmBirthdayWishV1';
 let achievementArchiveReady=false,achievementQueue=[],profileBadgeList=[];
 function achievementSeenStorageKey(id){return `${ACHIEVEMENT_SEEN_KEY}:${roomId}:${id}`}
 function readSeenAchievements(id){try{const value=JSON.parse(localStorage.getItem(achievementSeenStorageKey(id))||'null');return Array.isArray(value)?value.map(String):null}catch{return null}}
@@ -550,7 +551,7 @@ function rememberSeenAchievements(id,labels){try{localStorage.setItem(achievemen
 // Only compare once the room snapshot and the full match archive are loaded, so partial data never looks like a new unlock.
 function checkAchievementUnlocks(){
   if(!achievementArchiveReady||!roomId||!lastRoomSnapshotData||roomSnapshotFromCache||requestedAndroidRemote)return;
-  if(achievementQueue.length||!$('achievementModal').classList.contains('hidden')||!$('scoreView').classList.contains('hidden'))return;
+  if(achievementQueue.length||!$('achievementModal').classList.contains('hidden')||!$('birthdayWishModal')?.classList.contains('hidden')||!$('scoreView').classList.contains('hidden'))return;
   const id=ownedPlayerId();if(!id||!player(id))return;
   const earned=careerBadges(id).filter(([,,on])=>on),seen=readSeenAchievements(id);
   if(!seen){rememberSeenAchievements(id,earned.map(([,label])=>label));return}
@@ -575,6 +576,23 @@ function showAchievementDetail(index){
   if(!badge?.[2]||achievementQueue.length)return;
   const [icon,label,,note]=badge;
   showAchievementCard({icon,title:label,note,button:'關閉'});
+}
+function birthdayWishStorageKey(playerId,dateKey=localDateKey()){return `${BIRTHDAY_WISH_KEY}:${roomId}:${playerId}:${dateKey}`}
+function hasSeenBirthdayWish(playerId,dateKey=localDateKey()){try{return localStorage.getItem(birthdayWishStorageKey(playerId,dateKey))==='1'}catch{return false}}
+function rememberBirthdayWish(playerId,dateKey=localDateKey()){try{localStorage.setItem(birthdayWishStorageKey(playerId,dateKey),'1')}catch{}}
+function checkBirthdayWish(){
+  if(!roomId||!lastRoomSnapshotData||roomSnapshotFromCache||requestedAndroidRemote)return;
+  if(!$('birthdayWishModal')?.classList.contains('hidden')||!$('achievementModal').classList.contains('hidden')||achievementQueue.length||!$('scoreView').classList.contains('hidden'))return;
+  const id=ownedPlayerId(),record=player(id);
+  if(!record||!isBirthdayDay(record)||hasSeenBirthdayWish(id))return;
+  $('birthdayWishName').textContent=record.name;
+  $('birthdayWishModal').classList.remove('hidden');
+}
+function closeBirthdayWish(){
+  const id=ownedPlayerId();
+  if(id)rememberBirthdayWish(id);
+  $('birthdayWishModal')?.classList.add('hidden');
+  checkAchievementUnlocks();
 }
 function closeAchievement(){const done=achievementQueue.shift();if(done)rememberSeenAchievements(done.id,[done.badge[1]]);showNextAchievement()}
 function relationRows(list,emptyText,gamesLabel='共同'){if(!list.length)return `<div class="sub">${emptyText}</div>`;return list.slice(0,3).map((x,i)=>`<div class="duo-row"><span class="duo-rank">${i+1}</span><span>${avatar(x.id,'tiny')} <strong>${esc(pname(x.id))}</strong><div class="duo-meta">${gamesLabel} ${x.games} 場 · ${x.wins} 勝</div></span><strong>${x.rate}%</strong></div>`).join('')}
@@ -2041,7 +2059,7 @@ async function connectRoom(id){
   scoreViewRequested=false;
   roomId=id;
   archivedHistory=[];removedMatchIds=new Set();
-  achievementArchiveReady=false;achievementQueue=[];$('achievementModal')?.classList.add('hidden');
+  achievementArchiveReady=false;achievementQueue=[];$('achievementModal')?.classList.add('hidden');$('birthdayWishModal')?.classList.add('hidden');
   state=initialState();
   roomRef=doc(db,'badmintonRooms',id);
   liveScoreRef=doc(db,'badmintonRooms',id,'liveScore','current');
@@ -2251,7 +2269,7 @@ function applyState(data){
   state=next;
   if(requestedAndroidRemote)scheduleAndroidRemoteRender(true);else{applying=true;renderAll();applying=false}
   announceSyncedScore(before);
-  checkAchievementUnlocks();
+  checkBirthdayWish();checkAchievementUnlocks();
   if(restoreLedger)saveSoon();
   resumeUnappliedOfficialStart();
   // Receiving a room snapshot must never publish its fallback match back into liveScore.
@@ -2594,7 +2612,7 @@ async function loadMatchArchive(){
     if(merged.length!==state.history.length||merged.some((row,index)=>row.matchId!==state.history[index]?.matchId)){
       applying=true;state.history=merged;applying=false;renderHistory();renderStats();renderDashboard();
     }
-    achievementArchiveReady=true;checkAchievementUnlocks();
+    achievementArchiveReady=true;checkBirthdayWish();checkAchievementUnlocks();
     if(isHost){await flushPendingArchives();await slimRoomHistoryIfNeeded();archiveUnsyncedHistory();await settleStatsIfDue()}
   }catch(error){console.warn('完整戰績讀取失敗，先使用房間內的最近場次',error)}
 }
@@ -3549,7 +3567,7 @@ async function claimEditedPlayer(){
     reconcilePushSubscription().catch(()=>{});
   }catch(error){alert(`認領失敗：${formatError(error)}`)}
 }
-async function saveEdit(){const p=player(editId);if(!canEditPlayer(p))return alert('你只能修改自己的資料。');const n=$('editName').value.trim(),currentGender=normalizePlayerGender($('editGender').value),monthRaw=$('editBirthMonth').value,dayRaw=$('editBirthDay').value,birthday=normalizePlayerBirthday(monthRaw,dayRaw);if(profileDirty.name&&!n)return alert('姓名不可空白');if((monthRaw||dayRaw)&&!birthday.birthMonth)return alert('請選擇完整的生日月日');if(profileDirty.name&&state.roster.some(x=>x.id!==editId&&x.name===n))return alert('已有相同姓名');const updated={id:p.id};if(profileDirty.name)updated.name=n;if(profileDirty.gender||currentGender!==profileOriginal?.gender)updated.gender=currentGender;if(profileDirty.birthday||birthday.birthMonth!==profileOriginal?.birthMonth||birthday.birthDay!==profileOriginal?.birthDay){updated.birthMonth=birthday.birthMonth;updated.birthDay=birthday.birthDay}if(isHost&&profileDirty.memberType)updated.memberType=normalizePlayerType($('editMemberType').value);if(profileDirty.racket)updated.racket=$('editRacket').value.trim();if(profileDirty.racketTension)updated.racketTension=$('editRacketTension').value.trim();if(profileDirty.racketString)updated.racketString=$('editRacketString').value.trim();if(profileDirty.backupRacket)updated.backupRacket=$('editBackupRacket').value.trim();if(profileDirty.backupTension)updated.backupTension=$('editBackupTension').value.trim();if(profileDirty.backupString)updated.backupString=$('editBackupString').value.trim();if(profileDirty.note)updated.note=$('editNote').value.trim();if(pendingAvatar!==null)updated.avatar=pendingAvatar;if(Object.keys(updated).length===1){closePlayerModal();return}try{if(isHost){Object.assign(p,updated);renderAll();await saveNow()}else{await saveSelfPlayer(updated);Object.assign(p,updated);renderAll()}closePlayerModal();alert('球員資料已儲存。')}catch(e){alert('球員資料儲存失敗：'+formatError(e))}}
+async function saveEdit(){const p=player(editId);if(!canEditPlayer(p))return alert('你只能修改自己的資料。');const n=$('editName').value.trim(),currentGender=normalizePlayerGender($('editGender').value),monthRaw=$('editBirthMonth').value,dayRaw=$('editBirthDay').value,birthday=normalizePlayerBirthday(monthRaw,dayRaw);if(profileDirty.name&&!n)return alert('姓名不可空白');if((monthRaw||dayRaw)&&!birthday.birthMonth)return alert('請選擇完整的生日月日');if(profileDirty.name&&state.roster.some(x=>x.id!==editId&&x.name===n))return alert('已有相同姓名');const updated={id:p.id};if(profileDirty.name)updated.name=n;if(profileDirty.gender||currentGender!==profileOriginal?.gender)updated.gender=currentGender;if(profileDirty.birthday||birthday.birthMonth!==profileOriginal?.birthMonth||birthday.birthDay!==profileOriginal?.birthDay){updated.birthMonth=birthday.birthMonth;updated.birthDay=birthday.birthDay}if(isHost&&profileDirty.memberType)updated.memberType=normalizePlayerType($('editMemberType').value);if(profileDirty.racket)updated.racket=$('editRacket').value.trim();if(profileDirty.racketTension)updated.racketTension=$('editRacketTension').value.trim();if(profileDirty.racketString)updated.racketString=$('editRacketString').value.trim();if(profileDirty.backupRacket)updated.backupRacket=$('editBackupRacket').value.trim();if(profileDirty.backupTension)updated.backupTension=$('editBackupTension').value.trim();if(profileDirty.backupString)updated.backupString=$('editBackupString').value.trim();if(profileDirty.note)updated.note=$('editNote').value.trim();if(pendingAvatar!==null)updated.avatar=pendingAvatar;if(Object.keys(updated).length===1){closePlayerModal();return}try{if(isHost){Object.assign(p,updated);renderAll();await saveNow()}else{await saveSelfPlayer(updated);Object.assign(p,updated);renderAll()}closePlayerModal();alert('球員資料已儲存。');if(ownedPlayerId()===p.id)checkBirthdayWish()}catch(e){alert('球員資料儲存失敗：'+formatError(e))}}
 async function addPlayerRecord(){
   const input=$('newName'),button=$('addPlayer'),name=input.value.trim(),gender=normalizePlayerGender($('newPlayerGender')?.value),memberType=normalizePlayerType($('newPlayerType')?.value);
   if(!name)return;
@@ -4076,7 +4094,7 @@ $('closeResult').onclick=async()=>{
 };
 $('returnPreviousMatch').onclick=returnToPreviousMatch;
 $('undoFinishedMatch').onclick=()=>{if(state.match.rallies.length)performScoreRemoteAction('undo',{announce:false})};
-$('closeAchievement').onclick=closeAchievement;
+$('closeAchievement').onclick=closeAchievement;$('closeBirthdayWish').onclick=closeBirthdayWish;
 $('profileBadges').onclick=event=>{const button=event.target.closest('[data-badge-index]');if(button)showAchievementDetail(Number(button.dataset.badgeIndex))};
 $('saveMatchReplay').onclick=saveMatchReplayPlaylist;
 $('clearMatchReplay').onclick=clearMatchReplayPlaylist;

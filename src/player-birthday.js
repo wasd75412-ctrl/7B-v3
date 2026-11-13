@@ -18,9 +18,37 @@ export function playerBirthdayLabel(player){
   return birthMonth ? `${birthMonth}月${birthDay}日` : '未設定';
 }
 
+function calendarParts(date = new Date()){
+  if(date instanceof Date){
+    return {
+      year: date.getFullYear(),
+      month: date.getMonth() + 1,
+      day: date.getDate()
+    };
+  }
+  const text = String(date || '');
+  return {
+    year: Number(text.slice(0, 4)),
+    month: Number(text.slice(5, 7)),
+    day: Number(text.slice(8, 10))
+  };
+}
+
+function isLeapYear(year){
+  return (year % 4 === 0 && year % 100 !== 0) || year % 400 === 0;
+}
+
 export function isBirthdayMonth(player, date = new Date()){
   const {birthMonth} = normalizePlayerBirthday(player?.birthMonth, player?.birthDay);
   if(!birthMonth) return false;
-  const month = date instanceof Date ? date.getMonth() + 1 : Number(String(date).slice(5, 7));
-  return birthMonth === month;
+  return birthMonth === calendarParts(date).month;
+}
+
+export function isBirthdayDay(player, date = new Date()){
+  const {birthMonth, birthDay} = normalizePlayerBirthday(player?.birthMonth, player?.birthDay);
+  if(!birthMonth) return false;
+  const {year, month, day} = calendarParts(date);
+  if(birthMonth === month && birthDay === day) return true;
+  // Celebrate Feb 29 birthdays on Feb 28 in non-leap years.
+  return birthMonth === 2 && birthDay === 29 && month === 2 && day === 28 && !isLeapYear(year);
 }
