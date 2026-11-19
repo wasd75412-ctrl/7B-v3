@@ -449,8 +449,8 @@ test('opens admin shuttle tube management from the more menu',()=>{
 });
 
 test('keeps one unified roster while shuttle costs use completed-match participants',()=>{
-  assert.match(html,/id="newPlayerBirthMonth"/);
-  assert.match(html,/id="newPlayerBirthDay"/);
+  assert.match(html,/id="newPlayerBirthday"[^>]*type="date"/);
+  assert.doesNotMatch(html,/id="newPlayerBirthMonth"|id="newPlayerBirthDay"/);
   assert.doesNotMatch(html,/id="newPlayerType"/);
   assert.doesNotMatch(html,/id="membershipAdminSection"/);
   assert.doesNotMatch(html,/id="editMemberType"/);
@@ -618,9 +618,10 @@ test('removes the next-match announcement button and explanatory feature notes',
 });
 
 test('stores a birthday month and day and marks the current month on the player card',()=>{
-  assert.match(html,/id="newPlayerBirthMonth"[\s\S]*?<option value="12">12月<\/option>/);
-  assert.match(html,/id="editBirthMonth"[\s\S]*?<option value="12">12月<\/option>/);
-  assert.match(html,/id="editBirthDay"/);
+  assert.match(html,/id="newPlayerBirthday"[^>]*type="date"/);
+  assert.match(html,/id="editBirthday"[^>]*type="date"/);
+  assert.doesNotMatch(html,/id="editBirthMonth"|id="editBirthDay"/);
+  assert.doesNotMatch(mainSource,/請選擇完整的生日月日/);
   assert.match(html,/id="profileBirthdayMark"[^>]*class="profile-birthday-banner hidden"/);
   assert.match(mainSource,/birthMonth:birthday\.birthMonth,birthDay:birthday\.birthDay/);
   assert.match(mainSource,/birthday-party-decor/);

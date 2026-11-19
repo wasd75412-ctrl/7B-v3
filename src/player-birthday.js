@@ -18,6 +18,22 @@ export function playerBirthdayLabel(player){
   return birthMonth ? `${birthMonth}月${birthDay}日` : '未設定';
 }
 
+const BIRTHDAY_PICKER_YEAR = 2024;
+
+export function birthdayInputValue(month, day){
+  const birthday = normalizePlayerBirthday(month, day);
+  if(!birthday.birthMonth) return '';
+  const monthText = String(birthday.birthMonth).padStart(2, '0');
+  const dayText = String(birthday.birthDay).padStart(2, '0');
+  return `${BIRTHDAY_PICKER_YEAR}-${monthText}-${dayText}`;
+}
+
+export function birthdayFromInputValue(value){
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(value || '').trim());
+  if(!match) return {birthMonth:0, birthDay:0};
+  return normalizePlayerBirthday(Number(match[2]), Number(match[3]));
+}
+
 function calendarParts(date = new Date()){
   if(date instanceof Date){
     return {
@@ -52,3 +68,4 @@ export function isBirthdayDay(player, date = new Date()){
   // Celebrate Feb 29 birthdays on Feb 28 in non-leap years.
   return birthMonth === 2 && birthDay === 29 && month === 2 && day === 28 && !isLeapYear(year);
 }
+
