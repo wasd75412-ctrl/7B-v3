@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { birthdayDayCount, isBirthdayDay, isBirthdayMonth, normalizePlayerBirthday, playerBirthdayLabel } from '../src/player-birthday.js';
+import { birthdayDayCount, birthdayFromInputValue, birthdayInputValue, isBirthdayDay, isBirthdayMonth, normalizePlayerBirthday, playerBirthdayLabel } from '../src/player-birthday.js';
 
 test('keeps a valid month and day without a year', () => {
   assert.deepEqual(normalizePlayerBirthday(11, 13), {birthMonth:11, birthDay:13});
@@ -32,9 +32,20 @@ test('celebrates on the exact birthday day', () => {
   assert.equal(isBirthdayDay({birthMonth:10, birthDay:13}, today), false);
 });
 
+test('reads month and day from one date value and ignores the year', () => {
+  assert.equal(birthdayInputValue(11, 13), '2024-11-13');
+  assert.equal(birthdayInputValue(2, 29), '2024-02-29');
+  assert.equal(birthdayInputValue(0, 0), '');
+  assert.deepEqual(birthdayFromInputValue('1998-11-13'), {birthMonth:11, birthDay:13});
+  assert.deepEqual(birthdayFromInputValue(''), {birthMonth:0, birthDay:0});
+  assert.deepEqual(birthdayFromInputValue('2024-02-30'), {birthMonth:0, birthDay:0});
+});
+
 test('moves Feb 29 birthdays to Feb 28 outside leap years', () => {
   assert.equal(isBirthdayDay({birthMonth:2, birthDay:29}, new Date(2026, 1, 28)), true);
   assert.equal(isBirthdayDay({birthMonth:2, birthDay:29}, new Date(2026, 1, 29)), false);
   assert.equal(isBirthdayDay({birthMonth:2, birthDay:29}, new Date(2024, 1, 29)), true);
   assert.equal(isBirthdayDay({birthMonth:2, birthDay:29}, new Date(2024, 1, 28)), false);
 });
+
+
