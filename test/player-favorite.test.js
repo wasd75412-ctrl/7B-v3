@@ -18,4 +18,8 @@ test('keeps the player star as its own button and writes the roster directly', (
   assert.match(starRule, /z-index:3/);
   assert.match(starRule, /min-width:44px/);
   assert.match(starRule, /min-height:44px/);
+  assert.match(main, /Number\(b\.id===ownId\)-Number\(a\.id===ownId\)\|\|Number\(b\.favorite\)-Number\(a\.favorite\)/);
+  assert.match(styles, /#app \.person\.card2 \.status-mini\{[^}]*white-space:normal/);
+  assert.match(styles, /#app \.person\.card2 \.status-mini\{[^}]*text-overflow:clip/);
 });
+
