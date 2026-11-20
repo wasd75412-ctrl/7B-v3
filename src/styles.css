@@ -4799,6 +4799,9 @@ html.chat-keyboard-open .chat-autocomplete{
   background:radial-gradient(circle,rgba(255,150,190,.34),transparent 68%)!important
 }
 #app .birthday-player-card>*{position:relative;z-index:1}
+#app .person.card2{width:100%;font:inherit;color:inherit;cursor:pointer}
+#app .person.card2 .favorite-star,#app .birthday-player-card>.favorite-star{position:absolute;z-index:3;top:8px;right:8px;width:44px;height:44px;min-width:44px;min-height:44px;display:grid;place-items:center;padding:0;line-height:1}
+#app .person.card2 .name{padding-right:52px}
 #app .birthday-player-card .birthday-party-decor{
   position:absolute;
   inset:0;
