@@ -4802,6 +4802,8 @@ html.chat-keyboard-open .chat-autocomplete{
 #app .person.card2{width:100%;font:inherit;color:inherit;cursor:pointer}
 #app .person.card2 .favorite-star,#app .birthday-player-card>.favorite-star{position:absolute;z-index:3;top:8px;right:8px;width:44px;height:44px;min-width:44px;min-height:44px;display:grid;place-items:center;padding:0;line-height:1}
 #app .person.card2 .name{padding-right:52px}
+#app .person.card2 .person-meta{display:flex;flex-wrap:wrap;align-items:center;gap:8px}
+#app .person.card2 .status-mini{display:inline-block;width:auto;max-width:100%;white-space:normal;overflow:visible;text-overflow:clip}
 #app .birthday-player-card .birthday-party-decor{
   position:absolute;
   inset:0;
