@@ -2358,11 +2358,13 @@ body:before{
 #app .top,#app .tabs,#app .page{position:relative;isolation:isolate;overflow:hidden;touch-action:pan-y}
 html,body,#app,.shell{touch-action:pan-y}
 
-/* Android Chrome/PWA：讓頁面本身負責垂直捲動，避免固定卡片的 overflow
-   截斷觸控捲動手勢；彈出視窗仍由 body.*-modal-open 保持鎖定。 */
+/* Phone pages scroll on the viewport. A scrollport on both html and body, or a
+   hidden card that claims the vertical pan, leaves Android Chrome and installed PWAs stuck. */
 @media (max-width:700px){
-  html,body{height:auto!important;min-height:100%;overflow-x:hidden!important;overflow-y:scroll!important;-webkit-overflow-scrolling:touch;touch-action:pan-y}
-  #app,.shell,#app .top,#app .tabs,#app .page{overflow:visible;touch-action:pan-y}
+  html{height:auto!important;max-height:none!important;overflow-x:hidden!important;overflow-y:auto!important;touch-action:pan-y}
+  body{height:auto!important;max-height:none!important;min-height:100%;overflow:visible!important;touch-action:pan-y}
+  #app,.shell,#app .top,#app .tabs,#app .page:not(.chat-page){overflow:visible!important;max-height:none!important;touch-action:pan-y}
+  body.player-modal-open,body.next-event-modal-open{position:fixed!important;left:0!important;right:0!important;width:100%!important;overflow:hidden!important;overscroll-behavior:none!important}
 }
 #app .top:after,#app .page:before,#app .page:after,#app .tabs:before{
   content:"";
@@ -5137,3 +5139,12 @@ button.career-badge:focus-visible{outline:2px solid #ffd479;outline-offset:2px}
 .score-view.court-flipped .scoreboard .court-player-name{width:max-content;max-width:none}
 .score-view.court-flipped .score-side.a .score-title{width:fit-content;justify-self:start}
 .score-view.court-flipped .score-side.b .score-title{width:fit-content;justify-self:end}
+
+/* Installed Android PWAs, including landscape, scroll the viewport only.
+   overflow-x:hidden together with overflow-y:visible computes to auto on both
+   html and body, and that nested pair swallows the touch. */
+html.android-device{height:auto!important;max-height:none!important;overflow-x:hidden!important;overflow-y:auto!important;touch-action:pan-y}
+html.android-device body{height:auto!important;max-height:none!important;min-height:100%;overflow:visible!important;touch-action:pan-y}
+html.android-device #app,html.android-device .shell,html.android-device #app .top,html.android-device #app .tabs,html.android-device #app .page:not(.chat-page){overflow:visible!important;max-height:none!important;touch-action:pan-y}
+html.android-device body.player-modal-open,html.android-device body.next-event-modal-open{position:fixed!important;left:0!important;right:0!important;width:100%!important;overflow:hidden!important;overscroll-behavior:none!important}
+html.android-device .splash.hide{pointer-events:none!important;visibility:hidden!important}
