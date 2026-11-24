@@ -14,6 +14,10 @@ const androidActivitySource = readFileSync(new URL('../android-app/app/src/main/
 test('Android app opens the Cloudflare Pages site directly', () => {
   assert.match(androidActivitySource, /START_URL = "https:\/\/7b-v3\.pages\.dev\/"/);
   assert.doesNotMatch(androidActivitySource, /netlify\.app/);
+  assert.doesNotMatch(androidActivitySource, /scrollBy\(/);
+  assert.doesNotMatch(androidActivitySource, /class ScrollWebView/);
+  assert.match(androidActivitySource, /android-club-app/);
+  assert.match(androidActivitySource, /overflow:visible!important/);
 });
 
 test('routes browser function calls through Cloudflare Pages functions', () => {
@@ -79,3 +83,4 @@ test('declares the Cloudflare Pages build output and Node compatibility', () => 
   assert.match(wranglerSource, /\[\[env\.production\.kv_namespaces\]\][\s\S]*binding = "SEVEN_B_BLOBS"[\s\S]*id = "139d657934a541819ec6d56ae27933d4"/);
   assert.match(wranglerSource, /\[\[env\.preview\.kv_namespaces\]\][\s\S]*binding = "SEVEN_B_BLOBS"[\s\S]*id = "139d657934a541819ec6d56ae27933d4"/);
 });
+
