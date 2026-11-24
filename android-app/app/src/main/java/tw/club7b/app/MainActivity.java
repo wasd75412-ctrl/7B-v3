@@ -5,21 +5,43 @@ import android.content.Intent;
 import android.graphics.Color;
 import android.net.Uri;
 import android.os.Bundle;
-import android.view.MotionEvent;
-import android.view.VelocityTracker;
 import android.view.View;
-import android.view.ViewConfiguration;
-import android.webkit.WebChromeClient;
 import android.webkit.JavascriptInterface;
+import android.webkit.WebChromeClient;
 import android.webkit.WebSettings;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
-import android.widget.OverScroller;
-import androidx.activity.OnBackPressedCallback;
 import androidx.activity.ComponentActivity;
+import androidx.activity.OnBackPressedCallback;
 
 public final class MainActivity extends ComponentActivity {
     private static final String START_URL = "https://7b-v3.pages.dev/";
+    // Native scrollBy never moves Chromium's document, so consuming the drag left the page stuck.
+    private static final String PAGE_READY_SCRIPT = """
+            (function(){
+              var style=document.getElementById('android-club-scroll');
+              if(!style){
+                style=document.createElement('style');
+                style.id='android-club-scroll';
+                style.textContent='html.android-club-app,html.android-club-app body{height:auto!important;max-height:none!important;overflow:visible!important;overscroll-behavior:auto!important;touch-action:pan-y!important}html.android-club-app body.player-modal-open,html.android-club-app body.next-event-modal-open{position:fixed!important;left:0!important;right:0!important;width:100%!important;overflow:hidden!important;overscroll-behavior:none!important}html.android-club-app #app,html.android-club-app .shell,html.android-club-app #app .top,html.android-club-app #app .tabs,html.android-club-app #app .page{overflow:visible!important;max-height:none!important;touch-action:pan-y!important}html.android-club-app .splash.hide{pointer-events:none!important;visibility:hidden!important}';
+                document.documentElement.appendChild(style);
+              }
+              document.documentElement.classList.add('android-club-app');
+              if(!('PushManager' in window)){
+                var button=document.getElementById('pushNotificationBtn');
+                if(button&&!button.dataset.nativePush){
+                  button.dataset.nativePush='1';
+                  button.disabled=false;
+                  button.textContent='🔔 用 Chrome 開啟通知';
+                  button.addEventListener('click',function(event){
+                    event.preventDefault();
+                    event.stopImmediatePropagation();
+                    BadmintonApp.openNotificationSetup(location.href);
+                  },true);
+                }
+              }
+            })();
+            """;
     private WebView webView;
 
     private final class NativeBridge {
@@ -38,90 +60,16 @@ public final class MainActivity extends ComponentActivity {
         }
     }
 
-    private static final class ScrollWebView extends WebView {
-        private float lastY;
-        private float downY;
-        private boolean scrolling;
-        private final int touchSlop;
-        private final int maximumFlingVelocity;
-        private final OverScroller scroller;
-        private VelocityTracker velocityTracker;
-
-        ScrollWebView(MainActivity context) {
-            super(context);
-            ViewConfiguration configuration = ViewConfiguration.get(context);
-            touchSlop = configuration.getScaledTouchSlop();
-            maximumFlingVelocity = configuration.getScaledMaximumFlingVelocity();
-            scroller = new OverScroller(context);
-        }
-
-        @Override public boolean onTouchEvent(MotionEvent event) {
-            if (event.getActionMasked() == MotionEvent.ACTION_DOWN) {
-                lastY = downY = event.getY();
-                scrolling = false;
-                if (velocityTracker != null) velocityTracker.recycle();
-                velocityTracker = VelocityTracker.obtain();
-                velocityTracker.addMovement(event);
-            } else if (event.getActionMasked() == MotionEvent.ACTION_MOVE) {
-                if (velocityTracker != null) velocityTracker.addMovement(event);
-                float dy = lastY - event.getY();
-                if (!scrolling && Math.abs(event.getY() - downY) > touchSlop) {
-                    scrolling = true;
-                    MotionEvent cancel = MotionEvent.obtain(event);
-                    cancel.setAction(MotionEvent.ACTION_CANCEL);
-                    super.onTouchEvent(cancel);
-                    cancel.recycle();
-                }
-                if (scrolling) {
-                    scrollBy(0, Math.round(dy * 1.25f));
-                    lastY = event.getY();
-                    return true;
-                }
-            } else if (event.getActionMasked() == MotionEvent.ACTION_UP) {
-                if (velocityTracker != null) velocityTracker.addMovement(event);
-                if (scrolling) {
-                    velocityTracker.computeCurrentVelocity(1000, maximumFlingVelocity);
-                    int maxY = Math.max(0, computeVerticalScrollRange() - getHeight());
-                    scroller.fling(0, getScrollY(), 0, Math.round(-velocityTracker.getYVelocity() * 1.35f), 0, 0, 0, maxY);
-                    postInvalidateOnAnimation();
-                    velocityTracker.recycle();
-                    velocityTracker = null;
-                    return true;
-                }
-                if (velocityTracker != null) {
-                    velocityTracker.recycle();
-                    velocityTracker = null;
-                }
-            } else if (event.getActionMasked() == MotionEvent.ACTION_CANCEL) {
-                if (velocityTracker != null) {
-                    velocityTracker.recycle();
-                    velocityTracker = null;
-                }
-            }
-            return super.onTouchEvent(event);
-        }
-
-        @Override public void computeScroll() {
-            if (scroller.computeScrollOffset()) {
-                scrollTo(scroller.getCurrX(), scroller.getCurrY());
-                postInvalidateOnAnimation();
-            } else {
-                super.computeScroll();
-            }
-        }
-    }
-
     @SuppressLint("SetJavaScriptEnabled")
     @Override public void onCreate(Bundle state) {
         super.onCreate(state);
-        webView = new ScrollWebView(this);
+        webView = new WebView(this);
         webView.setBackgroundColor(Color.rgb(3, 21, 35));
         webView.addJavascriptInterface(new NativeBridge(), "BadmintonApp");
         webView.setWebViewClient(new WebViewClient() {
             @Override public void onPageFinished(WebView view, String url) {
                 super.onPageFinished(view, url);
-                // 某些 Android WebView 會把網頁 body 視為固定高度，強制恢復原生垂直捲動。
-                view.evaluateJavascript("(function(){var h=document.documentElement,b=document.body;[h,b].forEach(function(e){if(e){e.style.setProperty('height','auto','important');e.style.setProperty('min-height','100%','important');e.style.setProperty('overflow-y','scroll','important');e.style.setProperty('touch-action','pan-y','important');}});if(!('PushManager'in window)){var n=document.getElementById('pushNotificationBtn');if(n&&!n.dataset.nativePush){n.dataset.nativePush='1';n.disabled=false;n.textContent='🔔 用 Chrome 開啟通知';n.addEventListener('click',function(e){e.preventDefault();e.stopImmediatePropagation();BadmintonApp.openNotificationSetup(location.href);},true);}}})();", null);
+                view.evaluateJavascript(PAGE_READY_SCRIPT, null);
             }
         });
         webView.setWebChromeClient(new WebChromeClient());
@@ -134,6 +82,8 @@ public final class MainActivity extends ComponentActivity {
         settings.setDisplayZoomControls(false);
         settings.setLoadWithOverviewMode(false);
         settings.setUseWideViewPort(true);
+        webView.setFocusable(true);
+        webView.setFocusableInTouchMode(true);
         webView.setVerticalScrollBarEnabled(true);
         webView.setOverScrollMode(View.OVER_SCROLL_IF_CONTENT_SCROLLS);
         setContentView(webView);
