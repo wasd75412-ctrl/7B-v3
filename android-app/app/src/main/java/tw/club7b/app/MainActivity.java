@@ -17,31 +17,33 @@ import androidx.activity.OnBackPressedCallback;
 public final class MainActivity extends ComponentActivity {
     private static final String START_URL = "https://7b-v3.pages.dev/";
     // Native scrollBy never moves Chromium's document, so consuming the drag left the page stuck.
-    private static final String PAGE_READY_SCRIPT = """
-            (function(){
-              var style=document.getElementById('android-club-scroll');
-              if(!style){
-                style=document.createElement('style');
-                style.id='android-club-scroll';
-                style.textContent='html.android-club-app,html.android-club-app body{height:auto!important;max-height:none!important;overflow:visible!important;overscroll-behavior:auto!important;touch-action:pan-y!important}html.android-club-app body.player-modal-open,html.android-club-app body.next-event-modal-open{position:fixed!important;left:0!important;right:0!important;width:100%!important;overflow:hidden!important;overscroll-behavior:none!important}html.android-club-app #app,html.android-club-app .shell,html.android-club-app #app .top,html.android-club-app #app .tabs,html.android-club-app #app .page{overflow:visible!important;max-height:none!important;touch-action:pan-y!important}html.android-club-app .splash.hide{pointer-events:none!important;visibility:hidden!important}';
-                document.documentElement.appendChild(style);
-              }
-              document.documentElement.classList.add('android-club-app');
-              if(!('PushManager' in window)){
-                var button=document.getElementById('pushNotificationBtn');
-                if(button&&!button.dataset.nativePush){
-                  button.dataset.nativePush='1';
-                  button.disabled=false;
-                  button.textContent='🔔 用 Chrome 開啟通知';
-                  button.addEventListener('click',function(event){
-                    event.preventDefault();
-                    event.stopImmediatePropagation();
-                    BadmintonApp.openNotificationSetup(location.href);
-                  },true);
-                }
-              }
-            })();
-            """;
+    private static final String PAGE_READY_SCRIPT =
+            "(function(){"
+            + "var style=document.getElementById('android-club-scroll');"
+            + "if(!style){"
+            + "style=document.createElement('style');"
+            + "style.id='android-club-scroll';"
+            + "style.textContent='html.android-club-app,html.android-club-app body{height:auto!important;max-height:none!important;overflow:visible!important;overscroll-behavior:auto!important;touch-action:pan-y!important}"
+            + "html.android-club-app body.player-modal-open,html.android-club-app body.next-event-modal-open{position:fixed!important;left:0!important;right:0!important;width:100%!important;overflow:hidden!important;overscroll-behavior:none!important}"
+            + "html.android-club-app #app,html.android-club-app .shell,html.android-club-app #app .top,html.android-club-app #app .tabs,html.android-club-app #app .page{overflow:visible!important;max-height:none!important;touch-action:pan-y!important}"
+            + "html.android-club-app .splash.hide{pointer-events:none!important;visibility:hidden!important}';"
+            + "document.documentElement.appendChild(style);"
+            + "}"
+            + "document.documentElement.classList.add('android-club-app');"
+            + "if(!('PushManager' in window)){"
+            + "var button=document.getElementById('pushNotificationBtn');"
+            + "if(button&&!button.dataset.nativePush){"
+            + "button.dataset.nativePush='1';"
+            + "button.disabled=false;"
+            + "button.textContent='\uD83D\uDD14 \u7528 Chrome \u958B\u555F\u901A\u77E5';"
+            + "button.addEventListener('click',function(event){"
+            + "event.preventDefault();"
+            + "event.stopImmediatePropagation();"
+            + "BadmintonApp.openNotificationSetup(location.href);"
+            + "},true);"
+            + "}"
+            + "}"
+            + "})();";
     private WebView webView;
 
     private final class NativeBridge {

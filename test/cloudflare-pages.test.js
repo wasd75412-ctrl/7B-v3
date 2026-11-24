@@ -16,6 +16,7 @@ test('Android app opens the Cloudflare Pages site directly', () => {
   assert.doesNotMatch(androidActivitySource, /netlify\.app/);
   assert.doesNotMatch(androidActivitySource, /scrollBy\(/);
   assert.doesNotMatch(androidActivitySource, /class ScrollWebView/);
+  assert.doesNotMatch(androidActivitySource, /"""/);
   assert.match(androidActivitySource, /android-club-app/);
   assert.match(androidActivitySource, /overflow:visible!important/);
 });
@@ -83,4 +84,5 @@ test('declares the Cloudflare Pages build output and Node compatibility', () => 
   assert.match(wranglerSource, /\[\[env\.production\.kv_namespaces\]\][\s\S]*binding = "SEVEN_B_BLOBS"[\s\S]*id = "139d657934a541819ec6d56ae27933d4"/);
   assert.match(wranglerSource, /\[\[env\.preview\.kv_namespaces\]\][\s\S]*binding = "SEVEN_B_BLOBS"[\s\S]*id = "139d657934a541819ec6d56ae27933d4"/);
 });
+
 
